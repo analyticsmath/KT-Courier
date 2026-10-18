@@ -1,0 +1,892 @@
+.home {
+  color: #191919;
+  background: #fff;
+  overflow: clip;
+  --space: clamp(24px, 4.5vw, 80px);
+}
+.home h1,
+.home h2,
+.home h3,
+.home p,
+.home figure {
+  margin: 0;
+}
+.home h1,
+.home h2,
+.home h3 {
+  font-weight: 500;
+  letter-spacing: -0.055em;
+}
+.home h2 {
+  font-size: clamp(46px, 5.7vw, 92px);
+  line-height: 1.03;
+}
+.home p {
+  font-size: clamp(17px, 1.4vw, 22px);
+  line-height: 1.48;
+  letter-spacing: -0.02em;
+}
+.home a {
+  color: inherit;
+}
+.home img {
+  object-fit: cover;
+}
+.hero {
+  padding: 145px var(--space) 0;
+}
+.heroTop {
+  display: grid;
+  grid-template-columns: 1fr 25%;
+  gap: 4vw;
+  align-items: end;
+  padding-bottom: 44px;
+}
+.hero h1 {
+  font-size: clamp(76px, 9.6vw, 156px);
+  line-height: 0.94;
+}
+.hero h1 span {
+  display: block;
+}
+.heroIntro {
+  padding-bottom: 9px;
+  display: grid;
+  gap: 27px;
+  justify-items: start;
+}
+.heroIntro p {
+  font-size: clamp(16px, 1.35vw, 21px);
+}
+.heroPhoto {
+  height: clamp(400px, 42vw, 680px);
+  position: relative;
+  overflow: hidden;
+}
+.heroPhoto > img {
+  object-position: center 48%;
+}
+.heroSeal {
+  position: absolute;
+  bottom: 30px;
+  right: 30px;
+  width: 165px;
+  height: 165px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+.heroSeal svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+.intentBar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid #d6d6d6;
+}
+.intentBar a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 25px;
+  font-size: 19px;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+  border-right: 1px solid #d6d6d6;
+}
+.intentBar a:first-child {
+  padding-left: 0;
+}
+.intentBar a:last-child {
+  border: 0;
+  padding-right: 0;
+}
+.intentBar a span {
+  transition: transform 0.3s;
+}
+.intentBar a:hover span {
+  transform: translate(4px, -4px);
+}
+.manifesto {
+  padding: 150px var(--space) 120px;
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 48px;
+}
+.marginNote {
+  font-size: 16px;
+  padding-top: 12px;
+  max-width: 150px;
+}
+.manifesto h2 {
+  font-size: clamp(42px, 5.5vw, 87px);
+  line-height: 1.13;
+}
+.manifestoFoot {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 35px;
+  padding-top: 25px;
+}
+.manifestoFoot > span {
+  font-size: 56px;
+}
+.manifestoFoot p {
+  max-width: 390px;
+}
+.aperture {
+  position: relative;
+  height: 100svh;
+  min-height: 650px;
+  background: #f2f2f2;
+  overflow: hidden;
+}
+.orbitPhoto {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: circle(72% at 50% 50%);
+}
+.orbitPhoto img {
+  object-position: center 48%;
+}
+.orbitCopy {
+  position: absolute;
+  top: 50%;
+  left: var(--space);
+  width: 44%;
+  transform: translateY(-50%);
+  background: #fff;
+  padding: 38px;
+}
+.orbitCopy h2 {
+  font-size: clamp(40px, 4.6vw, 74px);
+}
+.orbitCopy p {
+  max-width: 400px;
+  margin: 25px 0;
+}
+.chapterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 45px;
+  margin-bottom: 65px;
+}
+.chapterHeader > p {
+  max-width: 340px;
+}
+.chapterHeader > a {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+.journey {
+  padding: 140px var(--space);
+  background: #fff;
+}
+.journeyLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9vw;
+  align-items: start;
+}
+.journeyPictures {
+  position: sticky;
+  top: 120px;
+  aspect-ratio: 4/4.3;
+  overflow: hidden;
+}
+.journeyPictures > div {
+  position: absolute;
+  inset: 0;
+}
+.journeyPictures > div:not(:first-child) {
+  visibility: hidden;
+}
+.journeySteps article {
+  min-height: 520px;
+  padding: 35px 0 90px;
+  border-top: 1px solid #ccc;
+}
+.journeySteps article:last-child {
+  min-height: 430px;
+  padding-bottom: 0;
+}
+.stepNumber {
+  font-size: 16px;
+  display: block;
+  margin-bottom: 70px;
+}
+.journeySteps h3 {
+  font-size: clamp(32px, 3vw, 49px);
+  line-height: 1.06;
+  max-width: 430px;
+}
+.journeySteps p {
+  max-width: 420px;
+  margin: 25px 0;
+}
+.mobileStepPhoto {
+  display: none;
+}
+.vanChapter {
+  padding: 110px var(--space) 75px;
+  text-align: center;
+  background: #f3f3f3;
+  position: relative;
+}
+.vanChapter h2 {
+  position: relative;
+  z-index: 1;
+}
+.vanObject {
+  width: 65%;
+  max-width: 1000px;
+  margin: -70px auto -60px;
+}
+.vanObject img,
+.truckObject img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+.vehicleCaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 35px;
+  text-align: left;
+}
+.vehicleCaption > div {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+.local {
+  padding: 140px var(--space) 110px;
+  background: #fff;
+}
+.localGallery {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 60px 7vw;
+  align-items: start;
+}
+.localGallery figure:nth-child(2) {
+  padding-top: 160px;
+}
+.localGallery figure:nth-child(3) {
+  grid-column: 1/-1;
+  width: 58%;
+  margin: 0 auto;
+}
+.localGallery figure > div {
+  position: relative;
+  aspect-ratio: 4/4.5;
+  overflow: hidden;
+}
+.localGallery figure:nth-child(3) > div {
+  aspect-ratio: 1.6;
+}
+.localGallery figcaption {
+  margin-top: 24px;
+}
+.localGallery h3 {
+  font-size: clamp(26px, 2.7vw, 44px);
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+.localGallery p {
+  font-size: 17px;
+}
+.business {
+  background: #f2f2f2;
+  padding: 120px var(--space);
+}
+.businessTitle {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 60px;
+}
+.businessTitle p {
+  padding-bottom: 8px;
+}
+.businessComposition {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 0 8vw;
+}
+.businessMain {
+  grid-column: 1;
+  grid-row: 1/3;
+  height: 700px;
+  position: relative;
+  overflow: hidden;
+}
+.businessDetail {
+  position: relative;
+  width: 75%;
+  height: 280px;
+  margin-top: 70px;
+  margin-left: -90px;
+  overflow: hidden;
+}
+.businessCopy {
+  max-width: 380px;
+  padding-top: 45px;
+}
+.businessCopy a {
+  display: table;
+  margin-top: 22px;
+}
+.coverage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #fff;
+}
+.coveragePhoto {
+  position: relative;
+  overflow: hidden;
+  min-height: 800px;
+}
+.coverageCopy {
+  padding: 100px var(--space);
+}
+.coverageCopy h2 {
+  font-size: clamp(43px, 4.4vw, 70px);
+}
+.coverageCopy p {
+  margin: 35px 0;
+}
+.coverageCopy ul {
+  list-style: none;
+  padding: 0;
+  margin: 35px 0;
+}
+.coverageCopy li {
+  border-bottom: 1px solid #ccc;
+  padding: 14px 0;
+  font-size: 23px;
+  letter-spacing: -0.03em;
+}
+.coverageCopy small {
+  display: block;
+  margin-top: 40px;
+  max-width: 370px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.choices {
+  padding: 130px var(--space);
+  background: #f3f3f3;
+}
+.choiceList {
+  border-top: 1px solid #bbb;
+}
+.choiceRow {
+  display: grid;
+  grid-template-columns: 50px 1fr 200px 55px;
+  gap: 25px;
+  align-items: center;
+  padding: 30px 0;
+  border-bottom: 1px solid #bbb;
+  text-decoration: none;
+}
+.choiceRow h3 {
+  font-size: clamp(32px, 3.7vw, 60px);
+  line-height: 1.1;
+}
+.choiceRow p {
+  margin-top: 14px;
+  font-size: 18px;
+}
+.choiceCount {
+  align-self: start;
+  padding-top: 14px;
+}
+.choicePhoto {
+  position: relative;
+  aspect-ratio: 1.5;
+  overflow: hidden;
+  transition: clip-path 0.5s;
+  clip-path: inset(7% 5% round 50%);
+}
+.choiceRow:hover .choicePhoto,
+.choiceRow:focus-visible .choicePhoto {
+  clip-path: inset(0 round 0);
+}
+.choiceArrow {
+  font-size: 48px;
+  justify-self: end;
+  transition: transform 0.4s;
+}
+.choiceRow:hover .choiceArrow {
+  transform: rotate(45deg);
+}
+.freight {
+  padding: 130px var(--space) 90px;
+  background: #fff;
+}
+.freight h2 {
+  font-size: clamp(60px, 8vw, 130px);
+}
+.truckObject {
+  width: 87%;
+  max-width: 1400px;
+  margin: -50px auto -35px;
+}
+.packing {
+  padding: 120px var(--space);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 65px 8vw;
+  background: #f3f3f3;
+}
+.packingIntro p {
+  margin: 35px 0;
+}
+.packingImage {
+  position: relative;
+  min-height: 540px;
+  grid-column: 2;
+  grid-row: 1/3;
+  overflow: hidden;
+}
+.packingSteps {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.packingSteps li {
+  display: flex;
+  gap: 35px;
+  border-top: 1px solid #ccc;
+  padding: 25px 0;
+}
+.packingSteps h3 {
+  font-size: 25px;
+  margin-bottom: 9px;
+}
+.packingSteps p {
+  font-size: 17px;
+  max-width: 360px;
+}
+.packingSteps span {
+  padding-top: 5px;
+}
+.closing {
+  padding: 140px var(--space) 100px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px 8vw;
+  background: #fff;
+}
+.closing h2 {
+  font-size: clamp(58px, 7vw, 110px);
+}
+.closing p {
+  margin: 30px 0;
+}
+.closingPhoto {
+  position: relative;
+  min-height: 570px;
+  overflow: hidden;
+  grid-column: 2;
+  grid-row: 1/3;
+}
+.join {
+  border-top: 1px solid #ccc;
+  padding-top: 15px;
+}
+.join p {
+  margin: 20px 0;
+}
+@media (min-width: 1600px) {
+  .home {
+    --space: max(80px, calc((100vw - 1440px) / 2));
+  }
+}
+@media (max-width: 1000px) {
+  .heroTop {
+    grid-template-columns: 1fr 30%;
+  }
+  .hero h1 {
+    font-size: 9.9vw;
+  }
+  .heroIntro p {
+    font-size: 16px;
+  }
+  .journeySteps article {
+    min-height: 470px;
+  }
+  .businessMain {
+    height: 600px;
+  }
+  .businessDetail {
+    margin-left: -45px;
+  }
+  .choiceRow {
+    grid-template-columns: 35px 1fr 160px 40px;
+  }
+  .coverageCopy {
+    padding: 70px 35px;
+  }
+  .vehicleCaption > div {
+    flex-direction: column;
+    align-items: start;
+  }
+  .orbitCopy {
+    width: 48%;
+    padding: 28px;
+  }
+}
+@media (max-width: 760px) {
+  .home {
+    --space: 22px;
+  }
+  .home h2 {
+    font-size: clamp(40px, 10.5vw, 68px);
+  }
+  .home p {
+    font-size: 17px;
+  }
+  .hero {
+    padding-top: 115px;
+  }
+  .heroTop {
+    display: block;
+    padding-bottom: 30px;
+  }
+  .hero h1 {
+    font-size: clamp(57px, 13.5vw, 103px);
+    line-height: 0.98;
+  }
+  .heroIntro {
+    margin-top: 28px;
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .heroIntro p {
+    font-size: 14px;
+  }
+  .heroIntro :global(.kt-pill) {
+    font-size: 13px;
+    min-height: 42px;
+    padding: 12px 16px;
+  }
+  .heroPhoto {
+    height: 500px;
+    margin: 0 -22px;
+  }
+  .heroPhoto > img {
+    object-position: 48% center;
+  }
+  .heroSeal {
+    width: 120px;
+    height: 120px;
+    right: 20px;
+    bottom: 20px;
+    font-size: 15px;
+    gap: 8px;
+  }
+  .heroSeal svg {
+    width: 22px;
+    height: 22px;
+  }
+  .intentBar {
+    grid-template-columns: 1fr;
+  }
+  .intentBar a,
+  .intentBar a:first-child,
+  .intentBar a:last-child {
+    padding: 19px 0;
+    border-right: 0;
+    border-bottom: 1px solid #ddd;
+    font-size: 17px;
+  }
+  .intentBar a:last-child {
+    border-bottom: 0;
+  }
+  .manifesto {
+    padding: 85px var(--space);
+    display: block;
+  }
+  .marginNote {
+    display: block;
+    max-width: none;
+    margin-bottom: 35px;
+    font-size: 14px;
+  }
+  .manifesto h2 {
+    font-size: clamp(31px, 8vw, 55px);
+  }
+  .manifestoFoot {
+    margin-top: 35px;
+    align-items: start;
+    gap: 40px;
+  }
+  .manifestoFoot > span {
+    font-size: 40px;
+  }
+  .manifestoFoot p {
+    font-size: 16px;
+  }
+  .aperture {
+    min-height: 740px;
+    height: auto;
+    padding: 380px 22px 50px;
+  }
+  .orbitPhoto {
+    height: 370px;
+    clip-path: circle(42% at 50% 50%);
+  }
+  .orbitCopy {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: auto;
+    padding: 25px;
+    background: transparent;
+  }
+  .orbitCopy h2 {
+    font-size: 39px;
+  }
+  .orbitCopy p {
+    margin: 23px 0;
+  }
+  .chapterHeader {
+    display: block;
+    margin-bottom: 38px;
+  }
+  .chapterHeader > p,
+  .chapterHeader > a {
+    margin-top: 25px;
+    display: table;
+  }
+  .journey {
+    padding: 85px var(--space);
+  }
+  .journeyLayout {
+    display: block;
+  }
+  .journeyPictures {
+    display: none;
+  }
+  .journeySteps article,
+  .journeySteps article:last-child {
+    min-height: 0;
+    padding: 25px 0 40px;
+  }
+  .stepNumber {
+    margin-bottom: 28px;
+  }
+  .journeySteps h3 {
+    font-size: 32px;
+    max-width: 300px;
+  }
+  .journeySteps p {
+    margin: 20px 0;
+  }
+  .mobileStepPhoto {
+    display: block;
+    position: relative;
+    height: 360px;
+    margin-top: 30px;
+    overflow: hidden;
+  }
+  .vanChapter {
+    padding: 80px var(--space) 55px;
+  }
+  .vanObject {
+    width: 95%;
+    margin: -20px auto -15px;
+  }
+  .vehicleCaption {
+    display: block;
+  }
+  .vehicleCaption p {
+    font-size: 16px;
+  }
+  .vehicleCaption > a,
+  .vehicleCaption > div {
+    margin-top: 24px;
+    display: table;
+  }
+  .vehicleCaption > div > a {
+    display: table;
+    margin-top: 15px;
+  }
+  .local {
+    padding: 85px var(--space);
+  }
+  .localGallery {
+    display: block;
+  }
+  .localGallery figure,
+  .localGallery figure:nth-child(2),
+  .localGallery figure:nth-child(3) {
+    padding: 0;
+    width: 100%;
+    margin: 0 0 45px;
+  }
+  .localGallery figure:nth-child(2) {
+    width: 85%;
+    margin-left: auto;
+  }
+  .localGallery figure:nth-child(3) > div {
+    aspect-ratio: 1;
+  }
+  .localGallery h3 {
+    font-size: 29px;
+  }
+  .localGallery figcaption {
+    margin-top: 18px;
+  }
+  .localGallery p {
+    font-size: 16px;
+  }
+  .business {
+    padding: 80px var(--space);
+  }
+  .businessTitle {
+    display: block;
+    margin-bottom: 35px;
+  }
+  .businessTitle p {
+    margin-top: 25px;
+  }
+  .businessComposition {
+    display: block;
+  }
+  .businessMain {
+    height: 450px;
+  }
+  .businessDetail {
+    width: 50%;
+    height: 200px;
+    margin: -75px 15px 0 auto;
+    z-index: 1;
+    border: 8px solid #f2f2f2;
+  }
+  .businessCopy {
+    padding-top: 25px;
+    max-width: none;
+  }
+  .coverage {
+    display: flex;
+    flex-direction: column;
+  }
+  .coveragePhoto {
+    min-height: 460px;
+  }
+  .coverageCopy {
+    padding: 65px var(--space) 80px;
+  }
+  .coverageCopy p {
+    margin: 25px 0;
+  }
+  .coverageCopy li {
+    font-size: 21px;
+  }
+  .coverageCopy small {
+    margin-top: 28px;
+  }
+  .choices {
+    padding: 80px var(--space);
+  }
+  .choiceRow {
+    grid-template-columns: 1fr 85px 25px;
+    gap: 15px;
+    padding: 24px 0;
+  }
+  .choiceCount {
+    display: none;
+  }
+  .choiceRow h3 {
+    font-size: 27px;
+  }
+  .choiceRow p {
+    font-size: 14px;
+    margin-top: 10px;
+  }
+  .choicePhoto {
+    aspect-ratio: 0.85;
+  }
+  .choiceArrow {
+    font-size: 29px;
+  }
+  .freight {
+    padding: 80px var(--space) 65px;
+  }
+  .freight h2 {
+    font-size: 14vw;
+  }
+  .truckObject {
+    width: 95%;
+    margin: 0 auto 12px;
+  }
+  .packing {
+    padding: 80px var(--space);
+    display: flex;
+    flex-direction: column;
+    gap: 35px;
+  }
+  .packingIntro p {
+    margin: 25px 0;
+  }
+  .packingImage {
+    min-height: 420px;
+  }
+  .packingSteps li {
+    gap: 25px;
+  }
+  .packingSteps h3 {
+    font-size: 23px;
+  }
+  .packingSteps p {
+    font-size: 16px;
+  }
+  .closing {
+    padding: 85px var(--space);
+    display: flex;
+    flex-direction: column;
+    gap: 35px;
+  }
+  .closing h2 {
+    font-size: 15vw;
+  }
+  .closingPhoto {
+    min-height: 450px;
+  }
+  .closing p {
+    margin: 25px 0;
+  }
+  .join {
+    padding-top: 5px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .choicePhoto,
+  .choiceArrow,
+  .intentBar a span {
+    transition: none;
+  }
+}

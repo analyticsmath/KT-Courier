@@ -8,6 +8,11 @@ import {
   type PublicServicePageDefinition,
 } from "@/lib/public-services/service-page-registry";
 import { EditorialMotion } from "./EditorialMotion";
+import {
+  ParcelPackingSection,
+  QuotePlanningSection,
+  DeliveryCoverageSection,
+} from "../services/DeliveryPlanningSections";
 
 export function ServiceEditorial({
   service,
@@ -52,14 +57,10 @@ export function ServiceEditorial({
         <div className="kt-detail-hero-image" data-media-aperture>
           <Image
             data-parallax
-            src={
-              parcel
-                ? "/media/public/derived/photo-prep-workshop-dispatch-desk-1440w.webp"
-                : hero.src
-            }
+            src={parcel ? "/media/public/editorial/collection.webp" : hero.src}
             alt={
               parcel
-                ? "A merchant carefully packing an order for delivery"
+                ? "A paper shopping bag being handed across a counter"
                 : hero.alt
             }
             fill
@@ -108,6 +109,8 @@ export function ServiceEditorial({
           ))}
         </div>
       </section>
+      {parcel && <ParcelPackingSection />}
+      <QuotePlanningSection factors={service.pricingFactors} />
       <section className="kt-detail-preparation" data-section-transition="open">
         <div data-reveal>
           <h2 data-split-heading>
@@ -144,6 +147,7 @@ export function ServiceEditorial({
           )}
         </div>
       </section>
+      <DeliveryCoverageSection />
       <section className="kt-detail-questions" data-section-transition="rise">
         <h2 data-split-heading>
           A little more

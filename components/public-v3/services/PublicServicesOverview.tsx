@@ -5,6 +5,11 @@ import Image from "next/image";
 import { publicServicePages } from "@/lib/public-services/service-page-registry";
 import { serviceMedia } from "@/lib/public-assets/service-media";
 import { EditorialMotion } from "../redesign/EditorialMotion";
+import {
+  ServiceStartingPoints,
+  QuotePlanningSection,
+  DeliveryCoverageSection,
+} from "./DeliveryPlanningSections";
 
 export function PublicServicesOverview() {
   const [active, setActive] = useState(0);
@@ -62,14 +67,15 @@ export function PublicServicesOverview() {
         <div className="kt-services-hero-photo" data-media-aperture>
           <Image
             data-parallax
-            src="/media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp"
-            alt="A courier collecting a parcel from a merchant"
+            src="/media/public/editorial/collection.webp"
+            alt="A paper shopping bag passing from a shop to a customer"
             fill
             sizes="(max-width:760px) 100vw, 68vw"
             priority
           />
         </div>
       </section>
+      <ServiceStartingPoints />
       <section
         className="kt-service-atlas"
         data-section-transition="sweep"
@@ -120,6 +126,8 @@ export function PublicServicesOverview() {
           </div>
         </aside>
       </section>
+      <QuotePlanningSection />
+      <DeliveryCoverageSection />
     </EditorialMotion>
   );
 }

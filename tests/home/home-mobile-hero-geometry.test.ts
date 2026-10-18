@@ -5,13 +5,13 @@ import { PublicHomeExperience } from "@/components/public-v3/home/PublicHomeExpe
 
 const markup = renderToStaticMarkup(createElement(PublicHomeExperience));
 const opening = markup.slice(
-  markup.indexOf('<section class="kt-opening '),
+  markup.indexOf('<section class="'),
   markup.indexOf("</section>"),
 );
 
 describe("replacement homepage initial content", () => {
   it("makes sending and local shopping available before any motion runs", () => {
-    expect(opening).toContain("From your hands.");
+    expect(opening).toContain("Good things.");
     expect(opening).toContain('href="/services/parcel"');
     expect(opening).toContain('href="/shop"');
   });
@@ -25,14 +25,24 @@ describe("replacement homepage initial content", () => {
   it("renders meaningful static content and a canonical quote path without the retired director", () => {
     expect(markup).toContain('href="/quote"');
     expect(markup).toContain(
-      'alt="A small-business owner preparing products for delivery"',
+      'alt="A florist at the door of her neighbourhood flower shop"',
     );
     expect(markup).not.toContain('data-kt-motion-owned="director"');
     expect(markup).not.toContain("data-actor-slot");
   });
-  it("keeps product listings off the homepage", () => {
+  it("provides meaningful chapters and preparation guidance without a product feed", () => {
     expect(markup).not.toContain('href="/shop/products/');
     expect(markup).not.toContain("kt-real-products");
     expect(markup).toContain('href="/shop"');
+    for (const chapter of [
+      "delivery",
+      "business",
+      "coverage",
+      "packing",
+      "keep-connected",
+    ]) {
+      expect(markup).toContain(`data-home-chapter="${chapter}"`);
+    }
+    expect(markup).toContain("Choose a sturdy box");
   });
 });

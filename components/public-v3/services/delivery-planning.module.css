@@ -1,0 +1,277 @@
+.starting,
+.parcel {
+  padding: 110px clamp(22px, 5vw, 80px);
+  background: #f3f3f3;
+}
+.starting h2,
+.parcel h2,
+.quote h2,
+.coverage h2 {
+  font-size: clamp(40px, 5.4vw, 84px);
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+  font-weight: 500;
+  margin: 0;
+}
+.heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  align-items: end;
+  margin-bottom: 55px;
+}
+.heading > p {
+  max-width: 350px;
+  font-size: 20px;
+  line-height: 1.45;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+.paths {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+.paths > a {
+  position: relative;
+  color: #191919;
+  text-decoration: none;
+  border-top: 1px solid #bbb;
+  padding-top: 22px;
+}
+.paths > a > span {
+  font-size: 16px;
+}
+.paths h3 {
+  font-size: clamp(30px, 3.4vw, 54px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+  margin: 40px 0 35px;
+}
+.paths > a > div {
+  position: relative;
+  aspect-ratio: 1.15;
+  overflow: hidden;
+}
+.paths img,
+.quote img,
+.parcel img {
+  object-fit: cover;
+  transition: transform 0.7s;
+}
+.paths > a:hover img {
+  transform: scale(1.04);
+}
+.paths p {
+  font-size: 17px;
+  line-height: 1.45;
+  max-width: 85%;
+  margin: 20px 0 0;
+}
+.paths b {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 30px;
+  font-weight: 400;
+}
+.quote {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #fff;
+}
+.quoteImage {
+  position: relative;
+  min-height: 800px;
+  overflow: hidden;
+}
+.quoteCopy {
+  padding: 100px clamp(28px, 5vw, 80px);
+}
+.quoteCopy h2 {
+  font-size: clamp(40px, 4.5vw, 72px);
+}
+.quoteCopy > p {
+  font-size: 20px;
+  line-height: 1.45;
+  margin: 30px 0;
+}
+.quoteCopy ol {
+  padding: 0;
+  list-style: none;
+  margin: 35px 0;
+}
+.quoteCopy li {
+  display: flex;
+  gap: 25px;
+  border-top: 1px solid #ccc;
+  padding: 22px 0;
+}
+.quoteCopy li span {
+  padding-top: 3px;
+  font-size: 14px;
+}
+.quoteCopy li p {
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 0;
+}
+.quote small,
+.coverage small {
+  display: block;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 30px;
+  max-width: 400px;
+}
+.parcel {
+  background: #f3f3f3;
+}
+.parcelLayout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8vw;
+}
+.parcelPhoto {
+  position: relative;
+  min-height: 570px;
+  overflow: hidden;
+}
+.accordion {
+  padding-top: 15px;
+}
+.accordion details {
+  border-top: 1px solid #bbb;
+  padding: 23px 0;
+}
+.accordion details:last-child {
+  border-bottom: 1px solid #bbb;
+}
+.accordion summary {
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  cursor: pointer;
+  font-size: clamp(21px, 2vw, 31px);
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+}
+.accordion summary::-webkit-details-marker {
+  display: none;
+}
+.accordion summary span {
+  font-size: 28px;
+  transition: transform 0.3s;
+}
+.accordion details[open] summary span {
+  transform: rotate(45deg);
+}
+.accordion p {
+  font-size: 18px;
+  line-height: 1.5;
+  max-width: 440px;
+  margin: 25px 0 5px;
+}
+.coverage {
+  padding: 110px clamp(22px, 5vw, 80px);
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 8vw;
+  background: #fff;
+}
+.coverage h2 {
+  font-size: clamp(40px, 4.5vw, 72px);
+}
+.coverage p {
+  font-size: 20px;
+  line-height: 1.5;
+  margin: 0 0 25px;
+}
+.links {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 15px;
+}
+@media (max-width: 760px) {
+  .starting,
+  .parcel {
+    padding: 75px 22px;
+  }
+  .heading {
+    display: block;
+    margin-bottom: 35px;
+  }
+  .heading > p {
+    margin-top: 25px;
+    font-size: 17px;
+  }
+  .paths {
+    display: block;
+  }
+  .paths > a {
+    display: block;
+    margin-bottom: 45px;
+  }
+  .paths h3 {
+    font-size: 39px;
+    margin: 30px 0;
+  }
+  .paths h3 br {
+    display: none;
+  }
+  .paths h3 br:after {
+    content: " ";
+  }
+  .paths > a > div {
+    aspect-ratio: 1.2;
+  }
+  .quote {
+    display: flex;
+    flex-direction: column;
+  }
+  .quoteImage {
+    min-height: 390px;
+  }
+  .quoteCopy {
+    padding: 65px 22px;
+  }
+  .quoteCopy > p {
+    font-size: 18px;
+  }
+  .quoteCopy li {
+    padding: 20px 0;
+  }
+  .parcelLayout {
+    display: block;
+  }
+  .parcelPhoto {
+    min-height: 400px;
+    margin-bottom: 30px;
+  }
+  .accordion summary {
+    font-size: 23px;
+  }
+  .accordion p {
+    font-size: 17px;
+  }
+  .coverage {
+    display: block;
+    padding: 75px 22px;
+  }
+  .coverage > div {
+    margin-top: 30px;
+  }
+  .coverage p {
+    font-size: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .paths img,
+  .accordion summary span {
+    transition: none;
+  }
+}

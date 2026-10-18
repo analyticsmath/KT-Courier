@@ -1,0 +1,78 @@
+.curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  pointer-events: none;
+  overflow: hidden;
+  animation: failOpen 0s 4s forwards;
+}
+.left,
+.right {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.1%;
+  background: #fff;
+}
+.left {
+  left: 0;
+}
+.right {
+  right: 0;
+  background: #f2f2f2;
+}
+.mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mark span {
+  position: absolute;
+  top: calc(100% + 26px);
+  width: 240px;
+  text-align: center;
+  color: #191919;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+.outer,
+.inner {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid #d0d0d0;
+  inset: 0;
+  border-top-color: #191919;
+  border-right-color: #191919;
+  animation: spin 1.8s linear infinite;
+}
+.inner {
+  inset: 15px;
+  border-color: #dedede;
+  border-bottom-color: #191919;
+  animation: spin 2.6s linear infinite reverse;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes failOpen {
+  to {
+    visibility: hidden;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .curtain {
+    display: none;
+  }
+  .outer,
+  .inner {
+    animation: none;
+  }
+}

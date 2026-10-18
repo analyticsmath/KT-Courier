@@ -9,7 +9,7 @@ import {
 import { refreshPublicMotion } from "./motion-refresh";
 import styles from "./route-curtain.module.css";
 
-/** Paired departure/arrival panels, including navigation from the persistent header/footer. */
+/** Lateral departure/arrival curtains, including persistent header/footer navigation. */
 export function PublicRouteCurtain() {
   const root = useRef<HTMLDivElement>(null);
   const label = useRef<HTMLSpanElement>(null);
@@ -43,7 +43,7 @@ export function PublicRouteCurtain() {
         if (label.current)
           label.current.textContent = routeMotionLabel(pathname);
         gsap.set(curtain, { visibility: "visible" });
-        gsap.set(panels, { yPercent: 0 });
+        gsap.set(panels, { xPercent: 0 });
         animation.current = gsap
           .timeline({
             onComplete: () => {
@@ -60,9 +60,9 @@ export function PublicRouteCurtain() {
           .to(
             panels,
             {
-              yPercent: -100,
-              stagger: 0.08,
-              duration: 0.72,
+              xPercent: (index: number) => (index === 0 ? -101 : 101),
+              stagger: 0.05,
+              duration: 0.85,
               ease: "power4.inOut",
             },
             0.14,
@@ -110,7 +110,9 @@ export function PublicRouteCurtain() {
       if (label.current)
         label.current.textContent = routeMotionLabel(destination.pathname);
       gsap.set(curtain, { visibility: "visible" });
-      gsap.set(panels, { yPercent: 100 });
+      gsap.set(panels, {
+        xPercent: (index: number) => (index === 0 ? -101 : 101),
+      });
       gsap.set(label.current, { y: 28, opacity: 0 });
       animation.current?.kill();
       animation.current = gsap
@@ -122,7 +124,7 @@ export function PublicRouteCurtain() {
         })
         .to(
           panels,
-          { yPercent: 0, stagger: 0.065, duration: 0.45, ease: "power3.inOut" },
+          { xPercent: 0, stagger: 0.04, duration: 0.5, ease: "power3.inOut" },
           0,
         )
         .to(
@@ -147,7 +149,6 @@ export function PublicRouteCurtain() {
   return (
     <div ref={root} className={styles.curtain} aria-hidden="true">
       <div className={styles.panels}>
-        <i />
         <i />
         <i />
       </div>
