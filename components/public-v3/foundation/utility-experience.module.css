@@ -19,7 +19,7 @@
 }
 .title {
   font: 450 clamp(44px, 5.8vw, 90px)/1.02 var(--font-display);
-  letter-spacing: -0.065em;
+  letter-spacing: -0.03em;
   margin: 0;
   max-width: 14ch;
 }

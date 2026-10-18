@@ -23,7 +23,7 @@
 }
 .public-v3-root.kt-redesign :is(h1, h2, h3) {
   font-weight: 500;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.03em;
   line-height: 1.02;
   text-wrap: balance;
 }
@@ -90,7 +90,7 @@
   font-size: clamp(70px, 10.8vw, 176px);
   font-weight: 500;
   line-height: 0.94;
-  letter-spacing: -0.077em;
+  letter-spacing: -0.035em;
   margin: 0 0 48px;
   max-width: 1200px;
 }
@@ -317,10 +317,10 @@
     padding: 44px 20px 0;
   }
   .kt-redesign .kt-opening h1 {
-    font-size: clamp(44px, 12.7vw, 88px);
+    font-size: clamp(38px, 12vw, 88px);
     line-height: 1;
     margin-bottom: 30px;
-    letter-spacing: -0.065em;
+    letter-spacing: -0.03em;
   }
   .kt-redesign .kt-opening-bottom {
     display: flex;
@@ -484,7 +484,7 @@
   color: inherit;
   font-size: 17px;
   font-weight: 550;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.035em;
 }
 .kt-redesign .kt-new-header-links {
   display: flex;
@@ -592,7 +592,7 @@
   font-size: clamp(40px, 5.5vw, 88px);
   font-weight: 450;
   line-height: 1.08;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.03em;
   color: inherit;
   text-decoration: none;
   display: flex;
@@ -831,7 +831,7 @@
   font-size: clamp(72px, 11vw, 170px);
   font-weight: 450;
   line-height: 0.95;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.035em;
   margin: 0;
 }
 .kt-redesign .kt-services-intro {
@@ -875,7 +875,7 @@
 .kt-redesign .kt-atlas-index h2 {
   font-size: clamp(29px, 3.4vw, 53px);
   font-weight: 450;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.035em;
   margin: 0 0 18px;
 }
 .kt-redesign .kt-atlas-index p {
@@ -933,7 +933,7 @@
   font-size: clamp(58px, 7.8vw, 126px);
   font-weight: 450;
   line-height: 0.98;
-  letter-spacing: -0.075em;
+  letter-spacing: -0.035em;
   margin: 36px 0 30px;
 }
 .kt-redesign .kt-detail-opening > div > p {
@@ -1235,7 +1235,7 @@
   background: #fff;
   color: #191919;
   font-size: 36px;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.035em;
   line-height: 1.05;
   padding: 24px;
   margin: 0;

@@ -25,13 +25,9 @@ export function PublicHomeExperience({
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       const ctx = gsap.context(() => {
-        gsap.fromTo(
-          van.current,
-          { xPercent: -130, autoAlpha: 0 },
-          {
-            xPercent: 75,
-            autoAlpha: 1,
-            ease: "none",
+        const holdPosition = () => (window.innerWidth <= 760 ? 0 : 20);
+        gsap
+          .timeline({
             scrollTrigger: {
               trigger: opening.current,
               start: "top 78%",
@@ -39,8 +35,25 @@ export function PublicHomeExperience({
               scrub: 0.3,
               invalidateOnRefresh: true,
             },
-          },
-        );
+          })
+          .fromTo(
+            van.current,
+            { xPercent: -130 },
+            { xPercent: holdPosition, duration: 0.45, ease: "none" },
+            0,
+          )
+          .fromTo(
+            van.current,
+            { autoAlpha: 0 },
+            { autoAlpha: 1, duration: 0.08, ease: "none" },
+            0,
+          )
+          .to(van.current, {
+            xPercent: holdPosition,
+            duration: 0.2,
+            ease: "none",
+          })
+          .to(van.current, { xPercent: 75, duration: 0.35, ease: "none" });
       }, opening);
       return () => ctx.revert();
     });
@@ -193,10 +206,10 @@ export function PublicHomeExperience({
         <div className="kt-freight-plane" aria-hidden="true">
           <Image
             data-lateral
-            src="/media/public/protagonists/protagonist-truck-red-centered-hero.webp"
+            src="/media/public/protagonists/protagonist-truck-red-side-right.webp"
             alt=""
-            width={1536}
-            height={1024}
+            width={1672}
+            height={941}
             sizes="(max-width:760px) 130vw, 90vw"
           />
         </div>

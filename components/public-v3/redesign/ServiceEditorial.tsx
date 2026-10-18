@@ -71,7 +71,7 @@ export function ServiceEditorial({
         <div className="kt-detail-truck" aria-hidden="true">
           <Image
             data-lateral
-            src="/media/public/protagonists/protagonist-truck-red-centered-hero.webp"
+            src="/media/public/protagonists/protagonist-truck-red-side-right.webp"
             width={1672}
             height={941}
             alt=""

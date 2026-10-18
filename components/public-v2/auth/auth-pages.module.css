@@ -468,7 +468,7 @@
 .root:global(.kt-auth-new) .header{border:0;background:#fff;height:85px;}
 .root:global(.kt-auth-new) .content{display:grid;grid-template-columns:minmax(220px,360px) minmax(0,500px);justify-content:center;align-items:start;gap:clamp(60px,10vw,180px);max-width:1400px;padding:55px 4.5vw 75px;}
 .root:global(.kt-auth-new) .formPlane{max-width:500px;padding-top:25px;}
-.root:global(.kt-auth-new) .title{font-family:var(--kt-redesign-font),Arial,sans-serif;font-size:clamp(44px,4.8vw,72px);font-weight:450;line-height:1.02;letter-spacing:-.065em;color:#191919;max-width:12ch;margin:0 0 22px;}
+.root:global(.kt-auth-new) .title{font-family:var(--kt-redesign-font),Arial,sans-serif;font-size:clamp(44px,4.8vw,72px);font-weight:450;line-height:1.02;letter-spacing:-.03em;color:#191919;max-width:12ch;margin:0 0 22px;}
 .root:global(.kt-auth-new) .routeIntro{margin-bottom:35px;}
 .root:global(.kt-auth-new) .intro{font-size:16px;line-height:1.6;color:#595959;}
 .root:global(.kt-auth-new) .formCard{padding:0;background:#fff;border:0;box-shadow:none;}
