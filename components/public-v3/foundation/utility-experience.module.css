@@ -1,22 +1,188 @@
-/* The practical counterpart to KT's cinematic story.
-   A calm, white, cobalt-accented utility workspace, kept out of /shop and dashboards. */
-.utility { background:#fff; color:#10203c; min-height:90svh; padding-top:calc(var(--kt-header-height,66px) + clamp(38px,6vw,90px)); padding-bottom:clamp(90px,9vw,170px); }
-.inner { max-width:1320px; margin:auto; padding-inline:clamp(20px,5vw,80px); }
-.head { display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.7fr);gap:clamp(24px,7vw,110px);align-items:end;margin-bottom:clamp(36px,6vw,85px); }
-.title { font:600 clamp(3.15rem,6.7vw,8rem)/.96 var(--font-display);letter-spacing:-.083em;margin:0;max-width:12ch; }
-.title strong {display:block;color:#2366e9;font:inherit;}
-.description {max-width:30rem;font-size:clamp(1.04rem,1.3vw,1.25rem);line-height:1.56;color:#566680;margin:0 0 5px;}
-.body { min-width:0; border:0; border-top:2px solid #2267e7; padding-top:clamp(26px,4vw,55px); }
-.referenceBox { display:flex;flex-direction:column;gap:19px;background:#f2f7ff;min-width:0;padding:clamp(23px,4vw,54px);max-width:950px;}
-.referenceBox label { display:block;font-size:.93rem;font-weight:600;margin-bottom:10px;color:#34486b; }
-.referenceBox input {display:block;width:100%;min-height:59px;min-width:0;border-radius:0;border:1px solid #a8bcda;background:#fff;padding:14px 18px;font-size:16px;color:#0d1d36;}
-.referenceBox input:focus-visible {outline:2px solid #2468ee;outline-offset:3px;}
-.referenceBox button {min-height:57px;background:#205edc;color:#fff;padding:15px 24px;border-radius:0;border:0;font-weight:660;cursor:pointer;}
-.referenceBox button:hover {background:#1247b8;}
-.referenceBox p {max-width:33rem;line-height:1.54;font-size:.88rem;color:#5d6e86;}
-.result {max-width:950px;font-size:.99rem;line-height:1.55;background:#fff;margin-top:25px;color:#192b49;}
-.result a {color:#1653c7;text-underline-offset:4px;}
-.utility a:focus-visible,.utility button:focus-visible {outline:3px solid #2366e9;outline-offset:4px;}
-.quoteBody :global(form) {max-width:100%; }
-.quoteBody :global(input),.quoteBody :global(select),.quoteBody :global(textarea) {font-size:max(16px,1rem);}
-@media(max-width:767px) {.utility {padding-top:calc(var(--kt-header-height,66px) + 32px);padding-bottom:calc(var(--kt-mobile-nav-height,68px) + 80px);} .head {grid-template-columns:1fr;gap:24px;margin-bottom:35px;} .title {font-size:clamp(3.1rem,11.8vw,5.5rem);} .description {font-size:1rem;} .referenceBox {padding:22px 18px;} .referenceBox button {width:100%;}}
+/* Utility routes are workspaces: the actual task occupies the first viewport. */
+.utility {
+  background: #fff;
+  color: #191919;
+  min-height: 80svh;
+  padding: calc(var(--kt-header-height, 80px) + 45px) 0 100px;
+}
+.inner {
+  max-width: 1440px;
+  margin: auto;
+  padding-inline: clamp(20px, 4.5vw, 80px);
+}
+.head {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 6vw;
+  align-items: end;
+  margin-bottom: 45px;
+}
+.title {
+  font: 450 clamp(44px, 5.8vw, 90px)/1.02 var(--font-display);
+  letter-spacing: -0.065em;
+  margin: 0;
+  max-width: 14ch;
+}
+.title strong {
+  display: block;
+  color: inherit;
+  font: inherit;
+}
+.description {
+  max-width: 36ch;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #595959;
+  margin: 0;
+}
+.body {
+  min-width: 0;
+  border: 0;
+  padding-top: 0;
+}
+.referenceBox {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: #f4f4f4;
+  min-width: 0;
+  padding: clamp(25px, 5vw, 65px);
+  max-width: 850px;
+}
+.referenceBox label {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  color: #191919;
+}
+.referenceBox input {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  min-width: 0;
+  border-radius: 5px;
+  border: 1px solid #b9b9b9;
+  background: #fff;
+  padding: 15px 18px;
+  font-size: 18px;
+  color: #191919;
+}
+.referenceBox input:focus-visible {
+  outline: 2px solid #982c35;
+  outline-offset: 3px;
+}
+.referenceBox button {
+  min-height: 56px;
+  background: #191919;
+  color: #fff;
+  padding: 15px 24px;
+  border-radius: 32px;
+  border: 0;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: start;
+  min-width: 180px;
+}
+.referenceBox button:hover {
+  background: #383838;
+}
+.referenceBox p {
+  max-width: 55ch;
+  line-height: 1.6;
+  font-size: 13px;
+  color: #595959;
+}
+.result {
+  max-width: 850px;
+  font-size: 16px;
+  line-height: 1.6;
+  background: #fff;
+  margin-top: 25px;
+  color: #191919;
+}
+.result a {
+  color: inherit;
+  text-underline-offset: 4px;
+}
+.utility a:focus-visible,
+.utility button:focus-visible {
+  outline: 2px solid #982c35;
+  outline-offset: 4px;
+}
+.quoteBody {
+  background: #f4f4f4;
+  padding: clamp(22px, 4vw, 55px);
+  border-radius: 8px;
+}
+.quoteBody :global(form) {
+  max-width: 100%;
+}
+.quoteBody :global(fieldset) {
+  min-width: 0;
+}
+.quoteBody :global(legend) {
+  font-size: 23px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  margin-bottom: 22px;
+}
+.quoteBody :global(label) {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.quoteBody :global(input:not([type="checkbox"]):not([type="radio"])),
+.quoteBody :global(select),
+.quoteBody :global(textarea) {
+  font-size: 16px;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.quoteBody :global(button[type="submit"]) {
+  min-height: 54px;
+  background: #191919;
+  color: #fff;
+  border-radius: 32px;
+  padding: 15px 25px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.quoteBody :global(input:focus-visible),
+.quoteBody :global(select:focus-visible),
+.quoteBody :global(textarea:focus-visible) {
+  outline: 2px solid #982c35;
+  outline-offset: 2px;
+}
+@media (max-width: 767px) {
+  .utility {
+    padding-top: calc(var(--kt-header-height, 68px) + 32px);
+    padding-bottom: 65px;
+  }
+  .head {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  .title {
+    font-size: clamp(42px, 11vw, 65px);
+  }
+  .description {
+    font-size: 15px;
+  }
+  .referenceBox {
+    padding: 25px 20px;
+  }
+  .referenceBox button {
+    width: 100%;
+  }
+  .quoteBody {
+    padding: 25px 17px;
+    margin-inline: -2px;
+  }
+}

@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { allServiceMedia } from "@/lib/public-assets/service-media";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
-import { publicServicePages } from "@/lib/public-services/service-page-registry";
+import { publicServicePages, serviceFaqs } from "@/lib/public-services/service-page-registry";
 import sitemap from "@/app/sitemap";
 
 vi.mock("next/server", () => ({ connection: vi.fn().mockResolvedValue(undefined) }));
@@ -118,7 +118,12 @@ describe("R6 public service architecture", () => {
     }
 
     expect(detailSource).toContain(quotePath);
-    expect(detailSource).toContain("<details");
+    for (const service of publicServicePages) {
+      for (const id of service.faqIds) {
+        expect(serviceFaqs[id].question.length).toBeGreaterThan(10);
+        expect(serviceFaqs[id].answer.length).toBeGreaterThan(20);
+      }
+    }
     expect(breadcrumbSource).toContain('aria-label="Breadcrumb"');
     expect(breadcrumbSource).toContain("<ol>");
     expect(breadcrumbSource).toContain('aria-current="page"');

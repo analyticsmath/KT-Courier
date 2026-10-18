@@ -33,6 +33,8 @@ const EXCLUDED_LENIS_PREFIXES = [
   "/checkout",
   "/cart",
   "/account",
+  "/quote",
+  "/track",
 ];
 
 interface MotionContextValue {

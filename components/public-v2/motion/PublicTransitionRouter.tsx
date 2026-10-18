@@ -71,6 +71,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
   const [takeoverColor, setTakeoverColor] = useState("var(--kt-public-text-inverse)");
   const containerRef = useRef<HTMLDivElement>(null);
   const flightProxyRef = useRef<HTMLDivElement>(null);
+  const routeRevealRef = useRef<HTMLDivElement>(null);
   const prevPathRef = useRef(pathname);
 
   const captureSourceMedia = useCallback(
@@ -118,6 +119,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
 
     let activeTween: gsap.core.Tween | null = null;
     let revealTween: gsap.core.Tween | null = null;
+    let curtainTween: gsap.core.Tween | null = null;
     let takeoverTimer: NodeJS.Timeout | null = null;
 
     // 1. Shared Media Flight Handoff
@@ -170,6 +172,13 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
 
     // 3. Quiet Route vs Cinematic Reveal
     const container = containerRef.current;
+    const routeReveal = routeRevealRef.current;
+    if (!isCommerce && !isQuiet && routeReveal) {
+      curtainTween = gsap.fromTo(routeReveal,
+        { autoAlpha: 1, clipPath: "inset(0 0 0% 0)" },
+        { clipPath: "inset(0 0 100% 0)", duration: .55, ease: "power3.inOut", onComplete: () => { if (routeReveal) gsap.set(routeReveal, { autoAlpha: 0 }); } },
+      );
+    }
     if (container && !activeSharedMedia && !takeoverActive) {
       if (isCommerce) {
         gsap.set(container, { clearProps: "opacity,transform" });
@@ -203,6 +212,8 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
     return () => {
       if (activeTween) activeTween.kill();
       if (revealTween) revealTween.kill();
+      if (curtainTween) curtainTween.kill();
+      if (routeReveal) gsap.set(routeReveal, { autoAlpha: 0 });
       if (container) gsap.set(container, { clearProps: "opacity,transform" });
       if (takeoverTimer) clearTimeout(takeoverTimer);
     };
@@ -215,6 +226,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
       <div ref={containerRef} className="w-full min-h-full">
         {children}
       </div>
+      <div ref={routeRevealRef} aria-hidden="true" className="pointer-events-none fixed inset-0 z-[90]" style={{ background: "#fff", visibility: "hidden" }} />
 
       {/* Shared Media Flying Proxy */}
       {activeSharedMedia && (

@@ -25,4 +25,12 @@ const publicMonaMono = localFont({
   variable: "--kt-public-font-mono-source",
 });
 
-export const publicFontVariables = `${publicSchibsted.variable} ${publicMonaMono.variable}`;
+const publicMona = localFont({
+  src: "./public/MonaSansVF[wdth,opsz,wght].woff2",
+  weight: "200 900",
+  style: "normal",
+  display: "swap",
+  variable: "--kt-redesign-font",
+});
+
+export const publicFontVariables = `${publicSchibsted.variable} ${publicMonaMono.variable} ${publicMona.variable}`;

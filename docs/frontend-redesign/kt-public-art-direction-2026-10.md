@@ -1,5 +1,7 @@
 # KT Couriers — Phase 1 Creative Storyboard & Transactional Art Direction
 
+> Historical direction. The client rejected the retained eight-chapter story, opening van, blue styling and existing route compositions on 18 October 2026. See [the replacement creative reset proposal](./kt-creative-reset-2026-10-18.md). Do not implement this older document as the current client brief.
+
 **18 October 2026 | Main branch | Valtum Studio | Authoritative asset-first direction**
 
 This document operationalizes the client brief and the superseding Valtum Studio creative brain. It describes deliberate viewport compositions rather than generic sections. **Static production-route compositions and live manual visual acceptance are still mandatory before declaring final award-level quality.**

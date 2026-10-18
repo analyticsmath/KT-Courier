@@ -621,9 +621,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
   return (
     <div className={`${styles.commerceInner} ${tx.checkoutPage}`}>
       <div className={tx.checkoutIntro}>
-        <h1>
-          Secure checkout
-        </h1>
+        <Link href="/cart" className={tx.backLink}>← Back to your bag</Link>
+        <h1>Your checkout.</h1>
         <p className={tx.checkoutReference}>
           Order reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span>
         </p>
@@ -657,7 +656,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           const state = step < currentStep ? tx.progressCompleted : step === currentStep ? tx.progressCurrent : "";
           return <li key={label} className={`${tx.progressItem} ${state}`} aria-current={step === currentStep ? "step" : undefined}>
             <span className={tx.progressIndex} aria-hidden="true">{String(step).padStart(2, "0")}</span>
-            <span>{label}</span>
+            <button type="button" disabled={step >= currentStep} onClick={() => setCurrentStep(step)} aria-label={step < currentStep ? `Edit ${label.toLowerCase()}` : label}>{label}</button>
           </li>;
         })}
       </ol>
@@ -751,17 +750,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{
-                    alignSelf: "flex-start",
-                    marginTop: 8,
-                    padding: "10px 20px",
-                    backgroundColor: "var(--kt-public-surface-inverse)",
-                    color: "var(--kt-public-text-inverse)",
-                    border: "none",
-                    borderRadius: 4,
-                    fontWeight: 600,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                  }}
+                  className={tx.checkoutPrimary}
                 >
                   {submitting ? "Saving..." : "Continue to Delivery Address \u2192"}
                 </button>
@@ -926,17 +915,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                 <button
                   type="submit"
                   disabled={submitting}
-                  style={{
-                    alignSelf: "flex-start",
-                    marginTop: 8,
-                    padding: "10px 20px",
-                    backgroundColor: "var(--kt-public-surface-inverse)",
-                    color: "var(--kt-public-text-inverse)",
-                    border: "none",
-                    borderRadius: 4,
-                    fontWeight: 600,
-                    cursor: submitting ? "not-allowed" : "pointer",
-                  }}
+                  className={tx.checkoutPrimary}
                 >
                   {submitting ? "Calculating Delivery Quotes..." : "Calculate Delivery \u2192"}
                 </button>

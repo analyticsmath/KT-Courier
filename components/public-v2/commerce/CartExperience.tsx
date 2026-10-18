@@ -257,7 +257,7 @@ export function CartExperience() {
 
   if (isEmpty) {
     return (
-      <div className={`${styles.commerceInner} ${styles.cartEmptyState}`}>
+      <div className={`${styles.commerceInner} ${styles.cartEmptyState} ${tx.emptyPage}`}>
         {errorMessage ? <p role="alert">{errorMessage}</p> : null}
         <svg aria-hidden="true" className={styles.cartEmptyIcon} fill="none" viewBox="0 0 64 64"><path d="M12 20h40l-4 34H16l-4-34Z" stroke="currentColor" strokeWidth="2"/><path d="M23 24v-6a9 9 0 0 1 18 0v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
         <h1 className={styles.commerceTitle}>Your cart is empty</h1>
@@ -294,7 +294,7 @@ export function CartExperience() {
         </div>
       )}
 
-      <div className={styles.cartLayout}>
+      <div className={`${styles.cartLayout} ${tx.cartLayout}`}>
         {/* Multi-Vendor Store Groups */}
         <div className={`${styles.cartStoreGroups} ${tx.cartLines}`}>
           {cart.storeGroups.map((group: HydratedCartStoreGroup) => (

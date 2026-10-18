@@ -17,7 +17,7 @@ export default async function Page({
     <article className={styles.utility}>
       <div className={styles.inner}>
         <header className={styles.head}>
-          <h1 className={styles.title}>The next move.<strong>Made clear.</strong></h1>
+          <h1 className={styles.title}>Get a delivery quote.</h1>
           <p className={styles.description}>
             Enter your collection and destination addresses, choose a parcel
             size and service, and get a quote before you book. No account needed to start.

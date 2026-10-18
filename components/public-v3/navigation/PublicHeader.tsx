@@ -6,12 +6,20 @@ import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { CurvedMenuSheet } from "./CurvedMenuSheet";
 import { useMotionContext } from "../motion/PublicMotionProvider";
 import { useMarketplaceCartCount } from "./marketplace-cart-client";
+import { usePathname } from "next/navigation";
+import { isProtectedCatalog } from "../redesign/route-family";
+import { MarketingNavigation } from "../redesign/MarketingNavigation";
 
 interface PublicHeaderProps {
   className?: string;
 }
 
 export function PublicHeader({ className = "" }: PublicHeaderProps) {
+  const pathname = usePathname();
+  return isProtectedCatalog(pathname) ? <LegacyPublicHeader className={className} /> : <MarketingNavigation />;
+}
+
+function LegacyPublicHeader({ className = "" }: PublicHeaderProps) {
   const { headerTone } = useMotionContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const cartCount = useMarketplaceCartCount();

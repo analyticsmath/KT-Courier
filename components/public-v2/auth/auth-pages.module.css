@@ -463,34 +463,22 @@
 }
 
 
-/* Valtum Studio: KT's photographic blue/white authentication world.
-   All authentication endpoints, validation and form logic remain unchanged. */
-.root { background: #fff; color:#111d32; }
-.header { border-bottom:0; background:#fff; height:74px; }
-.headerInner { max-width: none; padding-inline:clamp(20px,4vw,72px); }
-.content { max-width:none; padding:0; gap:0; align-items:stretch; grid-template-columns:minmax(480px, 47%) minmax(0, 53%); min-height:calc(100svh - 136px); }
-.formPlane { width:100%; max-width:none; padding:clamp(70px,7vw,150px) clamp(35px,8vw,145px) clamp(45px,7vw,100px); display:flex; flex-direction:column; justify-content:center; }
-.routeIntro {margin-bottom:clamp(30px,4vw,60px);}
-.title {font-family:var(--font-display);font-size:clamp(3.15rem,5.5vw,6.6rem);font-weight:610;letter-spacing:-.082em;line-height:.98;margin-bottom:18px;color:#101d32;}
-.intro {font-size:clamp(1rem,1.15vw,1.15rem);line-height:1.6;max-width:29rem;color:#61718b;}
-.formCard { max-width:510px; background:transparent; padding:0; border:0; box-shadow:none; }
-.formStack { gap:19px; }
-.label,.fieldLabel {color:#3d5070; font-weight:550;}
-.input,.otpInput,.passwordInput {min-height:56px;height:56px;font-size:16px;border-radius:0;border:1px solid #c5d4e7;background:#fbfdff;color:#10203c;padding-inline:17px;}
-.input:focus,.otpInput:focus,.passwordInput:focus {outline:2px solid #2670f1;outline-offset:2px;box-shadow:none;border-color:#2670f1;}
-.primaryAction {background:#205fdb;color:#fff;border-radius:0;min-height:57px;height:auto;font-weight:650;transition:background .25s ease,transform .4s cubic-bezier(.16,1,.3,1);}
-.primaryAction:hover:not(:disabled){background:#154dbc;transform:translateY(-2px);}
-.accountChoice{min-height:96px;border-color:#c6d5e9;background:#fff;border-radius:0;padding:18px;}
-.accountChoiceActive{border-color:#1d5ddc;background:#eaf2ff;box-shadow:inset 0 0 0 1px #1d5ddc;}
-.textLink{color:#1554cb;text-underline-offset:4px;}
-.mediaPlane {position:relative;isolation:isolate;min-height:660px;margin:0;display:block;overflow:hidden;background:#0c3c99;}
-.mediaMainTile {position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:0;overflow:hidden;}
-.mediaMainTile::after {content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 20%,rgba(6,29,70,.74) 100%);}
-.authEditorialCopy {position:absolute;bottom:clamp(65px,8vw,130px);left:clamp(28px,5vw,100px);max-width:min(66%,700px);z-index:2;color:#fff;}
-.authEditorialCopy span {font:600 .72rem/1.2 var(--font-mono);letter-spacing:.07em;color:#bfdbff;}
-.authEditorialCopy p {font:590 clamp(2.6rem,5vw,6.8rem)/.98 var(--font-display);letter-spacing:-.075em;margin:22px 0 0;}
-.mediaSecondaryTile {position:absolute;z-index:3;width:clamp(130px,16vw,240px);aspect-ratio:4/5;top:clamp(55px,8vw,160px);right:clamp(26px,4vw,75px);overflow:hidden;box-shadow:0 24px 65px rgba(0,22,70,.18);border:7px solid #fff;}
-.footer {background:#fff;border:0;color:#61718b;padding:20px clamp(20px,4vw,72px);}
-@media(max-width:1100px){.content {grid-template-columns:minmax(0,1fr) minmax(0,1fr);} .formPlane{padding:clamp(46px,5vw,86px) clamp(26px,4vw,70px);} .mediaSecondaryTile{display:none;}}
-@media(max-width:767px){.header {height:66px;} .content{display:flex;flex-direction:column;min-height:auto;} .formPlane{order:0;padding:44px 22px 58px;} .title{font-size:clamp(2.9rem,11vw,4.9rem);} .intro{font-size:1rem;} .formCard{max-width:none;} .mediaPlane{min-height:270px;height:270px;order:1;} .authEditorialCopy{bottom:25px;left:23px;max-width:75%;} .authEditorialCopy p{font-size:2.4rem;} .mediaSecondaryTile{display:none;} .accountChoices{grid-template-columns:repeat(2,minmax(0,1fr));} .footer{padding:20px 22px;}}
-@media(prefers-reduced-motion:reduce){.primaryAction{transition:none;}}
+/* Auth reset: a narrow documentary plane and a spacious, task-first form. */
+.root:global(.kt-auth-new){background:#fff;color:#191919;--kt-public-canvas:#fff;--kt-public-surface-primary:#fff;--kt-public-surface-secondary:#f4f4f4;--kt-public-text-primary:#191919;--kt-public-text-muted:#595959;--kt-public-interactive:#191919;--kt-public-interactive-text:#191919;--kt-public-action-primary:#191919;--kt-public-focus:#982c35;font-family:var(--kt-redesign-font),Arial,sans-serif;}
+.root:global(.kt-auth-new) .header{border:0;background:#fff;height:85px;}
+.root:global(.kt-auth-new) .content{display:grid;grid-template-columns:minmax(220px,360px) minmax(0,500px);justify-content:center;align-items:start;gap:clamp(60px,10vw,180px);max-width:1400px;padding:55px 4.5vw 75px;}
+.root:global(.kt-auth-new) .formPlane{max-width:500px;padding-top:25px;}
+.root:global(.kt-auth-new) .title{font-family:var(--kt-redesign-font),Arial,sans-serif;font-size:clamp(44px,4.8vw,72px);font-weight:450;line-height:1.02;letter-spacing:-.065em;color:#191919;max-width:12ch;margin:0 0 22px;}
+.root:global(.kt-auth-new) .routeIntro{margin-bottom:35px;}
+.root:global(.kt-auth-new) .intro{font-size:16px;line-height:1.6;color:#595959;}
+.root:global(.kt-auth-new) .formCard{padding:0;background:#fff;border:0;box-shadow:none;}
+.root:global(.kt-auth-new) :is(.input,.passwordInput,.otpInput){background:#f5f5f5;color:#191919;border:1px solid #c5c5c5;border-radius:4px;min-height:55px;font-size:16px;}
+.root:global(.kt-auth-new) .accountChoice{border-radius:5px;background:#fff;}
+.root:global(.kt-auth-new) .accountChoiceActive{background:#f4f4f4;border-color:#191919;box-shadow:none;}
+.root:global(.kt-auth-new) .footer{background:#fff;border:0;color:#595959;font-size:12px;padding:20px 4.5vw 30px;}
+@media(max-width:1000px){.root:global(.kt-auth-new) .content{display:block;max-width:580px;padding:30px 24px 60px;}.root:global(.kt-auth-new) .formPlane{max-width:none;padding-top:0;}.root:global(.kt-auth-new) .title{font-size:clamp(42px,10vw,65px);}.root:global(.kt-auth-new) .header{height:72px;}}
+
+.root:global(.kt-auth-new) .primaryAction{background:#191919;color:#fff;border-radius:32px;min-height:56px;font-size:15px;font-weight:500;box-shadow:none;}
+.root:global(.kt-auth-new) .primaryAction:hover:not(:disabled){background:#383838;}
+.root:global(.kt-auth-new) .textLink{color:#191919;}
+.root:global(.kt-auth-new) :is(.input,.passwordInput,.otpInput):focus{outline:2px solid #982c35;outline-offset:3px;border-color:#191919;box-shadow:none;}

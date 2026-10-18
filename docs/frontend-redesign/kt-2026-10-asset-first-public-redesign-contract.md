@@ -1,5 +1,7 @@
 # KT Couriers — Asset-First Public Redesign: Phase 0 Audit and Phase 1 Direction
 
+> Historical source audit. The media inventory remains useful, but the creative direction was rejected by the client on 18 October 2026. See [the replacement creative reset proposal](./kt-creative-reset-2026-10-18.md). Do not preserve the old story or visual treatment based on this document.
+
 **Date:** 2026-10-18  
 **Target repository/branch:** `analyticsmath/KT-Courier` / `main`  
 **Source baseline inspected:** `07ef7d05013193a5caee9bcfd122518c48eb6a24`  

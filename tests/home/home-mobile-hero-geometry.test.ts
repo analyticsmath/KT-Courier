@@ -1,68 +1,34 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { chapterBudgetVh, mobileChapterBudgetVh } from "@/components/public-v3/home/director/home-chapters";
+import { PublicHomeExperience } from "@/components/public-v3/home/PublicHomeExperience";
+import type { HomepageStorefrontPresentation } from "@/components/public-v3/home/data/home-storefront-presentation";
 
-const root = process.cwd();
-const styles = readFileSync(join(root, "components/public-v3/home/home-scenes.module.css"), "utf8");
-const heroScene = readFileSync(join(root, "components/public-v3/home/scenes/HeroScene.tsx"), "utf8");
-const director = readFileSync(join(root, "components/public-v3/home/director/useHomeCinematicDirector.ts"), "utf8");
-const actorStage = readFileSync(join(root, "components/public-v3/actors/CinematicActorStage.tsx"), "utf8");
+const markup = renderToStaticMarkup(createElement(PublicHomeExperience));
+const opening = markup.slice(markup.indexOf('<section class="kt-opening"'), markup.indexOf('</section>'));
 
-describe("mobile hero geometry contract", () => {
-  it("keeps the authored desktop and mobile hero budgets", () => {
-    expect(chapterBudgetVh("hero")).toBe(205);
-    expect(mobileChapterBudgetVh("hero")).toBe(260);
+describe("replacement homepage initial content", () => {
+  it("makes sending and local shopping available before any motion runs", () => {
+    expect(opening).toContain('From your hands.');
+    expect(opening).toContain('href="/services/parcel"');
+    expect(opening).toContain('href="/shop"');
   });
-
-  it("excludes hero from generic mobile scene normalization and reapplies its budget", () => {
-    expect(styles).toMatch(
-      /@media \(max-width: 767px\) \{\s*:global\(\.kt-home-experience \[data-kt-scene\]:not\(\[data-kt-scene="hero"\]\):not\(\[data-home-film\]\)\) \{\s*min-height: auto !important;\s*height: auto;\s*\}\s*:global\(\.kt-home-experience \[data-kt-scene="hero"\]\) \{\s*min-height: calc\(var\(--kt-home-mobile-budget, 260\) \* 1svh\) !important;\s*height: auto;/,
-    );
-    expect(styles).not.toMatch(
-      /@media \(max-width: 767px\) \{\s*:global\(\.kt-home-experience \[data-kt-scene\]\) \{\s*min-height: auto !important;/,
-    );
+  it("keeps the van out of the opening while providing its later scene", () => {
+    expect(opening).not.toContain('protagonist-van');
+    expect(markup.indexOf('protagonist-van')).toBeGreaterThan(markup.indexOf('</section>'));
+    expect(markup).not.toContain('data-hero-opening-poster');
   });
-
-  it("keeps the mobile hero stage sticky and outside generic stage unpinning", () => {
-    expect(styles).toMatch(
-      /@media \(max-width: 767px\) \{\s*\.heroStage \{\s*position: sticky;\s*top: 0;\s*height: 100dvh;\s*min-height: 100svh;\s*padding: 0;\s*box-sizing: border-box;/,
-    );
-    expect(heroScene).toContain("className={styles.heroStage}");
-    expect(heroScene).not.toContain("kt-home-sticky-stage");
-    expect(heroScene).toContain("--kt-home-mobile-budget");
+  it("renders meaningful static content and a canonical quote path without the retired director", () => {
+    expect(markup).toContain('href="/quote"');
+    expect(markup).toContain('alt="A small-business owner preparing products for delivery"');
+    expect(markup).not.toContain('data-kt-motion-owned="director"');
+    expect(markup).not.toContain('data-actor-slot');
   });
-
-  it("keeps the mobile CTA row above the shared navigation-safe boundary", () => {
-    expect(styles).not.toContain("clamp(10rem, 25svh, 13rem)");
-    expect(styles).toMatch(/\.heroActionsRow\s*\{\s*left: 50%;\s*bottom: calc\(\s*var\(--kt-mobile-nav-height\)\s*\+ env\(safe-area-inset-bottom, 0px\)\s*\+ clamp\(0.75rem, 1.5dvh, 1rem\)\s*\);/);
-  });
-
-  it("uses measured actor-stage geometry for mobile Hero placement", () => {
-    expect(director).toContain("stageWidth = stageRect.width");
-    expect(director).toContain("heroBaseWidth = stageWidth");
-    expect(director).toContain("const x = stageWidth * frame.targetCenterX - HERO_VAN_VISIBLE_CENTER_X * scaledWidth");
-    expect(director).toContain("const centerTop = heroUsableHeight * frame.visibleCenterY - HERO_VAN_VISIBLE_CENTER_Y * scaledHeight");
-    expect(director).toContain("const y = groundTop + (centerTop - groundTop) * frame.anchorBlend");
-    expect(director).toContain("nav?.getBoundingClientRect().height ?? 0");
-    expect(actorStage).toContain("<HeroVanSequenceActor />");
-    expect(actorStage).toContain("preloadStates={[]}");
-  });
-
-  it("does not statically hide the persistent Hero actor stage, slots, or layers", () => {
-    const staticActorRules = [
-      /:global\(\.kt-home-experience \.kt-cinematic-actor-stage\) \{([\s\S]*?)\n\}/,
-      /:global\(\.kt-home-experience \[data-actor-slot\]\) \{([\s\S]*?)\n\}/,
-      /:global\(\.kt-home-experience \.kt-actor-state-layer\) \{([\s\S]*?)\n\}/,
-    ];
-    staticActorRules.forEach((rule) => expect(styles.match(rule)?.[1]).not.toContain("visibility: hidden"));
-  });
-
-  it("uses visible containers and opacity-only Hero frame blending", () => {
-    expect(director).toContain("const applyHero = (progress: number, covered: boolean)");
-    expect(director).toContain("activeHeroStates");
-    expect(director).toContain('visibility: "visible"');
-    expect(director).toContain("blendToState");
-    expect(director).toContain("closestReadyHeroSequenceState");
+  it("does not expose catalog product links unless storefront exposure is enabled", () => {
+    const presentation: HomepageStorefrontPresentation = { categories: [], stores: [], products: [{ id: 'published', productReference: 'reference', productSlug: 'real-product', title: 'Published item', image: '/media/public/home/kt-home-01-world-market.webp', imageAlt: 'Published product', priceAmount: '100.00', currency: 'ZAR', priceFrom: false, variantCount: 1, storeCount: 1, href: '/shop/products/real-product' }] };
+    const hidden = renderToStaticMarkup(createElement(PublicHomeExperience, { storefrontPresentation: presentation, isStorefrontExposed: false }));
+    const exposed = renderToStaticMarkup(createElement(PublicHomeExperience, { storefrontPresentation: presentation, isStorefrontExposed: true }));
+    expect(hidden).not.toContain('href="/shop/products/real-product"');
+    expect(exposed).toContain('href="/shop/products/real-product"');
   });
 });

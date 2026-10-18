@@ -53,7 +53,7 @@ export default async function ParcelTrackingLookupPage({
   return <section className={styles.utility} aria-labelledby="track-parcel-title">
     <div className={styles.inner}>
     <header className={styles.head}>
-      <h1 id="track-parcel-title" className={styles.title}>Every move.<strong>Accounted for.</strong></h1>
+      <h1 id="track-parcel-title" className={styles.title}>Track your delivery.</h1>
       <p className={styles.description}>
         Enter the tracking reference from your booking. Delivery details, permitted location data and proof of delivery remain protected in the account that placed the order.
       </p>
