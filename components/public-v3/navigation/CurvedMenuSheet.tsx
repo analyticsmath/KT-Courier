@@ -76,7 +76,7 @@ export function CurvedMenuSheet({
   return (
     <div
       id="public-navigation-dialog"
-      className={`fixed inset-0 z-50 pointer-events-none transition-opacity duration-300 ${
+      className={`fixed inset-0 z-[120] pointer-events-none transition-opacity duration-300 ${
         isOpen ? "opacity-100" : "opacity-0"
       }`}
       aria-hidden={!isOpen}

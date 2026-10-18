@@ -9,6 +9,7 @@ import type { HydratedPublicCart, HydratedCartStoreGroup, HydratedCartLine } fro
 import { marketplaceStoreHref } from "@/lib/public-marketplace/routes";
 import { marketplaceProductHref } from "@/lib/public-marketplace/routes";
 import styles from "./commerce.module.css";
+import tx from "./transaction-design.module.css";
 
 function formatMoney(amount: string | number) {
   const num = typeof amount === "number" ? amount : Number(amount);
@@ -244,7 +245,7 @@ export function CartExperience() {
 
   if (loading) {
     return (
-      <div aria-busy="true" className={`${styles.commerceInner} ${styles.cartPage}`}>
+      <div aria-busy="true" className={`${styles.commerceInner} ${styles.cartPage} ${tx.cartPage}`}>
         <div className={styles.commercePageIntro}><div className={styles.cartSkeletonHeading} /><p>Loading your shopping bag…</p></div>
         <div className={styles.cartSkeletonLine} />
         <div className={styles.cartSkeletonLine} />
@@ -268,10 +269,10 @@ export function CartExperience() {
   }
 
   return (
-    <div className={`${styles.commerceInner} ${styles.cartPage}`}>
-      <header className={styles.cartPageHeader}>
-        <h1 className={styles.commerceTitle}>Shopping bag</h1>
-        <span style={{ fontSize: "1rem", color: "var(--kt-public-text-muted)" }}>
+    <div className={`${styles.commerceInner} ${styles.cartPage} ${tx.cartPage}`}>
+      <header className={`${styles.cartPageHeader} ${tx.cartTop}`}>
+        <h1 className={`${styles.commerceTitle} ${tx.cartTitle}`}>Shopping bag</h1>
+        <span className={tx.cartCount}>
           {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"} across {cart.storeGroups.length} {cart.storeGroups.length === 1 ? "store" : "stores"}
         </span>
       </header>
@@ -295,15 +296,15 @@ export function CartExperience() {
 
       <div className={styles.cartLayout}>
         {/* Multi-Vendor Store Groups */}
-        <div className={styles.cartStoreGroups}>
+        <div className={`${styles.cartStoreGroups} ${tx.cartLines}`}>
           {cart.storeGroups.map((group: HydratedCartStoreGroup) => (
             <section
               key={group.storeId}
               aria-label={`Items from ${group.storeName}`}
-              className={styles.cartStoreGroup}
+              className={`${styles.cartStoreGroup} ${tx.cartStore}`}
             >
               {/* Store Header */}
-              <div className={styles.cartStoreHeader}>
+              <div className={`${styles.cartStoreHeader} ${tx.cartStoreHeader}`}>
                 <div>
                   <Link
                     href={marketplaceStoreHref(group.storeSlug) ?? "/shop"}
@@ -345,12 +346,12 @@ export function CartExperience() {
                         initial={{ opacity: 0, height: 0 }}
                         key={line.reference}
                         layout
-                        className={styles.cartLine}
+                        className={`${styles.cartLine} ${tx.cartLine}`}
                         transition={{ duration: 0.22, ease: "easeOut" }}
                       >
-                        {line.primaryMediaReference ? <span className={styles.cartLineMedia}><Image alt={line.primaryMediaAlt || line.title} fill sizes="(max-width: 767px) 96px, 128px" src={`/api/catalog/media/${line.primaryMediaReference}`} style={{ objectFit: "cover" }} /></span> : <span aria-hidden="true" className={styles.cartLineMedia} />}
-                        <div className={styles.cartLineInfo}>
-                          {line.productSlug && marketplaceProductHref(line.productSlug, line.productReference) ? <Link className={styles.cartProductTitle} href={marketplaceProductHref(line.productSlug, line.productReference)!}>{line.title}</Link> : <strong className={styles.cartProductTitle}>{line.title}</strong>}
+                        {line.primaryMediaReference ? <span className={`${styles.cartLineMedia} ${tx.cartLineMedia}`}><Image alt={line.primaryMediaAlt || line.title} fill sizes="(max-width: 767px) 96px, 128px" src={`/api/catalog/media/${line.primaryMediaReference}`} style={{ objectFit: "cover" }} /></span> : <span aria-hidden="true" className={`${styles.cartLineMedia} ${tx.cartLineMedia}`} />}
+                        <div className={`${styles.cartLineInfo} ${tx.cartLineInfo}`}>
+                          {line.productSlug && marketplaceProductHref(line.productSlug, line.productReference) ? <Link className={`${styles.cartProductTitle} ${tx.cartLineTitle}`} href={marketplaceProductHref(line.productSlug, line.productReference)!}>{line.title}</Link> : <strong className={`${styles.cartProductTitle} ${tx.cartLineTitle}`}>{line.title}</strong>}
                           {line.variantTitle && (
                             <div style={{ fontSize: "0.875rem", color: "var(--kt-public-text-muted)", marginTop: 2 }}>
                               Variant: {line.variantTitle}
@@ -427,9 +428,9 @@ export function CartExperience() {
         </div>
 
         {/* Authoritative Order Summary Panel */}
-        <aside aria-label="Cart summary" className={styles.cartSummary}>
-          <h2 style={{ fontSize: "1.3rem", fontWeight: 560, marginTop: 0, marginBottom: "1.2rem" }}>
-            Order Summary
+        <aside aria-label="Cart summary" className={`${styles.cartSummary} ${tx.cartSummary}`}>
+          <h2>
+            Order summary
           </h2>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: "0.95rem" }}>
@@ -477,28 +478,17 @@ export function CartExperience() {
           </p>
 
           <button
-            className={`${styles.productActionButton} ${styles.productActionButtonPrimary} ${styles.cartSummaryPrimary}`}
+            className={`${styles.productActionButton} ${styles.productActionButtonPrimary} ${styles.cartSummaryPrimary} ${tx.cartSummaryPrimary}`}
             type="button"
             onClick={handleProceedToCheckout}
             disabled={checkingOut}
-            style={{
-              marginTop: "1.5rem",
-              width: "100%",
-              padding: "14px 20px",
-              backgroundColor: "var(--kt-public-surface-inverse)",
-              color: "var(--kt-public-text-inverse)",
-              border: "none",
-              borderRadius: 4,
-              fontSize: "1rem",
-              fontWeight: 600,
-              cursor: checkingOut ? "not-allowed" : "pointer",
-            }}
           >
             {checkingOut ? "Preparing Checkout..." : "Proceed to Checkout \u2192"}
           </button>
 
           <div style={{ textAlign: "center", marginTop: "1rem" }}>
             <button
+              className={tx.cartSecondaryAction}
               type="button"
               onClick={handleClearCart}
               disabled={clearingCart}
@@ -518,9 +508,9 @@ export function CartExperience() {
           </div>
         </aside>
       </div>
-      <div className={styles.cartMobileCheckout}>
+      <div className={`${styles.cartMobileCheckout} ${tx.cartMobileCheckout}`}>
         <span><small>Order total</small><strong>{formatMoney(cart.totals.grandTotal)}</strong></span>
-        <button className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} disabled={checkingOut} onClick={handleProceedToCheckout} type="button">{checkingOut ? "Preparing…" : "Checkout"}</button>
+        <button className={`${styles.productActionButton} ${styles.productActionButtonPrimary} ${tx.cartMobileButton}`} disabled={checkingOut} onClick={handleProceedToCheckout} type="button">{checkingOut ? "Preparing…" : "Checkout"}</button>
       </div>
     </div>
   );

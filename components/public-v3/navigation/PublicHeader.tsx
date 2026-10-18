@@ -49,7 +49,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
         {/* Center: Primary Actions */}
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-8 font-medium text-sm tracking-wide"
+          className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 whitespace-nowrap text-sm font-medium tracking-wide xl:flex 2xl:gap-9"
         >
           <Link
             href="/shop"
@@ -78,7 +78,7 @@ export function PublicHeader({ className = "" }: PublicHeaderProps) {
         </nav>
 
         {/* Right: Search, Cart, Account, Menu trigger */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
           <Link
             href="/shop/search"
             aria-label="Search marketplace"

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { useSearchParams } from "next/navigation";
 import styles from "./commerce.module.css";
+import tx from "./transaction-design.module.css";
 import { storeDeliveryQuotePreviews, storeDeliveryQuotePreviewTotals, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
 import { CheckoutPaymentSummary } from "./CheckoutPaymentSummary";
 import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
@@ -543,7 +544,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
   if (!checkoutRef) {
     return (
-      <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center", maxWidth: 600, margin: "0 auto" }}>
+      <div className={`${styles.commerceInner} ${tx.statePage}`} style={{ textAlign: "center", maxWidth: 720, margin: "0 auto" }}>
         <h1 style={{ fontSize: "2rem", fontWeight: 560, marginBottom: "1rem" }}>Your checkout is not available</h1>
         <p style={{ color: "var(--kt-public-text-muted)", marginBottom: "2rem" }}>
           Please add items to your shopping cart and click &quot;Proceed to Checkout&quot;.
@@ -568,14 +569,14 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
   if (loading) {
     return (
-      <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
+      <div className={`${styles.commerceInner} ${tx.statePage}`} style={{ textAlign: "center" }}>
         <p style={{ fontSize: "1.1rem", color: "var(--kt-public-text-muted)" }}>Preparing your checkout…</p>
       </div>
     );
   }
 
   if (!checkout) {
-    return <div className={styles.commerceInner} style={{ padding: "4rem 0", textAlign: "center" }}>
+    return <div className={`${styles.commerceInner} ${tx.statePage}`} style={{ textAlign: "center" }}>
       <h1>Your checkout is not available</h1>
       <p role="alert">{errorMessage ?? "The checkout could not be loaded. Please try again."}</p>
       <Link href="/cart">Return to cart</Link>
@@ -584,7 +585,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
   if (orderComplete) {
     return (
-      <div className={styles.commerceInner} style={{ padding: "4rem 0", maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
+      <div className={`${styles.commerceInner} ${tx.statePage}`} style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
         <div style={{ width: 64, height: 64, borderRadius: "50%", backgroundColor: "var(--kt-public-surface-secondary)", color: "var(--kt-state-success)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem", margin: "0 auto 1.5rem" }}>
           ✓
         </div>
@@ -618,12 +619,12 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
     ? storeDeliveryQuotePreviewTotals(checkout.totals, deliveryQuotePreviews) : null;
 
   return (
-    <div className={styles.commerceInner} style={{ padding: "2.5rem 0 5rem" }}>
-      <div style={{ marginBottom: "2rem" }}>
-        <h1 style={{ fontSize: "2.2rem", fontWeight: 560, margin: "0 0 0.5rem" }}>
+    <div className={`${styles.commerceInner} ${tx.checkoutPage}`}>
+      <div className={tx.checkoutIntro}>
+        <h1>
           Secure checkout
         </h1>
-        <p style={{ color: "var(--kt-public-text-muted)", margin: 0, fontSize: "0.95rem" }}>
+        <p className={tx.checkoutReference}>
           Order reference: <span style={{ fontFamily: "var(--kt-font-mono, monospace)" }}>{checkout?.reference}</span>
         </p>
       </div>
@@ -650,24 +651,28 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         </div>
       )}
 
-      <p role="status" aria-live="polite" aria-atomic="true">
+      <ol className={tx.progressList} aria-label="Checkout progress">
+        {(["Contact", "Address", "Delivery", "Review", "Payment"] as const).map((label, index) => {
+          const step = index + 1;
+          const state = step < currentStep ? tx.progressCompleted : step === currentStep ? tx.progressCurrent : "";
+          return <li key={label} className={`${tx.progressItem} ${state}`} aria-current={step === currentStep ? "step" : undefined}>
+            <span className={tx.progressIndex} aria-hidden="true">{String(step).padStart(2, "0")}</span>
+            <span>{label}</span>
+          </li>;
+        })}
+      </ol>
+
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         Step {Math.min(currentStep, 5)} of 5: {["Contact", "Delivery address", "Delivery options", "Review your order", "Payment"][Math.min(currentStep, 5) - 1]}
       </p>
 
-      <div className={styles.checkoutMainLayout}>
+      <div className={`${styles.checkoutMainLayout} ${tx.checkoutGrid}`}>
         {/* Left Column: Multi-Step Flow */}
-        <div className={styles.checkoutMainColumn}>
+        <div className={`${styles.checkoutMainColumn} ${tx.checkoutColumn}`}>
           {/* Step 1: Contact Details */}
-          <div
-            style={{
-              border: "1px solid var(--kt-public-border-control)",
-              borderRadius: 6,
-              padding: "24px",
-              backgroundColor: "var(--kt-public-surface-primary)",
-            }}
-          >
+          <div className={tx.checkoutPanel} data-checkout-state={currentStep === 1 ? "active" : currentStep > 1 ? "completed" : "upcoming"}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 id="checkout-contact-heading" ref={currentStep === 1 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-contact-heading" ref={currentStep === 1 ? stepHeadingRef : undefined} tabIndex={-1} >
                 1. Contact
               </h2>
               {currentStep > 1 && (
@@ -694,7 +699,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                     value={contactName}
                     onChange={(e) => setContactName(e.target.value)}
                     placeholder="e.g. Sipho Dlamini"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                   />
                 </div>
 
@@ -710,7 +715,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="sipho@example.co.za"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                   <div>
@@ -724,7 +729,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="082 123 4567"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                 </div>
@@ -770,16 +775,9 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           </div>
 
           {/* Step 2: Delivery Address */}
-          <div
-            style={{
-              border: "1px solid var(--kt-public-border-control)",
-              borderRadius: 6,
-              padding: "24px",
-              backgroundColor: "var(--kt-public-surface-primary)",
-            }}
-          >
+          <div className={tx.checkoutPanel} data-checkout-state={currentStep === 2 ? "active" : currentStep > 2 ? "completed" : "upcoming"}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h2 id="checkout-address-heading" ref={currentStep === 2 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: 0 }}>
+              <h2 id="checkout-address-heading" ref={currentStep === 2 ? stepHeadingRef : undefined} tabIndex={-1} >
                 2. Delivery address
               </h2>
               {currentStep > 2 && (
@@ -821,7 +819,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                     value={addrLine1}
                     onChange={(e) => { setAddrLine1(e.target.value); setMappedAddress(null); }}
                     placeholder="124 Main Road"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                   />
                 </div>
 
@@ -836,7 +834,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       value={addrLine2}
                       onChange={(e) => setAddrLine2(e.target.value)}
                       placeholder="Unit 4B"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                   <div>
@@ -849,7 +847,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       value={addrSuburb}
                       onChange={(e) => { setAddrSuburb(e.target.value); setMappedAddress(null); }}
                       placeholder="Rosebank"
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                 </div>
@@ -865,7 +863,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       required
                       value={addrCity}
                       onChange={(e) => { setAddrCity(e.target.value); setMappedAddress(null); }}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                   <div>
@@ -876,7 +874,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       id="addrProvince"
                       value={addrProvince}
                       onChange={(e) => { setAddrProvince(e.target.value); setMappedAddress(null); }}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     >
                       <option value="">Select province</option>
                       <option value="Gauteng">Gauteng</option>
@@ -899,14 +897,14 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       type="text"
                       value={addrPostalCode}
                       onChange={(e) => { setAddrPostalCode(e.target.value); setMappedAddress(null); }}
-                      style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                     />
                   </div>
                 </div>
 
                 {courierServices.length > 0 ? <div>
                   <label htmlFor="checkout-courier-service" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>Delivery service</label>
-                  <select id="checkout-courier-service" value={courierServiceKey ?? ""} onChange={event => { setCourierServiceKey(event.target.value); setDeliveryQuotePreviews([]); invalidateReview(); }} style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}>
+                  <select id="checkout-courier-service" value={courierServiceKey ?? ""} onChange={event => { setCourierServiceKey(event.target.value); setDeliveryQuotePreviews([]); invalidateReview(); }} >
                     {courierServices.map(service => <option key={service.key} value={service.key}>{service.name} · {service.turnaround}</option>)}
                   </select>
                 </div> : null}
@@ -921,7 +919,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                     value={addrInstructions}
                     onChange={(e) => setAddrInstructions(e.target.value)}
                     placeholder="Gate code #1234, please phone upon arrival"
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--kt-public-border-control)", borderRadius: 4 }}
+
                   />
                 </div>
 
@@ -952,15 +950,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
           {/* Step 3: Delivery Quotes & Store Fulfilment */}
           {currentStep >= 3 && (
-            <div
-              style={{
-                border: "1px solid var(--kt-public-border-control)",
-                borderRadius: 6,
-                padding: "24px",
-                backgroundColor: "var(--kt-public-surface-primary)",
-              }}
-            >
-              <h2 ref={currentStep === 3 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+            <div className={tx.checkoutPanel} data-checkout-state={currentStep === 3 ? "active" : currentStep > 3 ? "completed" : "upcoming"}>
+              <h2 ref={currentStep === 3 ? stepHeadingRef : undefined} tabIndex={-1} >
                 3. Delivery options
               </h2>
 
@@ -1018,15 +1009,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
           {/* Step 4: Review & Terms Acknowledgement */}
           {currentStep >= 4 && (
-            <div
-              style={{
-                border: "1px solid var(--kt-public-border-control)",
-                borderRadius: 6,
-                padding: "24px",
-                backgroundColor: "var(--kt-public-surface-primary)",
-              }}
-            >
-              <h2 ref={currentStep === 4 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+            <div className={tx.checkoutPanel} data-checkout-state={currentStep === 4 ? "active" : currentStep > 4 ? "completed" : "upcoming"}>
+              <h2 ref={currentStep === 4 ? stepHeadingRef : undefined} tabIndex={-1} >
                 4. Review your order
               </h2>
 
@@ -1053,6 +1037,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                   <button
                     type="button"
                     onClick={handleAcknowledgeAndReserve}
+                    className={tx.checkoutPrimary}
                     disabled={!termsAgreed || submitting}
                     style={{
                       alignSelf: "flex-start",
@@ -1074,15 +1059,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
           {/* Step 5: Payment */}
           {currentStep >= 5 && (
-            <div
-              style={{
-                border: "1px solid var(--kt-public-border-control)",
-                borderRadius: 6,
-                padding: "24px",
-                backgroundColor: "var(--kt-public-surface-primary)",
-              }}
-            >
-              <h2 ref={currentStep === 5 ? stepHeadingRef : undefined} tabIndex={-1} style={{ fontSize: "1.25rem", fontWeight: 600, margin: "0 0 1rem" }}>
+            <div className={tx.checkoutPanel} data-checkout-state={currentStep === 5 ? "active" : currentStep > 5 ? "completed" : "upcoming"}>
+              <h2 ref={currentStep === 5 ? stepHeadingRef : undefined} tabIndex={-1} >
                 5. Payment
               </h2>
 
@@ -1113,6 +1091,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                 <button
                   type="button"
                   onClick={handlePreparePayment}
+                  className={tx.checkoutPrimary}
                   disabled={submitting}
                   style={{
                     marginTop: 8,
@@ -1134,7 +1113,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         </div>
 
         {/* Order summary */}
-        <aside aria-label="Order summary" className={styles.checkoutSummary}>
+        <aside aria-label="Order summary" className={`${styles.checkoutSummary} ${tx.checkoutSummary}`}>
           <h2 style={{ fontSize: "1.3rem", fontWeight: 560, marginTop: 0, marginBottom: "1.2rem" }}>
             Order summary
           </h2>

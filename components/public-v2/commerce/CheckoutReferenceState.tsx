@@ -1,5 +1,6 @@
 import Link from "next/link";
 import styles from "./commerce.module.css";
+import tx from "./transaction-design.module.css";
 
 export function CheckoutReferenceState({
   title,
@@ -11,7 +12,7 @@ export function CheckoutReferenceState({
   reference: string;
 }) {
   return (
-    <main className={styles.commerceRoot}>
+    <div className={`${styles.commerceRoot} ${tx.statePage}`}>
       <section aria-live="polite" className={`${styles.commerceInner} ${styles.checkoutStateWrap}`}>
         <p className={styles.productTileBrand}>Checkout</p>
         <h1 className={styles.commerceTitle}>{title}</h1>
@@ -22,6 +23,6 @@ export function CheckoutReferenceState({
           <Link className={styles.productActionButton} href="/shop">Continue shopping</Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

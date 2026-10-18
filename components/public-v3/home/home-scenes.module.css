@@ -85,11 +85,11 @@
     gap: clamp(0.05rem, 0.7svh, 0.35rem);
   }
   .heroWordKt {
-    font-size: clamp(7.2rem, 38vw, 10rem);
+    font-size: clamp(6.1rem, 31vw, 9rem);
     line-height: 0.75;
   }
   .heroWordCourier {
-    font-size: clamp(4rem, 20.5vw, 5.75rem);
+    font-size: clamp(3rem, 17.5vw, 5.2rem);
     line-height: 0.77;
     letter-spacing: -0.052em;
   }
