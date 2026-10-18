@@ -150,7 +150,7 @@
 .aperture {
   position: relative;
   height: calc(100svh - 80px);
-  min-height: 520px;
+  min-height: 460px;
   background: #f2f2f2;
   overflow: hidden;
 }
