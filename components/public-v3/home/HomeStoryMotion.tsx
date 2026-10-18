@@ -80,9 +80,9 @@ export function HomeStoryMotion() {
                 scene.querySelector("[data-orbit-photo] img"),
                 { scale: 1.14 },
                 {
-                  scale: 1,
+                  scale: 1.08,
                   xPercent: 23,
-                  yPercent: 12,
+                  yPercent: 4,
                   duration: 1.3,
                   ease: "none",
                 },
