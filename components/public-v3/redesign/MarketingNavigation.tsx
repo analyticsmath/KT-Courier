@@ -45,16 +45,15 @@ export function MarketingNavigation() {
       <header className="kt-new-header">
         <Link className="kt-new-brand" href="/" aria-label="KT Couriers home">
           <CanonicalKtLogo size={45} priority />
-          <span>KT Couriers</span>
         </Link>
         <nav className="kt-new-header-links" aria-label="Primary navigation">
+          <Link href="/shop">Shop</Link>
           <Link
             href="/services/parcel"
             aria-current={pathname === "/services/parcel" ? "page" : undefined}
           >
             Send a parcel
           </Link>
-          <Link href="/shop">Shop</Link>
           <Link href="/track">Track</Link>
         </nav>
         <div className="kt-new-header-tools">
@@ -62,8 +61,21 @@ export function MarketingNavigation() {
             className="kt-new-cart"
             href="/cart"
             aria-label={`Shopping bag, ${cartCount} items`}
+            data-kt-cart-target="header"
           >
-            Bag <span>{cartCount}</span>
+            <svg
+              width="23"
+              height="25"
+              viewBox="0 0 24 26"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <path d="M4 8h16l1 16H3L4 8Z" />
+              <path d="M8 10V6a4 4 0 0 1 8 0v4" />
+            </svg>
+            <span>{cartCount}</span>
           </Link>
           <button
             ref={trigger}
@@ -92,7 +104,6 @@ export function MarketingNavigation() {
         <div className="kt-menu-top">
           <Link href="/" onClick={close} className="kt-new-brand">
             <CanonicalKtLogo size={45} />
-            <span>KT Couriers</span>
           </Link>
           <button type="button" onClick={close} aria-label="Close navigation">
             Close <span aria-hidden="true">×</span>

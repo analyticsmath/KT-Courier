@@ -23,3 +23,14 @@ Independent source review rechecked all corrections and the new route shutter; n
 Final checks: clean production build passed. 583 payment/checkout tests plus 32 public architecture/initial-content/route-boundary tests passed. Retired budget/accordion-only assertions were replaced with the new initial-content and service-answer contracts.
 
 Live review corrections: use the existing right-facing freight profile with its true 1672×941 dimensions; fade the van only at entry, add a reading hold; loosen display tracking for word separation. Targeted lint, homepage typecheck and affected initial-content/boundary tests pass.
+
+
+## Frontend correction pass — 18 October 2026
+
+Latest client instructions supersede the earlier protected header/footer scope. Catalog body styling remains isolated, but the public header and footer are now shared. The header uses only the supplied logo, centered Shop / Send a parcel / Track links and a shopping-bag SVG. The catalog retains its 66px header clearance. The footer has a large single-line KT COURIERS wordmark, logo and grouped navigation on every public route.
+
+The homepage no longer renders or fetches products. A three-image documentary opening leads to a contained van stage, four-frame local-life reel (pinned scroll travel on desktop; native horizontal scroll on mobile/reduced motion), contained freight scene and three service panels. Motion includes title entrance, image parallax, montage offsets, service-card reveals and wordmark reveal, with GSAP context cleanup. The vehicle image boxes are bounded by the stage height. Assets were visually inspected; filenames in the repository are not always faithful to their content.
+
+Cart populated/loading roots and the primary checkout button no longer combine conflicting legacy padding/background classes. This fixes the source of header collision and white-on-white checkout text without modifying cart operations.
+
+Validation: full TypeScript check, homepage TypeScript check, targeted ESLint, 20 relevant frontend assertions and clean production build (532 routes) passed. Source review identified and resolved the oversized van image risk. Deployed visual verification is recorded after publication.

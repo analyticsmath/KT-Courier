@@ -1,82 +1,75 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { EditorialMotion } from "../redesign/EditorialMotion";
-import type { HomepageStorefrontPresentation } from "./data/home-storefront-presentation";
+const localScenes = [
+  {
+    src: "/media/public/home/kt-home-01-world-market.webp",
+    alt: "Independent stalls and shoppers at a local market",
+    title: "Around the corner.",
+  },
+  {
+    src: "/media/public/derived/photo-route-gauteng-transit-corridor-960w.webp",
+    alt: "Colourful handmade bags at an independent market stall",
+    title: "Out of the ordinary.",
+  },
+  {
+    src: "/media/public/derived/photo-courier-south-african-driver-route-1440w.webp",
+    alt: "Locally made preserves on a market table",
+    title: "Made with care.",
+  },
+  {
+    src: "/media/public/home/kt-home-08-merchant-prepare.webp",
+    alt: "An independent merchant carefully packing a customer order",
+    title: "Ready for you.",
+  },
+];
+const services = [
+  {
+    href: "/services/parcel",
+    title: "Send something.",
+    copy: "Parcels, documents and the details that matter.",
+    src: "/media/public/home/kt-home-09-package-detail.webp",
+    alt: "A carefully wrapped parcel with a thank-you note",
+  },
+  {
+    href: "/services/business",
+    title: "Build something.",
+    copy: "Delivery support for the work you put into your business.",
+    src: "/media/public/derived/photo-food-restaurant-dispatch-counter-1440w.webp",
+    alt: "A warehouse worker checking stock before dispatch",
+  },
+  {
+    href: "/services/moving",
+    title: "Move something.",
+    copy: "A little more planning for the larger things in life.",
+    src: "/media/public/derived/photo-prep-artisan-box-assembly-960w.webp",
+    alt: "Preparing boxes and checking the details of a move",
+  },
+];
 
-interface PublicHomeExperienceProps {
-  isStorefrontExposed?: boolean;
-  storefrontPresentation?: HomepageStorefrontPresentation | null;
-}
-
-export function PublicHomeExperience({
-  isStorefrontExposed = false,
-  storefrontPresentation,
-}: PublicHomeExperienceProps) {
-  const opening = useRef<HTMLElement>(null);
-  const van = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!opening.current || !van.current) return;
-    gsap.registerPlugin(ScrollTrigger);
-    const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      const ctx = gsap.context(() => {
-        const holdPosition = () => (window.innerWidth <= 760 ? 0 : 20);
-        gsap
-          .timeline({
-            scrollTrigger: {
-              trigger: opening.current,
-              start: "top 78%",
-              end: "bottom 10%",
-              scrub: 0.3,
-              invalidateOnRefresh: true,
-            },
-          })
-          .fromTo(
-            van.current,
-            { xPercent: -130 },
-            { xPercent: holdPosition, duration: 0.45, ease: "none" },
-            0,
-          )
-          .fromTo(
-            van.current,
-            { autoAlpha: 0 },
-            { autoAlpha: 1, duration: 0.08, ease: "none" },
-            0,
-          )
-          .to(van.current, {
-            xPercent: holdPosition,
-            duration: 0.2,
-            ease: "none",
-          })
-          .to(van.current, { xPercent: 75, duration: 0.35, ease: "none" });
-      }, opening);
-      return () => ctx.revert();
-    });
-    return () => mm.revert();
-  }, []);
-  const products = isStorefrontExposed
-    ? (storefrontPresentation?.products.slice(0, 4) ?? [])
-    : [];
+/** Delivery and local life, without a product feed. */
+export function PublicHomeExperience() {
   return (
-    <EditorialMotion className="kt-home-new">
-      <section className="kt-opening" aria-labelledby="kt-opening-title">
-        <h1 id="kt-opening-title">
-          From your hands.
-          <br />
-          To their door.
+    <EditorialMotion className="kt-home-new kt-home-directed">
+      <section
+        className="kt-opening kt-directed-opening"
+        aria-labelledby="kt-opening-title"
+      >
+        <h1 id="kt-opening-title" data-title-reveal>
+          <span>From your hands.</span>
+          <span>To their door.</span>
         </h1>
-        <div className="kt-opening-bottom">
-          <div className="kt-opening-copy">
-            <p>
-              Local shopping. Thoughtful delivery.
-              <br />
-              The people and places in between.
-            </p>
+        <div className="kt-opening-intro">
+          <p>
+            For the things you make.
+            <br />
+            The people you care about.
+            <br />
+            And everything in between.
+          </p>
+          <div>
             <Link href="/services/parcel" className="kt-pill">
               Send a parcel <span aria-hidden="true">↗</span>
             </Link>
@@ -84,170 +77,170 @@ export function PublicHomeExperience({
               Shop local <span aria-hidden="true">↗</span>
             </Link>
           </div>
-          <div className="kt-opening-photo">
+          <span className="kt-scroll-hint" aria-hidden="true">
+            Scroll to move <span>↓</span>
+          </span>
+        </div>
+        <div className="kt-opening-montage" data-montage>
+          <figure className="kt-montage-main">
+            <Image
+              data-parallax
+              src="/media/public/home/kt-home-10-handoff.webp"
+              alt="A carefully packed parcel being handed to its recipient"
+              fill
+              priority
+              sizes="(max-width:760px) 100vw, 80vw"
+            />
+          </figure>
+          <figure className="kt-montage-detail">
             <Image
               src="/media/public/derived/photo-prep-workshop-dispatch-desk-1440w.webp"
               alt="A small-business owner preparing products for delivery"
               fill
-              sizes="(max-width: 760px) 100vw, 63vw"
               priority
+              sizes="(max-width:760px) 38vw, 25vw"
             />
-            <span className="kt-photo-caption">
-              A little care goes a long way.
-            </span>
-          </div>
+          </figure>
+          <figure className="kt-montage-city">
+            <Image
+              src="/media/public/home/kt-home-11-route-city.webp"
+              alt="The city streets that connect local businesses and their customers"
+              fill
+              sizes="(max-width:760px) 32vw, 22vw"
+            />
+          </figure>
         </div>
       </section>
       <section
-        ref={opening}
-        className="kt-first-move"
+        className="kt-journey-scene"
+        data-vehicle-scene
         aria-labelledby="kt-move-title"
       >
-        <div className="kt-move-copy" data-reveal>
+        <div className="kt-journey-heading" data-reveal>
           <h2 id="kt-move-title">
-            Small parcel.
-            <br />
-            Big part of your day.
+            A little care.
+            <br />A long way.
           </h2>
           <p>
-            A document that needs to get there. An order ready to leave the
-            store. Start with the details. We’ll help you find the next step.
+            An order ready to leave the store. A parcel for someone you love.
+            Start with the details. We’ll help you take the next step.
           </p>
-          <Link href="/quote" className="kt-text-link">
-            Get a delivery quote ↗
-          </Link>
         </div>
-        <div className="kt-van-road" aria-hidden="true">
-          <div ref={van} className="kt-scroll-van">
+        <div className="kt-vehicle-stage">
+          <div className="kt-vehicle-object" data-contained-vehicle>
             <Image
               src="/media/public/protagonists/protagonist-van-side-right.webp"
               width={1448}
               height={1086}
-              alt=""
-              sizes="(max-width: 760px) 95vw, 65vw"
+              alt="A complete side view of a KT delivery van"
+              sizes="(max-width:760px) 90vw, 76vw"
             />
           </div>
         </div>
-      </section>
-      <section className="kt-local-world" aria-labelledby="kt-local-heading">
-        <div className="kt-local-heading" data-reveal>
-          <h2 id="kt-local-heading">
-            Made here.
-            <br />
-            Found here.
-          </h2>
-          <p>
-            Discover the stores, everyday essentials and independent finds in
-            the KT marketplace.
-            <Link href="/shop" className="kt-text-link">
-              Explore local shopping ↗
-            </Link>
-          </p>
-        </div>
-        <div className="kt-photo-field" data-photo-takeover>
-          <div className="kt-photo-tall">
-            <Image
-              data-parallax
-              src="/media/public/home/kt-home-01-world-market.webp"
-              alt="Independent stalls at a local market"
-              fill
-              sizes="(max-width:760px) 74vw, 48vw"
-            />
-          </div>
-          <div className="kt-photo-offset">
-            <Image
-              data-parallax
-              src="/media/public/home/kt-home-08-merchant-prepare.webp"
-              alt="A merchant preparing an order"
-              fill
-              sizes="(max-width:760px) 58vw, 35vw"
-            />
-          </div>
-        </div>
-        {products.length > 0 && (
-          <div
-            className="kt-real-products"
-            aria-label="Published marketplace products"
-          >
-            {products.map((product) => (
-              <Link key={product.id} href={product.href}>
-                <div>
-                  <Image
-                    src={product.image}
-                    alt={product.imageAlt}
-                    fill
-                    sizes="(max-width:760px) 66vw, 24vw"
-                  />
-                </div>
-                <h3>{product.title}</h3>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
-      <section className="kt-scale-world" aria-labelledby="kt-scale-heading">
-        <div data-reveal className="kt-scale-copy">
-          <h2 id="kt-scale-heading">
-            A different
-            <br />
-            kind of scale.
-          </h2>
-          <div>
-            <p>
-              Some moves need more room. Tell us about the load, the locations
-              and the practical details. Our team will review the requirements
-              with you.
-            </p>
-            <Link href="/services/freight" className="kt-text-link">
-              Explore freight ↗
-            </Link>
-          </div>
-        </div>
-        <div className="kt-freight-plane" aria-hidden="true">
-          <Image
-            data-lateral
-            src="/media/public/protagonists/protagonist-truck-red-side-right.webp"
-            alt=""
-            width={1672}
-            height={941}
-            sizes="(max-width:760px) 130vw, 90vw"
-          />
-        </div>
+        <Link href="/quote" className="kt-pill">
+          Get a delivery quote <span aria-hidden="true">↗</span>
+        </Link>
       </section>
       <section
-        className="kt-service-threshold"
-        aria-labelledby="kt-fit-heading"
+        className="kt-local-reel"
+        aria-labelledby="kt-local-heading"
+        data-local-reel
       >
-        <div className="kt-service-photo">
-          <Image
-            data-parallax
-            src="/media/public/home/kt-home-10-handoff.webp"
-            alt="A parcel changing hands at a delivery"
-            fill
-            sizes="(max-width:760px) 100vw, 55vw"
-          />
-        </div>
-        <div data-reveal>
-          <h2 id="kt-fit-heading">
-            Your delivery.
+        <div className="kt-local-reel-heading" data-reveal>
+          <h2 id="kt-local-heading">
+            There’s a whole
             <br />
-            The right way.
+            world of local.
           </h2>
-          <nav aria-label="Explore delivery services">
-            <Link href="/services/parcel">
-              Parcels & documents <span>↗</span>
-            </Link>
-            <Link href="/services/business">
-              For your business <span>↗</span>
-            </Link>
-            <Link href="/services/moving">
-              Larger movements <span>↗</span>
-            </Link>
-          </nav>
-          <Link href="/services" className="kt-text-link">
-            All delivery services ↗
+          <Link href="/shop" className="kt-text-link">
+            Find your next favourite ↗
           </Link>
         </div>
+        <div className="kt-reel-window">
+          <div className="kt-reel-track">
+            {localScenes.map((scene) => (
+              <figure className="kt-reel-frame" key={scene.src}>
+                <div>
+                  <Image
+                    src={scene.src}
+                    alt={scene.alt}
+                    fill
+                    sizes="(max-width:760px) 84vw, 42vw"
+                  />
+                </div>
+                <figcaption>{scene.title}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+        <p className="kt-reel-note">
+          Independent stores. Everyday essentials. Unexpected finds.
+          <br />
+          Discover the people and places behind your next delivery.
+        </p>
+      </section>
+      <section
+        className="kt-freight-directed"
+        data-vehicle-scene
+        aria-labelledby="kt-scale-heading"
+      >
+        <h2 id="kt-scale-heading" data-reveal>
+          Big plans?
+          <br />
+          Room to move.
+        </h2>
+        <div className="kt-vehicle-stage kt-truck-stage">
+          <div className="kt-vehicle-object" data-contained-vehicle>
+            <Image
+              src="/media/public/protagonists/protagonist-truck-red-side-right.webp"
+              width={1672}
+              height={941}
+              alt="The complete truck, from the cab to the back of the trailer"
+              sizes="(max-width:760px) 90vw, 78vw"
+            />
+          </div>
+        </div>
+        <div className="kt-freight-after">
+          <p>
+            Some deliveries need more space.
+            <br />
+            Tell us about the load, the locations and what needs to happen.
+          </p>
+          <Link href="/services/freight" className="kt-pill">
+            Explore freight <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+      </section>
+      <section className="kt-service-cinema" aria-labelledby="kt-fit-heading">
+        <h2 id="kt-fit-heading" data-reveal>
+          Whatever moves you.
+        </h2>
+        <div className="kt-service-panels" data-card-sequence>
+          {services.map((service) => (
+            <Link
+              href={service.href}
+              className="kt-service-panel"
+              key={service.href}
+            >
+              <div className="kt-service-panel-photo">
+                <Image
+                  src={service.src}
+                  alt={service.alt}
+                  fill
+                  sizes="(max-width:760px) 90vw, 30vw"
+                />
+                <span className="kt-panel-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </div>
+              <h3>{service.title}</h3>
+              <p>{service.copy}</p>
+            </Link>
+          ))}
+        </div>
+        <Link href="/services" className="kt-text-link">
+          Explore all delivery services ↗
+        </Link>
       </section>
     </EditorialMotion>
   );

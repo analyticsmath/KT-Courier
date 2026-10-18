@@ -245,7 +245,7 @@ export function CartExperience() {
 
   if (loading) {
     return (
-      <div aria-busy="true" className={`${styles.commerceInner} ${styles.cartPage} ${tx.cartPage}`}>
+      <div aria-busy="true" className={tx.cartPage}>
         <div className={styles.commercePageIntro}><div className={styles.cartSkeletonHeading} /><p>Loading your shopping bag…</p></div>
         <div className={styles.cartSkeletonLine} />
         <div className={styles.cartSkeletonLine} />
@@ -269,9 +269,9 @@ export function CartExperience() {
   }
 
   return (
-    <div className={`${styles.commerceInner} ${styles.cartPage} ${tx.cartPage}`}>
-      <header className={`${styles.cartPageHeader} ${tx.cartTop}`}>
-        <h1 className={`${styles.commerceTitle} ${tx.cartTitle}`}>Shopping bag</h1>
+    <div className={tx.cartPage}>
+      <header className={tx.cartTop}>
+        <h1 className={tx.cartTitle}>Shopping bag</h1>
         <span className={tx.cartCount}>
           {cart.itemCount} {cart.itemCount === 1 ? "item" : "items"} across {cart.storeGroups.length} {cart.storeGroups.length === 1 ? "store" : "stores"}
         </span>
@@ -478,7 +478,7 @@ export function CartExperience() {
           </p>
 
           <button
-            className={`${styles.productActionButton} ${styles.productActionButtonPrimary} ${styles.cartSummaryPrimary} ${tx.cartSummaryPrimary}`}
+            className={tx.cartSummaryPrimary}
             type="button"
             onClick={handleProceedToCheckout}
             disabled={checkingOut}

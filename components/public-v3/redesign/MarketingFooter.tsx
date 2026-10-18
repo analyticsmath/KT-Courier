@@ -1,62 +1,78 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { EditorialMotion } from "./EditorialMotion";
 
+const groups = [
+  {
+    title: "Make a move",
+    links: [
+      ["Send a parcel", "/services/parcel"],
+      ["Get a quote", "/quote"],
+      ["Track a delivery", "/track"],
+      ["Shop local", "/shop"],
+    ],
+  },
+  {
+    title: "Discover KT",
+    links: [
+      ["Our story", "/about"],
+      ["Delivery services", "/services"],
+      ["Where we deliver", "/coverage-areas"],
+      ["Contact us", "/contact"],
+    ],
+  },
+  {
+    title: "Work with us",
+    links: [
+      ["Join the network", "/join"],
+      ["For your business", "/services/business"],
+      ["Careers", "/careers"],
+      ["Your account", "/login"],
+    ],
+  },
+];
 export function MarketingFooter() {
-  const pathname = usePathname();
-  const compact =
-    pathname === "/cart" ||
-    pathname.startsWith("/checkout") ||
-    pathname === "/quote" ||
-    pathname.startsWith("/track");
   return (
-    <footer className={`kt-new-footer ${compact ? "kt-footer-compact" : ""}`}>
-      {!compact && (
-        <EditorialMotion>
-          <div className="kt-footer-arrival">
-            <div className="kt-footer-image">
-              <Image
-                data-parallax
-                src="/media/public/home/kt-home-13-arrival.webp"
-                alt="A recipient receiving a parcel at the door"
-                fill
-                sizes="(max-width:760px) 100vw, 43vw"
-              />
-            </div>
-            <div data-reveal>
-              <h2>
-                Good to
-                <br />
-                get it there.
-              </h2>
-              <Link href="/quote" className="kt-pill">
-                Get a delivery quote <span aria-hidden="true">↗</span>
-              </Link>
-              <Link href="/track" className="kt-text-link">
-                Track a delivery ↗
-              </Link>
-            </div>
-          </div>
-        </EditorialMotion>
-      )}
-      <div className="kt-footer-utility">
-        <Link href="/" className="kt-new-brand" aria-label="KT Couriers home">
-          <CanonicalKtLogo size={48} />
-          <span>KT Couriers</span>
-        </Link>
-        <nav aria-label="Footer navigation">
-          <Link href="/services/parcel">Send a parcel</Link>
-          <Link href="/shop">Shop</Link>
-          <Link href="/services">Services</Link>
-          <Link href="/coverage-areas">Coverage</Link>
-          <Link href="/join">Join KT</Link>
-          <Link href="/careers">Careers</Link>
-          <Link href="/contact">Contact</Link>
-        </nav>
-      </div>
+    <footer className="kt-new-footer">
+      <EditorialMotion>
+        <div className="kt-footer-invitation" data-reveal>
+          <h2>
+            Ready when
+            <br />
+            you are.
+          </h2>
+          <Link
+            href="/quote"
+            className="kt-footer-round-link"
+            aria-label="Get a delivery quote"
+          >
+            <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+        <div className="kt-footer-directory">
+          <Link href="/" className="kt-new-brand" aria-label="KT Couriers home">
+            <CanonicalKtLogo size={76} priority={false} />
+          </Link>
+          {groups.map((group) => (
+            <nav key={group.title} aria-label={group.title}>
+              <h3>{group.title}</h3>
+              {group.links.map(([label, href]) => (
+                <Link key={href} href={href}>
+                  {label}
+                </Link>
+              ))}
+            </nav>
+          ))}
+        </div>
+        <div
+          className="kt-footer-wordmark"
+          data-wordmark
+          aria-label="KT Couriers"
+        >
+          <span aria-hidden="true">KT COURIERS</span>
+        </div>
+      </EditorialMotion>
       <div className="kt-footer-bottom">
         <span>© {new Date().getFullYear()} KT Couriers (Pty) Ltd.</span>
         <nav aria-label="Policies">
