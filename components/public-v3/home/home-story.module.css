@@ -906,3 +906,7 @@
     margin: 20px 0;
   }
 }
+/* The handoff action stays visible whenever keyboard focus reaches it. */
+.orbitCopy:focus-within {
+  opacity: 1 !important;
+}
