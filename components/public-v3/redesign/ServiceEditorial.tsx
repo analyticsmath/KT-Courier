@@ -30,7 +30,6 @@ export function ServiceEditorial({
             ← All delivery services
           </Link>
           <h1 data-split-heading>{title}</h1>
-          <p>{service.summary}</p>
           <div className="kt-detail-actions">
             <Link href={service.primaryAction.href} className="kt-pill">
               {service.primaryAction.label} <span aria-hidden="true">↗</span>
@@ -48,9 +47,11 @@ export function ServiceEditorial({
               </Link>
             ) : null}
           </div>
+          <p>{service.summary}</p>
         </div>
         <div className="kt-detail-hero-image" data-media-aperture>
           <Image
+            data-parallax
             src={
               parcel
                 ? "/media/public/derived/photo-prep-workshop-dispatch-desk-1440w.webp"

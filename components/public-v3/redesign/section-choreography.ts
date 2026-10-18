@@ -51,6 +51,7 @@ export function createSectionChoreography(root: HTMLElement) {
     .forEach((heading) => {
       const split = SplitText.create(heading, {
         type: "lines",
+        linesClass: "kt-motion-line",
         mask: "lines",
         autoSplit: true,
         aria: "auto",

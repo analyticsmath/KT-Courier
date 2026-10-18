@@ -1,5 +1,6 @@
 /* The catalog keeps its existing visual root. Every rule here requires this boundary. */
-.kt-redesign {
+.kt-redesign,
+.public-v3-root.kt-redesign {
   --font-display: var(--kt-redesign-font, "Arial"), sans-serif;
   --font-body: var(--kt-redesign-font, "Arial"), sans-serif;
   --kt-public-canvas: #fff;
@@ -1332,4 +1333,14 @@
   .kt-redesign .kt-detail-preparation[data-section-transition] {
     margin-top: 0;
   }
+}
+
+/* Optical clearance lets tightly led display faces keep their descenders inside line masks. */
+.kt-redesign .kt-motion-line-mask {
+  padding-block: 0.16em;
+  margin-block: -0.16em;
+}
+
+.kt-redesign .kt-detail-actions + p {
+  margin-top: 24px;
 }

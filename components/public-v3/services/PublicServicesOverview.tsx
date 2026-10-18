@@ -61,6 +61,7 @@ export function PublicServicesOverview() {
         </div>
         <div className="kt-services-hero-photo" data-media-aperture>
           <Image
+            data-parallax
             src="/media/public/derived/photo-courier-merchant-pickup-handoff-1440w.webp"
             alt="A courier collecting a parcel from a merchant"
             fill

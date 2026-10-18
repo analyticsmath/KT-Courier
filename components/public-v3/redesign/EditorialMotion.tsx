@@ -22,191 +22,203 @@ export function EditorialMotion({
     if (!root.current) return;
     gsap.registerPlugin(ScrollTrigger, SplitText);
     const mm = gsap.matchMedia();
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      let disposeChoreography: (() => void) | undefined;
-      const ctx = gsap.context(() => {
-        if (root.current)
-          disposeChoreography = createSectionChoreography(root.current);
-        const title = root.current?.querySelector("[data-title-reveal]");
-        if (title)
-          gsap.from(title.children, {
-            yPercent: 28,
-            clipPath: "inset(0 0 100% 0)",
-            opacity: 0,
-            stagger: 0.12,
-            duration: 1.1,
-            ease: "power3.out",
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-contained-vehicle]")
-          .forEach((vehicle) => {
-            gsap.fromTo(
-              vehicle,
-              {
-                xPercent: () => (window.innerWidth <= 760 ? -3 : -7),
-                scale: 0.94,
-              },
-              {
-                xPercent: () => (window.innerWidth <= 760 ? 3 : 7),
-                scale: 1,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: vehicle.closest("[data-vehicle-scene]"),
-                  start: "top 80%",
-                  end: "bottom 20%",
-                  scrub: 0.65,
-                  invalidateOnRefresh: true,
+    mm.add(
+      {
+        motion: "(prefers-reduced-motion: no-preference)",
+        desktop: "(min-width: 761px)",
+      },
+      (media) => {
+        if (!media.conditions?.motion) return;
+        let disposeChoreography: (() => void) | undefined;
+        const ctx = gsap.context(() => {
+          if (root.current)
+            disposeChoreography = createSectionChoreography(root.current);
+          const title = root.current?.querySelector("[data-title-reveal]");
+          if (title)
+            gsap.from(title.children, {
+              yPercent: 28,
+              clipPath: "inset(0 0 100% 0)",
+              opacity: 0,
+              stagger: 0.12,
+              duration: 1.1,
+              ease: "power3.out",
+            });
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-contained-vehicle]")
+            .forEach((vehicle) => {
+              gsap.fromTo(
+                vehicle,
+                {
+                  xPercent: () => (window.innerWidth <= 760 ? -3 : -7),
+                  scale: 0.94,
                 },
-              },
-            );
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-montage]")
-          .forEach((montage) => {
-            gsap.fromTo(
-              montage.querySelector(".kt-montage-detail"),
-              { yPercent: 12, rotate: -4 },
-              {
-                yPercent: -8,
-                rotate: 0,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: montage,
-                  start: "top bottom",
-                  end: "bottom top",
-                  scrub: 0.7,
+                {
+                  xPercent: () => (window.innerWidth <= 760 ? 3 : 7),
+                  scale: 1,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: vehicle.closest("[data-vehicle-scene]"),
+                    start: "top 80%",
+                    end: "bottom 20%",
+                    scrub: 0.65,
+                    invalidateOnRefresh: true,
+                  },
                 },
-              },
-            );
-            gsap.fromTo(
-              montage.querySelector(".kt-montage-city"),
-              { yPercent: -10 },
-              {
-                yPercent: 22,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: montage,
-                  start: "top bottom",
-                  end: "bottom top",
-                  scrub: 0.7,
+              );
+            });
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-montage]")
+            .forEach((montage) => {
+              gsap.fromTo(
+                montage.querySelector(".kt-montage-detail"),
+                { yPercent: 12, rotate: -4 },
+                {
+                  yPercent: -8,
+                  rotate: 0,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: montage,
+                    start: "top bottom",
+                    end: "bottom top",
+                    scrub: 0.7,
+                  },
                 },
-              },
-            );
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-card-sequence]")
-          .forEach((sequence) => {
-            const fan = sequence.classList.contains("kt-service-panels");
-            Array.from(sequence.children).forEach((card, index) => {
-              gsap.from(card, {
-                xPercent: () =>
-                  fan && window.innerWidth > 760 ? (1 - index) * 80 : 0,
-                y: () => (window.innerWidth > 760 ? 100 + index * 35 : 55),
-                scale: () => (window.innerWidth > 760 ? 0.82 : 0.96),
-                rotation: fan && window.innerWidth > 760 ? (index - 1) * 5 : 0,
-                opacity: 0.4,
+              );
+              gsap.fromTo(
+                montage.querySelector(".kt-montage-city"),
+                { yPercent: -10 },
+                {
+                  yPercent: 22,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: montage,
+                    start: "top bottom",
+                    end: "bottom top",
+                    scrub: 0.7,
+                  },
+                },
+              );
+            });
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-card-sequence]")
+            .forEach((sequence) => {
+              const fan = sequence.classList.contains("kt-service-panels");
+              Array.from(sequence.children).forEach((card, index) => {
+                gsap.from(card, {
+                  xPercent: () =>
+                    fan && window.innerWidth > 760 ? (1 - index) * 80 : 0,
+                  y: () => (window.innerWidth > 760 ? 100 + index * 35 : 55),
+                  scale: () => (window.innerWidth > 760 ? 0.82 : 0.96),
+                  rotation:
+                    fan && window.innerWidth > 760 ? (index - 1) * 5 : 0,
+                  opacity: 0.4,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: window.innerWidth > 760 ? sequence : card,
+                    start: "top 94%",
+                    end: "top 22%",
+                    scrub: 0.7,
+                    invalidateOnRefresh: true,
+                  },
+                });
+              });
+            });
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-wordmark] span")
+            .forEach((wordmark) => {
+              gsap.from(wordmark, {
+                yPercent: 70,
+                opacity: 0.2,
                 ease: "none",
                 scrollTrigger: {
-                  trigger: sequence,
-                  start: "top 94%",
-                  end: "top 22%",
-                  scrub: 0.7,
-                  invalidateOnRefresh: true,
+                  trigger: wordmark.parentElement,
+                  start: "top 98%",
+                  end: "top 78%",
+                  scrub: 0.5,
                 },
               });
             });
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-wordmark] span")
-          .forEach((wordmark) => {
-            gsap.from(wordmark, {
-              yPercent: 70,
-              opacity: 0.2,
-              ease: "none",
-              scrollTrigger: {
-                trigger: wordmark.parentElement,
-                start: "top 98%",
-                end: "top 78%",
-                scrub: 0.5,
-              },
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-reveal]")
+            .forEach((element) => {
+              gsap.from(element, {
+                y: 48,
+                opacity: 0,
+                duration: 0.85,
+                ease: "power3.out",
+                scrollTrigger: {
+                  trigger: element,
+                  start: "top 94%",
+                  once: true,
+                },
+              });
             });
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-reveal]")
-          .forEach((element) => {
-            gsap.from(element, {
-              y: 48,
-              opacity: 0,
-              duration: 0.85,
-              ease: "power3.out",
-              scrollTrigger: { trigger: element, start: "top 94%", once: true },
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-parallax]")
+            .forEach((element) => {
+              gsap.fromTo(
+                element,
+                { yPercent: -5, scale: 1.13 },
+                {
+                  yPercent: 5,
+                  scale: 1.13,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: element.parentElement,
+                    start: "top bottom",
+                    end: "bottom top",
+                    scrub: true,
+                  },
+                },
+              );
             });
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-parallax]")
-          .forEach((element) => {
-            gsap.fromTo(
-              element,
-              { yPercent: -5, scale: 1.13 },
-              {
-                yPercent: 5,
-                scale: 1.13,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: element.parentElement,
-                  start: "top bottom",
-                  end: "bottom top",
-                  scrub: true,
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-lateral]")
+            .forEach((element) => {
+              gsap.fromTo(
+                element,
+                { xPercent: -3 },
+                {
+                  xPercent: 0,
+                  ease: "none",
+                  scrollTrigger: {
+                    trigger: element.parentElement,
+                    start: "top 85%",
+                    end: "bottom 15%",
+                    scrub: 0.35,
+                    invalidateOnRefresh: true,
+                  },
                 },
-              },
-            );
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-lateral]")
-          .forEach((element) => {
-            gsap.fromTo(
-              element,
-              { xPercent: -3 },
-              {
-                xPercent: 0,
-                ease: "none",
-                scrollTrigger: {
-                  trigger: element.parentElement,
-                  start: "top 85%",
-                  end: "bottom 15%",
-                  scrub: 0.35,
-                  invalidateOnRefresh: true,
-                },
-              },
-            );
-          });
-        root.current
-          ?.querySelectorAll<HTMLElement>("[data-photo-takeover]")
-          .forEach((field) => {
-            const front = field.querySelector(".kt-photo-tall");
-            const detail = field.querySelector(".kt-photo-offset");
-            gsap
-              .timeline({
-                scrollTrigger: {
-                  trigger: field,
-                  start: "top 80%",
-                  end: "bottom 25%",
-                  scrub: true,
-                },
-              })
-              .to(
-                front,
-                { scale: 1.12, transformOrigin: "left center", ease: "none" },
-                0,
-              )
-              .to(detail, { xPercent: -22, yPercent: -18, ease: "none" }, 0);
-          });
-      }, root);
-      return () => {
-        disposeChoreography?.();
-        ctx.revert();
-      };
-    });
+              );
+            });
+          root.current
+            ?.querySelectorAll<HTMLElement>("[data-photo-takeover]")
+            .forEach((field) => {
+              const front = field.querySelector(".kt-photo-tall");
+              const detail = field.querySelector(".kt-photo-offset");
+              gsap
+                .timeline({
+                  scrollTrigger: {
+                    trigger: field,
+                    start: "top 80%",
+                    end: "bottom 25%",
+                    scrub: true,
+                  },
+                })
+                .to(
+                  front,
+                  { scale: 1.12, transformOrigin: "left center", ease: "none" },
+                  0,
+                )
+                .to(detail, { xPercent: -22, yPercent: -18, ease: "none" }, 0);
+            });
+        }, root);
+        return () => {
+          disposeChoreography?.();
+          ctx.revert();
+        };
+      },
+    );
     mm.add(
       "(min-width: 1000px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",
       () => {
