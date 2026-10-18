@@ -191,7 +191,7 @@ export function EditorialMotion({
       return () => ctx.revert();
     });
     mm.add(
-      "(min-width: 1000px) and (min-height: 650px) and (prefers-reduced-motion: no-preference)",
+      "(min-width: 1000px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",
       () => {
         const ctx = gsap.context(() => {
           root.current
