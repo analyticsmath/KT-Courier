@@ -49,7 +49,7 @@ export function HomeStoryMotion() {
       return () => ctx.revert();
     });
     media.add(
-      "(min-width: 1000px) and (min-height: 650px) and (prefers-reduced-motion: no-preference)",
+      "(min-width: 1000px) and (min-height: 600px) and (prefers-reduced-motion: no-preference)",
       () => {
         const ctx = gsap.context(() => {
           const scene = root.querySelector("[data-orbit-scene]");
@@ -79,7 +79,13 @@ export function HomeStoryMotion() {
               .fromTo(
                 scene.querySelector("[data-orbit-photo] img"),
                 { scale: 1.14 },
-                { scale: 1, duration: 1.3, ease: "none" },
+                {
+                  scale: 1,
+                  xPercent: 23,
+                  yPercent: 12,
+                  duration: 1.3,
+                  ease: "none",
+                },
                 0,
               )
               .fromTo(
