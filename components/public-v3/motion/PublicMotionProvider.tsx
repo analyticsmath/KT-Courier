@@ -86,9 +86,9 @@ export function PublicMotionProvider({ children }: { children: ReactNode }) {
     }
 
     const lenis = new Lenis({
-      lerp: 0.1,
+      lerp: 0.135,
       smoothWheel: true,
-      wheelMultiplier: 1.0,
+      wheelMultiplier: 0.93,
       autoRaf: false,
     });
     lenisRef.current = lenis;

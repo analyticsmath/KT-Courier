@@ -2,8 +2,8 @@ export const HOME_CHAPTERS = ["hero", "commerce", "parcelization", "pickup", "ne
 export type HomeChapter = (typeof HOME_CHAPTERS)[number];
 export type PostHeroChapter = Exclude<HomeChapter, "hero">;
 export type HomeMobilePolicy = "document" | "native-snap" | "sticky";
-export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 205, commerce: 420, parcelization: 190, pickup: 230, network: 300, freight: 240, "last-mile": 430, finale: 190 };
-export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 260, commerce: 380, parcelization: 170, pickup: 220, network: 270, freight: 230, "last-mile": 410, finale: 175 };
+export const HOME_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 175, commerce: 320, parcelization: 190, pickup: 230, network: 260, freight: 220, "last-mile": 380, finale: 130 };
+export const HOME_MOBILE_CHAPTER_BUDGETS_VH: Record<HomeChapter, number> = { hero: 210, commerce: 305, parcelization: 170, pickup: 220, network: 245, freight: 215, "last-mile": 355, finale: 130 };
 export const HOME_MOBILE_POLICY: Record<HomeChapter, HomeMobilePolicy> = { hero: "document", commerce: "native-snap", parcelization: "sticky", pickup: "sticky", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" };
 export function commerceChapterBudgetVh(_storeCount = 0): number {
   void _storeCount; // Preserve the retired Store World caller signature.

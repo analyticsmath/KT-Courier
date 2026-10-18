@@ -117,6 +117,7 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
     }
 
     let activeTween: gsap.core.Tween | null = null;
+    let revealTween: gsap.core.Tween | null = null;
     let takeoverTimer: NodeJS.Timeout | null = null;
 
     // 1. Shared Media Flight Handoff
@@ -172,17 +173,20 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
     if (container && !activeSharedMedia && !takeoverActive) {
       if (isCommerce) {
         gsap.set(container, { clearProps: "opacity,transform" });
-      } else if (isQuiet) {
-        gsap.fromTo(
-          container,
-          { opacity: 0.4, y: 6 },
-          { opacity: 1, y: 0, duration: 0.18, ease: "power1.out" }
-        );
       } else {
-        gsap.fromTo(
+        // Never transform a cinematic page's ancestor: transforms create a
+        // containing block for fixed scene actors and corrupt scroll geometry.
+        gsap.set(container, { clearProps: "transform" });
+        revealTween = gsap.fromTo(
           container,
-          { opacity: 0.7, y: 14 },
-          { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }
+          { opacity: isQuiet ? .92 : .76 },
+          {
+            opacity: 1,
+            duration: isQuiet ? .16 : .42,
+            ease: "power2.out",
+            overwrite: "auto",
+            onComplete: () => gsap.set(container, { clearProps: "opacity,transform" }),
+          },
         );
       }
     }
@@ -198,6 +202,8 @@ export function PublicTransitionRouter({ children }: { children: ReactNode }) {
 
     return () => {
       if (activeTween) activeTween.kill();
+      if (revealTween) revealTween.kill();
+      if (container) gsap.set(container, { clearProps: "opacity,transform" });
       if (takeoverTimer) clearTimeout(takeoverTimer);
     };
   }, [pathname, activeSharedMedia, takeoverActive, prefersReducedMotion]);

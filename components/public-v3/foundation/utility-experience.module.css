@@ -1,0 +1,22 @@
+/* The practical counterpart to KT's cinematic story.
+   A calm, white, cobalt-accented utility workspace, kept out of /shop and dashboards. */
+.utility { background:#fff; color:#10203c; min-height:90svh; padding-top:calc(var(--kt-header-height,66px) + clamp(38px,6vw,90px)); padding-bottom:clamp(90px,9vw,170px); }
+.inner { max-width:1320px; margin:auto; padding-inline:clamp(20px,5vw,80px); }
+.head { display:grid;grid-template-columns:minmax(0,1.35fr) minmax(260px,.7fr);gap:clamp(24px,7vw,110px);align-items:end;margin-bottom:clamp(36px,6vw,85px); }
+.title { font:600 clamp(3.15rem,6.7vw,8rem)/.96 var(--font-display);letter-spacing:-.083em;margin:0;max-width:12ch; }
+.title strong {display:block;color:#2366e9;font:inherit;}
+.description {max-width:30rem;font-size:clamp(1.04rem,1.3vw,1.25rem);line-height:1.56;color:#566680;margin:0 0 5px;}
+.body { min-width:0; border:0; border-top:2px solid #2267e7; padding-top:clamp(26px,4vw,55px); }
+.referenceBox { display:flex;flex-direction:column;gap:19px;background:#f2f7ff;min-width:0;padding:clamp(23px,4vw,54px);max-width:950px;}
+.referenceBox label { display:block;font-size:.93rem;font-weight:600;margin-bottom:10px;color:#34486b; }
+.referenceBox input {display:block;width:100%;min-height:59px;min-width:0;border-radius:0;border:1px solid #a8bcda;background:#fff;padding:14px 18px;font-size:16px;color:#0d1d36;}
+.referenceBox input:focus-visible {outline:2px solid #2468ee;outline-offset:3px;}
+.referenceBox button {min-height:57px;background:#205edc;color:#fff;padding:15px 24px;border-radius:0;border:0;font-weight:660;cursor:pointer;}
+.referenceBox button:hover {background:#1247b8;}
+.referenceBox p {max-width:33rem;line-height:1.54;font-size:.88rem;color:#5d6e86;}
+.result {max-width:950px;font-size:.99rem;line-height:1.55;background:#fff;margin-top:25px;color:#192b49;}
+.result a {color:#1653c7;text-underline-offset:4px;}
+.utility a:focus-visible,.utility button:focus-visible {outline:3px solid #2366e9;outline-offset:4px;}
+.quoteBody :global(form) {max-width:100%; }
+.quoteBody :global(input),.quoteBody :global(select),.quoteBody :global(textarea) {font-size:max(16px,1rem);}
+@media(max-width:767px) {.utility {padding-top:calc(var(--kt-header-height,66px) + 32px);padding-bottom:calc(var(--kt-mobile-nav-height,68px) + 80px);} .head {grid-template-columns:1fr;gap:24px;margin-bottom:35px;} .title {font-size:clamp(3.1rem,11.8vw,5.5rem);} .description {font-size:1rem;} .referenceBox {padding:22px 18px;} .referenceBox button {width:100%;}}

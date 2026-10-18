@@ -675,3 +675,17 @@
     min-height: 80svh;
   }
 }
+
+
+/* Spatial ground for the real vehicle. Poster exists only at the opening
+   reading hold; the director cross-dissolves it into the authored frame run. */
+.heroEnvironmentalPhoto { position: absolute; z-index: 0; inset: 35% 0 0; overflow: hidden; opacity: .16; pointer-events: none; }
+.heroEnvironmentalPhoto img { object-fit: cover; object-position: 50% 62%; filter: grayscale(.62) saturate(.65); }
+.heroEnvironmentalPhoto::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #fff 0%, transparent 36%, #fff 100%); }
+.heroOpeningPoster { position: absolute; z-index: 3; left: 50%; bottom: 12%; width: min(78vw, 940px); height: min(53svh, 610px); transform: translateX(-50%); pointer-events:none; }
+.heroOpeningPoster img { object-fit: contain; object-position: center bottom; filter: drop-shadow(0 24px 14px rgba(13,33,72,.10)); }
+.heroActionsRow { z-index: 30; }
+@media(max-width:767px) {
+ .heroEnvironmentalPhoto { inset: 31% 0 9%; opacity: .12; }
+ .heroOpeningPoster { width: 100vw; height: 42svh; bottom: calc(var(--kt-mobile-nav-height,68px) + 14svh); }
+}

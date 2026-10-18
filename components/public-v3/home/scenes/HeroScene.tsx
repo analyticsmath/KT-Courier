@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { chapterBudgetVh, mobileChapterBudgetVh } from "../director/home-chapters";
 import styles from "../home-scenes.module.css";
 
@@ -27,6 +28,12 @@ export function HeroScene({ className = "" }: HeroSceneProps) {
       } as React.CSSProperties}
     >
       <div className={styles.heroStage} data-home-sticky-stage>
+      <div className={styles.heroEnvironmentalPhoto} aria-hidden="true">
+        <Image src="/media/public/home/kt-home-11-route-city.webp" alt="" fill priority sizes="100vw" />
+      </div>
+      <div className={styles.heroOpeningPoster} data-hero-opening-poster aria-hidden="true">
+        <Image src="/media/public/protagonists/hero-van/yaw-045-desktop.webp" alt="" fill priority sizes="(max-width:767px) 100vw, 75vw" />
+      </div>
       {/* One campaign lockup, always behind the persistent van actor. */}
       <div className={styles.heroTypographyBackground} aria-hidden="true">
         <div className={styles.heroBrandLockup}>

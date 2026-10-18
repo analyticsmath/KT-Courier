@@ -48,6 +48,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
     // the existing rolling preloader as the user approaches those chapters.
     for (const index of [0, 1, 2, 3, ...(prefersReducedMotion ? [10] : [])]) void decodeHeroVanFrame(heroLayers.get(HERO_VAN_SEQUENCE[index]));
     const activeHeroStates = new Set<string>();
+    const heroPoster = el(root, "[data-hero-opening-poster]");
     const heroKt = el(root, "[data-motion='hero-kt']");
     const heroCourier = el(root, "[data-motion='hero-courier']");
     const heroActions = el(root, "[data-motion='hero-actions']");
@@ -199,6 +200,7 @@ export function useHomeCinematicDirector({ rootRef, categories, products, select
       const presentation = deriveHeroActorPresentation({ actorVisible: frame.visible, imageReady: isActorImageReady(active), width: scaledWidth, height: scaledHeight });
       gsap.set(heroSlot, { x, y, scale, transformOrigin: "0 0", autoAlpha: covered ? 0 : presentation.opacity * frame.opacity });
       const falloff = smooth(range(progress, .13, .34));
+      if (heroPoster) gsap.set(heroPoster, { autoAlpha: prefersReducedMotion ? 1 : 1 - smooth(range(progress, .11, .23)) });
       if (heroKt) gsap.set(heroKt, { y: prefersReducedMotion ? 0 : -14 * range(progress, .22, .97), autoAlpha: prefersReducedMotion ? 1 : 1 - .78 * falloff });
       if (heroCourier) gsap.set(heroCourier, { y: prefersReducedMotion ? 0 : 10 * range(progress, .22, .97), autoAlpha: prefersReducedMotion ? 1 : 1 - .84 * falloff });
       if (heroActions) gsap.set(heroActions, { autoAlpha: prefersReducedMotion ? 1 : 1 - range(progress, ...HOME_BEATS.hero.entryReveal), y: prefersReducedMotion ? 0 : -10 * range(progress, ...HOME_BEATS.hero.entryReveal) });

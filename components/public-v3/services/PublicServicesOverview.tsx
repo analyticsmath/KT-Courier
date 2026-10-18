@@ -5,308 +5,68 @@ import Link from "next/link";
 import Image from "next/image";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { WhiteTruckActor } from "../actors/WhiteTruckActor";
 import { ktMediaV3, type KTMediaV3Asset } from "../media/kt-media-v3";
+import styles from "./services-editorial.module.css";
 
-if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger);
-}
-
-interface ServiceItem {
-  id: string;
-  slug: string;
-  title: string;
-  headline: string;
-  summary: string;
-  href: string;
-  asset: KTMediaV3Asset;
-}
-
-const SERVICES_LIST: ServiceItem[] = [
-  {
-    id: "parcel",
-    slug: "parcel",
-    title: "Parcel & documents",
-    headline: "From pickup to doorstep.",
-    summary: "Same-day and scheduled delivery for everyday envelopes, small cartons, and time-sensitive packages.",
-    href: "/services/parcel",
-    asset: ktMediaV3.pages.services.overview.parcel,
-  },
-  {
-    id: "ecommerce",
-    slug: "ecommerce",
-    title: "E-commerce",
-    headline: "The order doesn’t stop at checkout.",
-    summary: "Integrated merchant dispatch connecting local online purchases with dedicated courier transit.",
-    href: "/services/ecommerce",
-    asset: ktMediaV3.pages.services.overview.ecommerce,
-  },
-  {
-    id: "food",
-    slug: "food",
-    title: "Food",
-    headline: "Picked up. Brought over.",
-    summary: "Food-related local deliveries arranged from store kitchens and local food producers directly to customers.",
-    href: "/services/food",
-    asset: ktMediaV3.pages.services.overview.food,
-  },
-  {
-    id: "grocery",
-    slug: "grocery",
-    title: "Grocery",
-    headline: "From the shop to your door.",
-    summary: "Market staples, fresh produce, and household pantry provisions collected and delivered directly.",
-    href: "/services/grocery",
-    asset: ktMediaV3.pages.services.overview.grocery,
-  },
-  {
-    id: "pharmacy",
-    slug: "pharmacy",
-    title: "Pharmacy",
-    headline: "A careful handoff, clearly arranged.",
-    summary: "Pharmacy-related deliveries arranged with careful handling and verified drop-off coordinates.",
-    href: "/services/pharmacy",
-    asset: ktMediaV3.pages.services.overview.pharmacy,
-  },
-  {
-    id: "moving",
-    slug: "moving",
-    title: "Moving",
-    headline: "When it’s more than a parcel.",
-    summary: "Larger household goods, office equipment, and bulky volume moves coordinated with cargo transport.",
-    href: "/services/moving",
-    asset: ktMediaV3.pages.services.overview.moving,
-  },
-  {
-    id: "freight",
-    slug: "freight",
-    title: "Freight",
-    headline: "Bigger loads need a clear plan.",
-    summary: "Scheduled heavy haulage and pallet freight coordinated across South African regional highways.",
-    href: "/services/freight",
-    asset: ktMediaV3.pages.services.overview.freight,
-  },
-  {
-    id: "shuttle",
-    slug: "shuttle",
-    title: "Shuttle",
-    headline: "Planned transport, clearly arranged.",
-    summary: "Scheduled route transport coordinated between confirmed commercial hubs and departure points.",
-    href: "/services/shuttle",
-    asset: ktMediaV3.pages.services.overview.shuttle,
-  },
-  {
-    id: "business",
-    slug: "business",
-    title: "Business",
-    headline: "Delivery built into the day-to-day.",
-    summary: "Account-based delivery management for local merchants and businesses with repeat daily orders.",
-    href: "/services/business",
-    asset: ktMediaV3.pages.services.overview.business,
-  },
-  {
-    id: "driver-network",
-    slug: "driver-network",
-    title: "Driver network",
-    headline: "Meet the people who move it.",
-    summary: "Professional couriers and transport operators providing reliable physical delivery across active regions.",
-    href: "/services/driver-network",
-    asset: ktMediaV3.pages.services.overview.driverNetwork,
-  },
-  {
-    id: "pricing",
-    slug: "pricing",
-    title: "Pricing",
-    headline: "What shapes your quote.",
-    summary: "Clear, transparent delivery cost factors based on vehicle type, parcel size, and confirmed distance.",
-    href: "/services/pricing",
-    asset: ktMediaV3.pages.services.overview.pricing,
-  },
+type Service = { id:string; title:string; headline:string; summary:string; href:string; asset:KTMediaV3Asset };
+const SERVICES: Service[] = [
+ { id:"parcel",title:"Parcels & documents",headline:"From pickup to doorstep.",summary:"Arrange the movement of everyday parcels and important documents.",href:"/services/parcel",asset:ktMediaV3.pages.services.overview.parcel },
+ { id:"ecommerce",title:"E-commerce",headline:"From checkout to delivery.",summary:"Delivery that connects local online purchases with their destinations.",href:"/services/ecommerce",asset:ktMediaV3.pages.services.overview.ecommerce },
+ { id:"food",title:"Food delivery",headline:"Fresh from the source.",summary:"Connect local kitchens and food producers with customers.",href:"/services/food",asset:ktMediaV3.pages.services.overview.food },
+ { id:"grocery",title:"Groceries",headline:"The everyday essentials.",summary:"Move fresh produce and household staples from local shops.",href:"/services/grocery",asset:ktMediaV3.pages.services.overview.grocery },
+ { id:"pharmacy",title:"Pharmacy",headline:"Handled with attention.",summary:"Arrange pharmacy-related collections and deliveries.",href:"/services/pharmacy",asset:ktMediaV3.pages.services.overview.pharmacy },
+ { id:"moving",title:"Moving",headline:"More than a parcel.",summary:"Coordinated transport for larger household and commercial loads.",href:"/services/moving",asset:ktMediaV3.pages.services.overview.moving },
+ { id:"freight",title:"Freight",headline:"Scale changes. Care remains.",summary:"Discover coordinated freight and heavy-load transport services.",href:"/services/freight",asset:ktMediaV3.pages.services.overview.freight },
+ { id:"shuttle",title:"Shuttle transport",headline:"Planned journeys.",summary:"Scheduled transport between available commercial points.",href:"/services/shuttle",asset:ktMediaV3.pages.services.overview.shuttle },
+ { id:"business",title:"Business delivery",headline:"Keep your work moving.",summary:"Delivery management for businesses with repeat requirements.",href:"/services/business",asset:ktMediaV3.pages.services.overview.business },
+ { id:"driver-network",title:"Driver network",headline:"The people behind the move.",summary:"Discover the people and vehicles serving the KT network.",href:"/services/driver-network",asset:ktMediaV3.pages.services.overview.driverNetwork },
+ { id:"pricing",title:"Delivery pricing",headline:"Know what shapes the quote.",summary:"Understand how dimensions, distance and the service influence price.",href:"/services/pricing",asset:ktMediaV3.pages.services.overview.pricing }
 ];
 
-const SERVICE_CTA_MAP: Record<string, string> = {
-  parcel: "View parcel delivery",
-  ecommerce: "View e-commerce delivery",
-  food: "View food delivery",
-  grocery: "View grocery delivery",
-  pharmacy: "View pharmacy delivery",
-  moving: "View moving transport",
-  freight: "View freight delivery",
-  shuttle: "View route shuttle",
-  business: "View business delivery",
-  "driver-network": "View driver network",
-  pricing: "View delivery pricing",
-};
-
 export function PublicServicesOverview() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const activeService = SERVICES_LIST[activeIdx] || SERVICES_LIST[0];
-
-  const headerSectionRef = useRef<HTMLElement>(null);
-  const truckSlotRef = useRef<HTMLDivElement>(null);
-  const servicesWordRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !headerSectionRef.current || !truckSlotRef.current) {
-      return;
-    }
-
-    const ctx = gsap.context(() => {
-      const isMobile = window.innerWidth < 768;
-
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: headerSectionRef.current,
-          start: "top top",
-          end: isMobile ? "+=80%" : "+=120%",
-          scrub: true,
-        },
-      });
-
-      // White Truck enters left -> traverses/occludes SERVICES word -> settles -> exits right
-      tl.fromTo(
-        truckSlotRef.current,
-        { x: isMobile ? "-80vw" : "-60vw" },
-        { x: isMobile ? "20vw" : "35vw", ease: "none", duration: 1.0 }
-      );
-
-      if (servicesWordRef.current) {
-        tl.fromTo(
-          servicesWordRef.current,
-          { x: "0vw" },
-          { x: isMobile ? "-4vw" : "-8vw", ease: "none", duration: 1.0 },
-          0
-        );
-      }
-    }, headerSectionRef);
-
-    return () => ctx.revert();
-  }, []);
-
-  return (
-    <article className="min-h-screen bg-[var(--kt-public-canvas)] text-[var(--kt-public-text-primary)]">
-      {/* Hero: Giant Low-Contrast SERVICES with White Truck Baseline Traversal */}
-      <section
-        ref={headerSectionRef}
-        className="relative pt-12 sm:pt-16 pb-16 sm:pb-24 px-6 md:px-12 border-b border-[var(--kt-public-border-default)]/50 overflow-hidden"
-      >
-        <div className="max-w-6xl mx-auto relative">
-          <div className="relative overflow-hidden pt-4">
-            {/* Giant low-contrast SERVICES type in background */}
-            <div
-              ref={servicesWordRef}
-              aria-hidden="true"
-              className="font-display text-[clamp(5rem,16vw,12rem)] font-black tracking-tighter leading-none text-[var(--kt-public-border-default)]/70 uppercase select-none pointer-events-none will-change-transform"
-            >
-              SERVICES
-            </div>
-
-            {/* White truck traversing and occluding the baseline of the typography */}
-            <div
-              ref={truckSlotRef}
-              className="relative z-10 -mt-14 sm:-mt-24 md:-mt-32 lg:-mt-40 max-w-3xl filter drop-shadow-sm pointer-events-none will-change-transform"
-            >
-              <WhiteTruckActor stateId="side-right" priority />
-            </div>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-[var(--kt-public-border-default)]/40 flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <h1 className="sr-only">KT Courier Services</h1>
-              <p className="text-lg sm:text-xl text-[var(--kt-public-text-muted)] max-w-xl leading-relaxed">
-                From small parcels to planned freight, explore delivery services organized around what you are sending and how it moves.
-              </p>
-            </div>
-            <div className="font-mono text-xs uppercase tracking-wider text-[var(--kt-public-text-muted)] shrink-0">
-              11 Authored Capabilities
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Explorer: Full-Width Stable Service Rows + Fixed Media Preview Stage */}
-      <section className="max-w-6xl mx-auto px-6 md:px-12 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Left: Stable Interactive Rows with Hairline Separators (5–49vw) */}
-          <div className="lg:col-span-7 border-t border-[var(--kt-public-border-default)]/40 divide-y divide-[var(--kt-public-border-default)]/40">
-            {SERVICES_LIST.map((service, idx) => {
-              const isActive = idx === activeIdx;
-
-              return (
-                <div
-                  key={service.id}
-                  onMouseEnter={() => setActiveIdx(idx)}
-                  onFocus={() => setActiveIdx(idx)}
-                  className={`group py-5 px-4 transition-colors duration-150 flex items-center justify-between border-l-2 ${
-                    isActive
-                      ? "border-l-[var(--kt-public-text-primary)] bg-[var(--kt-public-surface-inverse)]/[0.03]"
-                      : "border-l-transparent hover:bg-[var(--kt-public-surface-inverse)]/[0.015] hover:border-l-[var(--kt-public-text-muted)]"
-                  }`}
-                >
-                  <div className="pr-4">
-                    <Link
-                      href={service.href}
-                      className={`font-display text-xl sm:text-2xl font-bold tracking-tight transition-colors block ${
-                        isActive ? "text-[var(--kt-public-text-primary)]" : "text-[var(--kt-public-text-muted)] group-hover:text-[var(--kt-public-text-primary)]"
-                      }`}
-                    >
-                      {service.title}
-                    </Link>
-                    <p className="text-xs text-[var(--kt-public-text-muted)] line-clamp-1 mt-1 font-normal">
-                      {service.headline}
-                    </p>
-                  </div>
-
-                  <Link
-                    href={service.href}
-                    aria-label={`View ${service.title} details`}
-                    className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold uppercase tracking-wider shrink-0 transition-colors ${
-                      isActive ? "text-[var(--kt-public-text-primary)]" : "text-[var(--kt-public-text-muted)] group-hover:text-[var(--kt-public-text-primary)]"
-                    }`}
-                  >
-                    <span>View</span>
-                    <span className="transition-transform group-hover:translate-x-0.5">&rarr;</span>
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Right: Sticky Active Service Stage (64–70vh) */}
-          <div className="lg:col-span-5 sticky top-28 space-y-4">
-            <div className="relative h-[54vh] sm:h-[62vh] lg:h-[68vh] w-full bg-[var(--kt-public-border-default)]/20 overflow-hidden border border-[var(--kt-public-border-default)]/40">
-              <Image
-                src={activeService.asset.src}
-                alt={activeService.asset.alt}
-                fill
-                preload={activeIdx === 0}
-                sizes="(max-width: 1023px) 94vw, 450px"
-                className="object-cover transition-all duration-300"
-                style={{
-                  objectPosition: `${activeService.asset.focalPoint[0] * 100}% ${activeService.asset.focalPoint[1] * 100}%`,
-                }}
-              />
-            </div>
-
-            <div className="pt-2 space-y-3">
-              <h2 className="font-display text-2xl font-bold tracking-tight text-[var(--kt-public-text-primary)]">
-                {activeService.headline}
-              </h2>
-              <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed">
-                {activeService.summary}
-              </p>
-              <div className="pt-3 border-t border-[var(--kt-public-border-default)]/40">
-                <Link
-                  href={activeService.href}
-                  className="kt-action-filled w-full py-3.5 inline-flex items-center justify-center font-bold text-xs uppercase tracking-wider"
-                >
-                  {SERVICE_CTA_MAP[activeService.id] || "View service details"} &rarr;
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </article>
-  );
+ const [active,setActive]=useState(0);
+ const hero=useRef<HTMLElement>(null);
+ const actor=useRef<HTMLDivElement>(null);
+ const root=useRef<HTMLElement>(null);
+ const current=SERVICES[active];
+ useEffect(()=>{
+  if(!hero.current||!actor.current||!root.current||window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  gsap.registerPlugin(ScrollTrigger);
+  const ctx=gsap.context(()=>{
+    gsap.fromTo(actor.current,{xPercent:-10,rotate:-.8},{xPercent:0,rotate:0,ease:"none",scrollTrigger:{trigger:hero.current,start:"top 82%",end:"bottom 20%",scrub:.7,invalidateOnRefresh:true}});
+    const rows=gsap.utils.toArray<HTMLElement>("[data-service-editorial-row]");
+    rows.forEach(row=>gsap.fromTo(row,{y:28,opacity:.75},{y:0,opacity:1,duration:.75,ease:"power3.out",scrollTrigger:{trigger:row,start:"top 88%",toggleActions:"play none none reverse"}}));
+  },root);
+  return ()=>ctx.revert();
+ },[]);
+ return <article ref={root} className={styles.root}>
+  <section ref={hero} className={styles.hero} aria-labelledby="kt-services-heading">
+    <div className={styles.road} aria-hidden="true"><Image src="/media/public/home/kt-home-11-route-city.webp" alt="" fill sizes="100vw"/></div>
+    <div className={styles.heroContent}>
+      <h1 id="kt-services-heading" className={styles.heroTitle}>Every move<span>matters.</span></h1>
+      <p className={styles.heroLead}>A parcel across town. A larger load across the region. Find the right way to move what comes next.</p>
+      <div className={styles.heroActions}><Link href="/quote">Get a quote ↗</Link><Link href="/track">Track delivery ↗</Link></div>
+    </div>
+    <div className={styles.truck} ref={actor} aria-hidden="true">
+      <Image src="/media/public/protagonists/protagonist-van-side-right.webp" alt="" width={1448} height={1086} sizes="(max-width:600px) 110vw, 65vw" priority />
+    </div>
+  </section>
+  <section className={styles.explorer} aria-labelledby="explore-services-heading">
+   <div className={styles.explorerTop}><h2 id="explore-services-heading">The way forward.</h2><p>Choose the movement that fits. Each service has its own requirements, route and handoff.</p></div>
+   <div className={styles.layout}>
+    <div className={styles.index}>
+      {SERVICES.map((service,index)=><Link href={service.href} key={service.id} data-service-editorial-row className={`${styles.row} ${active===index?styles.rowActive:""}`} onPointerEnter={()=>setActive(index)} onFocus={()=>setActive(index)}>
+       <span className={styles.number} aria-hidden="true">{String(index+1).padStart(2,"0")}</span>
+       <span className={styles.rowText}><span className={styles.rowName}>{service.title}</span><span className={styles.rowDetail}>{service.headline}</span></span>
+       <span className={styles.arrow} aria-hidden="true">↗</span>
+       <span className={styles.mobilePreview}><Image src={service.asset.src} alt={service.asset.alt} fill sizes="(max-width:950px) 75vw, 1px" style={{objectPosition:`${service.asset.focalPoint[0]*100}% ${service.asset.focalPoint[1]*100}%`}}/></span>
+      </Link>)}
+    </div>
+    <aside className={styles.stage} aria-live="polite">
+      <div className={styles.media}><Image key={current.asset.src} src={current.asset.src} alt={current.asset.alt} fill sizes="(max-width:950px) 1px, 40vw" style={{objectPosition:`${current.asset.focalPoint[0]*100}% ${current.asset.focalPoint[1]*100}%`}}/></div>
+      <div className={styles.copy}><h3>{current.headline}</h3><p>{current.summary}</p><Link href={current.href}>Explore {current.title.toLowerCase()} ↗</Link></div>
+    </aside>
+   </div>
+  </section>
+ </article>;
 }
