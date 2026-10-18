@@ -44,5 +44,6 @@ describe("replacement homepage initial content", () => {
       expect(markup).toContain(`data-home-chapter="${chapter}"`);
     }
     expect(markup).toContain("Choose a sturdy box");
+    expect(markup).toContain('href="/coverage-areas"');
   });
 });

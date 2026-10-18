@@ -379,7 +379,7 @@ export function PublicHomeExperience() {
             <li>Pretoria</li>
             <li>Surrounding Gauteng</li>
           </ul>
-          <Link href="/coverage" className="kt-text-link">
+          <Link href="/coverage-areas" className="kt-text-link">
             Explore delivery coverage ↗
           </Link>
           <small>

@@ -210,7 +210,7 @@ export function DeliveryCoverageSection() {
           dropoff against the enabled boundaries for your selected service.
         </p>
         <div className={styles.links}>
-          <Link href="/coverage" className="kt-text-link">
+          <Link href="/coverage-areas" className="kt-text-link">
             Explore coverage ↗
           </Link>
           <Link href="/contact" className="kt-text-link">

@@ -89,8 +89,12 @@ export function ServiceEditorial({
         <div className="kt-detail-process-photo">
           <Image
             data-parallax
-            src={second.src}
-            alt={second.alt}
+            src={
+              parcel ? "/media/public/home/kt-home-13-arrival.webp" : second.src
+            }
+            alt={
+              parcel ? "A recipient accepting a parcel at her door" : second.alt
+            }
             fill
             sizes="(max-width:760px) 100vw, 49vw"
           />
@@ -110,7 +114,9 @@ export function ServiceEditorial({
         </div>
       </section>
       {parcel && <ParcelPackingSection />}
-      <QuotePlanningSection factors={service.pricingFactors} />
+      {service.primaryActionIsQuote && (
+        <QuotePlanningSection factors={service.pricingFactors} />
+      )}
       <section className="kt-detail-preparation" data-section-transition="open">
         <div data-reveal>
           <h2 data-split-heading>
@@ -147,7 +153,7 @@ export function ServiceEditorial({
           )}
         </div>
       </section>
-      <DeliveryCoverageSection />
+      {service.primaryActionIsQuote && <DeliveryCoverageSection />}
       <section className="kt-detail-questions" data-section-transition="rise">
         <h2 data-split-heading>
           A little more
