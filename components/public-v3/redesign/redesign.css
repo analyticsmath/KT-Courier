@@ -942,7 +942,7 @@
   max-width: none;
   font-size: clamp(70px, 10.3vw, 168px);
   line-height: 0.98;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.035em;
   font-weight: 500;
 }
 .kt-redesign .kt-directed-opening h1 > span {
@@ -1018,7 +1018,7 @@
 }
 .kt-redesign .kt-journey-heading h2 {
   font-size: clamp(56px, 8.6vw, 138px);
-  letter-spacing: -0.05em;
+  letter-spacing: -0.035em;
   margin: 0 0 30px;
   line-height: 0.98;
 }
@@ -1060,7 +1060,7 @@
 .kt-redesign .kt-local-reel-heading h2 {
   font-size: clamp(48px, 5.6vw, 90px);
   line-height: 1;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.035em;
   margin: 0;
 }
 .kt-redesign .kt-reel-window {
@@ -1108,7 +1108,7 @@
 .kt-redesign .kt-freight-directed h2 {
   font-size: clamp(65px, 10vw, 160px);
   line-height: 0.96;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.035em;
   margin: 0;
   text-align: center;
 }
@@ -1136,7 +1136,7 @@
 .kt-redesign .kt-service-cinema > h2 {
   font-size: clamp(48px, 7.1vw, 114px);
   line-height: 1.03;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.035em;
   margin: 0 0 65px;
 }
 .kt-redesign .kt-service-panels {
@@ -1180,7 +1180,7 @@
 .kt-redesign .kt-service-panel h3 {
   font-size: clamp(25px, 2.9vw, 46px);
   margin: 25px 0 15px;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.035em;
 }
 .kt-redesign .kt-service-panel p {
   font-size: 15px;
@@ -1209,7 +1209,7 @@
   font-family: var(--font-display);
   font-size: clamp(58px, 9.5vw, 152px);
   line-height: 0.95;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.035em;
   font-weight: 500;
   margin: 0;
 }
@@ -1267,7 +1267,7 @@
   font-family: var(--kt-redesign-font), sans-serif;
   font-size: 14.5vw;
   line-height: 0.84;
-  letter-spacing: -0.065em;
+  letter-spacing: -0.025em;
   font-weight: 650;
   white-space: nowrap;
   padding: 0 0 45px;
@@ -1307,7 +1307,7 @@
   }
   .kt-redesign .kt-directed-opening h1 {
     font-size: clamp(34px, 10.4vw, 79px);
-    letter-spacing: -0.06em;
+    letter-spacing: -0.035em;
     line-height: 1.04;
   }
   .kt-redesign .kt-directed-opening h1 > span:last-child {
@@ -1480,8 +1480,8 @@
     margin-bottom: 7px;
   }
   .kt-redesign .kt-footer-wordmark {
-    font-size: calc((100vw - 40px) / 6.25);
-    letter-spacing: -0.065em;
+    font-size: calc((100vw - 40px) / 6.55);
+    letter-spacing: -0.025em;
     padding-bottom: 30px;
   }
   .kt-redesign .kt-footer-bottom {
