@@ -1,6 +1,6 @@
 /** Build-time routing authority. No caller-provided origin or Host header is trusted. */
 export const PRODUCTION_EDGE_PROJECT = "prj_Q6i3g8JIv1ibkXGspPotBem2FFLD";
-export const PRODUCTION_EDGE_ORIGIN = "https://web-production-9f8bb.up.railway.app";
+export const PRODUCTION_EDGE_ORIGIN = "https://web-production-3d0c1.up.railway.app";
 
 export type EdgeEnvironment = Readonly<Record<string, string | undefined>>;
 export type StagingEdgeRegistration = Readonly<{
