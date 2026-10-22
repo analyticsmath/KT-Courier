@@ -27,6 +27,22 @@ export async function verifyAccountEmail(email: string, code: string) {
     });
     if (consumed.count !== 1) return { ok: false as const, status: 400, error: INVALID_VERIFICATION_NOTICE };
     await tx.user.update({ where: { id: user.id }, data: { emailVerifiedAt: user.emailVerifiedAt ?? now, status: UserStatus.ACTIVE } });
+    // The first successful account verification is the authoritative welcome
+    // event. Keep its durable intent in the same transaction as activation.
+    // Resent/replayed verification codes never create duplicate welcomes.
+    if (!user.emailVerifiedAt) {
+      await tx.notificationEventIntent.upsert({
+        where: { operationId: `account-welcome:${user.id}` },
+        update: {},
+        create: {
+          sourceAuthority: "ACCOUNT",
+          eventType: "ACCOUNT_EMAIL_VERIFIED",
+          aggregateReference: user.id,
+          operationId: `account-welcome:${user.id}`,
+          safePayload: {},
+        },
+      });
+    }
     const rawToken = generateToken(32);
     await tx.session.create({ data: { userId: user.id, tokenHash: hashToken(rawToken), expiresAt: sessionExpiresAt() } });
     return { ok: true as const, rawToken, role: user.role };
