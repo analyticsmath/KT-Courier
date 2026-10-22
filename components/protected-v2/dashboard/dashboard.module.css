@@ -1036,3 +1036,316 @@
   }
   .ktDashboard :global(.eo-store-record-list__link > div) { width: 100%; }
 }
+
+
+/* KT DASHBOARD REFINEMENT V1 — shared role-based dashboard primitives */
+.ktDashboard {
+  --dash-canvas: #F5F7FB;
+  --dash-surface: #FFFFFF;
+  --dash-surface-subtle: #F8FAFE;
+  --dash-surface-muted: #EFF3FA;
+  --dash-ink: #171B29;
+  --dash-ink-secondary: #475169;
+  --dash-muted: #6E7890;
+  --dash-line: #E4E9F2;
+  --dash-line-strong: #C9D2E2;
+  --dash-charcoal: #171B29;
+  --dash-charcoal-subtle: #242B3D;
+  --dash-charcoal-line: #2C3549;
+  --dash-charcoal-text: #FFFFFF;
+  --dash-charcoal-muted: #B8C2D7;
+  --dash-brand: #315CFD;
+  --dash-brand-strong: #224CDE;
+  --dash-brand-soft: #EDF1FF;
+  --dash-brand-border: #DCE5FF;
+  --dash-orange: #A36620;
+  --dash-orange-soft: #FFF5E7;
+  --dash-orange-border: #F3E0C7;
+  --dash-green: #167B59;
+  --dash-green-soft: #E8F7EF;
+  --dash-green-border: #D1EAD9;
+  --dash-teal: #0A91A1;
+  --dash-teal-soft: #E6F8F9;
+  --dash-teal-border: #C9E9ED;
+  --dash-neutral-data: #8E9BB0;
+  --dash-yellow: #A36620;
+  --dash-yellow-soft: #FFF5E7;
+  --dash-yellow-border: #F3E0C7;
+  --dash-lime: #167B59;
+  --dash-lime-soft: #E8F7EF;
+  --dash-lime-border: #D1EAD9;
+  --dash-lavender: #6E69D9;
+  --dash-lavender-soft: #F0EFFF;
+  --dash-shadow-subtle: 0 6px 24px rgb(26 44 90 / 0.032);
+  --dash-shadow-card: 0 15px 42px rgb(16 24 42 / 0.10);
+  background: transparent;
+  color: var(--dash-ink);
+  max-width: 100%;
+}
+.canvas { gap: 20px; }
+.header {
+  gap: 14px;
+  padding: 5px 2px 2px;
+}
+.headerLeading { gap: 6px; }
+.eyebrow {
+  color: #687590;
+  font-size: 0.675rem;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+}
+.title {
+  font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+  font-weight: 740;
+  letter-spacing: -0.055em;
+  line-height: 1.09;
+}
+.description {
+  color: #657089;
+  font-size: 0.8375rem;
+  line-height: 1.5;
+  max-width: 74ch;
+}
+.headerActions {
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  gap: 9px;
+}
+.grid { gap: 16px; }
+.card {
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 20px;
+  border-color: var(--dash-line);
+  box-shadow: var(--dash-shadow-subtle);
+}
+.toneSurface { background: #FFFFFF; }
+.toneMuted { background: #F8FAFF; border-color: #E6EBFA; }
+.toneDark {
+  background: #171B29;
+  border-color: #171B29;
+  box-shadow: 0 12px 34px rgb(23 27 41 / 0.095);
+}
+.toneBrand { background: #F0F3FF; border-color: #DDE5FF; }
+.toneOrange { background: #FFF5EA; border-color: #FAE4C9; }
+.toneGreen { background: #EAF8F0; border-color: #D6EEE2; }
+.toneLime { background: #EDFAF1; border-color: #D8EEDF; }
+.padCompact { padding: 19px 21px; }
+.padNormal { padding: 22px 24px; }
+.padSpacious { padding: 26px 28px; }
+.cardHeader {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  row-gap: 10px;
+}
+.cardHeadingGroup { gap: 5px; flex: 1 1 190px; }
+.cardEyebrow {
+  color: #8390A5;
+  font-size: 0.645rem;
+  font-weight: 720;
+  letter-spacing: 0.115em;
+}
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 735;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+}
+.cardDescription {
+  color: #758097;
+  font-size: 0.765rem;
+  line-height: 1.52;
+  max-width: 68ch;
+}
+.cardAction {
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+.cardAction > * { max-width: 100%; }
+.metricCard {
+  min-height: 131px;
+  gap: 8px;
+  justify-content: space-between;
+}
+.metricTop {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 9px;
+}
+.metricLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 580;
+  font-size: 0.82rem;
+  color: #6B7790;
+  line-height: 1.38;
+}
+.metricValueRow {
+  margin-top: 7px;
+  align-items: baseline;
+  gap: 9px;
+}
+.metricValue {
+  font-size: clamp(1.85rem, 2.2vw, 2.35rem);
+  font-weight: 730;
+  letter-spacing: -0.065em;
+  line-height: 1.04;
+  overflow-wrap: anywhere;
+}
+.metricDelta {
+  border-radius: 6px;
+  border: 0;
+  letter-spacing: 0;
+  font-size: 0.69rem;
+}
+.metricMeta {
+  margin-top: auto;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: #7A869B;
+}
+.toneDark .metricLabel,
+.toneDark .metricMeta,
+.toneDark .cardDescription { color: #B7C1D3; }
+.toneDark .metricDelta { color: #D5F3DF; background: #263C38; }
+.toneDark .chipWarning { color: #FFE3BB; background: #443626; }
+.btn {
+  flex: 0 0 auto;
+  max-width: 100%;
+  width: fit-content;
+  min-width: 0;
+  min-height: 39px;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 655;
+  font-size: 0.785rem;
+  line-height: 1.2;
+  text-align: center;
+}
+.btnPrimary { color: #FFFFFF; }
+.btnDark { color: #FFFFFF; }
+.btnQuiet { color: #315CFD; }
+.btnQuiet:hover { background: #EFF3FF; color: #244DDD; }
+.btnSm {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 0.73rem;
+}
+.chip {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 25px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 0.68rem;
+  font-weight: 680;
+  line-height: 1.25;
+  letter-spacing: 0;
+  white-space: normal;
+}
+.chipDot { display: none; }
+.chipNeutral { background: #F0F3F8; color: #505B71; }
+.chipSuccess { background: #E8F7EF; color: #126D4B; }
+.chipWarning { background: #FFF4E7; color: #96601B; }
+.chipDanger { background: #FCECEF; color: #B6334A; }
+.chipTeal { background: #E6F8F9; color: #0B7785; }
+/* Compact table-like queue, with consistent fixed-width status column. */
+.recordList { width: 100%; }
+.recordItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, max-content);
+  align-items: center;
+  gap: 10px 20px;
+  padding: 14px 0;
+  border-color: #E9EDF4;
+}
+.recordLeading { min-width: 0; gap: 3px; }
+.recordTitle {
+  display: block;
+  max-width: 100%;
+  width: fit-content;
+  font-size: 0.8025rem;
+  font-weight: 710;
+  letter-spacing: -0.015em;
+  color: #20283C;
+}
+.recordSub { color: #69758B; font-size: 0.745rem; line-height: 1.4; overflow-wrap: anywhere; }
+.recordTime { color: #929BAE; font-size: 0.68rem; }
+.recordTrailing { min-width: 0; justify-content: flex-end; flex-wrap: wrap; }
+.emptyState {
+  min-height: 150px;
+  background: #F9FAFD;
+  border: 1px dashed #DDE5F1;
+  border-radius: 14px;
+  padding: 26px 17px;
+}
+.emptyStateTitle { color: #21283B; }
+.emptyStateDesc { color: #778198; }
+.ktDashboard :global(.eo-driver-active-run) {
+  border-color: var(--dash-line);
+  border-radius: 20px;
+}
+.ktDashboard :global(.eo-store-record-list__link) { max-width: 100%; }
+/* Responsive layouts: actions fit content, content always fits its grid track. */
+@media (max-width: 1023px) {
+  .grid { gap: 13px; }
+  .padNormal { padding: 19px 20px; }
+  .cardHeader { gap: 10px; }
+}
+@media (max-width: 639px) {
+  .canvas { gap: 14px; }
+  .header { padding: 4px 0 1px; }
+  .title { font-size: 1.85rem; }
+  .description { font-size: 0.79rem; }
+  .grid { gap: 11px; }
+  .card { border-radius: 16px; }
+  .padCompact { padding: 14px; }
+  .padNormal { padding: 17px 16px; }
+  .padSpacious { padding: 20px 17px; }
+  .cardHeader {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 15px;
+  }
+  .cardHeadingGroup { flex: 1 1 170px; }
+  .cardAction { width: auto; max-width: 100%; }
+  .cardAction .btn { width: auto; min-height: 37px; }
+  .cardAction :is(a, button) { min-height: 37px; }
+  .headerActions { width: auto; gap: 8px; }
+  .headerActions > * { flex: 0 1 auto; }
+  .headerActions > div {
+    display: flex;
+    flex-direction: row;
+    width: auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .headerActions :is(a, button) { width: auto; min-height: 40px; }
+  .metricCard { min-height: 110px; gap: 9px; }
+  .metricTop { flex-direction: row; align-items: flex-start; gap: 6px; flex-wrap: wrap; }
+  .metricLabel { width: auto; font-size: 0.755rem; }
+  .metricValue { font-size: 1.82rem; }
+  .metricMeta { font-size: 0.69rem; }
+  .btn { min-height: 40px; padding: 8px 12px; }
+  .btnSm { min-height: 36px; padding: 7px 10px; }
+  .recordItem {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    padding: 13px 0;
+  }
+  .recordTrailing {
+    width: auto;
+    justify-content: flex-start;
+  }
+  .recordTrailing :is(a, button) { min-height: 36px; }
+  .emptyState { min-height: 115px; }
+}
+@media (min-width: 390px) and (max-width: 639px) {
+  .col3 { grid-column: span 6 / span 6; min-width: 0; }
+}
+@media (max-width: 389px) {
+  .col3 { grid-column: 1 / -1; }
+}
