@@ -1,6 +1,16 @@
 import { customerOrderNotificationDefinitions, customerOrderRecipientPolicyKey, customerOrderRouteKey } from "./customer-order-configuration";
 
 export const requiredDomainNotificationDefinitions = [
+  {
+    sourceAuthority: "ACCOUNT", eventType: "ACCOUNT_EMAIL_VERIFIED",
+    categoryKey: "ACCOUNT_WELCOME", templateKey: "CLIENT_ACCOUNT_WELCOME",
+    recipientPolicyKey: "CLIENT_VERIFIED_ACCOUNT", subject: "CUSTOMER" as const,
+    routeKey: "CLIENT_ACCOUNT_WELCOME",
+    title: "Welcome to KT Couriers",
+    body: "Your email is verified and your KT Couriers account is ready. Request a courier delivery, manage your orders or explore local stores from your account.",
+    variables: [], actionRoute: "/account",
+    recipientSummary: "The active, verified owner of the newly verified account.",
+  },
   ...customerOrderNotificationDefinitions.map((definition) => ({ ...definition, sourceAuthority: "LEGACY_ORDER", recipientPolicyKey: customerOrderRecipientPolicyKey, subject: "CUSTOMER" as const, routeKey: customerOrderRouteKey(definition.eventType), variables: definition.eventType === "ORDER_CONFIRMED" ? ["orderNumber"] : ["orderNumber", "status"], actionRoute: "/account/orders", recipientSummary: "The customer recorded on the courier order." })),
   { sourceAuthority: "MARKETPLACE", eventType: "MARKETPLACE_ORDER_CONFIRMED", categoryKey: "MARKETPLACE_ORDER_STATUS", templateKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", title: "KT Couriers: marketplace order {{orderNumber}} confirmed", body: "Your marketplace order {{orderNumber}} is confirmed. Keep this reference when contacting KT Couriers for assistance.", variables: ["orderNumber"], actionRoute: null, recipientSummary: "The account customer or verified guest contact recorded on the marketplace checkout." },
   { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_RECEIVED", categoryKey: "STORE_ORDER_RECEIVED", templateKey: "CLIENT_VENDOR_ORDER_RECEIVED", recipientPolicyKey: "CLIENT_VENDOR_ORDER_OWNER", subject: "STORE_OWNER" as const, routeKey: "CLIENT_VENDOR_ORDER_RECEIVED", title: "KT Couriers: new store order {{orderNumber}}", body: "Store order {{orderNumber}} is ready for review in your store account.", variables: ["orderNumber"], actionRoute: "/store/orders", recipientSummary: "The current active owner of the store recorded on the paid store order." },
