@@ -8,11 +8,12 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
   const router = useRouter();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   async function approve() {
-    if (pending.current) return;
+    if (pending.current || !reviewed) return;
     pending.current = true;
     setBusy(true);
     setError("");
@@ -43,7 +44,11 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
     <div className="space-y-2">
       {error ? <p role="alert" className="text-sm">{error}</p> : null}
       {message ? <p role="status" aria-live="polite" className="text-sm">{message}</p> : null}
-      <Button type="button" disabled={busy} onClick={() => void approve()}>
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="mt-1" />
+        <span>I have reviewed this vendor’s registration and owner details. I understand that account activation does not approve seller identity, individual products, COD, or paid campaigns.</span>
+      </label>
+      <Button type="button" disabled={busy || !reviewed} onClick={() => void approve()}>
         {busy ? "Approving…" : "Approve vendor account"}
       </Button>
     </div>

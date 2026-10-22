@@ -87,6 +87,7 @@ export async function getStoreDetail(id: string) {
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
     orderCount,
+    defaultPickupAddressId: store.defaultPickupAddressId,
     ownerUser: store.ownerUser
       ? {
           id: store.ownerUser.id,
@@ -94,6 +95,15 @@ export async function getStoreDetail(id: string) {
           name: store.ownerUser.name,
           phone: store.ownerUser.phone,
           status: store.ownerUser.status,
+          emailVerifiedAt: store.ownerUser.emailVerifiedAt,
+          createdAt: store.ownerUser.createdAt,
+          storeProfile: store.ownerUser.storeProfile ? {
+            storeName: store.ownerUser.storeProfile.storeName,
+            contactPerson: store.ownerUser.storeProfile.contactPerson,
+            businessPhone: store.ownerUser.storeProfile.businessPhone,
+            businessEmail: store.ownerUser.storeProfile.businessEmail,
+            status: store.ownerUser.storeProfile.status,
+          } : null,
         }
       : null,
   };
