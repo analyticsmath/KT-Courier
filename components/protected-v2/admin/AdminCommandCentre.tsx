@@ -1,12 +1,12 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import studio from "./adminStudio.module.css";
 import {
   DashboardCanvas,
   DashboardGrid,
   DashboardCol,
   DashboardCard,
-  DashboardMetricCard,
-  DashboardHeader,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -54,70 +54,56 @@ export function AdminCommandCentre({
 
   return (
     <DashboardCanvas>
-      <DashboardHeader
-        artRole="admin"
-        eyebrow="Command centre"
-        title="Operations desk"
-        description="Authoritative network state, active dispatch balance, exception queues, and delivery coverage."
-        actions={
-          desk.ordersAllowed ? (
-            <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/admin/orders">
-              Review orders
+      <section className={studio.cover} aria-label="Operations overview">
+        <div className={studio.coverMain}>
+          <div className={studio.coverHeading}>
+            <span className={studio.coverLocation}>KT COURIERS <span aria-hidden="true">/</span> NETWORK OPERATIONS</span>
+            <h1>See the whole network. <em>Move what matters.</em></h1>
+            <p>Dispatch, deliveries and exceptions in one clear operational view. All figures are sourced from the active courier system.</p>
+          </div>
+          <div className={studio.coverSignals}>
+            <div className={studio.coverSignal}>
+              <span>Courier orders in period</span>
+              <strong>{comparison ? comparison.current.toLocaleString("en-ZA") : "—"}</strong>
+              <small>{insight?.periodLabel ?? "Operational history"}</small>
+            </div>
+            <div className={studio.coverSignal}>
+              <span>Recorded exceptions</span>
+              <strong>{desk.exceptionCount !== null ? desk.exceptionCount.toLocaleString("en-ZA") : "—"}</strong>
+              <small>Pickup & delivery event history</small>
+            </div>
+          </div>
+          {desk.ordersAllowed ? (
+            <Link className={studio.coverAction} href="/admin/orders">
+              Explore courier orders <span aria-hidden="true">↗</span>
             </Link>
-          ) : undefined
-        }
-      />
+          ) : null}
+        </div>
+        <div className={studio.coverVisual}>
+          <div className={studio.coverImageFrame}>
+            <Image src="/media/dashboard/delivery-truck.webp" alt="Courier handing over a parcel" width={740} height={620} sizes="(max-width: 760px) 100vw, 460px" loading="eager" priority />
+          </div>
+          <div className={studio.coverDispatch}>
+            <div><span>Waiting for assignment</span><strong>{desk.dispatch ? desk.dispatch.counts.unassigned.toLocaleString("en-ZA") : "—"} <small>orders</small></strong></div>
+            {desk.dispatch ? <Link href="/admin/dispatch">Dispatch board <span aria-hidden="true">↗</span></Link> : null}
+          </div>
+        </div>
+      </section>
 
-      {/* KPI Metric Strip (Asymmetric 4-card band, 2-up on mobile) */}
-      <DashboardGrid ariaLabel="Network operational metrics">
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Courier order volume"
-            value={comparison ? comparison.current : "—"}
-            changePercent={comparison ? comparison.changePercent : null}
-            direction={comparison ? comparison.direction : "unavailable"}
-            previousValue={comparison ? comparison.previous : undefined}
-            description={insight ? insight.periodLabel : "Network activity"}
-            href={desk.ordersAllowed ? "/admin/orders" : undefined}
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Unassigned dispatch"
-            value={desk.dispatch ? desk.dispatch.counts.unassigned : "—"}
-            description="Assignable courier orders"
-            href={desk.dispatch ? "/admin/dispatch" : undefined}
-            tone="dark"
-            badge={
-              desk.dispatch && desk.dispatch.counts.unassigned > 0 ? (
-                <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
-              ) : undefined
-            }
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Recorded exceptions"
-            value={desk.exceptionCount !== null ? desk.exceptionCount : "—"}
-            description="Pickup & delivery event history"
-            href={desk.dispatch ? "/admin/delivery-exceptions" : undefined}
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Stores awaiting review"
-            value={desk.pendingStores !== null ? desk.pendingStores : "—"}
-            description="Pending merchant onboarding"
-            href="/admin/stores"
-            tone="brand"
-          />
-        </DashboardCol>
-      </DashboardGrid>
+      <div className={studio.reviewRibbon} role="region" aria-label="Immediate action summary">
+        <Link className={studio.reviewLink} href="/admin/stores">
+          <span className={studio.reviewIcon} aria-hidden="true">01</span>
+          <span><strong>{desk.pendingStores !== null ? desk.pendingStores.toLocaleString("en-ZA") : "—"} stores awaiting review</strong><small>Seller onboarding and account decisions</small></span>
+          <span className={studio.reviewArrow} aria-hidden="true">↗</span>
+        </Link>
+        {desk.ordersAllowed && desk.attention ? (
+          <Link className={studio.reviewLink} href="/admin/orders">
+            <span className={studio.reviewIcon} aria-hidden="true">02</span>
+            <span><strong>{desk.attention.length.toLocaleString("en-ZA")} orders in the attention queue</strong><small>Review priority routes and exceptions</small></span>
+            <span className={studio.reviewArrow} aria-hidden="true">↗</span>
+          </Link>
+        ) : null}
+      </div>
 
       {/* Row 1: Primary Analytics (7 cols) + Dispatch Workload Balance (5 cols) */}
       <DashboardGrid ariaLabel="Primary operational analytics">
@@ -208,6 +194,7 @@ export function AdminCommandCentre({
       <DashboardGrid ariaLabel="Operational queues and network context">
         <DashboardCol span={7}>
           <DashboardCard
+            className={studio.reviewPanel}
             eyebrow="Prioritised review"
             title="Attention queue"
             description="Oldest requests needing manual administrative review or missing a recorded route."
@@ -276,6 +263,10 @@ export function AdminCommandCentre({
 
             {desk.regions ? (
               <div className={styles.coveragePanel}>
+                <div className={studio.coverageVisual}>
+                  <Image src="/media/dashboard/merchant-handoff.webp" alt="Merchant handing over a shipment" width={420} height={180} sizes="(max-width: 768px) 100vw, 350px" loading="lazy" />
+                  <span>Active regional network</span>
+                </div>
                 <div className={styles.coverageSummary}>
                   <span className={styles.coverageNumber}>{desk.regions.length.toLocaleString("en-ZA")}</span>
                   <span className={styles.coverageDescriptor}>Active service {desk.regions.length === 1 ? "region" : "regions"}</span>

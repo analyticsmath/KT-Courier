@@ -1,12 +1,12 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import role from "../dashboard/roleStudio.module.css";
 import {
   DashboardCanvas,
   DashboardGrid,
   DashboardCol,
   DashboardCard,
-  DashboardMetricCard,
-  DashboardHeader,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -67,70 +67,26 @@ export function StoreOverviewPage({
 
   return (
     <DashboardCanvas>
-      <DashboardHeader
-        artRole="store"
-        eyebrow="Store operations"
-        title={storeName}
-        description="Marketplace fulfilment bench, confirmed store earnings, pickup point status, and merchant courier requests."
-        actions={
-          <div className="flex items-center gap-2">
-            <Link className={`${styles.btn} ${styles.btnSecondary}`} href="/store/profile">
-              Store profile
-            </Link>
-            <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/store/new-delivery">
-              New delivery
-            </Link>
+      <section className={role.merchantCover} aria-label="Merchant workspace overview">
+        <div className={role.merchantIntro}>
+          <span className={role.merchantCategory}>STORE WORKSPACE / FULFILMENT</span>
+          <h1>{storeName}</h1>
+          <p>Manage new orders, prepare collections and keep your business moving.</p>
+          <div className={role.merchantActions}>
+            <Link href="/store/new-delivery" className={role.rolePrimaryAction}>Create a delivery <span aria-hidden="true">↗</span></Link>
+            <Link href="/store/profile" className={role.roleSecondaryAction}>Manage store</Link>
           </div>
-        }
-      />
-
-      {/* KPI Metric Strip (4-card band, 2-up on mobile) */}
-      <DashboardGrid ariaLabel="Store operational summary">
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Needs attention"
-            value={summary.needsAttention}
-            description="Review, customer action, or reconciliation"
-            href="#fulfilment-bench"
-            tone="brand"
-            badge={
-              summary.needsAttention > 0 ? (
-                <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
-              ) : undefined
-            }
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Needs preparation"
-            value={summary.needsPreparation}
-            description="Accepted or currently preparing"
-            href="#fulfilment-bench"
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Ready for collection"
-            value={summary.readyForCollection}
-            description="Awaiting driver or customer pickup"
-            href="#fulfilment-bench"
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Confirmed balance"
-            value={payableBalance !== null ? `ZAR ${payableBalance}` : "—"}
-            description="Confirmed store earnings"
-            href="/store/earnings"
-            tone="dark"
-          />
-        </DashboardCol>
-      </DashboardGrid>
+        </div>
+        <div className={role.merchantFeature}>
+          <Image src="/media/dashboard/merchant-handoff.webp" alt="Merchant preparing a customer handoff" width={490} height={300} sizes="(max-width: 780px) 100vw, 380px" loading="eager" priority />
+          <div className={role.merchantBalance}><span>Confirmed earnings</span><strong>{payableBalance !== null ? `ZAR ${payableBalance}` : "Not available"}</strong><Link href="/store/earnings">View earnings ↗</Link></div>
+        </div>
+      </section>
+      <div className={role.merchantSignals} aria-label="Fulfilment summary">
+        <a href="#fulfilment-bench"><strong>{summary.needsAttention}</strong><span><b>Needs attention</b><small>Customer action or reconciliation</small></span></a>
+        <a href="#fulfilment-bench"><strong>{summary.needsPreparation}</strong><span><b>In preparation</b><small>Accepted and being prepared</small></span></a>
+        <a href="#fulfilment-bench"><strong>{summary.readyForCollection}</strong><span><b>Awaiting collection</b><small>Ready for courier pickup</small></span></a>
+      </div>
 
       {/* Row 1: Primary Marketplace Fulfilment Bench (7 cols) + Stage Mix (5 cols) */}
       <DashboardGrid ariaLabel="Fulfilment operations">

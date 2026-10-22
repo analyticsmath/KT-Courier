@@ -73,13 +73,12 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
     }));
 
     return (
-      <ProtectedPageFrame>
+      <ProtectedPageFrame className="kt-driver-detail-page">
         <ProtectedPageHeader
           eyebrow="Driver administration"
-          title={driver.driverCode}
-          description="Full controls are available because this administrator has the verified update, lifecycle, and region-management permissions."
+          title={driver.displayName ?? driver.driverCode}
+          description={`Courier profile · ${driver.driverCode} · Vehicle, region and dispatch controls`}
         />
-        <OperationalPanel title="Driver operations record">
           <DriverDetailsConsole
             initialDriver={driver}
             allRegions={allRegions.map((region) => ({ id: region.id, name: region.name, slug: region.slug }))}
@@ -87,7 +86,6 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
             readiness={readiness}
             recentAssignments={recentAssignments}
           />
-        </OperationalPanel>
       </ProtectedPageFrame>
     );
   }

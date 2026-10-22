@@ -1,12 +1,12 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
+import role from "../dashboard/roleStudio.module.css";
 import {
   DashboardCanvas,
   DashboardGrid,
   DashboardCol,
   DashboardCard,
-  DashboardMetricCard,
-  DashboardHeader,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -55,17 +55,18 @@ export function CustomerDashboardHome({
 
   return (
     <DashboardCanvas>
-      <DashboardHeader
-        artRole="customer"
-        eyebrow="My delivery desk"
-        title={`Welcome back, ${firstName}`}
-        description="See the delivery that needs your attention, track active parcels, and start your next request."
-        actions={
-          <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/account/request-delivery">
-            Request delivery
-          </Link>
-        }
-      />
+      <section className={role.customerCover} aria-label="Delivery account overview">
+        <div className={role.customerIntro}>
+          <span className={role.customerCategory}>YOUR DELIVERY WORKSPACE</span>
+          <h1>Welcome back, <em>{firstName}</em></h1>
+          <p>Track what’s in motion, review deliveries and request your next pickup.</p>
+          <Link href="/account/request-delivery" className={role.rolePrimaryAction}>Request a delivery <span aria-hidden="true">↗</span></Link>
+        </div>
+        <div className={role.customerVisual}>
+          <Image src="/media/dashboard/delivery-proof.webp" alt="Courier presenting proof of delivery" width={440} height={320} sizes="(max-width: 780px) 100vw, 360px" loading="eager" priority />
+          <span>From pickup to arrival.</span>
+        </div>
+      </section>
 
       <div className={styles.customerDashboardLayout}>
       {/* Mobile order prioritises delivery context and analysis before shortcuts. */}
@@ -148,54 +149,11 @@ export function CustomerDashboardHome({
         </DashboardCol>
       </DashboardGrid>
 
-      <DashboardGrid className={styles.customerMetricsGroup} ariaLabel="Customer delivery metrics">
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Active deliveries"
-            value={activeCount}
-            description="Parcels currently in flight"
-            href="/account/orders"
-            tone="brand"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Needs attention"
-            value={attentionCount}
-            description="Pending or delivery attempts"
-            href="/account/orders"
-            tone="surface"
-            badge={
-              attentionCount > 0 ? (
-                <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
-              ) : undefined
-            }
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Period delivery requests"
-            value={comparison.current}
-            changePercent={comparison.changePercent}
-            direction={comparison.direction}
-            previousValue={comparison.previous}
-            description={insight.periodLabel}
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Total deliveries"
-            value={breakdown.total}
-            description="Lifetime customer requests"
-            href="/account/orders"
-            tone="surface"
-          />
-        </DashboardCol>
-      </DashboardGrid>
+      <div className={`${styles.customerMetricsGroup} ${role.customerSignals}`} aria-label="Delivery activity summary">
+        <Link href="/account/orders"><strong>{activeCount}</strong><span><b>Active deliveries</b><small>Currently in motion</small></span></Link>
+        <Link href="/account/orders"><strong>{attentionCount}</strong><span><b>Needs attention</b><small>Updates and delivery attempts</small></span></Link>
+        <div><strong>{breakdown.total}</strong><span><b>Total deliveries</b><small>Lifetime account requests</small></span></div>
+      </div>
 
       <DashboardGrid className={styles.customerAnalyticsGroup} ariaLabel="Customer delivery analytics">
         <DashboardCol span={7}>

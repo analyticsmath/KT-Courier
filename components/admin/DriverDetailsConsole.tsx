@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import "./driverEditorial.css";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import type { BadgeVariant } from "@/types/ui";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -71,6 +72,14 @@ interface DriverDetailsConsoleProps {
   activityLogs: ActivityLog[];
   readiness?: DriverReadinessSummary | null;
   recentAssignments?: AssignedDeliveryItem[];
+}
+
+function DriverTextState({ status }: { status: string }) {
+  return (
+    <span className="kt-driver-text-state" data-state={status}>
+      {status.replaceAll("_", " ").toLowerCase()}
+    </span>
+  );
 }
 
 function DocumentDownload({ media, label }: { media?: DriverDocumentMediaDto | null; label: string }) {
@@ -414,36 +423,31 @@ export function DriverDetailsConsole({
     }
   };
 
-  // Badge variants
-  const getStatusBadgeVariant = (status: DriverStatus): BadgeVariant => {
-    switch (status) {
-      case "ACTIVE": return "green";
-      case "PENDING_REVIEW": return "amber";
-      case "SUSPENDED": return "red";
-      case "REJECTED": return "red";
-      case "INACTIVE":
-      default: return "gray";
-    }
-  };
-
-  const getAvailabilityBadgeVariant = (availability: DriverAvailability): BadgeVariant => {
-    switch (availability) {
-      case "AVAILABLE": return "green";
-      case "ON_DELIVERY": return "blue";
-      case "UNAVAILABLE": return "amber";
-      case "OFFLINE":
-      default: return "gray";
-    }
-  };
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="kt-driver-console">
+      <section className="kt-driver-feature" aria-label="Driver dispatch summary">
+        <div className="kt-driver-feature__content">
+          <p className="kt-driver-feature__intro">Fleet administration / Driver record</p>
+          <h2>{driver.displayName ?? "Courier account"}</h2>
+          <p className="kt-driver-feature__code">{driver.driverCode}</p>
+          <div className="kt-driver-feature__metrics">
+            <div><strong>{readiness?.checklist?.filter(item => item.status === "COMPLETED").length ?? "—"}/{readiness?.checklist?.length ?? "—"}</strong><span>Verified checks</span></div>
+            <div><strong>{readiness?.blockers.length ?? "—"}</strong><span>Dispatch blockers</span></div>
+            <div><strong>{readiness?.activeAssignmentCount ?? "—"}</strong><span>Active assignments</span></div>
+          </div>
+        </div>
+        <div className="kt-driver-feature__visual">
+          <Image src="/media/dashboard/delivery-proof.webp" alt="Courier presenting proof of delivery" width={440} height={330} loading="eager" sizes="(max-width: 720px) 200px, 280px" />
+          <span className="kt-driver-feature__availability">{DRIVER_AVAILABILITY_LABELS[driver.availability]}</span>
+        </div>
+      </section>
+      <div className="kt-driver-console__grid">
       
       {/* LEFT COLUMN: Identity, Status, Notes */}
-      <div className="lg:col-span-1 space-y-6">
+      <div className="kt-driver-console__side">
         
         {/* Identity & Status */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--identity">
           <div className="space-y-4">
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-3">
@@ -471,13 +475,9 @@ export function DriverDetailsConsole({
                   <p className="text-sm text-[var(--kt-text-muted)]">{driver.user.email}</p>
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5 items-end">
-                <Badge variant={getStatusBadgeVariant(driver.status)}>
-                  {DRIVER_STATUS_LABELS[driver.status]}
-                </Badge>
-                <Badge variant={getAvailabilityBadgeVariant(driver.availability)}>
-                  {DRIVER_AVAILABILITY_LABELS[driver.availability]}
-                </Badge>
+              <div className="kt-driver-identity__states">
+                <span className={`kt-driver-status kt-driver-status--${driver.status.toLowerCase()}`}>{DRIVER_STATUS_LABELS[driver.status]}</span>
+                <span className="kt-driver-identity__availability">{DRIVER_AVAILABILITY_LABELS[driver.availability]}</span>
               </div>
             </div>
 
@@ -521,9 +521,9 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Emergency Contacts */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--emergency">
           <div className="space-y-3">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+            <h3 className="kt-driver-section-title">
               Emergency Contact
             </h3>
             <div className="space-y-2 text-sm">
@@ -540,9 +540,9 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Notes Panel */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--notes">
           <div className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+            <h3 className="kt-driver-section-title">
               Notes
             </h3>
 
@@ -585,12 +585,12 @@ export function DriverDetailsConsole({
       </div>
 
       {/* MIDDLE COLUMN: Controls, Regions, Work Shell */}
-      <div className="lg:col-span-2 space-y-6">
+      <div className="kt-driver-console__main">
         
         {/* Admin Control Console */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--controls">
           <div className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border(--kt-soft-border) pb-1.5">
+            <h3 className="kt-driver-section-title">
               Admin Control Console
             </h3>
 
@@ -604,11 +604,7 @@ export function DriverDetailsConsole({
             <div className="p-3 bg-[var(--kt-cool-gray)] rounded-xl border border-[var(--kt-soft-border)] text-xs space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-[var(--kt-ink-navy)]">Model B Authority Model:</span>
-                <Badge variant={driver.status === "ACTIVE" && (driver.vehicles?.some((v) => v.status === "APPROVED") ?? false) ? "green" : "gray"}>
-                  {driver.status === "ACTIVE" && (driver.vehicles?.some((v) => v.status === "APPROVED") ?? false)
-                    ? "DISPATCH ELIGIBLE"
-                    : "NOT DISPATCH READY"}
-                </Badge>
+                <DriverTextState status={driver.status === "ACTIVE" && (driver.vehicles?.some((v) => v.status === "APPROVED") ?? false) ? "DISPATCH_ELIGIBLE" : "NOT_DISPATCH_READY"} />
               </div>
               <p className="text-[11px] text-[var(--kt-text-muted)]">
                 Driver Profile Approval operates independently from Vehicle Compliance. Approving the driver activates the courier profile. However, dispatch assignments require an active driver profile AND at least one approved vehicle with valid documents.
@@ -706,9 +702,9 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Coverage Regions Panel */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--regions">
           <div className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+            <h3 className="kt-driver-section-title">
               Service Regions Coverage
             </h3>
 
@@ -777,9 +773,9 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Vehicle Information Panel */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--vehicle">
           <form onSubmit={handleSaveVehicleInfo} className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+            <h3 className="kt-driver-section-title">
               Vehicle Profile
             </h3>
 
@@ -885,9 +881,9 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Compliance & Vehicle Photographs Panel */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--evidence">
           <div className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
+            <h3 className="kt-driver-section-title">
               Compliance & Fleet Evidence
             </h3>
 
@@ -896,17 +892,17 @@ export function DriverDetailsConsole({
               <span className="font-bold text-[var(--kt-ink-navy)] block">Compliance Cutover Policy</span>
               {!driver.vehicleComplianceRequiredAt ? (
                 <div className="flex items-center gap-2">
-                  <Badge variant="amber">LEGACY_COMPLIANCE_CUTOVER_PENDING</Badge>
+                  <DriverTextState status="LEGACY_COMPLIANCE_CUTOVER_PENDING" />
                   <span className="text-[var(--kt-text-muted)]">Driver grandfathered from mandatory vehicle compliance cutover.</span>
                 </div>
               ) : new Date(driver.vehicleComplianceRequiredAt) > new Date() ? (
                 <div className="flex items-center gap-2">
-                  <Badge variant="amber">CUTOVER_PENDING</Badge>
+                  <DriverTextState status="CUTOVER_PENDING" />
                   <span className="text-[var(--kt-text-muted)]">Grandfathered until {new Date(driver.vehicleComplianceRequiredAt).toLocaleDateString("en-ZA")}.</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Badge variant="green">STRICT_COMPLIANCE_ENFORCED</Badge>
+                  <DriverTextState status="STRICT_COMPLIANCE_ENFORCED" />
                   <span className="text-[var(--kt-text-muted)]">Full driver and vehicle compliance required for dispatch.</span>
                 </div>
               )}
@@ -934,15 +930,13 @@ export function DriverDetailsConsole({
                         )}
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
-                        <Badge variant={doc.status === "APPROVED" ? "green" : doc.status === "REJECTED" ? "red" : "amber"}>
-                          {doc.status}
-                        </Badge>
+                        <DriverTextState status={doc.status} />
                         <div className="flex gap-1">
                           <button
                             type="button"
                             disabled={docReviewLoading === doc.id}
                             onClick={() => handleReviewDriverDoc(doc.id, "APPROVED")}
-                            className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                            className="kt-driver-review-button kt-driver-review-button--approve"
                           >
                             Approve
                           </button>
@@ -950,7 +944,7 @@ export function DriverDetailsConsole({
                             type="button"
                             disabled={docReviewLoading === doc.id}
                             onClick={() => handleReviewDriverDoc(doc.id, "REJECTED")}
-                            className="px-2 py-0.5 text-[10px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                            className="kt-driver-review-button kt-driver-review-button--reject"
                           >
                             Reject
                           </button>
@@ -978,21 +972,19 @@ export function DriverDetailsConsole({
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={v.status === "APPROVED" ? "green" : v.status === "REJECTED" ? "red" : "amber"}>
-                          {v.status}
-                        </Badge>
+                        <DriverTextState status={v.status} />
                         <div className="flex gap-1">
                           <button
                             type="button"
                             onClick={() => handleReviewVehicle(v.id, "APPROVED")}
-                            className="px-2 py-1 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                            className="kt-driver-review-button kt-driver-review-button--approve"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
                             onClick={() => handleReviewVehicle(v.id, "REJECTED")}
-                            className="px-2 py-1 text-[10px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                            className="kt-driver-review-button kt-driver-review-button--reject"
                           >
                             Reject
                           </button>
@@ -1022,14 +1014,14 @@ export function DriverDetailsConsole({
                                   <button
                                     type="button"
                                     onClick={() => handleReviewVehicleDoc(v.id, doc.id, "APPROVED")}
-                                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100"
+                                    className="kt-driver-review-button kt-driver-review-button--approve" aria-label={`Approve ${v.registrationNumber} ${docType} document`}
                                   >
                                     ✓
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleReviewVehicleDoc(v.id, doc.id, "REJECTED")}
-                                    className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-red-50 text-red-700 border border-red-300 hover:bg-red-100"
+                                    className="kt-driver-review-button kt-driver-review-button--reject" aria-label={`Reject ${v.registrationNumber} ${docType} document`}
                                   >
                                     ✗
                                   </button>
@@ -1076,103 +1068,84 @@ export function DriverDetailsConsole({
           </div>
         </Card>
 
-        {/* Driver Readiness & Dispatch Eligibility Inspection */}
-        <Card>
+        {/* Dispatch readiness */}
+        <Card className="kt-driver-panel kt-driver-panel--readiness">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--kt-soft-border)] pb-2">
               <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)]">
-                  Driver Readiness & Dispatch Eligibility Inspection
+                <h3 className="kt-driver-section-title">
+                  Dispatch readiness
                 </h3>
                 <p className="text-xs text-[var(--kt-text-muted)] mt-0.5">
                   Authoritative multi-factor evaluation of account, identity, driving credentials, fleet compliance, and service regions.
                 </p>
               </div>
               <div>
-                <Badge
-                  variant={readiness?.isDispatchReady ? "green" : "amber"}
-                >
-                  {readiness?.isDispatchReady ? "DISPATCH READY" : "ELIGIBILITY BLOCKED"}
-                </Badge>
+                <span className={readiness?.isDispatchReady ? "kt-driver-readiness__label is-ready" : "kt-driver-readiness__label is-blocked"}>
+                  {readiness?.isDispatchReady ? "Dispatch ready" : "Not dispatch eligible"}
+                </span>
               </div>
             </div>
 
             {readiness?.checklist && (
-              <div className="space-y-3">
-                <span className="block text-xs font-bold uppercase tracking-wider text-[var(--kt-ink-navy)]">
-                  Evaluation Factors ({readiness.checklist.filter((c) => c.status === "COMPLETED").length}/{readiness.checklist.length} verified)
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-                  {readiness.checklist.map((item) => {
-                    const isDone = item.status === "COMPLETED";
-                    const isPending = item.status === "PENDING_REVIEW";
-                    const isExpired = item.status === "EXPIRED";
-                    const isRejected = item.status === "REJECTED";
-                    const variant: BadgeVariant = isDone
-                      ? "green"
-                      : isPending
-                      ? "amber"
-                      : isExpired || isRejected
-                      ? "red"
-                      : "slate";
-
+              <section className="kt-driver-readiness" aria-label="Dispatch eligibility evidence">
+                <div className="kt-driver-readiness__heading">
+                  <div>
+                    <p>Identity, compliance & service coverage</p>
+                    <strong>{readiness.checklist.filter(item => item.status === "COMPLETED").length} of {readiness.checklist.length} checks verified</strong>
+                  </div>
+                  <span className="kt-driver-readiness__state">
+                    {readiness.isDispatchReady ? "Ready for dispatch" : "Dispatch restricted"}
+                  </span>
+                </div>
+                <ol className="kt-driver-readiness__list">
+                  {readiness.checklist.map((item, index) => {
+                    const complete = item.status === "COMPLETED";
                     return (
-                      <div
-                        key={item.key}
-                        className={`p-3 rounded-xl border flex flex-col justify-between gap-1.5 ${
-                          isDone
-                            ? "bg-[var(--kt-mint-wash)]/30 border-[var(--kt-teal-emerald)]/30"
-                            : isPending
-                            ? "bg-amber-50/50 border-amber-200"
-                            : "bg-[var(--kt-cool-gray)]/50 border-[var(--kt-soft-border)]"
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-bold text-[var(--kt-ink-navy)] truncate">
-                              {item.label}
-                            </span>
-                            <Badge variant={variant}>
-                              {item.status}
-                            </Badge>
-                          </div>
-                          {item.detail && (
-                            <p className="text-[11px] text-[var(--kt-text-muted)] mt-1 line-clamp-2" title={item.detail}>
-                              {item.detail}
-                            </p>
-                          )}
+                      <li key={item.key} className={complete ? "is-verified" : "is-unverified"}>
+                        <span className="kt-driver-readiness__index">{String(index + 1).padStart(2, "0")}</span>
+                        <div className="kt-driver-readiness__detail">
+                          <strong>{item.label}</strong>
+                          <span>{item.detail || item.description}</span>
                         </div>
-                      </div>
+                        <span className="kt-driver-readiness__result">{complete ? "Verified" : item.status.replaceAll("_", " ").toLowerCase()}</span>
+                      </li>
                     );
                   })}
-                </div>
-              </div>
+                </ol>
+              </section>
             )}
 
             {readiness && !readiness.isDispatchReady && readiness.blockers.length > 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5 space-y-2">
-                <span className="block text-xs font-bold uppercase tracking-wider text-amber-900">
-                  Active Dispatch Blockers ({readiness.blockers.length})
-                </span>
-                <ul className="space-y-1.5 list-none p-0 m-0">
-                  {readiness.blockers.map((b) => (
-                    <li key={b.key} className="flex items-start gap-2 text-xs text-amber-950 font-medium">
-                      <span className="text-amber-600 font-bold">•</span>
-                      <span>{b.message}</span>
+              <section className="kt-driver-blockers" aria-label="Dispatch blockers">
+                <div className="kt-driver-blockers__heading">
+                  <h4>Items preventing dispatch</h4>
+                  <span>{readiness.blockers.length} need attention</span>
+                </div>
+                <ul className="kt-driver-blockers__list">
+                  {readiness.blockers.map((item) => (
+                    <li key={item.key}>
+                      <span className="kt-driver-blockers__bullet" aria-hidden="true">!</span>
+                      <div>
+                        <p>{item.message}</p>
+                        {item.actionHref && item.actionLabel ? (
+                          <Link href={item.actionHref}>{item.actionLabel} <span aria-hidden="true">↗</span></Link>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </section>
             )}
           </div>
         </Card>
 
         {/* Assigned Deliveries */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--deliveries">
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-[var(--kt-soft-border)] pb-2">
-              <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)]">
-                Assigned Deliveries ({recentAssignments.length})
+              <h3 className="kt-driver-section-title">
+                Deliveries ({recentAssignments.length})
               </h3>
               <span className="text-xs text-[var(--kt-text-muted)] font-medium">
                 Active load: {readiness?.activeAssignmentCount ?? 0} / {readiness?.maxConcurrentAssignments ?? 1}
@@ -1212,19 +1185,7 @@ export function DriverDetailsConsole({
                           {[a.order.originCity, a.order.destinationCity].filter(Boolean).join(" → ") || "Local"}
                         </td>
                         <td className="py-2.5 px-3">
-                          <Badge
-                            variant={
-                              a.status === "COMPLETED"
-                                ? "green"
-                                : a.status === "ACCEPTED" || a.status === "ASSIGNED"
-                                ? "blue"
-                                : a.status === "REJECTED" || a.status === "CANCELLED"
-                                ? "red"
-                                : "slate"
-                            }
-                          >
-                            {a.status}
-                          </Badge>
+                          <DriverTextState status={a.status} />
                         </td>
                         <td className="py-2.5 px-3 font-medium text-[var(--kt-ink-navy)]">
                           {a.order.status.replace(/_/g, " ")}
@@ -1242,10 +1203,10 @@ export function DriverDetailsConsole({
         </Card>
 
         {/* Audit Logs Trail */}
-        <Card>
+        <Card className="kt-driver-panel kt-driver-panel--audit">
           <div className="space-y-4">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--kt-ink-navy)] border-b border-[var(--kt-soft-border)] pb-1.5">
-              Driver Operation Audit Trail
+            <h3 className="kt-driver-section-title">
+              Operational history
             </h3>
 
             <div className="max-h-60 overflow-y-auto space-y-3">
@@ -1271,6 +1232,7 @@ export function DriverDetailsConsole({
           </div>
         </Card>
 
+      </div>
       </div>
     </div>
   );

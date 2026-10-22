@@ -1,0 +1,55 @@
+/* Role-specific mastheads: store operations and customer deliveries are not admin analytics. */
+.merchantCover,.customerCover {min-width:0; overflow:hidden; border-radius:25px; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(290px,.8fr); border:1px solid #e6eaf4;}
+.merchantCover {background:#eef0ff; color:#1b2041;}
+.merchantIntro,.customerIntro {display:flex; flex-direction:column; align-items:start; padding:clamp(24px,3vw,43px); min-width:0;}
+.merchantCategory,.customerCategory {font-size:.68rem; font-weight:750; letter-spacing:.11em; color:#6369ad;}
+.merchantIntro h1,.customerIntro h1 {font-size:clamp(1.9rem,2.8vw,3.3rem); font-weight:730; letter-spacing:-.055em; line-height:1.12; margin:18px 0 12px; overflow-wrap:anywhere;}
+.merchantIntro p,.customerIntro p {font-size:.85rem; line-height:1.65; color:#5f6989; max-width:45ch;}
+.merchantActions {margin-top:auto; padding-top:25px; display:flex; align-items:center; flex-wrap:wrap; gap:11px;}
+.rolePrimaryAction,.roleSecondaryAction {display:inline-flex; align-items:center; justify-content:space-between; gap:18px; min-height:44px; border:1px solid #1c2140; padding:11px 17px; background:#1c2140; border-radius:11px; font-size:.78rem; font-weight:720; color:white; text-decoration:none;}
+.rolePrimaryAction:hover {color:white; background:#454cc2; border-color:#454cc2;}
+.roleSecondaryAction {color:#2e3760; background:#fff; border-color:#d9def2;}
+.roleSecondaryAction:hover {color:#232d51; background:#f4f6ff;}
+.rolePrimaryAction span {font-size:1rem;}
+.merchantFeature {position:relative; background:#d8ddff; min-width:0; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:19px 20px 93px;}
+.merchantFeature img {width:min(100%,360px); height:235px; max-height:100%; object-fit:contain; mix-blend-mode:multiply;}
+.merchantBalance {position:absolute; left:17px; right:17px; bottom:17px; display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; border-radius:13px; background:#4349bc; color:#fff; padding:15px 17px;}
+.merchantBalance span {font-size:.72rem; font-weight:590; color:#d8dcff;}
+.merchantBalance strong {font-size:1.1rem; letter-spacing:-.035em; font-weight:730; color:#fff;}
+.merchantBalance a {color:#fff; font-size:.72rem; font-weight:700; white-space:nowrap; text-decoration:underline; text-underline-offset:3px;}
+.merchantSignals,.customerSignals {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; background:#fff; border:1px solid #e1e6f1; border-radius:19px; min-width:0; overflow:hidden;}
+.merchantSignals a,.customerSignals >* {display:flex; align-items:center; gap:18px; padding:21px; min-width:0; text-decoration:none; border-right:1px solid #e9edf5; color:#242a42;}
+.merchantSignals a:last-child,.customerSignals >*:last-child {border-right:0;}
+.merchantSignals a:hover,.customerSignals a:hover {background:#f7f8ff;}
+.merchantSignals strong,.customerSignals strong {color:#2b329b; font-size:clamp(1.8rem,2vw,2.5rem); font-weight:730; letter-spacing:-.06em; min-width:45px; line-height:1;}
+.merchantSignals span,.customerSignals span {display:flex; flex-direction:column; gap:6px; min-width:0;}
+.merchantSignals b,.customerSignals b {font-size:.81rem; line-height:1.35; font-weight:720; color:#242a42;}
+.merchantSignals small,.customerSignals small {font-size:.7rem; line-height:1.45; color:#8790a4;}
+.customerCover {background:#1a2036; color:#fff;}
+.customerCategory {color:#aab7fb;}
+.customerIntro h1 {color:white;}
+.customerIntro h1 em {color:#a7bbff; font-style:normal;}
+.customerIntro p {color:#c4ccdf;}
+.customerIntro .rolePrimaryAction {margin-top:25px; background:#eef0ff; border-color:#eef0ff; color:#252a61;}
+.customerIntro .rolePrimaryAction:hover {background:#d8dcff; color:#252a61;}
+.customerVisual {display:grid; place-items:center; position:relative; background:#cee2fb; padding:20px; min-width:0; min-height:300px;}
+.customerVisual img {width:100%; max-width:350px; height:240px; object-fit:contain; mix-blend-mode:multiply;}
+.customerVisual span {position:absolute; left:17px; right:17px; bottom:17px; border-radius:11px; background:#313b9f; color:#fff; font-size:.78rem; font-weight:700; padding:13px 16px; text-align:center;}
+.customerSignals {grid-column:1/-1; background:#fff;}
+.rolePrimaryAction:focus-visible,.roleSecondaryAction:focus-visible,.merchantSignals a:focus-visible,.customerSignals a:focus-visible {outline:3px solid #5b66d1;outline-offset:3px;}
+@media(max-width:960px) {
+ .merchantCover,.customerCover {grid-template-columns:minmax(0,1fr) minmax(220px,.7fr);}
+ .merchantFeature,.customerVisual {min-height:260px;}
+ .merchantSignals a,.customerSignals >* {padding:16px; gap:12px;}
+}
+@media(max-width:720px) {
+ .merchantCover,.customerCover {grid-template-columns:minmax(0,1fr);}
+ .merchantIntro,.customerIntro {padding:24px;}
+ .merchantFeature,.customerVisual {min-height:230px;max-height:280px;}
+ .merchantFeature {padding-bottom:89px;}
+ .merchantFeature img,.customerVisual img {max-height:185px;}
+ .merchantSignals,.customerSignals {grid-template-columns:minmax(0,1fr);}
+ .merchantSignals a,.customerSignals>* {border-right:0; border-bottom:1px solid #e9edf5; padding:17px 20px;}
+ .merchantSignals a:last-child,.customerSignals>*:last-child {border-bottom:0;}
+}
+@media(prefers-reduced-motion:reduce){.merchantCover *,.customerCover *,.merchantSignals *,.customerSignals *{transition:none!important;animation:none!important;}}

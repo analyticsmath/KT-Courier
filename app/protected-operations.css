@@ -457,3 +457,32 @@
     [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__intro { padding: 17px; }
   }
 }
+
+/* Shell refinement: single KT Couriers brand; calm workspace chrome, no duplicate logo. */
+@layer components {
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar {
+   min-height: 69px; background:#fff; border-bottom:1px solid #e8eaf2;
+   padding-inline:clamp(17px,2.3vw,36px);
+ }
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__leading {
+   gap:15px; min-width:0;
+ }
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__workspace {
+   flex:none; color:#919ab0; font-size:.66rem; font-weight:760; letter-spacing:.105em;
+ }
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__workspace span {padding-inline:6px;color:#bfc6d5;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__context {
+   color:#192238; font-size:.88rem; font-weight:710; letter-spacing:-.02em;
+ }
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__account { margin-left:9px; }
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__actions {gap:12px;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__primary-action {background:#1b2032;border-color:#1b2032;padding:10px 16px;border-radius:10px;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-avatar-button {border-radius:13px;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-desktop-navigation {background:#fff;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle {border-radius:11px;}
+ [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-link.is-current {color:#3445ae;background:#edefFF;}
+ @media (max-width:767px) {
+   [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__workspace {display:none;}
+   [data-kt-protected-system="editorial-operations-v1"] .eo-topbar {min-height:62px;padding-inline:12px;}
+ }
+}
