@@ -161,10 +161,10 @@ function renderOtp(ctx: OtpContext): RenderedEmail {
     <p>Use the code below to verify your email address. It expires in
     <strong>${ctx.expiresMinutes} minutes</strong>.</p>
     <div style="text-align:center;margin:28px 0;">
-      <span style="display:inline-block;padding:16px 32px;background:#f0f4ff;
-                   border:2px dashed #1D6ADB;border-radius:10px;
+      <span style="display:inline-block;padding:16px 32px;background:#F4F4F4;
+                   border:2px dashed #982C35;border-radius:10px;
                    font-size:32px;font-weight:700;letter-spacing:8px;
-                   color:#0F2B52;font-family:monospace;">
+                   color:#191919;font-family:monospace;">
         ${ctx.otp}
       </span>
     </div>
@@ -242,7 +242,7 @@ function renderOrderConfirmation(ctx: OrderConfirmationContext): RenderedEmail {
     <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
       <tr>
         <td style="padding:8px 0;color:#6b7280;width:40%;">Order number</td>
-        <td style="padding:8px 0;font-weight:600;color:#0a1628;font-family:monospace;">${ctx.orderNumber}</td>
+        <td style="padding:8px 0;font-weight:600;color:#191919;font-family:monospace;">${ctx.orderNumber}</td>
       </tr>
       <tr>
         <td style="padding:8px 0;color:#6b7280;">Delivery type</td>
@@ -280,11 +280,11 @@ function renderOrderStatusChanged(ctx: OrderStatusChangedContext): RenderedEmail
     <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
       <tr>
         <td style="padding:8px 0;color:#6b7280;width:40%;">Order number</td>
-        <td style="padding:8px 0;font-weight:600;color:#0a1628;font-family:monospace;">${ctx.orderNumber}</td>
+        <td style="padding:8px 0;font-weight:600;color:#191919;font-family:monospace;">${ctx.orderNumber}</td>
       </tr>
       <tr>
         <td style="padding:8px 0;color:#6b7280;">New status</td>
-        <td style="padding:8px 0;font-weight:600;color:#0F2B52;">${ctx.statusLabel}</td>
+        <td style="padding:8px 0;font-weight:600;color:#191919;">${ctx.statusLabel}</td>
       </tr>
       ${noteRow}
     </table>
@@ -305,7 +305,7 @@ function renderAdminNewOrder(ctx: AdminNewOrderContext): RenderedEmail {
     <table style="width:100%;border-collapse:collapse;margin:20px 0;font-size:14px;">
       <tr>
         <td style="padding:8px 0;color:#6b7280;width:40%;">Order number</td>
-        <td style="padding:8px 0;font-weight:600;font-family:monospace;color:#0a1628;">${ctx.orderNumber}</td>
+        <td style="padding:8px 0;font-weight:600;font-family:monospace;color:#191919;">${ctx.orderNumber}</td>
       </tr>
       <tr>
         <td style="padding:8px 0;color:#6b7280;">Source</td>
@@ -337,10 +337,10 @@ function renderDeliveryOtp(ctx: DeliveryOtpContext): RenderedEmail {
     <p>Your delivery is arriving now. Please give the code below to the driver to confirm receipt.</p>
     <p>This code is valid for <strong>${ctx.expiresMinutes} minutes</strong>.</p>
     <div style="text-align:center;margin:28px 0;">
-      <span style="display:inline-block;padding:16px 36px;background:#f0f4ff;
-                   border:2px dashed #1D6ADB;border-radius:10px;
+      <span style="display:inline-block;padding:16px 36px;background:#F4F4F4;
+                   border:2px dashed #982C35;border-radius:10px;
                    font-size:36px;font-weight:700;letter-spacing:10px;
-                   color:#0F2B52;font-family:monospace;">
+                   color:#191919;font-family:monospace;">
         ${ctx.otp}
       </span>
     </div>
