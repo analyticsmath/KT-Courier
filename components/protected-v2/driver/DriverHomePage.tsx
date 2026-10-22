@@ -73,6 +73,7 @@ export function DriverHomePage({
   return (
     <DashboardCanvas>
       <DashboardHeader
+        artRole="driver"
         eyebrow="Driver operations"
         title={driver.displayName ?? "Driver home"}
         description="Active runs, dispatch offers, vehicle profile, and completed assignment history."
@@ -250,7 +251,7 @@ export function DriverHomePage({
             value={currentWork.length}
             description="Accepted, active runs"
             href="/driver/assignments"
-            tone="surface"
+            tone="brand"
           />
         </DashboardCol>
 

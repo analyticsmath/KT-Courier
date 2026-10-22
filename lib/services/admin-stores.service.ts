@@ -87,6 +87,7 @@ export async function getStoreDetail(id: string) {
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
     orderCount,
+    defaultPickupAddressId: store.defaultPickupAddressId,
     ownerUser: store.ownerUser
       ? {
           id: store.ownerUser.id,
@@ -94,6 +95,15 @@ export async function getStoreDetail(id: string) {
           name: store.ownerUser.name,
           phone: store.ownerUser.phone,
           status: store.ownerUser.status,
+          emailVerifiedAt: store.ownerUser.emailVerifiedAt,
+          createdAt: store.ownerUser.createdAt,
+          storeProfile: store.ownerUser.storeProfile ? {
+            storeName: store.ownerUser.storeProfile.storeName,
+            contactPerson: store.ownerUser.storeProfile.contactPerson,
+            businessPhone: store.ownerUser.storeProfile.businessPhone,
+            businessEmail: store.ownerUser.storeProfile.businessEmail,
+            status: store.ownerUser.storeProfile.status,
+          } : null,
         }
       : null,
   };
@@ -133,14 +143,34 @@ export async function adminUpdateStore(
   });
 }
 
-export async function setStoreStatus(id: string, status: StoreStatus) {
-  // Publication visibility and store status are committed atomically.
+export async function setStoreStatus(
+  id: string,
+  status: StoreStatus,
+  audit?: { actorUserId: string; reason?: string },
+) {
+  // Status, visibility and the reason shown to the vendor must commit together.
   return prisma.$transaction(async (tx) => {
+    const before = await tx.store.findUniqueOrThrow({
+      where: { id },
+      select: { name: true, status: true },
+    });
     const updated = await tx.store.update({
       where: { id },
       data: { status, ...(status !== "ACTIVE" ? { featured: false } : {}) },
     });
     await rebuildStorefrontStoreDocument(id, tx);
+    if (audit) {
+      await tx.adminActivityLog.create({
+        data: {
+          actorUserId: audit.actorUserId,
+          action: "STATUS_CHANGE",
+          entityType: "Store",
+          entityId: id,
+          message: `Changed store "${before.name}" status from ${before.status} to ${status}`,
+          metadata: { from: before.status, to: status, reason: audit.reason?.trim() ?? null },
+        },
+      });
+    }
     return updated;
   });
 }

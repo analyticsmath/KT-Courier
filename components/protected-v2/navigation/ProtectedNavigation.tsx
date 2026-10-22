@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { ProtectedIcon } from "@/components/protected-v2/icons/ProtectedIcon";
+import { ProtectedAvatar } from "@/components/protected-v2/shell/ProtectedAvatar";
 import type { ProtectedNavigationGroup, ProtectedNavigationItem } from "./types";
 
 type ProtectedNavigationLinksProps = {
@@ -24,7 +25,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
   const pathname = usePathname();
   const instanceId = useId();
   const [query, setQuery] = useState("");
-  const [closedGroups, setClosedGroups] = useState<ReadonlySet<string>>(() => new Set());
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
   // Only the permission-filtered server projection reaches this component.
   const visibleGroups = groups.map((group) => ({ ...group, items: group.items.filter((item) => `${group.label} ${item.label}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) })).filter((group) => group.items.length > 0);
 
@@ -33,7 +34,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
       {searchable ? <label className="eo-navigation-search"><span>Find a workspace</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search navigation" /></label> : null}
       {visibleGroups.length === 0 ? <p role="status" className="eo-navigation-search">No matching destinations.</p> : null}
       {visibleGroups.map((group) => {
-        const isOpen = Boolean(query.trim()) || !closedGroups.has(group.id);
+        const isOpen = Boolean(query.trim()) || openGroups.has(group.id);
         return (
           <section className="eo-navigation-group" key={group.id}>
             <button
@@ -41,7 +42,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
               aria-expanded={isOpen}
               className="eo-navigation-group__toggle"
               onClick={() => {
-                setClosedGroups((current) => {
+                setOpenGroups((current) => {
                   const next = new Set(current);
                   if (next.has(group.id)) next.delete(group.id);
                   else next.add(group.id);
@@ -90,10 +91,6 @@ type ProtectedDesktopNavigationProps = {
   searchable?: boolean;
 };
 
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "KT";
-}
-
 export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer, searchable }: ProtectedDesktopNavigationProps) {
   const [railExpanded, setRailExpanded] = useState(false);
 
@@ -130,7 +127,7 @@ export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer,
       </nav>
       <div className="eo-desktop-navigation__account">
         <div className="eo-user-summary">
-          <span aria-hidden="true" className="eo-avatar">{initials(user.displayName)}</span>
+          <ProtectedAvatar name={user.displayName} src={user.avatarUrl} />
           <span className="eo-user-summary__copy"><strong>{user.displayName}</strong><small>{user.roleLabel}</small></span>
         </div>
         {footer ? <div className="eo-desktop-navigation__footer">{footer}</div> : null}

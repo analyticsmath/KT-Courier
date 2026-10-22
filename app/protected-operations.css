@@ -1,0 +1,440 @@
+/* KT protected operational refinement / invoice & task-manager information architecture.
+   Deliberately scoped to authenticated workspaces; all interaction is instant. */
+@layer components {
+  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle {
+    min-height: 42px;
+    color: #535D73;
+    font-size: .755rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    border-radius: 10px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle:hover,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle[aria-expanded="true"] {
+    color: #171D30;
+    background: #F5F6FB;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__items {
+    padding-block: 5px 9px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-link.is-current {
+    background: #ECEEFF;
+    color: #313FA9;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status {
+    display: inline;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    font-size: .78rem;
+    font-weight: 720;
+    letter-spacing: -.01em;
+    line-height: 1.5;
+    white-space: normal;
+    background: transparent;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status__marker { display: none; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--success { color: #087F60; background: transparent; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--warning { color: #9B5C16; background: transparent; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--danger { color: #B3364E; background: transparent; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--information { color: #3C51BF; background: transparent; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--neutral,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-status--locked { color: #5C677E; background: transparent; }
+  /* Preserve information. Scroll within the table, never let action links spell vertically. */
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap:not(.eo-table-wrap--stack) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table {
+    min-width: 850px;
+    table-layout: auto;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table td {
+    font-size: .81rem;
+    line-height: 1.48;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table td :is(.eo-table-link, .eo-table-action) {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    min-height: 36px;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    text-decoration: none;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table td .eo-table-action {
+    border: 1px solid #D9DFEB;
+    background: #FFFFFF;
+    color: #26344D;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: .78rem;
+    font-weight: 690;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table td .eo-table-action:hover {
+    background: #F3F5FB;
+    border-color: #BAC6DF;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table th:last-child,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table td:last-child {
+    min-width: 98px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-table--compact { min-width: 750px; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-orders-page .eo-table td:last-child,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-orders-page .eo-table th:last-child {
+    min-width: 135px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-order-reference {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    min-width: 185px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-order-reference .eo-table-link {
+    font-size: .82rem;
+    font-weight: 740;
+    color: #2849C8;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-order-reference small {
+    color: #748097;
+    font-size: .73rem;
+    line-height: 1.45;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-orders-page__statuses {
+    border: 1px solid #E2E7F1;
+    background: #FFFFFF;
+    border-radius: 15px;
+    padding: 7px;
+    gap: 5px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-orders-page__statuses a {
+    border: 0;
+    border-radius: 9px;
+    padding-inline: 12px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-orders-page__assignment {
+    margin-top: -2px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-filter-label {
+    color: #455269;
+    font-size: .81rem;
+    font-weight: 680;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-filter-label input {
+    min-width: min(100%, 280px);
+    padding: 12px 14px;
+    border: 1px solid #CFD6E5;
+    border-radius: 11px;
+    background: #FFFFFF;
+    color: #1D2536;
+    font-size: .83rem;
+    font-weight: 500;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-filter-submit {
+    min-height: 44px;
+    border-radius: 11px;
+    padding: 10px 18px;
+    background: #151A2B;
+    border: 1px solid #151A2B;
+    color: #FFFFFF;
+  }
+  /* Dispatch: the queue is primary; readiness evidence is an expandable sidebar. */
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 14px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-metric-tile {
+    border-radius: 19px;
+    padding: 23px;
+    background: #FFFFFF;
+    min-width: 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-metric-tile__value {
+    margin-top: 17px;
+    font-size: clamp(2.25rem, 3vw, 3rem);
+    letter-spacing: -.06em;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-metric-tile__head p {
+    color: #606C85;
+    font-size: .83rem;
+    font-weight: 670;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-metric-tile__description {
+    margin-top: 11px;
+    color: #7B8599;
+    line-height: 1.45;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-dispatch-metric--priority {
+    border-color: #171927;
+    background: #171927;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metric--priority .eo-metric-tile__value {
+    color: #FFFFFF;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-dispatch-metric--priority .eo-metric-tile__head p,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-dispatch-metric--priority .eo-metric-tile__description {
+    color: #D2D8EA;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-sidebar {
+    display: grid;
+    gap: 15px;
+    align-content: start;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-page .eo-content-grid {
+    align-items: start;
+    gap: 17px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-page .eo-panel { min-width: 0; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__overview {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 10px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__overview > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: 1px solid #EBEEF5;
+    border-radius: 13px;
+    background: #F9FAFD;
+    padding: 12px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__number {
+    font-size: 1.65rem;
+    line-height: 1.05;
+    letter-spacing: -.04em;
+    color: #171C2B;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__overview span {
+    color: #69748B;
+    font-size: .72rem;
+    line-height: 1.4;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__details summary {
+    cursor: pointer;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #3249A9;
+    padding: 10px 1px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__list {
+    max-height: 360px;
+    overflow-y: auto;
+    display: grid;
+    gap: 0;
+    border-top: 1px solid #E7EAF2;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__row {
+    border-bottom: 1px solid #EDF0F6;
+    padding: 12px 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__row a {
+    color: #1D2C5E;
+    font-size: .79rem;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__row p,
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__hint {
+    margin: 5px 0 0;
+    color: #718099;
+    font-size: .745rem;
+    line-height: 1.58;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-readiness__hint a { color: #3551B6; text-decoration: underline; }
+  /* Processor management must remain usable at all viewports. */
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace {
+    display: grid;
+    gap: 18px;
+    max-width: 100%;
+    min-width: 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__intro {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 17px;
+    border: 1px solid #E3E7F1;
+    border-radius: 19px;
+    background: #FFFFFF;
+    padding: 22px 23px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__intro h3 {
+    color: #192035;
+    font-size: 1.03rem;
+    font-weight: 760;
+    letter-spacing: -.02em;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__intro p {
+    max-width: 65ch;
+    margin-top: 5px;
+    color: #6A7590;
+    font-size: .8rem;
+    line-height: 1.55;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    border: 1px solid #E2E6F0;
+    border-radius: 18px;
+    background: #FFFFFF;
+    scrollbar-width: thin;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 980px;
+    table-layout: auto;
+    text-align: left;
+    font-size: .82rem;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table th {
+    padding: 15px;
+    background: #F5F7FB;
+    border-bottom: 1px solid #E7EAF2;
+    color: #606C85;
+    white-space: nowrap;
+    font-size: .7rem;
+    font-weight: 760;
+    letter-spacing: .025em;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table td {
+    padding: 16px 15px;
+    border-bottom: 1px solid #EDF0F5;
+    color: #39445C;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table tr:last-child td { border-bottom: 0; }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table tbody tr:hover { background: #F9FAFF; }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__name {
+    color: #1E2740;
+    font-family: var(--eo-font-mono);
+    font-weight: 680;
+    font-size: .77rem;
+    overflow-wrap: anywhere;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__purpose {
+    max-width: 29ch;
+    margin-top: 6px;
+    color: #7A8499;
+    font-size: .73rem;
+    line-height: 1.5;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__classification {
+    max-width: 175px;
+    color: #6B7791;
+    font-size: .72rem;
+    font-weight: 590;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__trigger {
+    color: #3F53AC;
+    font-weight: 710;
+    font-size: .77rem;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__actions {
+    min-width: 130px;
+    text-align: right;
+    white-space: nowrap;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog {
+    width: min(720px, calc(100vw - 28px));
+    max-height: min(90dvh, 850px);
+    overflow: hidden;
+    border: 1px solid #E2E6F0;
+    border-radius: 24px;
+    background: #FFFFFF;
+    color: #1C263B;
+    box-shadow: 0 25px 85px rgba(5, 13, 35, .24);
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog .eo-dialog__header {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid #E9ECF4;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog .eo-dialog__title {
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    font-weight: 740;
+    line-height: 1.35;
+    letter-spacing: -.025em;
+    overflow-wrap: anywhere;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog .eo-dialog__body {
+    padding: 22px 24px 25px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog__content {
+    display: grid;
+    gap: 19px;
+    min-width: 0;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog__meta {
+    border: 1px solid #E4E9F4;
+    background: #F8FAFF;
+    border-radius: 13px;
+    padding: 15px 17px;
+    color: #4B5974;
+    font-size: .77rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog__execute {
+    border: 1px solid #DFE5F2;
+    border-radius: 15px;
+    padding: 18px;
+    background: #FFFFFF;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog__execute :is(input, select) {
+    width: 100%;
+    min-width: 0;
+    min-height: 43px;
+    background: #FFFFFF;
+    border: 1px solid #CBD3E3;
+    border-radius: 10px;
+    color: #1F293D;
+    padding: 8px 12px;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog__history {
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid #E7EBF2;
+    border-radius: 12px;
+    padding: 12px;
+    color: #3A455B;
+    font-size: .73rem;
+    line-height: 1.55;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-overlay { z-index: 100; }
+  [data-kt-protected-system="editorial-operations-v1"] .eo-overlay__backdrop { background: rgba(10, 16, 35, .6); }
+  @media (max-width: 1050px) {
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-page .eo-content-grid--with-rail { grid-template-columns: minmax(0,1fr); }
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-sidebar { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width: 767px) {
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics { grid-template-columns: 1fr 1fr; gap: 10px; }
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics > :first-child { grid-column: 1 / -1; }
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics .eo-metric-tile { padding: 18px; }
+    [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-sidebar { grid-template-columns: minmax(0,1fr); }
+    [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog .eo-dialog__header { padding: 17px; }
+    [data-kt-protected-system="editorial-operations-v1"] .kt-processor-dialog .eo-dialog__body { padding: 16px; }
+    [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__intro { padding: 17px; }
+  }
+}

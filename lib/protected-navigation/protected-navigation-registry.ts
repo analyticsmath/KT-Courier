@@ -157,6 +157,16 @@ export function projectProtectedNavigation(
   );
 
   const groupOrder = Array.from(new Set(visibleItems.map((item) => item.group)));
+  // Work-oriented hierarchy: review the network before administrative finance.
+  // Stable and permission-aware: groups with no permitted destinations stay absent.
+  if (context === "ADMIN" || context === "SUPER_ADMIN") {
+    const priority = ["Command centre", "Operations", "People and network", "Finance", "Commerce", "Growth programmes", "Platform", "Governance"];
+    groupOrder.sort((a, b) => {
+      const aRank = priority.indexOf(a);
+      const bRank = priority.indexOf(b);
+      return (aRank < 0 ? priority.length : aRank) - (bRank < 0 ? priority.length : bRank);
+    });
+  }
   const groups = groupOrder.map((label) => ({
     id: label.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-"),
     label,

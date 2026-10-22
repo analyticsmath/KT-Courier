@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./protected-premium.css";
+import "./protected-operations.css";
 import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { rootSiteMetadata } from "@/lib/public-site/site-metadata";
 

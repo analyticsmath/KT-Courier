@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db/prisma";
+import { getProfileAvatarUrl } from "@/lib/client-platform/profile-avatar-url";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { EditorialOperationsShell } from "@/components/protected-v2/shell/EditorialOperationsShell";
 import { requireRole } from "@/lib/auth/guards";
@@ -11,9 +13,10 @@ import { UserRole } from "@/types/db";
  */
 export default async function PromoterLayout({ children }: { children: React.ReactNode }) {
   const user = await requireRole(UserRole.PROMOTER);
-  const [navigation, notifications] = await Promise.all([
+  const [navigation, notifications, avatar] = await Promise.all([
     getProtectedNavigationForUser({ userId: user.id, role: user.role, context: "PROMOTER" }),
     getProtectedNotificationProjection(user.id, "/promoter/notifications"),
+    prisma.user.findUnique({ where: { id: user.id }, select: { avatarMediaReference: true } }),
   ]);
 
   return <EditorialOperationsShell
@@ -24,6 +27,6 @@ export default async function PromoterLayout({ children }: { children: React.Rea
     navigationFooter={<SignOutButton />}
     notifications={notifications}
     primaryAction={{ label: "Referral tools", href: "/promoter/links" }}
-    user={{ displayName: user.name ?? user.email, roleLabel: "Promoter" }}
+    user={{ displayName: user.name ?? user.email, roleLabel: "Promoter", avatarUrl: getProfileAvatarUrl(avatar?.avatarMediaReference) }}
   >{children}</EditorialOperationsShell>;
 }

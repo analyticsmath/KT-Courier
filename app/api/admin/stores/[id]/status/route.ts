@@ -2,7 +2,6 @@ import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreDetail, setStoreStatus } from "@/lib/services/admin-stores.service";
-import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import {
   ok,
   notFound,
@@ -44,15 +43,9 @@ export async function PATCH(
   }
 
   try {
-    const updated = await setStoreStatus(id, parsed.data.status as StoreStatus);
-
-    await recordAdminActivity({
+    const updated = await setStoreStatus(id, parsed.data.status as StoreStatus, {
       actorUserId: session.id,
-      action: "STATUS_CHANGE",
-      entityType: "Store",
-      entityId: id,
-      message: `Changed store "${existing.name}" status from ${existing.status} to ${parsed.data.status}`,
-      metadata: { from: existing.status, to: parsed.data.status, reason: parsed.data.reason ?? null },
+      reason: parsed.data.reason,
     });
 
     return ok({ id: updated.id, status: updated.status });

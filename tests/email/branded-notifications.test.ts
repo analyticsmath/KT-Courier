@@ -51,7 +51,8 @@ describe("KT Couriers transactional email experience", () => {
       expiresMinutes: 15,
     });
     expect(email.html).toContain("&lt;strong&gt;Customer&lt;/strong&gt;");
-    expect(email.text).toContain(greeting);
+    expect(email.text).toContain("Hi Customer,");
+    expect(email.text).not.toContain("<strong>");
     expect(email.html).toContain("143029");
     expect(email.text).toContain("143029");
   });

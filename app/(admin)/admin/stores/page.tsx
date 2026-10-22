@@ -12,7 +12,6 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreStatusConfig } from "@/lib/constants/statuses";
 import { listStores } from "@/lib/services/admin-stores.service";
-import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
 import type { StoreStatus } from "@/types/db";
 
@@ -47,19 +46,21 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   return <ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="People and network" title="Store administration" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : " in this view"}.`} />
-    <nav aria-label="Store account status filters" className="flex flex-wrap gap-2">
-      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={`rounded-full border px-3 py-2 text-sm ${selectedFilter === filter ? "bg-[var(--kt-brand-navy)] text-white" : ""}`} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
+    <nav aria-label="Store account status filters" className="eo-filter-chips">
+      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
     </nav>
     <OperationalPanel title={selectedFilter === "PENDING" ? "Vendor approvals" : "Store directory"} description="Approving a store account opens its workspace. Seller identity, product catalog publication, pricing, inventory, and checkout each retain their own review and operational gates."><EditorialTable caption="Store administration directory" mobileMode="stack" rows={stores} emptyState={<ProtectedState kind="empty" title={selectedFilter === "PENDING" ? "No vendor accounts are waiting for approval" : "No stores match this view"} description="New store accounts will appear here when their canonical registration has been completed." />} columns={[
     { id: "store", header: "Store", priority: "primary", cell: (store) => <div><strong>{store.name}</strong><small>/{store.slug}</small></div> },
     { id: "owner", header: "Owner context", priority: "secondary", cell: (store) => store.ownerUser?.email ?? "Owner unavailable" },
+    { id: "review", header: "Vendor dossier", priority: "primary", cell: (store) => <Link href={`/admin/stores/${encodeURIComponent(store.id)}`} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">Review business details</Link> },
     { id: "contact", header: "Contact", priority: "optional", cell: (store) => store.contactName ?? "Not supplied" },
     { id: "state", header: "Operational state", priority: "primary", cell: (store) => { const state = getStoreStatusConfig(store.status); return <ProtectedStatus label={state.label} tone={tone(state.variant)} />; } },
-    ...(user.role === "SUPER_ADMIN" ? [{ id:"support", header:"Support", priority:"secondary" as const, cell:(store: {id:string})=><Link href={`/admin/business-support/${store.id}`} className="inline-flex min-h-11 items-center">Open support dashboard</Link> }] : []),
-    { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <ProtectedStatus label="Separate catalog review" tone="information" /> },
-    ...(canManageRates ? [{ id: "deliveryRate", header: "Delivery pricing", priority: "secondary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "ACTIVE" ? <Link href={`/admin/pricing?storeId=${encodeURIComponent(store.id)}`} className="inline-flex min-h-11 items-center">Set this store’s rate</Link> : "Activate store first" }] : []),
-    { id: "seller", header: "Seller identity", priority: "secondary", cell: (store) => canReviewSellerIdentity ? <Link href={`/admin/stores/${store.id}/seller-identity`} className="inline-flex min-h-11 items-center">Review seller identity</Link> : "Separate legal-document review permission required" },
-    ...(canApprove ? [{ id: "approval", header: "Account approval", priority: "primary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "PENDING" ? <StoreAccountApproval storeId={store.id} /> : <StoreAccountStatusActions storeId={store.id} status={store.status} /> }] : []),
+
+    ...(user.role === "SUPER_ADMIN" ? [{ id:"support", header:"Support", priority:"secondary" as const, cell:(store: {id:string})=><Link href={`/admin/business-support/${store.id}`} className="inline-flex min-h-11 items-center">Support</Link> }] : []),
+    { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <span className="eo-table__secondary-note">Independent review</span> },
+    ...(canManageRates ? [{ id: "deliveryRate", header: "Delivery pricing", priority: "secondary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "ACTIVE" ? <Link href={`/admin/pricing?storeId=${encodeURIComponent(store.id)}`} className="inline-flex min-h-11 items-center">Set rate</Link> : "Activate store first" }] : []),
+    { id: "seller", header: "Seller identity", priority: "secondary", cell: (store) => canReviewSellerIdentity ? <Link href={`/admin/stores/${store.id}/seller-identity`} className="inline-flex min-h-11 items-center">Verify identity</Link> : "Separate legal-document review permission required" },
+    ...(canApprove ? [{ id: "approval", header: "Account approval", priority: "primary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "PENDING" ? <Link href={`/admin/stores/${encodeURIComponent(store.id)}`} className="inline-flex min-h-11 items-center font-semibold">Review before approval</Link> : <StoreAccountStatusActions storeId={store.id} status={store.status} /> }] : []),
   ]} /></OperationalPanel>
     <ProtectedPagination currentPage={page} pageCount={pageCount} hrefForPage={(nextPage) => filterHref(selectedFilter, nextPage)} />
   </ProtectedPageFrame>;

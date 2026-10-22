@@ -54,7 +54,7 @@ function trustedEmailUrl(value: string): string {
     configuredHost = new URL(process.env.NEXT_PUBLIC_APP_URL || PUBLIC_SITE).hostname;
   } catch { /* default to canonical site */ }
   const allowedHosts = new Set(["www.ktcouriers.com", "ktcouriers.com", configuredHost]);
-  if (!allowedHosts.has(url.hostname) || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {
+  if (url.username || url.password || !allowedHosts.has(url.hostname) || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {
     throw new Error("UNSAFE_EMAIL_ACTION_URL");
   }
   return url.toString();
@@ -127,6 +127,11 @@ export function renderEmailHtml(opts: LayoutOptions): string {
 </html>`;
 }
 
+/** Compatibility wrapper for notifications that have only a plain-text payload. */
+export function renderPlainTextNotification(title: string, body: string): string {
+  return renderCanonicalEmail({ title, body });
+}
+
 /** The same verified, escaped notification content gets a polished HTML view
  * at the delivery boundary; the immutable stored plain-text receipt is retained. */
 export function renderCanonicalEmail(opts: { title: string; body: string; actionRoute?: string | null }): string {
@@ -153,7 +158,7 @@ export function renderEmailText(title: string, body: string, actionUrl?: string,
     name, "====================", "", title, "--------------------", "",
     body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim(), "",
   ];
-  if (actionUrl) lines.push(actionUrl, "");
+  if (actionUrl) lines.push(trustedEmailUrl(actionUrl), "");
   lines.push("--------------------", `You received this email because of activity on your ${name} account or delivery request.`, `© ${name} · ${location}`);
   if (brand?.registrationNumber) lines.push(`Reg: ${brand.registrationNumber}`);
   if (brand?.supportEmail) lines.push(`Support: ${brand.supportEmail}`);

@@ -1,3 +1,4 @@
+import { getProfileAvatarUrl } from "@/lib/client-platform/profile-avatar-url";
 import { prisma } from "@/lib/db/prisma";
 import { EditorialOperationsShell } from "@/components/protected-v2/shell/EditorialOperationsShell";
 import { requireRole } from "@/lib/auth/guards";
@@ -38,9 +39,7 @@ export default async function AccountLayout({
         href: "/account/request-delivery",
       }}
       user={{
-        avatarUrl: avatar?.avatarMediaReference
-          ? "/api/platform/avatar"
-          : undefined,
+        avatarUrl: getProfileAvatarUrl(avatar?.avatarMediaReference),
         displayName: user.name ?? user.email,
         roleLabel: "Customer",
       }}

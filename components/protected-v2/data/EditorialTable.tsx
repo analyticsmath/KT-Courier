@@ -27,7 +27,7 @@ export function EditorialTable<T extends { id: string }>({
 }) {
   if (!rows.length) return <>{emptyState ?? <p className="eo-table-empty" role="status">No records are available.</p>}</>;
   return (
-    <div className={cn("eo-table-wrap", `eo-table-wrap--${mobileMode}`, className)}>
+    <div className={cn("eo-table-wrap", `eo-table-wrap--${mobileMode}`, className)} role="region" aria-label={caption} tabIndex={0}>
       <table className="eo-table">
         <caption>{caption}</caption>
         <thead><tr>{columns.map((column) => <th aria-sort={column.sortDirection ? column.sortDirection : undefined} className={cn(column.align === "end" && "is-numeric", column.priority && `eo-table__cell--${column.priority}`)} key={column.id} scope="col">{column.header}</th>)}</tr></thead>
