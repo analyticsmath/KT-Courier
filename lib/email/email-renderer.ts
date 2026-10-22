@@ -133,7 +133,7 @@ export function renderCanonicalEmail(opts: { title: string; body: string; action
   const paragraphs = opts.body.split(/\n\s*\n/).filter(Boolean).map((paragraph) =>
     `<p style="margin:0 0 16px;">${escapeEmailHtml(paragraph).replace(/\n/g, "<br>")}</p>`
   ).join("");
-  const trackingFallback = /(?:delivery|parcel|courier booking|marketplace order)/i.test(opts.title) ? "/track" : undefined;
+  const trackingFallback = /\b(?:delivery|parcel|courier booking)\b/i.test(opts.title) ? "/track" : undefined;
   const actionUrl = opts.actionRoute || trackingFallback;
   return renderEmailHtml({
     title: opts.title,
