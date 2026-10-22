@@ -11,7 +11,7 @@ const COURIER_EMAIL_COPY: Record<string, { title: string; body: string }> = {
   },
   COURIER_IN_TRANSIT: {
     title: "Your parcel is in transit — {{orderNumber}}",
-    body: "The parcel for order {{orderNumber}} is moving through the KT Couriers delivery process. Check the tracking page for the latest available information. No arrival time is guaranteed by this update.",
+    body: "The parcel for order {{orderNumber}} is moving through the KT Couriers delivery process. Check the tracking page for the latest available information. Timing may change as delivery progresses.",
   },
   COURIER_DELIVERY_ATTEMPTED: {
     title: "A delivery attempt was made — {{orderNumber}}",
