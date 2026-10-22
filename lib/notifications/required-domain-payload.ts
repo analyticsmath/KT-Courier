@@ -29,7 +29,7 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
       select: { id: true, status: true, emailVerifiedAt: true },
     });
     if (!user || user.status !== "ACTIVE" || !user.emailVerifiedAt) return invalid();
-    return { customerUserId: user.id };
+    return { actorUserId: user.id };
   }
   if (intent.sourceAuthority === "LEGACY_ORDER") {
     const order = await db.order.findUnique({ where: { id: intent.aggregateReference }, select: { customerId: true, orderNumber: true } });
