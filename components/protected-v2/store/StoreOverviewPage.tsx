@@ -7,7 +7,6 @@ import {
   DashboardCard,
   DashboardMetricCard,
   DashboardHeader,
-  DashboardIllustrationAsset,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -234,7 +233,6 @@ export function StoreOverviewPage({
                   ? "Saved pickup address is configured for new delivery collections."
                   : "No pickup address saved. Add an address to speed up courier dispatch."}
               </div>
-              <DashboardIllustrationAsset role="store" className={styles.illustrationCompact} />
             </div>
           </DashboardCard>
         </DashboardCol>
