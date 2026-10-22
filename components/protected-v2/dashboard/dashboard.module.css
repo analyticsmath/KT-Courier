@@ -1388,3 +1388,47 @@
   .coverageList { grid-template-columns: minmax(0, 1fr); }
   .coverageItem { padding: 10px 12px; }
 }
+
+/* KT CUSTOMER QUICK ACCESS REFINEMENT V1 — visible, compact actions */
+.toneDark .quickAccessList { gap: 9px; }
+.toneDark .quickAccessList .btnDark {
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  background: #293248;
+  border-color: #364158;
+  border-radius: 11px;
+  color: #FFFFFF;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
+}
+.toneDark .quickAccessList .btnDark:hover,
+.toneDark .quickAccessList .btnDark:focus-visible {
+  background: #33405A;
+  border-color: #5B6C8B;
+}
+.toneDark .quickAccessIcon { flex: 0 0 18px; color: #C4D0FF; }
+@media (max-width: 639px) {
+  .customerFocusGroup { grid-row: 1; }
+  .customerServicesGroup { grid-row: 2; }
+  .customerMetricsGroup { grid-row: 3; }
+  .customerRecordsGroup { grid-row: 4; }
+  .customerAnalyticsGroup { grid-row: 5; }
+  .toneDark .quickAccessList {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .toneDark .quickAccessList .btnDark {
+    align-items: flex-start;
+    min-height: 57px;
+    padding: 10px;
+    font-size: 0.735rem;
+  }
+  .toneDark .quickAccessIcon { width: 16px; height: 16px; flex-basis: 16px; }
+}
+@media (max-width: 355px) {
+  .toneDark .quickAccessList { grid-template-columns: minmax(0, 1fr); }
+  .toneDark .quickAccessList .btnDark { min-height: 42px; }
+}
