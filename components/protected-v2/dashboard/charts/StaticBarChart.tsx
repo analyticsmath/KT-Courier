@@ -61,15 +61,16 @@ export function StaticBarChart({
         {buckets.map((bucket, index) => {
           const heightPercent = Math.round((bucket.value / max) * 100);
           const showDenseLabel = buckets.length <= 7 || showDenseIndex(index);
+          const showVisibleCount = showDenseLabel && bucket.value > 0;
           return (
             <div className={styles.barColumn} key={bucket.start}>
               <span className={styles.barCount} aria-hidden={!showDenseLabel}>
-                {showDenseLabel ? bucket.value.toLocaleString("en-ZA") : ""}
+                {showVisibleCount ? bucket.value.toLocaleString("en-ZA") : ""}
               </span>
               <div className={styles.barTrack}>
                 <div
                   className={fillClass}
-                  style={{ height: `${Math.max(2, heightPercent)}%` }}
+                  style={{ height: `${heightPercent}%` }}
                   title={`${bucket.label}: ${bucket.value}`}
                 />
               </div>
