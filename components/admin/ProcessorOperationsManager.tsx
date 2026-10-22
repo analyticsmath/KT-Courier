@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ProtectedDialog } from "@/components/protected-v2/overlays/ProtectedDialog";
@@ -47,6 +47,14 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
   const [executionResult, setExecutionResult] = useState<ProcessorExecutionResult | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [runHistory, setRunHistory] = useState<ProcessorRun[] | null>(null);
+
+  // Stable across form edits: the shared focus trap must not reset focus as
+  // the administrator changes execution mode or batch size.
+  const closeProcessor = useCallback(() => {
+    if (executing) return;
+    setSelectedProcessor(null);
+    setRunHistory(null);
+  }, [executing]);
 
   async function refreshInventory() {
     setLoading(true);
@@ -153,15 +161,11 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                   <td className="kt-processor-workspace__classification">{p.classification.replaceAll("_", " ").toLowerCase()}</td>
                   <td className="p-3">
                     {p.leaseRequired ? (
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          hasActiveLease ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {hasActiveLease ? "LEASE_ACTIVE" : "YES"}
+                      <span className={hasActiveLease ? "kt-processor-lease kt-processor-lease--active" : "kt-processor-lease"}>
+                        {hasActiveLease ? "Leased" : "Required"}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-[--kt-text-muted]">NO</span>
+                      <span className="kt-processor-workspace__classification">Not required</span>
                     )}
                   </td>
                   <td className="p-3 text-xs">
@@ -204,11 +208,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
           open
           title={selectedProcessor.name}
           description={`Version ${selectedProcessor.version} · ${selectedProcessor.operationalOwnerCategory}`}
-          onClose={() => {
-            if (executing) return;
-            setSelectedProcessor(null);
-            setRunHistory(null);
-          }}
+          onClose={closeProcessor}
           closeOnBackdrop={!executing}
           className="kt-processor-dialog"
         >
