@@ -13,6 +13,33 @@ describe("documented courier tariffs for marketplace parcels", () => {
     expect(result.calculation.total.toFixed(2)).toBe(total);
     expect(result.rule.id).toBe("economy-v2"); expect(result.rule.revision).toBe(2);
   });
+  it("applies an active store-specific R170 flat fee without altering public tariffs", () => {
+    const negotiatedRate = {
+      baseFee: new Prisma.Decimal("170.00"),
+      perKmRate: new Prisma.Decimal("0.0000"),
+      minimumCharge: null,
+    };
+    const tailored = calculateMarketplaceCourierTariff({ ...input, negotiatedRate });
+    const regular = calculateMarketplaceCourierTariff(input);
+    expect(tailored.calculation.subtotal.toFixed(2)).toBe("170.00");
+    expect(tailored.calculation.total.toFixed(2)).toBe("170.00");
+    expect(tailored.rule.baseFee.toFixed(2)).toBe("170.00");
+    expect(regular.calculation.total.toFixed(2)).toBe("89.00");
+  });
+  it("retains applicable VAT and verified region risk for a negotiated store rate", () => {
+    const negotiatedRate = {
+      baseFee: new Prisma.Decimal("170.00"),
+      perKmRate: new Prisma.Decimal(0),
+      minimumCharge: null,
+    };
+    const result = calculateMarketplaceCourierTariff({
+      ...input, negotiatedRate,
+      regionContext: { origin: null, destination: { id: "high-risk", highRiskSurcharge: new Prisma.Decimal("20.00") } },
+      tax: { enabled: true, rate: new Prisma.Decimal("0.15"), source: "configured" },
+    });
+    expect(result.calculation.subtotal.toFixed(2)).toBe("190.00");
+    expect(result.calculation.total.toFixed(2)).toBe("218.50");
+  });
   it("uses Express distance plus the fixed size component", () => {
     const result = calculateMarketplaceCourierTariff({ ...input, service: { ...service, stableKey: "CLIENT_EXPRESS", tariffs: { ...service.tariffs, SMALL: { ...tariff, baseFee: "5.50", perKmRate: "5.50" } } } });
     expect(result.calculation.total.toFixed(2)).toBe("145.75");

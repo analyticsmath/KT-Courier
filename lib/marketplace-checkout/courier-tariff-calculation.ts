@@ -14,6 +14,8 @@ export function calculateMarketplaceCourierTariff(input: {
   durationSeconds: number;
   regionContext: PricingRegionContext;
   tax: PricingTaxConfig;
+  /** Active, admin-approved rate for the store identified by trusted checkout data. */
+  negotiatedRate?: { baseFee: Prisma.Decimal; perKmRate: Prisma.Decimal; minimumCharge: Prisma.Decimal | null } | null;
 }) {
   const { service, parcel } = input;
   if (!service.active || parcel.status !== "CLASSIFIED" || !parcel.sizeClass || !Number.isFinite(parcel.weightKg) || Number(parcel.weightKg) <= 0) {
@@ -23,8 +25,8 @@ export function calculateMarketplaceCourierTariff(input: {
   const d = (value: string | number) => new Prisma.Decimal(value);
   const rule = {
     id: service.id, revision: service.version, currency: "ZAR" as const, deliveryType: "PARCEL_DOCUMENT" as const, regionId: null,
-    baseFee: d(tariff.baseFee), perKmRate: d(tariff.perKmRate), includedDistanceKm: d(0), distanceIncrementKm: d("0.001"),
-    minimumCharge: tariff.minimumCharge === null ? null : d(tariff.minimumCharge), maximumWeightKg: tariff.maximumWeightKg === null ? null : d(tariff.maximumWeightKg),
+    baseFee: input.negotiatedRate?.baseFee ?? d(tariff.baseFee), perKmRate: input.negotiatedRate?.perKmRate ?? d(tariff.perKmRate), includedDistanceKm: d(0), distanceIncrementKm: d("0.001"),
+    minimumCharge: input.negotiatedRate ? input.negotiatedRate.minimumCharge : tariff.minimumCharge === null ? null : d(tariff.minimumCharge), maximumWeightKg: tariff.maximumWeightKg === null ? null : d(tariff.maximumWeightKg),
     flatSurcharge: null, vehicleClass: null, vehicleSurcharge: null, includedWeightKg: null, perAdditionalKgRate: null, weightIncrementKg: null,
     dimensionalPricingEnabled: false, volumetricDivisor: null, maxDistanceKm: null,
   };

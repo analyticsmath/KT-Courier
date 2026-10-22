@@ -51,7 +51,7 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
         : null;
       const destinationCoordinates = coordinates(destination?.protectedCoordinates);
       const serviceAreaReference = input.serviceAreaReference ?? destination?.serviceAreaReference;
-      if (!checkout || !group || !pickup || !destination || !pickupCoordinates || !destinationCoordinates || !serviceAreaReference) return null;
+      if (!checkout || !group || group.store.status !== "ACTIVE" || !pickup || !destination || !pickupCoordinates || !destinationCoordinates || !serviceAreaReference) return null;
       if (destination.serviceAreaReference && input.serviceAreaReference && destination.serviceAreaReference !== input.serviceAreaReference) return null;
       const priorQuote = !input.courierServiceKey && group.deliveryQuoteReference ? await database.pricingQuote.findUnique({ where: { id: group.deliveryQuoteReference }, select: { storeId: true, calculationVersion: true, ruleSnapshot: true } }) : null;
       const priorRules = priorQuote?.ruleSnapshot as { serviceKey?: string; checkoutReference?: string } | null;

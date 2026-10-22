@@ -13,6 +13,7 @@ import { MarketplaceCheckoutError } from "./errors";
 import { marketplaceCourierTariffPolicy } from "./courier-tariff-policy";
 import { calculateMarketplaceCourierTariff, MARKETPLACE_COURIER_CALCULATION_VERSION } from "./courier-tariff-calculation";
 import { classifyPersistedCheckoutParcel } from "./parcel-configuration.service";
+import { activePersonalizedDeliveryRate, personalizedDeliveryRateSnapshot } from "@/lib/pricing/personalized-delivery-rates";
 
 export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQuoteOwnerType; ownerId: string; storeId: string }, input: PricingQuoteRequestInput, serviceAreaReference: string, checkoutReference?: string, courierServiceKey?: string) {
   const fail = (message: string): never => { throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", message); };
@@ -39,15 +40,20 @@ export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQu
   if (courierPolicy && !selectedService) fail("The selected courier service is not active for both addresses.");
   if (!courierPolicy && courierServiceKey) fail("Service selection is unavailable under the marketplace fee-matrix model.");
   const tariff = courierPolicy ? null : selectMarketplaceDeliveryPolicy(await listDeliveryMatrices(), { sizeClass: parcelClassification.sizeClass, distanceKm, province: input.dropoffAddress.province!, regionId: serviceAreaReference, storeId: owner.storeId, highRisk: regions.some((region) => Number(region.highRiskSurcharge) > 0) });
+  // Lookup is bound to the server-owned store ID, never to a shopper-submitted
+  // identity. Ordinary stores and public guest quotes retain existing tariffs.
+  const negotiatedRate = selectedService && parcelClassification.sizeClass
+    ? await activePersonalizedDeliveryRate({ ownerType: "STORE", ownerId: owner.storeId }, selectedService.stableKey, parcelClassification.sizeClass)
+    : null;
   const configuration = await getPricingConfiguration();
   const snapshot = pricingInputSnapshot(input);
-  const courier = selectedService ? calculateMarketplaceCourierTariff({ service: selectedService, parcel: parcelClassification, distanceMeters: route.route.distanceMeters, durationSeconds: route.route.durationSeconds, regionContext: { origin: byId.get(zones[0].regionId!)!, destination: byId.get(zones[1].regionId!)! }, tax: configuration.tax }) : null;
+  const courier = selectedService ? calculateMarketplaceCourierTariff({ service: selectedService, parcel: parcelClassification, distanceMeters: route.route.distanceMeters, durationSeconds: route.route.durationSeconds, regionContext: { origin: byId.get(zones[0].regionId!)!, destination: byId.get(zones[1].regionId!)! }, tax: configuration.tax, negotiatedRate }) : null;
   const subtotal = courier?.calculation.subtotal ?? new Prisma.Decimal(tariff!.fee);
   const taxRate = courier?.calculation.taxRate ?? (configuration.tax.enabled ? configuration.tax.rate : new Prisma.Decimal(0));
   const taxAmount = courier?.calculation.taxAmount ?? subtotal.mul(taxRate).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
   const total = courier?.calculation.total ?? subtotal.add(taxAmount);
   const calculationVersion = courier ? MARKETPLACE_COURIER_CALCULATION_VERSION : "marketplace-matrix-v1";
-  const ruleSnapshot = courier && selectedService ? { serviceKey: selectedService.stableKey, serviceVersion: selectedService.version, serviceDefinitionId: selectedService.id, approvalReference: courierPolicy!.approvalReference, checkoutReference, parcelClassification, policyAuthority: "existing_courier_tariffs", priceBasis: "DELIVERY_SUBTOTAL" } : { ...tariff, parcelClassification, policyAuthority: "marketplace_delivery_matrix", priceBasis: "DELIVERY_SUBTOTAL" };
+  const ruleSnapshot = courier && selectedService ? { serviceKey: selectedService.stableKey, serviceVersion: selectedService.version, serviceDefinitionId: selectedService.id, approvalReference: courierPolicy!.approvalReference, checkoutReference, parcelClassification, policyAuthority: "existing_courier_tariffs", priceBasis: "DELIVERY_SUBTOTAL", personalizedRate: negotiatedRate ? personalizedDeliveryRateSnapshot(negotiatedRate) : null } : { ...tariff, parcelClassification, policyAuthority: "marketplace_delivery_matrix", priceBasis: "DELIVERY_SUBTOTAL" };
   const expiresAt = new Date(Date.now() + configuration.quoteTtlMinutes * 60000);
   const quote = await prisma.pricingQuote.create({ data: {
     ...owner, deliveryType: input.deliveryType, currency: "ZAR", calculationVersion, inputHash: hashPricingInput(snapshot),
