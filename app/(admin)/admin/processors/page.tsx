@@ -12,8 +12,8 @@ export default async function ProcessorsPage() {
     <ProtectedPageFrame>
       <ProtectedPageHeader
         eyebrow="Operations"
-        title="Processor Operations & Lease Governance"
-        description="Central inventory of operational processors, atomic lease ownership, run evidence, and dry-run controls."
+        title="Processor operations"
+        description="Review processor health, lease ownership and run history. Configure controlled dry-runs and authorized executions."
       />
 
       <ProcessorOperationsManager processors={inventory} />

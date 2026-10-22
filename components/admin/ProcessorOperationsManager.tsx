@@ -153,15 +153,11 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                   <td className="kt-processor-workspace__classification">{p.classification.replaceAll("_", " ").toLowerCase()}</td>
                   <td className="p-3">
                     {p.leaseRequired ? (
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          hasActiveLease ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {hasActiveLease ? "LEASE_ACTIVE" : "YES"}
+                      <span className={hasActiveLease ? "kt-processor-lease kt-processor-lease--active" : "kt-processor-lease"}>
+                        {hasActiveLease ? "Leased" : "Required"}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-[--kt-text-muted]">NO</span>
+                      <span className="kt-processor-workspace__classification">Not required</span>
                     )}
                   </td>
                   <td className="p-3 text-xs">

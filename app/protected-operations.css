@@ -123,6 +123,11 @@
     margin-top: -2px;
   }
   [data-kt-protected-system="editorial-operations-v1"] .eo-filter-label {
+    display: grid;
+    flex: 1 1 290px;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
     color: #455269;
     font-size: .81rem;
     font-weight: 680;
@@ -146,6 +151,14 @@
     color: #FFFFFF;
   }
   /* Dispatch: the queue is primary; readiness evidence is an expandable sidebar. */
+  @media (max-width: 899px) {
+    [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table {
+      width: 100%;
+      min-width: 0;
+    }
+    [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table td,
+    [data-kt-protected-system="editorial-operations-v1"] .eo-table-wrap--stack .eo-table th { min-width: 0; }
+  }
   [data-kt-protected-system="editorial-operations-v1"] .eo-dispatch-metrics {
     display: grid;
     grid-template-columns: repeat(3, minmax(0,1fr));
@@ -339,6 +352,12 @@
     font-size: .73rem;
     line-height: 1.5;
   }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-lease {
+    font-size: .76rem;
+    font-weight: 700;
+    color: #16795A;
+  }
+  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-lease--active { color: #A35C19; }
   [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__classification {
     max-width: 175px;
     color: #6B7791;
