@@ -1521,3 +1521,48 @@ a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underl
   .queueTable .queueDate { white-space: normal; }
   .queueTable .queueStatus > * { max-width: 150px; }
 }
+
+
+/* KT DASHBOARD CONTRAST & CONTROL PASS V2 */
+.ktDashboard { --dash-muted: #5E6A80; --dash-ink-secondary: #445066; }
+.cardEyebrow { color: #5B6780; }
+.cardDescription { color: #5E6C83; }
+.metricLabel { color: #5B687E; }
+.metricMeta { color: #647187; }
+.recordSub { color: #5E6B82; }
+.recordTime { color: #637188; }
+.coverageCity, .coverageRemainder { color: #66738B; }
+.queueDate { color: #647187 !important; }
+.chipNeutral { color: #45536B; }
+.toneDark .cardEyebrow { color: #C4CCDC; }
+.toneDark .cardDescription,
+.toneDark .metricMeta,
+.toneDark .metricLabel { color: #CAD3E5; }
+.toneDark .btnDark {
+  background: #2C3954;
+  border-color: #465574;
+  color: #FFFFFF;
+}
+.toneDark .btnDark:hover,
+.toneDark .btnDark:focus-visible { background: #3A4A6B; border-color: #62749A; }
+.toneDark .btnQuiet { color: #D3DFFF; }
+.toneDark .btnQuiet:hover { color: #FFFFFF; background: #32425F; }
+.toneDark .emptyState { background: #212C42; border-color: #445372; }
+.toneDark .emptyStateTitle { color: #FFFFFF; }
+.toneDark .emptyStateDesc { color: #CAD3E5; }
+.cardAction :is(button, a), .headerActions :is(button, a) {
+  max-width: 100%;
+  min-width: 0;
+}
+.ktDashboard :is(input, select, textarea, button, a):focus-visible {
+  outline: 2px solid #315CFD;
+  outline-offset: 3px;
+}
+@media (max-width: 639px) {
+  .cardHeadingGroup { min-width: 0; }
+  .cardAction { min-width: 0; flex: 0 0 auto; }
+  .cardAction :is(button, a) { width: fit-content; max-width: 100%; }
+  .headerActions { flex-wrap: wrap; justify-content: flex-start; }
+  .headerActions > * { max-width: 100%; }
+  .recordTitle { overflow-wrap: anywhere; white-space: normal; }
+}
