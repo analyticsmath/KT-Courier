@@ -45,7 +45,7 @@ export function PersonalizedRatesManager({owners,rates}:{owners:OwnerOption[];ra
     <p className="text-sm">Assign negotiated delivery pricing to an individual store without changing publicly advertised tariffs for other stores or guest customers. A R170 base fee plus R0/km is a flat base charge; configured surcharges and VAT may still apply. Rates must be approved and activated before use.</p>
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={event=>{event.preventDefault();create(event.currentTarget);}}>
       <label className="text-sm">Customer or store
-        <select name="owner" required defaultValue="" className="mt-1 w-full rounded-lg border p-3" >
+        <select name="owner" required defaultValue={owners.length===1 ? `${owners[0].type}:${owners[0].id}` : ""} className="mt-1 w-full rounded-lg border p-3" >
           <option value="" disabled>Choose account</option>
           {owners.map(o=><option key={o.type+o.id} value={`${o.type}:${o.id}`}>{o.label}</option>)}
         </select>

@@ -38,10 +38,11 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const requestedPage = Number(filters.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 && (requestedPage - 1) * PAGE_SIZE <= 2_147_483_647 ? requestedPage : 1;
   const status = selectedFilter === "ALL" ? undefined : selectedFilter as StoreStatus;
-  const [{ data: stores, total }, canApprove, canReviewSellerIdentity] = await Promise.all([
+  const [{ data: stores, total }, canApprove, canReviewSellerIdentity, canManageRates] = await Promise.all([
     listStores({ status, page, pageSize: PAGE_SIZE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
+    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
   ]);
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   return <ProtectedPageFrame>
@@ -56,6 +57,7 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
     { id: "state", header: "Operational state", priority: "primary", cell: (store) => { const state = getStoreStatusConfig(store.status); return <ProtectedStatus label={state.label} tone={tone(state.variant)} />; } },
     ...(user.role === "SUPER_ADMIN" ? [{ id:"support", header:"Support", priority:"secondary" as const, cell:(store: {id:string})=><Link href={`/admin/business-support/${store.id}`} className="inline-flex min-h-11 items-center">Open support dashboard</Link> }] : []),
     { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <ProtectedStatus label="Separate catalog review" tone="information" /> },
+    ...(canManageRates ? [{ id: "deliveryRate", header: "Delivery pricing", priority: "secondary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "ACTIVE" ? <Link href={`/admin/pricing?storeId=${encodeURIComponent(store.id)}`} className="inline-flex min-h-11 items-center">Set this store’s rate</Link> : "Activate store first" }] : []),
     { id: "seller", header: "Seller identity", priority: "secondary", cell: (store) => canReviewSellerIdentity ? <Link href={`/admin/stores/${store.id}/seller-identity`} className="inline-flex min-h-11 items-center">Review seller identity</Link> : "Separate legal-document review permission required" },
     ...(canApprove ? [{ id: "approval", header: "Account approval", priority: "primary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "PENDING" ? <StoreAccountApproval storeId={store.id} /> : <StoreAccountStatusActions storeId={store.id} status={store.status} /> }] : []),
   ]} /></OperationalPanel>
