@@ -11,5 +11,5 @@ export function ProtectedStatus({
   tone?: ProtectedStatusTone;
   className?: string;
 }) {
-  return <span className={cn("eo-status", `eo-status--${tone}`, className)}><span aria-hidden="true" className="eo-status__marker" />{label}</span>;
+  return <span className={cn("eo-status", `eo-status--${tone}`, className)}>{label}</span>;
 }

@@ -25,7 +25,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
   const pathname = usePathname();
   const instanceId = useId();
   const [query, setQuery] = useState("");
-  const [closedGroups, setClosedGroups] = useState<ReadonlySet<string>>(() => new Set());
+  const [openGroups, setOpenGroups] = useState<ReadonlySet<string>>(() => new Set());
   // Only the permission-filtered server projection reaches this component.
   const visibleGroups = groups.map((group) => ({ ...group, items: group.items.filter((item) => `${group.label} ${item.label}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) })).filter((group) => group.items.length > 0);
 
@@ -34,7 +34,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
       {searchable ? <label className="eo-navigation-search"><span>Find a workspace</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search navigation" /></label> : null}
       {visibleGroups.length === 0 ? <p role="status" className="eo-navigation-search">No matching destinations.</p> : null}
       {visibleGroups.map((group) => {
-        const isOpen = Boolean(query.trim()) || !closedGroups.has(group.id);
+        const isOpen = Boolean(query.trim()) || openGroups.has(group.id);
         return (
           <section className="eo-navigation-group" key={group.id}>
             <button
@@ -42,7 +42,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
               aria-expanded={isOpen}
               className="eo-navigation-group__toggle"
               onClick={() => {
-                setClosedGroups((current) => {
+                setOpenGroups((current) => {
                   const next = new Set(current);
                   if (next.has(group.id)) next.delete(group.id);
                   else next.add(group.id);

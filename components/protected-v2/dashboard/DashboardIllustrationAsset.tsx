@@ -1,3 +1,4 @@
+import { OperationsSceneIllustration } from "@/components/protected-v2/illustrations/OperationsSceneIllustration";
 import { RouteQueueIllustration } from "@/components/protected-v2/illustrations/RouteQueueIllustration";
 import { ParcelDeskIllustration } from "@/components/protected-v2/illustrations/ParcelDeskIllustration";
 import { AccessBoundaryIllustration } from "@/components/protected-v2/illustrations/AccessBoundaryIllustration";
@@ -23,7 +24,9 @@ export function DashboardIllustrationAsset({
   const illustration =
     role === "customer" || role === "store" ? (
       <ParcelDeskIllustration className={styles.illustrationArt} />
-    ) : role === "driver" || role === "admin" ? (
+    ) : role === "admin" ? (
+      <OperationsSceneIllustration className={styles.illustrationArt} />
+    ) : role === "driver" ? (
       <RouteQueueIllustration className={styles.illustrationArt} />
     ) : role === "promoter" ? (
       <SecureLedgerIllustration className={styles.illustrationArt} />

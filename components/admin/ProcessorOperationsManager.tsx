@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { ProtectedDialog } from "@/components/protected-v2/overlays/ProtectedDialog";
 import type { RegisteredProcessor } from "@/lib/processors/processor-registry";
 
 interface ProcessorItem extends RegisteredProcessor {
@@ -106,8 +107,8 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center bg-[--kt-surface] border border-[--kt-border] rounded-xl p-4">
+    <div className="kt-processor-workspace space-y-6">
+      <div className="kt-processor-workspace__intro">
         <div>
           <h3 className="text-base font-bold text-[--kt-text]">Processor Inventory & Lease Governance</h3>
           <p className="text-xs text-[--kt-text-muted]">
@@ -119,8 +120,8 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
         </Button>
       </div>
 
-      <div className="border border-[--kt-border] rounded-xl overflow-hidden bg-[--kt-surface]">
-        <table className="w-full text-left text-sm">
+      <div className="kt-processor-workspace__table" role="region" aria-label="Processor inventory" tabIndex={0}>
+        <table className="kt-processor-table">
           <thead className="bg-[--kt-surface-muted] border-b border-[--kt-border] text-xs font-semibold text-[--kt-text-muted]">
             <tr>
               <th className="p-3">Processor Name</th>
@@ -129,7 +130,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
               <th className="p-3">Classification</th>
               <th className="p-3">Lease Required</th>
               <th className="p-3">Last Run</th>
-              <th className="p-3 text-right">Actions</th>
+              <th className="p-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[--kt-border]">
@@ -140,16 +141,16 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
               return (
                 <tr key={p.name} className="hover:bg-[--kt-surface-muted]/50">
                   <td className="p-3">
-                    <p className="font-mono text-xs font-bold">{p.name}</p>
-                    <p className="text-[10px] text-[--kt-text-muted] max-w-xs truncate">{p.purpose}</p>
+                    <p className="kt-processor-workspace__name">{p.name}</p>
+                    <p className="kt-processor-workspace__purpose">{p.purpose}</p>
                   </td>
                   <td className="p-3 text-xs font-medium text-[--kt-text-muted]">{p.operationalOwnerCategory}</td>
                   <td className="p-3">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                    <span className="kt-processor-workspace__trigger">
                       {p.triggerType}
                     </span>
                   </td>
-                  <td className="p-3 font-mono text-[10px] text-[--kt-text-soft]">{p.classification}</td>
+                  <td className="kt-processor-workspace__classification">{p.classification.replaceAll("_", " ").toLowerCase()}</td>
                   <td className="p-3">
                     {p.leaseRequired ? (
                       <span
@@ -175,7 +176,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                       <span className="text-[10px] text-[--kt-text-muted]">Never run</span>
                     )}
                   </td>
-                  <td className="p-3 text-right space-x-2">
+                  <td className="kt-processor-workspace__actions">
                     <Button
                       variant="secondary"
                       size="sm"
@@ -187,7 +188,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                         fetchRunHistory(p.name);
                       }}
                     >
-                      Configure / Run
+                      Configure
                     </Button>
                   </td>
                 </tr>
@@ -197,30 +198,22 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
         </table>
       </div>
 
-      {/* Processor Action Modal */}
+      {/* A real, focus-managed dialog instead of an unscoped translucent overlay. */}
       {selectedProcessor && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-[--kt-surface] border border-[--kt-border] rounded-xl max-w-2xl w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start border-b border-[--kt-border] pb-3">
-              <div>
-                <h3 className="text-lg font-bold font-mono">{selectedProcessor.name}</h3>
-                <p className="text-xs text-[--kt-text-muted]">
-                  Version: {selectedProcessor.version} | Category: {selectedProcessor.operationalOwnerCategory}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedProcessor(null);
-                  setRunHistory(null);
-                }}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="p-3 bg-[--kt-surface-muted] rounded text-xs space-y-1">
+        <ProtectedDialog
+          open
+          title={selectedProcessor.name}
+          description={`Version ${selectedProcessor.version} · ${selectedProcessor.operationalOwnerCategory}`}
+          onClose={() => {
+            if (executing) return;
+            setSelectedProcessor(null);
+            setRunHistory(null);
+          }}
+          closeOnBackdrop={!executing}
+          className="kt-processor-dialog"
+        >
+          <div className="kt-processor-dialog__content">
+            <div className="kt-processor-dialog__meta space-y-1">
               <p>
                 <span className="font-semibold">Purpose:</span> {selectedProcessor.purpose}
               </p>
@@ -233,13 +226,14 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
             </div>
 
             {/* Run Trigger Form */}
-            <div className="border border-[--kt-border] p-4 rounded-xl space-y-3">
+            <div className="kt-processor-dialog__execute space-y-3">
               <h4 className="font-bold text-xs uppercase text-[--kt-text-muted]">Execute Processor</h4>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold mb-1">Execution Mode</label>
+                  <label htmlFor="processor-execution-mode" className="block text-xs font-semibold mb-1">Execution mode</label>
                   <select
+                    id="processor-execution-mode"
                     value={executionMode}
                     onChange={(e) => setExecutionMode(e.target.value as "DRY_RUN" | "APPLY")}
                     className="w-full text-sm border border-[--kt-border] rounded-lg p-2 bg-[--kt-surface]"
@@ -250,8 +244,9 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold mb-1">Batch Size (Max: {selectedProcessor.maxBatchSize})</label>
+                  <label htmlFor="processor-batch-size" className="block text-xs font-semibold mb-1">Batch size (maximum {selectedProcessor.maxBatchSize})</label>
                   <Input
+                    id="processor-batch-size"
                     type="number"
                     min={1}
                     max={selectedProcessor.maxBatchSize}
@@ -272,7 +267,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
               )}
 
               <div className="flex justify-end">
-                <Button variant="primary" size="sm" onClick={handleExecute} disabled={executing}>
+                <Button type="button" variant="primary" size="sm" onClick={handleExecute} disabled={executing}>
                   {executing ? "Executing..." : `Run ${executionMode}`}
                 </Button>
               </div>
@@ -282,7 +277,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
             {runHistory && (
               <div>
                 <h4 className="font-bold text-xs uppercase text-[--kt-text-muted] mb-2">Recent Run History</h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto border border-[--kt-border] rounded-lg p-2 text-xs">
+                <div className="kt-processor-dialog__history space-y-2">
                   {runHistory.length === 0 ? (
                     <p className="text-[--kt-text-muted]">No previous run evidence recorded.</p>
                   ) : (
@@ -299,7 +294,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
               </div>
             )}
           </div>
-        </div>
+        </ProtectedDialog>
       )}
     </div>
   );

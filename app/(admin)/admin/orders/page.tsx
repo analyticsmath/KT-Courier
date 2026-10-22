@@ -55,8 +55,8 @@ export default async function AdminOrdersPage({
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeFilters = Number(Boolean(filters.status)) + Number(Boolean(assignmentFilter)) + Number(Boolean(search));
 
-  return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Operations" title="Courier orders" description={`${total} source-backed courier order${total === 1 ? "" : "s"}.`} actions={<Link className="eo-inline-action" href="/admin/dispatch">Dispatch queue</Link>} />
+  return <ProtectedPageFrame className="eo-orders-page">
+    <ProtectedPageHeader eyebrow="Operations" title="Courier orders" description={`${total.toLocaleString("en-ZA")} courier order${total === 1 ? "" : "s"} in this view. Review fulfillment, assignment and delivery progress.`} actions={<Link className="eo-inline-action" href="/admin/dispatch">Dispatch queue</Link>} />
     <ProtectedFilterBar activeFilterCount={activeFilters} clearHref={activeFilters ? "/admin/orders" : undefined}>
       <form action="/admin/orders" className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
         {filters.status ? <input type="hidden" name="status" value={filters.status} /> : null}
@@ -65,26 +65,25 @@ export default async function AdminOrdersPage({
         <button className="eo-filter-submit" type="submit">Search</button>
       </form>
     </ProtectedFilterBar>
-    <div className="eo-filter-chips" aria-label="Order status filters">
+    <div className="eo-filter-chips eo-orders-page__statuses" aria-label="Order status filters">
       {ADMIN_STATUS_FILTER_OPTIONS.map((filter) => <Link aria-current={(filters.status ?? "") === filter.value ? "page" : undefined} className={(filters.status ?? "") === filter.value ? "is-active" : undefined} href={buildHref({ status: filter.value || undefined, assignmentFilter, search })} key={filter.value}>{filter.label}</Link>)}
     </div>
-    <div className="eo-filter-chips" aria-label="Assignment state filters">
+    <div className="eo-filter-chips eo-orders-page__assignment" aria-label="Assignment state filters">
       {ASSIGNMENT_FILTERS.map((filter) => <Link aria-current={(assignmentFilter ?? "") === filter.value ? "page" : undefined} className={(assignmentFilter ?? "") === filter.value ? "is-active" : undefined} href={buildHref({ status: filters.status, assignmentFilter: filter.value || undefined, search })} key={filter.value}>{filter.label}</Link>)}
     </div>
-    <OperationalPanel title="Order queue" description="Filters and pagination are resolved by the server. Selection always opens the dedicated order route.">
+    <OperationalPanel title="Order directory" description="Select an order reference to review its complete delivery record.">
       <EditorialTable
         caption="Courier order queue"
         mobileMode="stack"
         rows={orders}
         emptyState={<ProtectedState kind="empty" title="No courier orders match this view" description="Adjust or clear the current server-backed filters." illustration={<RouteQueueIllustration />} />}
         columns={[
-          { id: "reference", header: "Order", priority: "primary", cell: (order) => <div><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
+          { id: "reference", header: "Order", priority: "primary", cell: (order) => <div className="eo-order-reference"><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
           { id: "status", header: "Operational status", priority: "primary", cell: (order) => { const state = presentOrderStatus(order.status); return <ProtectedStatus label={state.label} tone={state.tone} />; } },
           { id: "assignment", header: "Assignment", priority: "secondary", cell: (order) => { const state = order.activeAssignment ? presentAssignmentStatus(order.activeAssignment.status) : { label: "Unassigned", tone: "warning" as const }; return <div><ProtectedStatus label={state.label} tone={state.tone} />{order.activeAssignment ? <small>{order.activeAssignment.driverDisplayName ?? order.activeAssignment.driverCode}</small> : null}</div>; } },
           { id: "account", header: "Account context", priority: "secondary", cell: (order) => order.storeName ?? order.customerName ?? "Account unavailable" },
           { id: "region", header: "Service region", priority: "optional", cell: (order) => order.deliveryRegionName ?? "Not matched" },
           { id: "created", header: "Created", priority: "secondary", cell: (order) => <time>{formatDateTime(order.createdAt)}</time> },
-          { id: "action", header: "", priority: "optional", cell: (order) => <Link className="eo-table-action" href={`/admin/orders/${order.id}`}>Open<span className="sr-only"> {order.orderNumber}</span></Link> },
         ]}
       />
     </OperationalPanel>

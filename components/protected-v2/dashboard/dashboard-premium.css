@@ -167,3 +167,84 @@
   .metricValue { font-size: clamp(1.75rem, 6vw, 2.3rem); }
   .card { border-radius: 17px; }
 }
+
+
+/* Composition repair: illustration is a genuine supporting visual, never a
+   first-column arrow pushing the title into an awkward middle column. */
+.ktDashboard .header {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(165px,210px);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: clamp(24px, 3vw, 54px);
+  row-gap: 17px;
+  min-height: 155px;
+  padding: 7px 0 16px;
+}
+.ktDashboard .headerLeading {
+  grid-column: 1;
+  grid-row: 1;
+  max-width: 900px;
+  min-width: 0;
+}
+.ktDashboard .headerActions {
+  grid-column: 1;
+  grid-row: 2;
+  justify-content: flex-start;
+}
+.ktDashboard .headerArtwork {
+  position: relative;
+  inset: auto;
+  z-index: 0;
+  grid-column: 2;
+  grid-row: 1 / 3;
+  justify-self: end;
+  order: 0;
+  width: min(100%, 210px);
+  height: 142px;
+  max-width: 210px;
+  padding: 0;
+  border: 0;
+  border-radius: 19px;
+  background: #F0F2FF;
+  opacity: 1;
+  overflow: hidden;
+}
+.ktDashboard .headerArtwork svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+.ktDashboard .card { box-shadow: 0 3px 18px rgba(32,43,84,.035); }
+.ktDashboard .toneDark { background: #1A1B29; border-color: #1A1B29; }
+.ktDashboard .toneBrand { background: #F0F1FF; border-color: #E1E4FF; color: #161B33; }
+.ktDashboard .toneBrand :is(.metricValue,.metricLabel,.metricMeta,.cardTitle,.cardEyebrow,.cardDescription) { color: #1F2552; }
+.ktDashboard .toneBrand .metricMeta { color: #5B648B; }
+.ktDashboard .toneBrand .metricLink:focus-visible { outline-color: #4650C3; }
+.ktDashboard .toneDark .chipWarning { color: #FFE6B4; }
+.ktDashboard .chipWarning { color: #9B5E20; }
+.ktDashboard .chip { border: 0; }
+@media (max-width: 767px) {
+  .ktDashboard .header {
+    grid-template-columns: minmax(0,1fr) minmax(90px,125px);
+    min-height: 100px;
+    gap: 12px;
+    padding: 7px 0 13px;
+  }
+  .ktDashboard .headerArtwork {
+    display: block;
+    width: min(100%,125px);
+    height: 102px;
+    border-radius: 15px;
+  }
+  .ktDashboard .headerActions { grid-column: 1 / -1; grid-row: 3; }
+  .ktDashboard .title { font-size: clamp(1.75rem, 6vw, 2.5rem); }
+  .ktDashboard .description { font-size: .78rem; }
+}
+@media (max-width: 390px) {
+  .ktDashboard .header { grid-template-columns: 1fr; }
+  .ktDashboard .headerArtwork { grid-column: 1; grid-row: 2; justify-self: start; width: 145px; height: 98px; }
+  .ktDashboard .headerActions { grid-row: 3; }
+}

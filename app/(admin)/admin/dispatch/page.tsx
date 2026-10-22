@@ -21,15 +21,12 @@ export default async function AdminDispatchPage() {
   const data = await getDispatchBoardData();
   const eligibleCount = data.eligibleDrivers.recommended.length + data.eligibleDrivers.available.length;
 
-  return <ProtectedPageFrame>
-    <ProtectedPageHeader eyebrow="Operations" title="Dispatch queue" description="A server-backed queue for unassigned and active courier assignments. No map is required for these operations." actions={<Link className="eo-inline-action" href="/admin/orders">Courier orders</Link>} />
-    <div className="grid gap-3 sm:grid-cols-3"><MetricTile label="Unassigned" value={data.counts.unassigned} description="DIRECT_AUTHORITY · assignable orders without active assignment" /><MetricTile label="Active assignments" value={data.counts.assigned} description="DIRECT_AUTHORITY · current active assignment records" /><MetricTile label="Eligible drivers" value={eligibleCount} description="DIRECT_AUTHORITY · existing dispatch eligibility projection" /></div>
-    <ProtectedContentGrid contextRail={<OperationalPanel title="Live location" tone="subtle"><ProtectedStatus label="Available in order details" tone="neutral" /><p className="eo-panel-copy">Open an active delivery to view the driver’s approximate GPS after pickup. Assignment and vehicle eligibility remain authoritative even when location is unavailable.</p></OperationalPanel>}>
+  return <ProtectedPageFrame className="eo-dispatch-page">
+    <ProtectedPageHeader eyebrow="Operations" title="Dispatch queue" description="Review unassigned orders, monitor active routes and resolve driver eligibility before allocating deliveries." actions={<Link className="eo-inline-action" href="/admin/orders">Courier orders</Link>} />
+    <div className="eo-dispatch-metrics"><MetricTile className="eo-dispatch-metric--priority" label="Unassigned orders" value={data.counts.unassigned} description="Awaiting driver allocation" /><MetricTile label="Active assignments" value={data.counts.assigned} description="Currently allocated to drivers" /><MetricTile label="Eligible drivers" value={eligibleCount} description="Available and approved to dispatch" /></div>
+    <ProtectedContentGrid contextRail={<div className="eo-dispatch-sidebar"><OperationalPanel title="Driver readiness" description="Eligibility and compliance checks"><DispatchDriverReadiness drivers={data.eligibleDrivers} /></OperationalPanel><OperationalPanel title="Driver location" tone="subtle"><p className="eo-panel-copy">Location is available on individual active orders after pickup. GPS does not override assignment and vehicle eligibility checks.</p></OperationalPanel></div>}>
       <div className="grid gap-5">
-        <OperationalPanel title="Driver readiness" description="Available drivers across configured service regions. Open an order to check its exact region.">
-          <DispatchDriverReadiness drivers={data.eligibleDrivers} />
-        </OperationalPanel>
-        <OperationalPanel title="Unassigned orders" description="Open an order to use its region-specific canonical eligible-driver projection.">
+        <OperationalPanel title="Ready for allocation" description="Open an order to review its route and eligible driver options.">
           <EditorialTable caption="Unassigned courier orders" mobileMode="stack" rows={data.unassignedOrders} emptyState={<ProtectedState kind="empty" title="No orders await dispatch" description="All currently assignable orders have an active assignment." illustration={<RouteQueueIllustration />} />} columns={[
             { id: "order", header: "Order", priority: "primary", cell: (order) => <div><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
             { id: "region", header: "Region", priority: "secondary", cell: (order) => order.deliveryRegionName ?? "Not matched" },
@@ -42,10 +39,10 @@ export default async function AdminDispatchPage() {
               <span className="text-muted-foreground text-xs">Standard queue</span>
             ) },
             { id: "created", header: "Created", priority: "secondary", cell: (order) => <time>{formatDateTime(order.createdAt)}</time> },
-            { id: "action", header: "", priority: "optional", cell: (order) => <Link className="eo-table-action" href={`/admin/orders/${order.id}`}>Review dispatch<span className="sr-only"> for {order.orderNumber}</span></Link> },
+            { id: "action", header: "", priority: "optional", cell: (order) => <Link className="eo-table-action" href={`/admin/orders/${order.id}`}>Review<span className="sr-only"> dispatch for {order.orderNumber}</span></Link> },
           ]} />
         </OperationalPanel>
-        <OperationalPanel title="Active assignments" description="Assignment and order detail remain dedicated routes; reassignment is never drag-and-drop.">
+        <OperationalPanel title="Active deliveries" description="Live assignment records with driver and route details.">
           <EditorialTable caption="Active courier assignments" mobileMode="stack" rows={data.assignedOrders} emptyState={<ProtectedState kind="empty" title="No active assignments" description="No assignment record is currently active." />} columns={[
             { id: "order", header: "Order", priority: "primary", cell: (assignment) => <Link className="eo-table-link" href={`/admin/orders/${assignment.orderId}`}>{assignment.orderNumber}</Link> },
             { id: "assignment", header: "Assignment", priority: "primary", cell: (assignment) => { const state = presentAssignmentStatus(assignment.status); return <ProtectedStatus label={state.label} tone={state.tone} />; } },
