@@ -7,7 +7,6 @@ import {
   DashboardCard,
   DashboardMetricCard,
   DashboardHeader,
-  DashboardIllustrationAsset,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -273,25 +272,30 @@ export function AdminCommandCentre({
             }
             padding="normal"
           >
-            <div className="flex flex-col gap-3">
-              {desk.regions ? (
-                <div className="flex flex-wrap gap-1.5 pt-2">
-                  {desk.regions.map((region) => (
-                    <span
-                      key={region.id}
-                      className={`${styles.chip} ${styles.chipNeutral}`}
-                      title={`${region.name} (${region.city})`}
-                    >
-                      <span className={styles.chipDot} />
-                      {region.name}
-                    </span>
-                  ))}
+
+            {desk.regions ? (
+              <div className={styles.coveragePanel}>
+                <div className={styles.coverageSummary}>
+                  <span className={styles.coverageNumber}>{desk.regions.length.toLocaleString("en-ZA")}</span>
+                  <span className={styles.coverageDescriptor}>Active service {desk.regions.length === 1 ? "region" : "regions"}</span>
                 </div>
-              ) : (
-                <p className={styles.emptyStateDesc}>Regional coverage data unavailable.</p>
-              )}
-              <DashboardIllustrationAsset role="admin" className={styles.illustrationCompact} />
-            </div>
+                <ul className={styles.coverageList} aria-label="Active service regions">
+                  {desk.regions.slice(0, 8).map((region) => (
+                    <li className={styles.coverageItem} key={region.id}>
+                      <span className={styles.coverageName} title={region.name}>{region.name}</span>
+                      <span className={styles.coverageCity}>{region.city}</span>
+                    </li>
+                  ))}
+                </ul>
+                {desk.regions.length > 8 ? (
+                  <p className={styles.coverageRemainder}>
+                    {desk.regions.length - 8} more {desk.regions.length - 8 === 1 ? "region" : "regions"} in the regional directory
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className={styles.emptyStateDesc}>Regional coverage data unavailable.</p>
+            )}
           </DashboardCard>
         </DashboardCol>
       </DashboardGrid>
