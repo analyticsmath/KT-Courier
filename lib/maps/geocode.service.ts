@@ -3,8 +3,22 @@
 import { getMapsServerConfig, type MapsServerConfig } from "./google-maps-config";
 import { disposableGeocode, southAfricanAddressQuery } from "@/lib/testing/disposable-geocoding";
 import { PROVINCES } from "@/lib/client-platform/contracts";
+import { logApplicationEvent } from "@/lib/observability/logger";
 
 const TIMEOUT_MS = 8_000;
+
+/** Provider diagnostics intentionally contain no address, coordinates, key,
+ * HTTP body or Google error detail. This also avoids leaking customer routes. */
+function rejectForwardGeocode(errorCategory: string): null {
+  logApplicationEvent({
+    level: "WARN",
+    event: "courier.geocode_rejected",
+    message: "An address could not be resolved into a verified delivery point.",
+    outcome: "UNAVAILABLE",
+    errorCategory,
+  });
+  return null;
+}
 
 export type GeocodableSouthAfricanAddress = Readonly<{
   line1: string;
@@ -88,7 +102,7 @@ export async function geocodeSouthAfricanAddress(
     if (fixture !== undefined) return fixture;
   }
   const config = configurationOverride ?? getMapsServerConfig();
-  if (!config) return null;
+  if (!config) return rejectForwardGeocode("GEOCODE_SERVER_KEY_MISSING");
 
   const query = southAfricanAddressQuery(address);
 
@@ -108,32 +122,37 @@ export async function geocodeSouthAfricanAddress(
       signal: controller.signal,
       cache: "no-store",
     });
-    if (!response.ok) return null;
+    if (!response.ok) return rejectForwardGeocode("GEOCODE_PROVIDER_HTTP_REJECTED");
 
     const payload = await response.json() as GeocodeResponse;
-    if (payload.status !== "OK") return null;
+    if (payload.status !== "OK") return rejectForwardGeocode(
+      payload.status === "REQUEST_DENIED" ? "GEOCODE_PROVIDER_REJECTED"
+        : payload.status === "OVER_QUERY_LIMIT" || payload.status === "OVER_DAILY_LIMIT" ? "GEOCODE_PROVIDER_QUOTA"
+        : payload.status === "ZERO_RESULTS" ? "GEOCODE_ZERO_RESULTS"
+        : "GEOCODE_PROVIDER_STATUS_INVALID",
+    );
 
     // Google can resolve a conflicting street/city query to a province or
     // another town. Such coordinates are not the requested delivery address.
-    if (payload.results?.length !== 1) return null;
+    if (payload.results?.length !== 1) return rejectForwardGeocode("GEOCODE_AMBIGUOUS_RESULT");
     const result = payload.results[0];
-    if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return null;
-    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return null;
+    if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return rejectForwardGeocode("GEOCODE_LOW_CONFIDENCE");
+    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return rejectForwardGeocode("GEOCODE_UNSUPPORTED_PLACE_TYPE");
     const components = result.address_components ?? [];
-    if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return null;
-    if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return null;
+    if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return rejectForwardGeocode("GEOCODE_COUNTRY_MISMATCH");
+    if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return rejectForwardGeocode("GEOCODE_PROVINCE_MISMATCH");
     const city = normalizedCity(address.city);
     const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
-    if (!cityMatches) return null;
+    if (!cityMatches) return rejectForwardGeocode("GEOCODE_CITY_MISMATCH");
     const location = result.geometry?.location;
-    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return null;
+    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return rejectForwardGeocode("GEOCODE_INVALID_COORDINATES");
 
     return Object.freeze({
       latitude: location.lat as number,
       longitude: location.lng as number,
     });
   } catch {
-    return null;
+    return rejectForwardGeocode("GEOCODE_PROVIDER_TIMEOUT_OR_NETWORK");
   } finally {
     clearTimeout(timeoutId);
   }

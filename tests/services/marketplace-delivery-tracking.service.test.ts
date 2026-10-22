@@ -25,12 +25,16 @@ const base: CustomerTrackingRow = {
 
 describe("marketplace customer tracking projection", () => {
   it("coarsens active-transit location and omits it after delivery", () => {
-    expect(projectCustomerTrackingStoreOrder(base).liveLocation).toEqual({
+    expect(projectCustomerTrackingStoreOrder(base, new Date("2026-08-04T10:01:00Z")).liveLocation).toEqual({
       latitude: -33.92,
       longitude: 18.42,
       observedAt: "2026-08-04T10:00:00.000Z",
     });
     expect(projectCustomerTrackingStoreOrder({ ...base, courierStatus: "DELIVERED", bridgeStatus: "DELIVERED" }).liveLocation).toBeNull();
+  });
+  it("does not expose stale or future GPS points while an order remains in transit", () => {
+    expect(projectCustomerTrackingStoreOrder(base, new Date("2026-08-04T10:04:00Z")).liveLocation).toBeNull();
+    expect(projectCustomerTrackingStoreOrder(base, new Date("2026-08-04T09:56:00Z")).liveLocation).toBeNull();
   });
   it("shows cash still due, collected or cancelled without confusing bank remittance with customer debt", () => {
     const cash = { ...base, cashObligation: new Prisma.Decimal("60.01"), cashCollected: new Prisma.Decimal(0), cashStatus: "READY" };

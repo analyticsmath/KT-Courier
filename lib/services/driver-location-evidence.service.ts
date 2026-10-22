@@ -1,3 +1,4 @@
+import { isFreshTrackingObservation } from "@/lib/maps/tracking-freshness";
 import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -167,7 +168,7 @@ export async function getLatestSafeDriverLocationProjection(
     LIMIT 1
   `);
   const latest = rows[0];
-  if (!latest) return null;
+  if (!latest || !isFreshTrackingObservation(latest.receivedAt)) return null;
   return Object.freeze({
     observedAt: latest.receivedAt.toISOString(),
     source: latest.source,

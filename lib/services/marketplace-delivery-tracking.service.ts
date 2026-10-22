@@ -1,3 +1,4 @@
+import { isFreshTrackingObservation } from "@/lib/maps/tracking-freshness";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { verifyMarketplaceGuestSecret } from "@/lib/marketplace-checkout/tokens";
@@ -55,7 +56,7 @@ function coarsenCoordinate(value: Prisma.Decimal): number {
   return Math.round(Number(value) * 100) / 100;
 }
 
-export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow): CustomerTrackingStoreOrder {
+export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow, now = new Date()): CustomerTrackingStoreOrder {
   const mayExposeLocation = allowsCustomerLocation(row.courierStatus);
   const obligation = row.cashObligation ?? new Prisma.Decimal(0);
   const collected = row.cashCollected ?? new Prisma.Decimal(0);
@@ -76,7 +77,7 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow): Cus
       row.proofMethod && row.proofDeliveredAt
       ? Object.freeze({ method: row.proofMethod, deliveredAt: row.proofDeliveredAt.toISOString() })
       : null,
-    liveLocation: mayExposeLocation && row.locationLatitude && row.locationLongitude && row.locationObservedAt
+    liveLocation: mayExposeLocation && row.locationLatitude && row.locationLongitude && row.locationObservedAt && isFreshTrackingObservation(row.locationObservedAt, now.getTime())
       ? Object.freeze({
         latitude: coarsenCoordinate(row.locationLatitude),
         longitude: coarsenCoordinate(row.locationLongitude),
@@ -137,6 +138,6 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
   return Object.freeze({
     marketplaceOrderReference: first.marketplaceOrderReference,
     status: first.marketplaceStatus,
-    storeOrders: Object.freeze(rows.map(projectCustomerTrackingStoreOrder)),
+    storeOrders: Object.freeze(rows.map(row => projectCustomerTrackingStoreOrder(row))),
   });
 }
