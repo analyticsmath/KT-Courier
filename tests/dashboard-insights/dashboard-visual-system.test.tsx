@@ -3,6 +3,7 @@ import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { StaticBarChart } from "@/components/protected-v2/dashboard/charts/StaticBarChart";
+import { StaticSegmentedBar } from "@/components/protected-v2/dashboard/charts/StaticSegmentedBar";
 
 const file = (relative: string) => readFileSync(path.join(process.cwd(), relative), "utf8");
 
@@ -43,4 +44,41 @@ describe("KT protected dashboard visual system", () => {
     expect(html).toContain('height:100%');
     expect(html).toContain("Courier orders");
   });
+  it("includes contextual segmented values in chart's accessible summary", () => {
+    const html = renderToStaticMarkup(
+      <StaticSegmentedBar
+        label="Promoter wallet"
+        segments={[
+          { key: "available", label: "Available", value: 12500, displayValue: "ZAR 125.00", color: "#167B59" },
+          { key: "pending", label: "Pending", value: 2500, displayValue: "ZAR 25.00", color: "#A36620" },
+        ]}
+      />,
+    );
+    expect(html).toContain("Promoter wallet");
+    expect(html).toContain("Available: ZAR 125.00");
+    expect(html).toContain("Pending: ZAR 25.00");
+  });
+
+  it("retains semantic operational tables for three admin queues", () => {
+    const admin = file("components/protected-v2/admin/AdminCommandCentre.tsx");
+    expect(admin.match(/<table className=\{styles.queueTable\}>/g)).toHaveLength(3);
+    expect(admin).toContain("<th scope=\"col\">");
+    const desk = file("lib/dashboard-insights/admin-desk.ts");
+    expect(desk).toContain("b.occurredAt.getTime() - a.occurredAt.getTime()");
+  });
+
+  it("keeps dark-card controls visually distinct from their surface and omits decor in operational states", () => {
+    const css = file("components/protected-v2/dashboard/dashboard.module.css");
+    expect(css).toContain(".toneDark .btnDark");
+    expect(css).toContain("background: #2C3954");
+    for (const sourcePath of [
+      "components/protected-v2/admin/AdminCommandCentre.tsx",
+      "components/protected-v2/driver/DriverHomePage.tsx",
+      "components/protected-v2/store/StoreOverviewPage.tsx",
+      "components/protected-v2/promoter/PromoterDashboardOverview.tsx",
+    ]) {
+      expect(file(sourcePath)).not.toContain("DashboardIllustrationAsset");
+    }
+  });
+
 });
