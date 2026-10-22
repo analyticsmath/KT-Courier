@@ -11,7 +11,6 @@ import {
   DashboardCard,
   DashboardMetricCard,
   DashboardHeader,
-  DashboardIllustrationAsset,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -155,9 +154,8 @@ export function DriverHomePage({
               padding="normal"
             >
               <div className="flex flex-col gap-4 py-2">
-                <div className="flex flex-col sm:flex-row items-center gap-5">
-                  <DashboardIllustrationAsset role="driver" className={styles.illustrationCompact} />
-                  <div className="flex flex-col gap-2 text-center sm:text-left flex-1">
+                <div className="flex flex-col sm:flex-row items-start gap-5">
+                  <div className="flex flex-col gap-2 text-left flex-1">
                     <p className="text-sm text-[var(--dash-ink-secondary)] m-0">{state.description}</p>
                     {readiness && (
                       <span className="text-xs font-semibold text-[var(--dash-muted)]">
