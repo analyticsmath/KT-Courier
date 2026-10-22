@@ -1,0 +1,43 @@
+name: Transactional email focused verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/email/**"
+      - "lib/notifications/**"
+      - "lib/services/account-email-verification.service.ts"
+      - "tests/email/**"
+      - "tests/phase27/**"
+      - "tests/services/account-email-verification.service.test.ts"
+      - ".github/workflows/email-focused-verification.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  email-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/kt_courier_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/kt_courier_ci?schema=public
+      NEXT_PUBLIC_APP_URL: https://www.ktcouriers.com
+      NOTIFICATION_PRODUCTION_VALIDATION_APPROVED: "false"
+      EMAIL_PROVIDER: "console"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - name: Install repository-locked dependencies
+        run: npm ci
+      - name: Generate Prisma types
+        run: npx prisma generate
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Email-specific lint
+        run: npx eslint lib/email/email-renderer.ts lib/email/email-templates.ts lib/notifications/authority.ts lib/notifications/event-registry.ts lib/notifications/required-domain-definitions.ts lib/notifications/required-domain-payload.ts lib/notifications/security-email-delivery.ts lib/services/account-email-verification.service.ts tests/email/branded-notifications.test.ts tests/phase27/account-welcome-notification.test.ts tests/phase27/email-event-copy.test.ts tests/services/account-email-verification.service.test.ts
+      - name: Email unit and ownership tests
+        run: npx vitest run tests/email/branded-notifications.test.ts tests/phase27/account-welcome-notification.test.ts tests/phase27/email-event-copy.test.ts tests/services/account-email-verification.service.test.ts
