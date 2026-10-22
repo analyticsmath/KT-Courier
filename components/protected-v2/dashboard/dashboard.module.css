@@ -1432,3 +1432,92 @@
   .toneDark .quickAccessList { grid-template-columns: minmax(0, 1fr); }
   .toneDark .quickAccessList .btnDark { min-height: 42px; }
 }
+
+
+/* KT OPERATIONAL TABLE REFINEMENT V1 — semantic, accessible real records */
+.queueTableWrap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+}
+.queueTable {
+  width: 100%;
+  min-width: 510px;
+  table-layout: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.765rem;
+  font-variant-numeric: tabular-nums;
+}
+.queueTable th {
+  padding: 11px 13px;
+  background: #F7F9FD;
+  border-bottom: 1px solid #E7ECF4;
+  color: #8490A5;
+  text-align: left;
+  font-size: 0.655rem;
+  font-weight: 705;
+  letter-spacing: 0.085em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.queueTable th:first-child { border-radius: 9px 0 0 0; }
+.queueTable th:last-child { border-radius: 0 9px 0 0; }
+.queueTable td {
+  padding: 13px;
+  vertical-align: middle;
+  border-bottom: 1px solid #EDF0F6;
+  color: #4B576E;
+  line-height: 1.4;
+}
+.queueTable tbody tr:last-child td { border-bottom: 0; }
+.queueTable tbody tr:hover { background: #F8FAFF; }
+.queueTable td:first-child { min-width: 115px; }
+.queueTable td:last-child { width: 1%; }
+.queueReference {
+  display: inline-block;
+  color: #24304A;
+  font-size: 0.77rem;
+  font-weight: 725;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underline-offset: 3px; }
+.queueRoute { min-width: 150px; overflow-wrap: anywhere; }
+.queueDate { color: #79859B !important; white-space: nowrap; font-size: 0.725rem; }
+.queueStatus { text-align: right; }
+.queueStatus > * { margin-left: auto; }
+@media (max-width: 699px) {
+  .queueTableWrap { overflow-x: visible; }
+  .queueTable { min-width: 0; border-collapse: separate; border-spacing: 0 8px; }
+  .queueTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .queueTable tbody { display: block; }
+  .queueTable tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, max-content);
+    align-items: center;
+    gap: 6px 10px;
+    min-width: 0;
+    padding: 12px 13px;
+    border-radius: 11px;
+    border: 1px solid #E7ECF5;
+    background: #F9FBFE;
+  }
+  .queueTable tbody tr:hover { background: #F4F7FF; }
+  .queueTable td {
+    display: block;
+    width: auto;
+    min-width: 0 !important;
+    padding: 0;
+    border: 0;
+  }
+  .queueTable td:first-child { grid-column: 1; grid-row: 1; align-self: center; }
+  .queueTable td:last-child { grid-column: 2; grid-row: 1; text-align: right; }
+  .queueTable td:not(:first-child):not(:last-child) { grid-column: 1 / -1; }
+  .queueTable .queueDate { white-space: normal; }
+  .queueTable .queueStatus > * { max-width: 150px; }
+}
