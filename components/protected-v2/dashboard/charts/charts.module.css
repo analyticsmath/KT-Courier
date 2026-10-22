@@ -655,3 +655,24 @@
   .donutChartWrapperRow { flex-direction: column; }
   .donutLegend { width: 100%; flex-basis: auto; }
 }
+
+
+/* KT CHART LEGIBILITY V2 */
+.barChartScale { color: #5B6981; }
+.barChartDelta { color: #596780; }
+.barCount { color: #55627C; }
+.barLabel { color: #56657D; }
+.trendAxisLabel, .trendTick { color: #59677F; }
+.donutCenterText { color: #5E6B83; }
+.donutLegendLabel { color: #46536B; }
+.donutLegendPercent { color: #607088; }
+.periodLink { color: #58667E; }
+.chartAlternative summary { color: #315CFD; }
+.chartAlternative th { color: #56647B; }
+.barChartColumns, .trendPlotArea, .donutChartWrapper { max-width: 100%; min-width: 0; }
+.chartAlternative:focus-within { outline: 2px solid #315CFD; outline-offset: 3px; }
+@media (max-width: 639px) {
+  .donutChartWrapperRow { align-items: center; }
+  .donutLegendItem { flex-wrap: wrap; }
+  .barChartColumns { overflow: hidden; }
+}
