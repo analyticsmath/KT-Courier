@@ -31,7 +31,7 @@ export async function getAdminDesk(period: DashboardPeriod) {
   const exceptions = [
     ...(pickup?.data ?? []).map((row) => ({ id: row.id, orderId: row.orderId, orderNumber: row.orderNumber, occurredAt: row.occurredAt, label: row.failureReasonLabel ?? "Pickup failure recorded" })),
     ...(delivery?.data ?? []).map((row) => ({ id: row.id, orderId: row.orderId, orderNumber: row.orderNumber, occurredAt: row.occurredAt, label: row.exceptionReasonLabel ?? row.eventType.replaceAll("_", " ") })),
-  ].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime() || a.id.localeCompare(b.id));
+  ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime() || a.id.localeCompare(b.id));
   return { insight, attention, dispatch, exceptions, exceptionCount: pickup && delivery ? pickup.total + delivery.total : null, pendingStores, regions, ordersAllowed };
 }
 export type AdminDesk = Awaited<ReturnType<typeof getAdminDesk>>;
