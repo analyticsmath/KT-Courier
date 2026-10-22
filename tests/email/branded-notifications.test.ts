@@ -27,6 +27,11 @@ describe("KT Couriers transactional email experience", () => {
     expect(html).toContain("Track your delivery");
   });
 
+  it("does not falsely imply a checkout has an active courier tracking number", () => {
+    const html = renderCanonicalEmail({ title: "KT Couriers: marketplace order 52 confirmed", body: "Your marketplace order is confirmed." });
+    expect(html).not.toContain('href="https://www.ktcouriers.com/track" style="display:inline-block');
+  });
+
   it("uses the approved internal action route ahead of a tracking fallback", () => {
     const html = renderCanonicalEmail({ title: "KT Couriers: delivery update", body: "Your order is ready.", actionRoute: "/account/orders" });
     expect(html).toContain('href="https://www.ktcouriers.com/account/orders"');
