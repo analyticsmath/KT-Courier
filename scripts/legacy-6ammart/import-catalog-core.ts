@@ -389,11 +389,16 @@ async function main() {
     return;
   }
   // A disabled audit actor creates no login, demo settings, pricing or ledger state.
-  const actor = await prisma.user.upsert({
+  const actor = process.env.KT_LEGACY_AUDIT_ACTOR_EMAIL
+    ? await prisma.user.findUniqueOrThrow({ where: { email: process.env.KT_LEGACY_AUDIT_ACTOR_EMAIL } })
+    : await prisma.user.upsert({
     where: { email: "legacy-migration@ktcouriers.invalid" },
     update: {},
     create: { email: "legacy-migration@ktcouriers.invalid", name: "Legacy migration audit actor", role: "SUPER_ADMIN", status: "DISABLED", passwordHash: null },
   });
+  if (process.env.KT_LEGACY_AUDIT_ACTOR_EMAIL && (actor.role !== "SUPER_ADMIN" || actor.status !== "ACTIVE")) {
+    throw new Error("The approved migration actor must be an active super administrator.");
+  }
   const bootstrap = { superAdminId: actor.id };
 
   runReference = legacyReferences.run(pkg.source.dumpSha256);
