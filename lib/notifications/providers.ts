@@ -1,3 +1,4 @@
+import { renderPlainTextNotification } from "@/lib/email/email-renderer";
 import { Resend } from "resend";
 import type { FailureClass, NotificationChannel } from "./contracts";
 
@@ -97,7 +98,7 @@ export class ResendEmailProvider implements NotificationProvider {
           to: [input.destination],
           subject: input.subject ?? "KT Couriers Notification",
           text: input.body,
-          html: input.htmlBody,
+          html: input.htmlBody ?? renderPlainTextNotification(input.subject ?? "KT Couriers notification", input.body),
           replyTo: input.replyTo ?? this.defaultReplyTo,
         },
         { idempotencyKey: input.idempotencyKey },

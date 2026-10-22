@@ -263,8 +263,8 @@ function renderOrderConfirmation(ctx: OrderConfirmationContext): RenderedEmail {
   const textBody = `Hi ${ctx.name},\n\nYour delivery request has been received.\n\nOrder: ${ctx.orderNumber}\nDelivery type: ${ctx.deliveryType}\nPickup: ${ctx.pickupAddress}\nDropoff: ${ctx.dropoffAddress}${ctx.priceEstimate ? `\nEstimated price: ${ctx.priceEstimate}` : ""}\n\nWe will notify you when your order status is updated.`;
   return {
     subject,
-    html: renderEmailHtml({ title, body, actionUrl: ctx.orderUrl, actionLabel: "View order" }),
-    text: renderEmailText(title, textBody, ctx.orderUrl),
+    html: renderEmailHtml({ title, body, actionUrl: ctx.orderUrl ?? "https://www.ktcouriers.com/track", actionLabel: "Track delivery" }),
+    text: renderEmailText(title, textBody, ctx.orderUrl ?? "https://www.ktcouriers.com/track"),
   };
 }
 
@@ -354,7 +354,7 @@ function renderDeliveryOtp(ctx: DeliveryOtpContext): RenderedEmail {
   return {
     subject,
     html: renderEmailHtml({ title, body, actionUrl: ctx.orderUrl, actionLabel: "View order" }),
-    text: renderEmailText(title, text, ctx.orderUrl),
+    text: renderEmailText(title, text, ctx.orderUrl ?? "https://www.ktcouriers.com/track"),
   };
 }
 
