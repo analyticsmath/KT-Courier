@@ -7,13 +7,11 @@ import {
   DashboardCard,
   DashboardMetricCard,
   DashboardHeader,
-  DashboardIllustrationAsset,
   StaticSegmentedBar,
   type SegmentItem,
 } from "@/components/protected-v2/dashboard";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
-import { RouteQueueIllustration } from "@/components/protected-v2/illustrations/RouteQueueIllustration";
 import {
   getPromoterLifecyclePresentation,
   getPromoterReferralPresentation,
@@ -158,9 +156,8 @@ export function PromoterDashboardOverview({
             description="Your current promoter qualification and account standing"
             padding="normal"
           >
-            <div className="flex flex-col sm:flex-row items-center gap-5 pt-1">
-              <DashboardIllustrationAsset role="promoter" className={styles.illustrationCompact} />
-              <div className="flex flex-col gap-3 text-center sm:text-left">
+            <div className="flex flex-col gap-5 pt-1">
+              <div className="flex flex-col gap-3 text-left">
                 <p className="text-sm text-[var(--dash-ink-secondary)] leading-relaxed m-0">
                   {lifecycle.description}
                 </p>
@@ -436,7 +433,6 @@ export function PromoterDashboardOverview({
               </ul>
             ) : (
               <div className={styles.emptyState}>
-                <RouteQueueIllustration className="h-20 w-28 mx-auto opacity-70" />
                 <p className={styles.emptyStateTitle}>No attributed referrals</p>
                 <p className={styles.emptyStateDesc}>
                   An attributed referral appears here only after the canonical attribution authority creates an owned record.
