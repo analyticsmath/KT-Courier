@@ -523,3 +523,135 @@
   font-variant-numeric: tabular-nums;
   color: var(--dash-ink);
 }
+
+
+/* KT DASHBOARD CHART REFINEMENT V1 — restrained, legible, no motion */
+.periods {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px;
+  border-radius: 10px;
+  border-color: #E7ECF5;
+  background: #F0F3F9;
+  gap: 2px;
+}
+.periodLink {
+  min-width: 0;
+  min-height: 33px;
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 0.715rem;
+  color: #69758B;
+}
+.periodActive {
+  background: #FFFFFF;
+  color: #244DDD;
+  border-color: #FFFFFF;
+  box-shadow: 0 1px 5px rgb(31 44 86 / 7%);
+}
+.barChartContainer { gap: 17px; }
+.barChartTop { align-items: flex-end; }
+.barChartHeroNum {
+  font-size: clamp(1.9rem, 2.3vw, 2.55rem);
+  letter-spacing: -0.065em;
+  font-weight: 740;
+}
+.barChartDelta {
+  color: #67758F;
+  font-weight: 570;
+  font-size: 0.72rem;
+}
+.barChartScale {
+  font-weight: 530;
+  letter-spacing: 0;
+  font-size: 0.685rem;
+  color: #8893A8;
+}
+.barChartColumns {
+  height: 202px;
+  gap: 11px;
+  border-bottom: 1px solid #E3E8F1;
+}
+.barGridLines > span { border-top-color: #EFF2F8; }
+.barColumn { gap: 9px; }
+.barCount { color: #64718B; font-weight: 600; }
+.barTrack {
+  width: min(100%, 42px);
+  max-width: 42px;
+  height: 148px;
+  border-radius: 7px 7px 0 0;
+}
+.barFill {
+  background: #315CFD;
+  border-radius: 7px 7px 0 0;
+  min-height: 0;
+}
+.barFillGreen { background: #167B59; }
+.barFillTeal { background: #0A91A1; }
+.barFillCharcoal { background: #171B29; }
+.barLabel {
+  color: #8793AA;
+  font-size: 0.685rem;
+  font-weight: 550;
+}
+.trendPlot { height: 225px; }
+.trendGridLine { stroke: #E8EDF6; }
+.trendLine { stroke: #315CFD; stroke-width: 2.7; }
+.trendPoint { fill: #315CFD; stroke: #FFFFFF; }
+.trendAxisLabel, .trendTick { color: #8994A9; }
+.donutChartWrapper { gap: 15px; }
+.donutSvgArea { width: clamp(125px, 14vw, 166px); height: clamp(125px, 14vw, 166px); }
+.donutCenterValue {
+  font-size: 1.57rem;
+  font-weight: 745;
+  letter-spacing: -0.055em;
+}
+.donutCenterText { font-size: 0.65rem; color: #8691A7; }
+.donutLegend { gap: 12px; }
+.donutLegendItem { gap: 9px; font-size: 0.765rem; }
+.donutLegendLeading { gap: 9px; }
+.donutColorDot { width: 8px; height: 8px; border-radius: 3px; }
+.donutLegendLabel { color: #535F77; font-weight: 555; }
+.donutLegendCount { font-weight: 740; color: #222A3F; }
+.donutLegendPercent { color: #8B96A9; }
+.segmentedTrack { background: #EFF2F8; border-radius: 999px; }
+.segmentedSlice:first-child { border-radius: 999px 0 0 999px; }
+.segmentedSlice:last-child { border-radius: 0 999px 999px 0; }
+.chartAlternative {
+  border-top-color: #EFF2F8;
+  color: #66738B;
+}
+.chartAlternative summary {
+  color: #315CFD;
+  font-size: 0.7rem;
+  font-weight: 620;
+}
+.chartAlternative th { background: #F7F9FD; color: #68748B; }
+.chartAlternative td { color: #2F384D; }
+@media (max-width: 639px) {
+  .periods {
+    width: fit-content;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  .periodLink {
+    min-height: 35px;
+    flex: 0 1 auto;
+    padding: 6px 9px;
+    font-size: 0.685rem;
+  }
+  .barChartColumns { height: 166px; gap: 5px; }
+  .barTrack { height: 111px; max-width: 29px; }
+  .barLabel { font-size: 0.615rem; }
+  .barChartTop { gap: 7px; }
+  .barChartHeroNum { font-size: 1.85rem; }
+  .trendPlot { height: 176px; }
+  .donutSvgArea { width: 145px; height: 145px; }
+  .donutChartWrapperRow { flex-direction: row; flex-wrap: wrap; justify-content: space-between; }
+  .donutLegend { flex-basis: 150px; }
+}
+@media (max-width: 365px) {
+  .donutChartWrapperRow { flex-direction: column; }
+  .donutLegend { width: 100%; flex-basis: auto; }
+}
