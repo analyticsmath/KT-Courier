@@ -3,6 +3,10 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/",
+      "destination": "https://web-production-9f8bb.up.railway.app/"
+    },
+    {
       "source": "/:path*",
       "destination": "https://web-production-9f8bb.up.railway.app/:path*"
     }

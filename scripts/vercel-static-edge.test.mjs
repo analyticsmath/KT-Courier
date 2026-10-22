@@ -7,10 +7,10 @@ const canonicalRouting = readFileSync(new URL('../lib/deployment/edge-routing.ts
 
 test('static edge preserves the approved Railway production origin and all paths', () => {
   const configuration = JSON.parse(readFileSync(gateway, 'utf8'));
-  assert.deepEqual(configuration.rewrites, [{
-    source: '/:path*',
-    destination: 'https://web-production-9f8bb.up.railway.app/:path*',
-  }]);
+  assert.deepEqual(configuration.rewrites, [
+    { source: '/', destination: 'https://web-production-9f8bb.up.railway.app/' },
+    { source: '/:path*', destination: 'https://web-production-9f8bb.up.railway.app/:path*' },
+  ]);
   assert.match(canonicalRouting, /PRODUCTION_EDGE_ORIGIN = "https:\/\/web-production-9f8bb\.up\.railway\.app"/);
   assert.ok(!configuration.functions && !configuration.crons, 'Static gateway must not create functions or schedule jobs');
 });
