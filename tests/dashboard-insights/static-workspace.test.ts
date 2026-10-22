@@ -6,7 +6,7 @@ import { AdminCommandCentre } from "@/components/protected-v2/admin/AdminCommand
 import type { AdminDesk } from "@/lib/dashboard-insights/admin-desk";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
 
-const restricted: AdminDesk = { insight:null, attention:null, dispatch:null, exceptions:[], exceptionCount:null, pendingStores:null, regions:null, ordersAllowed:false };
+const restricted: AdminDesk = { statusMix:null, serviceMix:null, insight:null, attention:null, dispatch:null, exceptions:[], exceptionCount:null, pendingStores:null, regions:null, ordersAllowed:false };
 
 describe("Static operational workspace", () => {
   it("keeps restricted aggregates unavailable and omits unauthorized work links", () => {

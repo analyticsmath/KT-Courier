@@ -5,6 +5,6 @@ import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period"
 
 export const metadata: Metadata = { title: "Operations desk" };
 export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<{ period?: string | string[] }> }) {
-  const period = parseDashboardPeriod((await searchParams).period);
+  const period = parseDashboardPeriod((await searchParams).period ?? "12_WEEKS");
   return <AdminCommandCentre desk={await getAdminDesk(period)} period={period} />;
 }

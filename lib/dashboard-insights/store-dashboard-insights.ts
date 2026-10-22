@@ -1,5 +1,6 @@
 import "server-only";
 import { requireRole } from "@/lib/auth/guards";
+import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
 import { UserRole } from "@/types/db";
 import { dashboardWindow } from "./dashboard-period";
@@ -13,5 +14,15 @@ export async function getStoreDashboardInsights(period: DashboardPeriod) {
   return countInsight(dashboardWindow(period), "Marketplace order volume", "Marketplace orders by creation date. Courier delivery requests are excluded.", {
     count: (gte, lt) => prisma.marketplaceStoreOrder.count({ where: { storeId: store.id, createdAt: { gte, lt } } }),
     dates: async (gte, lt, take) => (await prisma.marketplaceStoreOrder.findMany({ where: { storeId: store.id, createdAt: { gte, lt } }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take })).map((row) => row.createdAt),
+  });
+}
+
+/** Same store ownership boundary as the courier order list. */
+export async function getStoreCourierInsights(period: DashboardPeriod) {
+  const user = await requireRole(UserRole.STORE);
+  const { store } = await storeAccess(user.id, "orders");
+  return countInsight(dashboardWindow(period), "Courier delivery activity", "Your store's courier requests by creation date.", {
+    count: (gte, lt) => prisma.order.count({ where: { storeId: store.id, createdAt: { gte, lt } } }),
+    dates: async (gte, lt, take) => (await prisma.order.findMany({ where: { storeId: store.id, createdAt: { gte, lt } }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take })).map(row => row.createdAt),
   });
 }

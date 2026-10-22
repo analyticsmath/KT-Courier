@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ProtectedNavigationItem } from "../navigation/types";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { ProtectedAvatar } from "./ProtectedAvatar";
 
 type EditorialTopbarProps = {
+  quickNavigation?: readonly ProtectedNavigationItem[];
   contextLabel: string;
   user: { displayName: string; roleLabel: string; avatarUrl?: string | null };
   notifications?: { unreadCount: number; href: string };
@@ -17,12 +20,14 @@ type EditorialTopbarProps = {
 
 export function EditorialTopbar({
   contextLabel,
+  quickNavigation = [],
   user,
   notifications,
   profileHref,
   primaryAction,
   onNavigationOpen,
 }: EditorialTopbarProps) {
+  const pathname = usePathname();
   const [accountOpen, setAccountOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const accountTrigger = useRef<HTMLButtonElement>(null);
@@ -51,6 +56,7 @@ export function EditorialTopbar({
         </button>
         <p className="eo-topbar__context">{contextLabel}</p>
       </div>
+      <nav className="eo-quick-nav" aria-label="Primary workspaces">{quickNavigation.slice(0,4).map(item=><Link key={item.id} href={item.href} aria-current={(item.exact ? pathname===item.href : pathname===item.href || pathname.startsWith(`${item.href}/`)) ? "page" : undefined}>{item.label}</Link>)}</nav>
       <div className="eo-topbar__actions">
         {primaryAction ? <Link className="eo-topbar__primary-action" href={primaryAction.href}>{primaryAction.label}</Link> : null}
         {notifications ? (

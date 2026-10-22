@@ -14,9 +14,9 @@ describe("KT operations studio v4 structure", () => {
   });
   it("prioritizes activity and dispatch over a promotional cover", () => {
     const overview = read("components/protected-v2/admin/AdminCommandCentre.tsx");
-    expect(overview).toContain("studio.volume");
-    expect(overview).toContain("/media/dashboard/delivery-truck.webp");
-    expect(overview).toContain("studio.dispatchSummary");
+    expect(overview).toContain("ActivityBars");
+    expect(overview).toContain("DistributionRing");
+    expect(overview).toContain("OperationsWorkbench");
     expect(overview).not.toContain("See the whole network");
     expect(overview).not.toContain(">01<");
     expect(overview).not.toContain('label="Courier order volume"');
@@ -36,18 +36,18 @@ describe("KT operations studio v4 structure", () => {
   it("gives merchants and customers distinct task-oriented overviews", () => {
     const store = read("components/protected-v2/store/StoreOverviewPage.tsx");
     const customer = read("components/protected-v2/customer/CustomerDashboardHome.tsx");
-    expect(store).toContain("role.merchantCover");
-    expect(store).toContain("role.merchantSignals");
+    expect(store).toContain("courierInsight");
+    expect(store).toContain("OperationsWorkbench");
     expect(customer).toContain("role.customerCover");
     expect(customer).toContain("role.customerSignals");
     expect(store).not.toContain('label="Needs preparation"');
     expect(customer).not.toContain('label="Active deliveries"');
   });
 
-  it("keeps illustrations purposefully loaded and uses static WebP assets", () => {
+  it("keeps the operations workspace static without decorative media", () => {
     const overview = read("components/protected-v2/admin/AdminCommandCentre.tsx");
-    expect(overview).toContain('alt=""');
-    expect(overview).toContain('sizes="130px" priority');
+    expect(overview).not.toContain("<video");
+    expect(overview).not.toContain("next/image");
     const css = read("app/protected-workspace.css");
     expect(css).toContain("animation:none!important");
     expect(css).toContain("transition:none!important");

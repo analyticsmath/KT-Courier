@@ -1546,18 +1546,18 @@
 
 /* Shared static workspace tokens. Keep these in the module that owns the classes. */
 .ktDashboard {
-  --dash-canvas:transparent; --dash-surface:#fff; --dash-surface-subtle:#f7f9f7; --dash-surface-muted:#e9eeeb;
-  --dash-ink:#202522; --dash-ink-secondary:#515a55; --dash-muted:#515a55;
-  --dash-line:#e2e7e4; --dash-line-strong:#b8c4bd;
-  --dash-charcoal:#202d27; --dash-charcoal-subtle:#34483c; --dash-charcoal-line:#48564e;
+  --dash-canvas:transparent; --dash-surface:#fff; --dash-surface-subtle:#f5f6fa; --dash-surface-muted:#edf0f6;
+  --dash-ink:#18191d; --dash-ink-secondary:#626976; --dash-muted:#626976;
+  --dash-line:#e4e7ee; --dash-line-strong:#c8ceda;
+  --dash-charcoal:#191a1e; --dash-charcoal-subtle:#303138; --dash-charcoal-line:#494b55;
   --dash-charcoal-text:#fff; --dash-charcoal-muted:#fff;
-  --dash-brand:#176b50; --dash-brand-strong:#176b50; --dash-brand-soft:#edf3ee; --dash-brand-border:#c6d8cb;
-  --dash-green:#176b50; --dash-green-soft:#edf3ee; --dash-green-border:#c6d8cb;
-  --dash-teal:#42584b; --dash-teal-soft:#edf3ee; --dash-teal-border:#c6d8cb;
-  --dash-neutral-data:#a8b7ad; --dash-orange:#515a55; --dash-orange-soft:#f1f4f2;
-  --dash-yellow:#515a55; --dash-yellow-soft:#f1f4f2; --dash-lime:#72864a; --dash-lime-soft:#e8f0d6;
+  --dash-brand:#1768ff; --dash-brand-strong:#1768ff; --dash-brand-soft:#edf3ff; --dash-brand-border:#c3d5ff;
+  --dash-green:#1768ff; --dash-green-soft:#edf3ff; --dash-green-border:#c3d5ff;
+  --dash-teal:#444c60; --dash-teal-soft:#edf3ff; --dash-teal-border:#c3d5ff;
+  --dash-neutral-data:#b8c9e8; --dash-orange:#626976; --dash-orange-soft:#f3f5f9;
+  --dash-yellow:#626976; --dash-yellow-soft:#f3f5f9; --dash-lime:#1768ff; --dash-lime-soft:#eaff87;
   --dash-shadow-subtle:none; --dash-shadow-card:none;
-  color:#202522; background:transparent;
+  color:#18191d; background:transparent;
 }
 .ktDashboard .canvas {gap:22px;}
 .ktDashboard .card {border-color:var(--dash-line); border-radius:16px; box-shadow:none;}
@@ -1572,34 +1572,34 @@
 .ktDashboard .cardAction {max-width:100%; min-width:0;}
 .ktDashboard .toneDark {color:#fff; background:var(--dash-charcoal); border-color:var(--dash-charcoal);}
 .ktDashboard .toneDark :is(.cardTitle,.cardDescription,.metricValue,.metricLabel,.metricMeta) {color:#fff;}
-.ktDashboard .toneBrand {color:var(--dash-ink); background:#edf3ee; border-color:#dce5df;}
+.ktDashboard .toneBrand {color:var(--dash-ink); background:#edf3ff; border-color:#dbe5fa;}
 .ktDashboard .toneBrand :is(.cardTitle,.cardDescription,.metricValue,.metricLabel,.metricMeta) {color:var(--dash-ink);}
 .ktDashboard .metricValue {font-size:2.4rem; font-weight:600; letter-spacing:-.05em;}
 .ktDashboard .metricLabel {color:inherit; font-size:.8rem; font-weight:550;}
 .ktDashboard .metricMeta {font-size:.73rem; color:var(--dash-muted);}
 .ktDashboard .metricDelta {color:inherit; border:0; border-radius:0; background:transparent; font-weight:500;}
 .ktDashboard .btn {border-radius:8px; min-height:40px; padding:9px 14px; font-size:.78rem; font-weight:600; white-space:normal;}
-.ktDashboard .btnPrimary,.ktDashboard .btnDark {color:#fff; background:#202522; border-color:#202522;}
-.ktDashboard .btnSecondary {color:#202522; background:#fff; border-color:#c8d2cb;}
+.ktDashboard .btnPrimary,.ktDashboard .btnDark {color:#fff; background:#18191d; border-color:#18191d;}
+.ktDashboard .btnSecondary {color:#18191d; background:#fff; border-color:#c8ceda;}
 .ktDashboard .btnQuiet {color:inherit; background:transparent; text-decoration:underline; text-underline-offset:4px;}
 .ktDashboard .chip {padding:0; border:0; background:transparent; color:inherit; border-radius:0; font-size:.76rem; font-weight:550;}
-.ktDashboard .emptyState {background:#f7f9f7; border:0; border-radius:10px; min-height:140px;}
+.ktDashboard .emptyState {background:#f5f6fa; border:0; border-radius:10px; min-height:140px;}
 .ktDashboard .emptyStateTitle {color:inherit; font-weight:550; font-size:.9rem;}
 .ktDashboard .emptyStateDesc {color:var(--dash-muted); font-size:.8rem;}
 .ktDashboard .queueTableWrap {max-width:100%; overflow-x:auto; border-radius:0;}
 .ktDashboard .queueTable {width:100%; min-width:480px; font-size:.8rem;}
-.ktDashboard .queueTable th {background:#f4f7f4; padding:13px 14px; color:#515a55; text-transform:none; letter-spacing:0; font-weight:550; font-size:.74rem; border-radius:0;}
-.ktDashboard .queueTable td {padding:16px 14px; color:var(--dash-ink); border-color:#e9eeeb; line-height:1.5;}
+.ktDashboard .queueTable th {background:#f3f5f9; padding:13px 14px; color:#626976; text-transform:none; letter-spacing:0; font-weight:550; font-size:.74rem; border-radius:0;}
+.ktDashboard .queueTable td {padding:16px 14px; color:var(--dash-ink); border-color:#edf0f6; line-height:1.5;}
 .ktDashboard .queueTable td:last-child {width:auto; min-width:125px;}
 .ktDashboard .queueReference {color:inherit; font-family:inherit; font-weight:600; font-size:.79rem; text-decoration:underline; text-underline-offset:3px; white-space:nowrap;}
-.ktDashboard .queueDate {font-size:.74rem; color:#515a55!important;}
+.ktDashboard .queueDate {font-size:.74rem; color:#626976!important;}
 .ktDashboard .queueStatus {text-align:left;}
 .ktDashboard .queueStatus>* {margin-left:0;}
 .ktDashboard .coverageList {display:flex; flex-direction:column; gap:0;}
-.ktDashboard .coverageItem {border:0; border-radius:0; background:transparent; padding:11px 0; border-bottom:1px solid #e9eeeb;}
+.ktDashboard .coverageItem {border:0; border-radius:0; background:transparent; padding:11px 0; border-bottom:1px solid #edf0f6;}
 .ktDashboard .coverageName {color:var(--dash-ink); font-size:.78rem; font-weight:550; line-height:1.45;}
-.ktDashboard .coverageCity {color:#515a55; font-size:.72rem;}
+.ktDashboard .coverageCity {color:#626976; font-size:.72rem;}
 .ktDashboard .header {padding:0 0 12px; min-height:0; border:0; background:transparent;}
 .ktDashboard .title {font-size:clamp(1.85rem,2.6vw,2.65rem); font-weight:650; letter-spacing:-.045em; color:inherit;}
-.ktDashboard .description {color:#515a55; font-size:.875rem;}
+.ktDashboard .description {color:#626976; font-size:.875rem;}
 @media(max-width:639px){.ktDashboard .padNormal,.ktDashboard .padSpacious {padding:18px;} .ktDashboard .canvas {gap:16px;} .ktDashboard .cardHeader {display:flex;flex-direction:column;} .ktDashboard .cardHeadingGroup {flex:auto;} .ktDashboard .queueTable {min-width:440px;} }

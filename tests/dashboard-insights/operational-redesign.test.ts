@@ -62,7 +62,7 @@ describe("Dashboard operational design regression", () => {
   it("loads illustrations through the owning CSS module", () => {
     expect(read("components/protected-v2/dashboard/DashboardIllustrationAsset.tsx")).toContain("OperationsSceneIllustration");
     expect(read("components/protected-v2/dashboard/DashboardCanvas.tsx")).not.toContain("dashboard-premium.css");
-    expect(read("components/protected-v2/dashboard/dashboard.module.css")).toContain("--dash-brand:#176b50");
+    expect(read("components/protected-v2/dashboard/dashboard.module.css")).toContain("--dash-brand:#1768ff");
     const illustration = read("components/protected-v2/illustrations/OperationsSceneIllustration.tsx");
     expect(illustration).toContain("<svg");
     expect(illustration).toContain("scene-blue");

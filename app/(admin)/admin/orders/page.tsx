@@ -59,24 +59,18 @@ export default async function AdminOrdersPage({
     <ProtectedPageHeader eyebrow="Operations" title="Courier orders" description={`${total.toLocaleString("en-ZA")} courier order${total === 1 ? "" : "s"} in this view. Review fulfillment, assignment and delivery progress.`} actions={<Link className="eo-inline-action" href="/admin/dispatch">Dispatch queue</Link>} />
     <ProtectedFilterBar activeFilterCount={activeFilters} clearHref={activeFilters ? "/admin/orders" : undefined}>
       <form action="/admin/orders" className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-        {filters.status ? <input type="hidden" name="status" value={filters.status} /> : null}
-        {assignmentFilter ? <input type="hidden" name="assignmentFilter" value={assignmentFilter} /> : null}
+        <label className="eo-filter-label" htmlFor="admin-order-status">Order status<select id="admin-order-status" name="status" defaultValue={filters.status??""}>{ADMIN_STATUS_FILTER_OPTIONS.map(filter=><option key={filter.value} value={filter.value}>{filter.label}</option>)}</select></label>
+        <label className="eo-filter-label" htmlFor="admin-order-assignment">Assignment<select id="admin-order-assignment" name="assignmentFilter" defaultValue={assignmentFilter??""}>{ASSIGNMENT_FILTERS.map(filter=><option key={filter.value} value={filter.value}>{filter.label}</option>)}</select></label>
         <label className="eo-filter-label" htmlFor="admin-order-search">Search orders<input id="admin-order-search" name="search" defaultValue={search} placeholder="Reference, account, store, or city" /></label>
         <button className="eo-filter-submit" type="submit">Search</button>
       </form>
     </ProtectedFilterBar>
-    <div className="eo-filter-chips eo-orders-page__statuses" aria-label="Order status filters">
-      {ADMIN_STATUS_FILTER_OPTIONS.map((filter) => <Link aria-current={(filters.status ?? "") === filter.value ? "page" : undefined} className={(filters.status ?? "") === filter.value ? "is-active" : undefined} href={buildHref({ status: filter.value || undefined, assignmentFilter, search })} key={filter.value}>{filter.label}</Link>)}
-    </div>
-    <div className="eo-filter-chips eo-orders-page__assignment" aria-label="Assignment state filters">
-      {ASSIGNMENT_FILTERS.map((filter) => <Link aria-current={(assignmentFilter ?? "") === filter.value ? "page" : undefined} className={(assignmentFilter ?? "") === filter.value ? "is-active" : undefined} href={buildHref({ status: filters.status, assignmentFilter: filter.value || undefined, search })} key={filter.value}>{filter.label}</Link>)}
-    </div>
     <OperationalPanel title="Order directory" description="Select an order reference to review its complete delivery record.">
       <EditorialTable
         caption="Courier order queue"
         mobileMode="stack"
         rows={orders}
-        emptyState={<ProtectedState kind="empty" title="No courier orders match this view" description="Adjust or clear the current server-backed filters." illustration={<RouteQueueIllustration />} />}
+        emptyState={<ProtectedState kind="empty" title="No courier orders match this view" description="Try a different reference, status, or assignment filter." illustration={<RouteQueueIllustration />} />}
         columns={[
           { id: "reference", header: "Order", priority: "primary", cell: (order) => <div className="eo-order-reference"><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
           { id: "status", header: "Operational status", priority: "primary", cell: (order) => { const state = presentOrderStatus(order.status); return <ProtectedStatus label={state.label} tone={state.tone} />; } },

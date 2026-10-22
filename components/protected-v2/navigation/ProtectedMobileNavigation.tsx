@@ -46,6 +46,7 @@ export function ProtectedMobileNavigation({
   return (
     <>
       <EditorialTopbar
+        quickNavigation={mobileNavigation}
         contextLabel={contextLabel}
         notifications={notifications}
         onNavigationOpen={() => setNavigationOpen(true)}

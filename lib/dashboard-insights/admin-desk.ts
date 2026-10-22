@@ -7,6 +7,7 @@ import { getDispatchBoardData } from "@/lib/services/admin-dispatch.service";
 import { listPickupExceptions } from "@/lib/services/admin-pickup-operations.service";
 import { listDeliveryExceptions } from "@/lib/services/admin-delivery-exceptions.service";
 import { getAdminDashboardInsights } from "./admin-dashboard-insights";
+import { dashboardWindow } from "./dashboard-period";
 import type { DashboardPeriod } from "./types";
 
 /** Check domain permissions before querying; acquire no finance or governance data. */
@@ -15,7 +16,9 @@ export async function getAdminDesk(period: DashboardPeriod) {
   const [ordersAllowed, dispatchAllowed, storesAllowed, regionsAllowed] = await Promise.all(
     [PERMISSIONS.ORDERS_READ, PERMISSIONS.DISPATCH_READ, PERMISSIONS.STORES_READ, PERMISSIONS.REGIONS_READ].map((permissionKey) => hasPermission({ userId: user.id, role: user.role, permissionKey })),
   );
-  const [insight, attention, dispatch, pickup, delivery, pendingStores, regions] = await Promise.all([
+  const window = dashboardWindow(period);
+  const createdAt = { gte: window.start, lt: window.end };
+  const [insight, attention, dispatch, pickup, delivery, pendingStores, regions, statusMix, serviceMix] = await Promise.all([
     ordersAllowed ? getAdminDashboardInsights(period) : null,
     ordersAllowed ? prisma.order.findMany({
       where: { OR: [{ status: { in: ["PENDING", "FAILED", "DELIVERY_ATTEMPTED"] } }, { status: { in: ["CONFIRMED", "PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT"] }, distanceMeters: null }] },
@@ -27,11 +30,13 @@ export async function getAdminDesk(period: DashboardPeriod) {
     dispatchAllowed ? listDeliveryExceptions({ page: 1, pageSize: 4 }) : null,
     storesAllowed ? prisma.store.count({ where: { status: "PENDING" } }) : null,
     regionsAllowed ? prisma.deliveryRegion.findMany({ where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { name: "asc" }, take: 12 }) : null,
+    ordersAllowed ? prisma.order.groupBy({ by: ["status"], where: { createdAt }, _count: { _all: true } }) : null,
+    ordersAllowed ? prisma.order.groupBy({ by: ["deliveryType"], where: { createdAt }, _count: { _all: true } }) : null,
   ]);
   const exceptions = [
     ...(pickup?.data ?? []).map((row) => ({ id: row.id, orderId: row.orderId, orderNumber: row.orderNumber, occurredAt: row.occurredAt, label: row.failureReasonLabel ?? "Pickup failure recorded" })),
     ...(delivery?.data ?? []).map((row) => ({ id: row.id, orderId: row.orderId, orderNumber: row.orderNumber, occurredAt: row.occurredAt, label: row.exceptionReasonLabel ?? row.eventType.replaceAll("_", " ") })),
   ].sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime() || a.id.localeCompare(b.id));
-  return { insight, attention, dispatch, exceptions, exceptionCount: pickup && delivery ? pickup.total + delivery.total : null, pendingStores, regions, ordersAllowed };
+  return { insight, attention, dispatch, exceptions, exceptionCount: pickup && delivery ? pickup.total + delivery.total : null, pendingStores, regions, ordersAllowed, statusMix, serviceMix };
 }
 export type AdminDesk = Awaited<ReturnType<typeof getAdminDesk>>;

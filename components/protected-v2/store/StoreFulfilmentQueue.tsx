@@ -30,7 +30,7 @@ export function StoreFulfilmentQueue({ queue, limit, title = "Fulfilment queue",
         <ProtectedState
           kind="empty"
           title="No marketplace orders need fulfilment"
-          description="Orders will appear here only after the marketplace order workflow creates a store-owned operational record."
+          description="New marketplace orders will appear here for review and preparation."
           illustration={<ParcelDeskIllustration className="h-24 w-32" />}
         />
       ) : (

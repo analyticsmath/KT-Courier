@@ -1,220 +1,37 @@
 import React from "react";
 import Link from "next/link";
-import Image from "next/image";
-import role from "../dashboard/roleStudio.module.css";
-import {
-  DashboardCanvas,
-  DashboardGrid,
-  DashboardCol,
-  DashboardCard,
-  DashboardPeriodControl,
-  StaticActivityChart,
-  StaticDonutChart,
-  type DonutItem,
-} from "@/components/protected-v2/dashboard";
-import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
-import { StoreCourierOrderList, type StoreCourierOrderRecord } from "./StoreCourierOrderList";
-import { StoreFulfilmentQueue as StoreFulfilmentQueueComponent } from "./StoreFulfilmentQueue";
+import { DashboardCanvas, DashboardPeriodControl } from "@/components/protected-v2/dashboard";
+import { StoreFulfilmentQueue as FulfilmentQueue } from "./StoreFulfilmentQueue";
+import type { StoreCourierOrderRecord } from "./StoreCourierOrderList";
 import type { StoreFulfilmentQueue } from "@/lib/store-presentation/store-fulfilment-priority";
 import { getStoreFulfilmentSummary } from "@/lib/store-presentation/store-fulfilment-priority";
 import { storeAccountState } from "@/lib/store-presentation/store-status";
 import type { CountInsight, DashboardPeriod } from "@/lib/dashboard-insights/types";
-import styles from "../dashboard/dashboard.module.css";
-
+import { formatDateTime } from "@/lib/utils/formatters";
+import { ActivityBars, DistributionRing } from "../studio/StudioCharts";
+import { OperationsWorkbench } from "../studio/OperationsWorkbench";
+import s from "../studio/workspaceStudio.module.css";
 export interface StoreOverviewPageProps {
-  storeName: string;
-  storeStatus: string | null;
-  queue: StoreFulfilmentQueue;
-  recentCourierOrders: readonly StoreCourierOrderRecord[];
-  pickupConfigured: boolean;
-  payableBalance: string | null;
-  insight?: CountInsight | null;
-  period?: DashboardPeriod;
-  activity?: React.ReactNode;
+  storeName:string;storeStatus:string|null;queue:StoreFulfilmentQueue;recentCourierOrders:readonly StoreCourierOrderRecord[];
+  pickupConfigured:boolean;payableBalance:string|null;insight?:CountInsight|null;courierInsight?:CountInsight|null;period?:DashboardPeriod;activity?:React.ReactNode;
 }
-
-export function StoreOverviewPage({
-  storeName,
-  storeStatus,
-  queue,
-  recentCourierOrders,
-  pickupConfigured,
-  payableBalance,
-  insight,
-  period = "7_DAYS",
-  activity,
-}: StoreOverviewPageProps) {
-  const summary = getStoreFulfilmentSummary(queue);
-  const state = storeAccountState(storeStatus);
-
-  // Authoritative stage breakdown from full queue arrays
-  const inPreparationCount = queue.preparing.length + queue.accepted.length;
-  const readyCount = queue.readyForPickup.length;
-  const handoffCount = queue.handoffInProgress.length;
-  const attentionCount = summary.needsAttention;
-  const collectedCount = queue.completedHandoff.length;
-  const totalQueueOrders = inPreparationCount + readyCount + handoffCount + attentionCount + collectedCount;
-
-  const stageMix: DonutItem[] = [
-    { key: "prep", label: "In preparation", value: inPreparationCount, color: "var(--dash-teal)" },
-    { key: "ready", label: "Ready for pickup", value: readyCount, color: "var(--dash-green)" },
-    { key: "attention", label: "Needs attention", value: attentionCount, color: "var(--dash-orange)" },
-    { key: "handoff", label: "Collection in progress", value: handoffCount, color: "var(--dash-brand)" },
-    { key: "collected", label: "Collected orders", value: collectedCount, color: "var(--dash-muted)" },
-  ];
-
-  const comparison = insight?.comparison;
-
-  return (
-    <DashboardCanvas>
-      <section className={role.merchantCover} aria-label="Merchant workspace overview">
-        <div className={role.merchantIntro}>
-          <span className={role.merchantCategory}>STORE WORKSPACE / FULFILMENT</span>
-          <h1>{storeName}</h1>
-          <p>Manage new orders, prepare collections and keep your business moving.</p>
-          <div className={role.merchantActions}>
-            <Link href="/store/new-delivery" className={role.rolePrimaryAction}>Create a delivery <span aria-hidden="true">↗</span></Link>
-            <Link href="/store/profile" className={role.roleSecondaryAction}>Manage store</Link>
-          </div>
-        </div>
-        <div className={role.merchantFeature}>
-          <Image src="/media/dashboard/merchant-handoff.webp" alt="Merchant preparing a customer handoff" width={490} height={300} sizes="(max-width: 780px) 100vw, 380px" loading="eager" priority />
-          <div className={role.merchantBalance}><span>Confirmed earnings</span><strong>{payableBalance !== null ? `ZAR ${payableBalance}` : "Not available"}</strong><Link href="/store/earnings">View earnings ↗</Link></div>
-        </div>
-      </section>
-      <div className={role.merchantSignals} aria-label="Fulfilment summary">
-        <a href="#fulfilment-bench"><strong>{summary.needsAttention}</strong><span><b>Needs attention</b><small>Customer action or reconciliation</small></span></a>
-        <a href="#fulfilment-bench"><strong>{summary.needsPreparation}</strong><span><b>In preparation</b><small>Accepted and being prepared</small></span></a>
-        <a href="#fulfilment-bench"><strong>{summary.readyForCollection}</strong><span><b>Awaiting collection</b><small>Ready for courier pickup</small></span></a>
-      </div>
-
-      {/* Row 1: Primary Marketplace Fulfilment Bench (7 cols) + Stage Mix (5 cols) */}
-      <DashboardGrid ariaLabel="Fulfilment operations">
-        <DashboardCol span={7}>
-          <div id="fulfilment-bench">
-            <StoreFulfilmentQueueComponent queue={queue} limit={6} />
-          </div>
-        </DashboardCol>
-
-        <DashboardCol span={5}>
-          <DashboardCard
-            eyebrow="Stage distribution"
-            title="Fulfilment stage mix"
-            description="Current marketplace order pipeline"
-            padding="normal"
-          >
-            {totalQueueOrders > 0 ? (
-              <StaticDonutChart
-                items={stageMix}
-                title="Fulfilment stage mix"
-                centerValue={totalQueueOrders}
-                centerLabel="Total queue"
-                layout="row"
-              />
-            ) : (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyStateTitle}>Queue clear</p>
-                <p className={styles.emptyStateDesc}>There are currently no active marketplace orders in the fulfilment queue.</p>
-              </div>
-            )}
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
-
-      {/* Row 2: Marketplace Order Volume Analytics (7 cols) + Store Context (5 cols) */}
-      <DashboardGrid ariaLabel="Order volume and collection point">
-        <DashboardCol span={7}>
-          {insight ? (
-            <DashboardCard
-              eyebrow="Marketplace telemetry"
-              title={insight.title}
-              description={`${insight.definition} · ${insight.periodLabel}`}
-              action={<DashboardPeriodControl period={period} href="/store" ariaLabel="Filter marketplace order volume period" />}
-              padding="normal"
-            >
-              {insight.seriesUnavailable ? (
-                <p role="status" className={styles.emptyStateDesc}>
-                  Total is available. Activity detail exceeds display limits for this window; choose a shorter period.
-                </p>
-              ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticActivityChart
-                  buckets={insight.buckets}
-                  label={`${insight.title} · ${insight.periodLabel}`}
-                  tone="brand"
-                  heroValue={comparison ? comparison.current : undefined}
-                  comparisonText={
-                    comparison && comparison.changePercent !== null
-                      ? `${comparison.changePercent > 0 ? "+" : ""}${comparison.changePercent.toFixed(1)}% vs prior period`
-                      : undefined
-                  }
-                />
-              ) : (
-                <div className={styles.emptyState}>
-                  <p className={styles.emptyStateTitle}>No marketplace activity</p>
-                  <p className={styles.emptyStateDesc}>No marketplace store orders recorded in this period.</p>
-                </div>
-              )}
-            </DashboardCard>
-          ) : activity ? (
-            <DashboardCard eyebrow="Marketplace telemetry" title="Order activity" padding="normal">
-              {activity}
-            </DashboardCard>
-          ) : (
-            <DashboardCard eyebrow="Marketplace telemetry" title="Marketplace activity" padding="normal">
-              <p className={styles.emptyStateDesc}>Telemetry unavailable.</p>
-            </DashboardCard>
-          )}
-        </DashboardCol>
-
-        <DashboardCol span={5}>
-          <DashboardCard
-            eyebrow="Operations context"
-            title="Store readiness"
-            description="Account state and pickup point"
-            action={
-              <Link className={`${styles.btn} ${styles.btnQuiet} ${styles.btnSm}`} href="/store/profile">
-                Manage profile
-              </Link>
-            }
-            padding="normal"
-          >
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--dash-surface-muted)] border border-[var(--dash-line)]">
-                <span className="text-xs font-semibold text-[var(--dash-ink)]">Account status</span>
-                <ProtectedStatus label={state.label} tone={state.tone} />
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-[var(--dash-surface-muted)] border border-[var(--dash-line)] text-xs text-[var(--dash-ink-secondary)]">
-                <strong className="block text-[var(--dash-ink)] mb-0.5">Collection point:</strong>
-                {pickupConfigured
-                  ? "Saved pickup address is configured for new delivery collections."
-                  : "No pickup address saved. Add an address to speed up courier dispatch."}
-              </div>
-            </div>
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
-
-      {/* Row 3: Recent Courier Delivery Requests (12 cols) */}
-      <DashboardGrid ariaLabel="Recent courier deliveries">
-        <DashboardCol span={12}>
-          <DashboardCard
-            eyebrow="Merchant courier"
-            title="Recent courier delivery requests"
-            description="Store-created courier requests remain separate from marketplace fulfilment"
-            action={
-              recentCourierOrders.length > 0 ? (
-                <Link className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`} href="/store/orders">
-                  View all courier orders
-                </Link>
-              ) : undefined
-            }
-            padding="normal"
-          >
-            <StoreCourierOrderList compact orders={recentCourierOrders} />
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
-    </DashboardCanvas>
-  );
+export function StoreOverviewPage({storeName,storeStatus,queue,recentCourierOrders,pickupConfigured,payableBalance,insight,courierInsight,period="12_WEEKS",activity}:StoreOverviewPageProps){
+  const summary=getStoreFulfilmentSummary(queue);const state=storeAccountState(storeStatus);
+  const mix=[{label:"Preparation",value:summary.needsPreparation,color:"#1768ff"},{label:"Ready to collect",value:summary.readyForCollection,color:"#17181d"},{label:"Needs attention",value:summary.needsAttention,color:"#ff9b88"},{label:"Collection underway",value:queue.handoffInProgress.length,color:"#fff"}];
+  return <DashboardCanvas>
+    <header className={s.heading}><div><h1>{storeName}</h1><p>Your delivery activity, collections and daily fulfilment.</p></div><div className={s.actions}><DashboardPeriodControl period={period} href="/store" ariaLabel="Filter delivery activity period"/><Link className={s.button} href="/store/new-delivery">Create delivery ↗</Link></div></header>
+    <section className={s.analytics} aria-label="Store analytics">
+      <article className={s.panel}><div className={s.panelTitle}><h2>Courier delivery activity</h2><Link href="/store/orders">All requests ↗</Link></div>{courierInsight?<><div className={s.valueRow}><strong>{courierInsight.comparison?.current.toLocaleString("en-ZA")??"Unavailable"}</strong><span>{courierInsight.comparison?.changePercent!=null?`${courierInsight.comparison.changePercent>0?"+":""}${courierInsight.comparison.changePercent.toFixed(1)}% vs previous period`:"Store courier requests in selected period"}</span></div>{courierInsight.seriesUnavailable?<p className={s.notice}>Choose a shorter period to view the activity detail.</p>:<ActivityBars buckets={courierInsight.buckets} label="Store courier requests by creation date"/>}<p className={s.notice}>{courierInsight.periodLabel}</p></>:<p className={s.notice}>Courier activity unavailable.</p>}</article>
+      <article className={`${s.panel} ${s.bluePanel}`}><div className={s.panelTitle}><h2>Marketplace pipeline</h2><span className={s.notice}>Live queue</span></div><DistributionRing items={mix} label="Active marketplace fulfilment stages"/></article>
+      <article className={`${s.panel} ${s.yellowPanel}`}><div><h2>Confirmed earnings</h2><p className={s.balance}>{payableBalance!==null?`ZAR ${payableBalance}`:"Unavailable"}</p><p className={s.notice}>Current payable balance</p></div><Link className={s.quietButton} href="/store/earnings">Review earnings ↗</Link></article>
+    </section>
+    <OperationsWorkbench title="Recent courier requests" description="Select a delivery to see its destination and open the full record." emptyTitle="No courier requests yet. Create your first delivery to get started." rows={recentCourierOrders.map(row=>({id:row.id,reference:row.orderNumber,origin:"Store collection",destination:row.dropoffCity??"See delivery address",status:row.status.replaceAll("_"," ").toLowerCase(),date:formatDateTime(row.createdAt),href:`/store/orders/${row.id}`}))}>
+      <a className={s.taskCard} href="#fulfilment-bench"><h3>Prepare orders ↗</h3><strong>{summary.needsPreparation}</strong><p>Accepted orders to get ready for collection</p></a>
+      <a className={s.taskCard} href="#fulfilment-bench"><h3>Needs attention ↗</h3><strong>{summary.needsAttention}</strong><p>Review customer actions and order issues</p></a>
+    </OperationsWorkbench>
+    <section className={s.lowerGrid} aria-label="Fulfilment and store readiness">
+      <div id="fulfilment-bench"><FulfilmentQueue queue={queue} limit={6}/></div>
+      <article className={s.panel}><div className={s.panelTitle}><h2>Store readiness</h2><Link href="/store/profile">Manage store ↗</Link></div><ul className={s.regionList}><li><strong>Account</strong><span>{state.label}</span></li><li><strong>Collection point</strong><span>{pickupConfigured?"Pickup address saved":"Add a pickup address"}</span></li></ul><div className={s.panelTitle} style={{marginTop:25}}><h2>Marketplace activity</h2><span className={s.notice}>Selected period</span></div>{insight?<><div className={s.valueRow}><strong>{insight.comparison?.current.toLocaleString("en-ZA")??"Unavailable"}</strong><span>Marketplace orders received</span></div>{!insight.seriesUnavailable&&insight.buckets.some(b=>b.value>0)?<ActivityBars buckets={insight.buckets} label="Marketplace orders by creation date"/>:<p className={s.notice}>No marketplace orders in the selected period.</p>}</>:activity??<p className={s.notice}>Marketplace activity unavailable.</p>}</article>
+    </section>
+  </DashboardCanvas>;
 }
