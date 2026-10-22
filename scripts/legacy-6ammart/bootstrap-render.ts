@@ -9,6 +9,11 @@ import { installSystemPermissionDefaults } from "../../lib/auth/permission-boots
 import { assertCatalogMediaDimensions, CATALOG_MEDIA_MAX_UPLOAD_BYTES } from "../../lib/catalog/media/catalog-media-policy";
 import { decryptSource } from "./source-envelope.mjs";
 
+// Free Render instances have a 512 MiB limit shared by all child processes.
+// Disable libvips caching and decode without retaining a full raster buffer.
+sharp.cache(false);
+sharp.concurrency(1);
+process.env.NODE_OPTIONS = "--max-old-space-size=192";
 const client = new PrismaClient();
 const fingerprint = "ea0f3e236ac6c03d2ce30144185ee5b615de18bd24800fbc2c27e2f7673d948e";
 const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
@@ -51,16 +56,20 @@ async function main() {
     await client.adminProfile.upsert({ where: { userId: user.id }, update: {}, create: { userId: user.id, displayName: user.name } });
   }
   process.env.KT_LEGACY_AUDIT_ACTOR_EMAIL = "private@ktcouriers.com";
+  await client.$disconnect();
   const directory = await mkdtemp(path.join(tmpdir(), "kt-legacy-"));
   try {
     const sourcePath = path.join(directory, "source.json");
     const manifestPath = path.join(directory, "media.json");
     await writeFile(sourcePath, JSON.stringify(bundle.catalog), { mode: 0o600 });
-    const completed = await client.legacyMigrationRun.findFirst({ where: { sourceFingerprint: fingerprint, phase: "CATALOG_CORE", status: "APPLIED" } });
-    if (!completed) {
+    const core = await client.legacyMigrationRun.findFirst({ where: { sourceFingerprint: fingerprint, phase: "CATALOG_CORE", status: { in: ["VALIDATED", "APPLIED"] } } });
+    await client.$disconnect();
+    if (core?.status !== "APPLIED") {
       // Roll back a real database rehearsal before the first committed catalogue import.
-      run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--rehearse"]);
-      run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--apply"]);
+      if (!core) {
+        run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--rehearse"]);
+        run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--apply"]);
+      }
       const assets = [];
       for (const original of bundle.assets) {
         const resource = new URL(original.secure_url);
@@ -73,7 +82,7 @@ async function main() {
         const metadata = await sharp(bytes, { limitInputPixels: 25_000_000 }).metadata();
         if (metadata.format !== "webp" || metadata.width !== original.width || metadata.height !== original.height) throw new Error("Cloudinary dimensions changed.");
         assertCatalogMediaDimensions(metadata.width!, metadata.height!);
-        await sharp(bytes, { limitInputPixels: 25_000_000 }).raw().toBuffer();
+        await sharp(bytes, { limitInputPixels: 25_000_000 }).stats();
         const checksum = digest(bytes);
         if (original.sha256 && checksum !== original.sha256) throw new Error("Previously recorded Cloudinary checksum changed.");
         const storageKey = "catalog-media/" + original.public_id.replace("kt-courier/catalog/", "") + ".webp";

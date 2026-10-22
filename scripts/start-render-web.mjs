@@ -12,7 +12,7 @@ function run(args) {
 }
 try {
   await run(["node_modules/prisma/build/index.js", "migrate", "deploy"]);
-  if (process.env.KT_RENDER_LEGACY_REHEARSAL === "true") await run(["--import", "tsx", "scripts/legacy-6ammart/bootstrap-render.ts"]);
+  if (process.env.KT_RENDER_LEGACY_REHEARSAL === "true") await run(["--max-old-space-size=192", "--import", "tsx", "scripts/legacy-6ammart/bootstrap-render.ts"]);
   if (!stopping) await run(["server.js"]);
 } catch {
   console.error("Render startup stopped because a required stage failed.");

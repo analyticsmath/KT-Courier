@@ -11,6 +11,9 @@ import {
 import { createProductionCatalogMediaStorageAdapter, createCloudinaryCatalogMediaReadAdapter } from "../../lib/catalog/media/catalog-media-storage-adapter";
 import { legacyReferences } from "../../lib/migrations/legacy-6ammart/catalog-policy";
 
+sharp.cache(false);
+sharp.concurrency(1);
+
 type NormalizedAsset = Readonly<{
   kind: "product" | "store-logo" | "store-hero" | "category" | "brand";
   source_id: number;
@@ -195,7 +198,7 @@ async function main() {
       );
     }
     assertCatalogMediaDimensions(width, height);
-    await sharp(Buffer.from(bytes), { limitInputPixels: 25_000_000 }).raw().toBuffer();
+    await sharp(Buffer.from(bytes), { limitInputPixels: 25_000_000 }).stats();
 
     const target = await findTarget(asset, run.id);
     let ownerStoreId: string | null = null;
