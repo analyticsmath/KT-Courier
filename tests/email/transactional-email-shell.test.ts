@@ -8,7 +8,7 @@ describe("KT Couriers transactional email shell", () => {
     expect(html).toContain('role="presentation"');
     expect(html).toContain("icon-192.png");
     expect(html).toContain("width:100%;max-width:600px");
-    expect(html).toContain("DELIVERING WHAT MATTERS");
+    expect(html).toContain("From checkout to doorstep.");
     expect(html).not.toMatch(/background:\s*#(?:f5f5dc|fffff0|fff8dc)/i);
   });
 
@@ -21,8 +21,8 @@ describe("KT Couriers transactional email shell", () => {
   });
 
   it("does not render unsafe CTA URLs", () => {
-    expect(renderEmailHtml({ title: "Hi", body: "", actionUrl: "javascript:alert(1)" })).not.toContain('href="javascript:');
-    expect(renderEmailHtml({ title: "Hi", body: "", actionUrl: "//evil.test/link" })).not.toContain("evil.test");
+    expect(() => renderEmailHtml({ title: "Hi", body: "", actionUrl: "javascript:alert(1)" })).toThrow("UNSAFE_EMAIL_ACTION_URL");
+    expect(() => renderEmailHtml({ title: "Hi", body: "", actionUrl: "//evil.test/link" })).toThrow("UNSAFE_EMAIL_ACTION_URL");
     expect(renderEmailHtml({ title: "Hi", body: "", actionUrl: "/track", actionLabel: "Track" })).toContain("https://www.ktcouriers.com/track");
   });
 

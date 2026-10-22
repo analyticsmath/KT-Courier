@@ -1,80 +1,166 @@
-/**
- * KT Couriers transactional email design system.
- * Email-client-safe table layout; no scripts, web fonts, or remote CSS.
- * Business HTML is pre-rendered by trusted templates; plain text is escaped separately.
- */
+// Shared KT Couriers email presentation. Business events, recipients and delivery
+// remain owned by lib/notifications; this module has no sending side effects.
 export interface CompanyBrandSnapshot {
   legalName?: string | null;
   tradingName?: string | null;
   registrationNumber?: string | null;
   vatNumber?: string | null;
-  physicalAddress?: { line1?: string; line2?: string | null; city?: string; province?: string; postalCode?: string; country?: string } | null;
+  physicalAddress?: {
+    line1?: string;
+    line2?: string | null;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    country?: string;
+  } | null;
   supportEmail?: string | null;
   telephoneNumbers?: readonly string[] | null;
   website?: string | null;
 }
+
 export interface LayoutOptions {
   title: string;
+  /** Trusted, pre-rendered HTML. Escape dynamic values before inserting them. */
   body: string;
   actionUrl?: string;
   actionLabel?: string;
+  preheader?: string;
   brand?: CompanyBrandSnapshot | null;
 }
-const NAVY = "#102943";
-const BLUE = "#1769E0";
-const INK = "#15263B";
-const WEBSITE = "https://www.ktcouriers.com";
-const LOGO = WEBSITE + "/images/kt-couriers/brand/icon-192.png";
+
+const PUBLIC_SITE = "https://www.ktcouriers.com";
+const LOGO_URL = `${PUBLIC_SITE}/images/kt-couriers/brand/icon-192.png`;
+const COLORS = {
+  ink: "#191919",
+  muted: "#595959",
+  surface: "#F4F4F4",
+  white: "#FFFFFF",
+  line: "#E2E2E2",
+  action: "#982C35",
+};
+
 export function escapeEmailHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function safeUrl(value?: string): string | undefined {
-  if (!value || value.startsWith("//")) return undefined;
+
+/** Transactional links may only lead to the verified business site or its
+ * explicitly configured application origin (for legitimate staging resets).
+ * Never turn a user-controlled URL into a branded phishing CTA. */
+function trustedEmailUrl(value: string): string {
+  if (/^[\s]*\/\//.test(value) || /[\r\n]/.test(value)) throw new Error("UNSAFE_EMAIL_ACTION_URL");
+  const url = new URL(value, PUBLIC_SITE);
+  let configuredHost = "";
   try {
-    const url = new URL(value, WEBSITE);
-    if (url.protocol !== "https:" || url.username || url.password || /[\r\n]/.test(value)) return undefined;
-    return url.toString();
-  } catch { return undefined; }
+    configuredHost = new URL(process.env.NEXT_PUBLIC_APP_URL || PUBLIC_SITE).hostname;
+  } catch { /* default to canonical site */ }
+  const allowedHosts = new Set(["www.ktcouriers.com", "ktcouriers.com", configuredHost]);
+  if (url.username || url.password || !allowedHosts.has(url.hostname) || (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname)))) {
+    throw new Error("UNSAFE_EMAIL_ACTION_URL");
+  }
+  return url.toString();
 }
-/** Transform notification-authority plain text into readable, escaped HTML. */
-export function renderPlainTextNotification(title: string, body: string): string {
-  const paragraphs = body.split(/\n\s*\n/).filter(Boolean).map(part =>
-    '<p style="margin:0 0 18px;">' + escapeEmailHtml(part).replace(/\n/g, "<br>") + "</p>"
-  ).join("");
-  return renderEmailHtml({ title, body: paragraphs });
-}
+
 export function renderEmailHtml(opts: LayoutOptions): string {
-  const brandName = opts.brand?.tradingName || opts.brand?.legalName || "KT Couriers";
-  const location = opts.brand?.physicalAddress?.city
-    ? opts.brand.physicalAddress.city + ", " + (opts.brand.physicalAddress.country || "South Africa")
-    : "South Africa";
-  const target = safeUrl(opts.actionUrl);
-  const action = target ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 10px;"><tr><td bgcolor="${BLUE}" style="border-radius:6px;background:${BLUE};"><a href="${escapeEmailHtml(target)}" style="display:inline-block;padding:15px 26px;font-family:Arial,sans-serif;font-size:14px;font-weight:700;line-height:20px;color:#ffffff;text-decoration:none;">${escapeEmailHtml(opts.actionLabel || "View details")} &rarr;</a></td></tr></table>` : "";
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeEmailHtml(opts.title)}</title></head>
-<body style="margin:0;padding:0;background:#EDF2F7;color:${INK};font-family:Arial,Helvetica,sans-serif;">
-<div style="display:none;font-size:1px;color:#EDF2F7;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">An update from KT Couriers — deliveries, made clearer.</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#EDF2F7" style="background:#EDF2F7;"><tr><td align="center" style="padding:32px 12px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:collapse;">
-<tr><td style="background:${NAVY};padding:26px 34px;border-radius:10px 10px 0 0;border-bottom:4px solid ${BLUE};">
-<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle;padding-right:14px;"><img src="${LOGO}" width="52" height="52" alt="" style="display:block;width:52px;height:52px;border:0;"></td><td style="vertical-align:middle;font-size:23px;letter-spacing:-.4px;font-weight:700;color:#ffffff;">KT Couriers</td></tr></table>
-<div style="color:#C7D7EA;font-size:11px;letter-spacing:1px;line-height:20px;margin-top:12px;">DELIVERING WHAT MATTERS</div></td></tr>
-<tr><td bgcolor="#ffffff" style="background:#ffffff;padding:44px 36px 38px;">
-<h1 style="font-family:Arial,sans-serif;margin:0 0 20px;color:${NAVY};font-size:28px;line-height:1.22;font-weight:700;letter-spacing:-.5px;">${escapeEmailHtml(opts.title)}</h1>
-<div style="color:#33465C;font-size:15px;line-height:1.75;">${opts.body}</div>
-${action}
-</td></tr>
-<tr><td bgcolor="#F7F9FC" style="background:#F7F9FC;padding:28px 36px;border-top:1px solid #E4EAF1;border-radius:0 0 10px 10px;">
-<p style="margin:0 0 12px;color:${NAVY};font-size:13px;font-weight:700;">KT Couriers <span style="font-weight:400;color:#60748B;">&middot; Delivering what matters.</span></p>
-<p style="margin:0 0 12px;color:#60748B;font-size:12px;line-height:19px;">This is a service message about your account, purchase or delivery. Never share a verification code with someone who contacts you unexpectedly.</p>
-<p style="margin:0;color:#60748B;font-size:12px;line-height:19px;"><a href="${WEBSITE}" style="color:${BLUE};text-decoration:underline;">Website</a> &nbsp;&middot;&nbsp; <a href="${WEBSITE}/track" style="color:${BLUE};text-decoration:underline;">Track a delivery</a>${opts.brand?.supportEmail ? ` &nbsp;&middot;&nbsp; <a href="mailto:${escapeEmailHtml(opts.brand.supportEmail)}" style="color:${BLUE};text-decoration:underline;">Support</a>` : ""}<br>${escapeEmailHtml(location)}${opts.brand?.registrationNumber ? ` &middot; Reg: ${escapeEmailHtml(opts.brand.registrationNumber)}` : ""}</p>
-</td></tr></table></td></tr></table></body></html>`;
-}
-export function renderEmailText(title: string, body: string, actionUrl?: string, brand?: CompanyBrandSnapshot | null): string {
+  const brand = opts.brand;
   const brandName = brand?.tradingName || brand?.legalName || "KT Couriers";
-  const lines = [brandName, "Delivering what matters.", "", title, "", body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim(), ""];
-  const link = safeUrl(actionUrl);
-  if (link) lines.push(link, "");
-  lines.push("You received this service message due to account, order or delivery activity.", WEBSITE);
+  const title = escapeEmailHtml(opts.title);
+  const safeName = escapeEmailHtml(brandName);
+  const preheader = escapeEmailHtml(opts.preheader || opts.title);
+  const actionUrl = opts.actionUrl ? escapeEmailHtml(trustedEmailUrl(opts.actionUrl)) : null;
+  const actionLabel = escapeEmailHtml(opts.actionLabel || "View details");
+  const support = brand?.supportEmail && /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(brand.supportEmail) ? brand.supportEmail : null;
+  const reg = brand?.registrationNumber ? `<span>Registration: ${escapeEmailHtml(brand.registrationNumber)}</span>` : "";
+  const vat = brand?.vatNumber ? `<span style="padding-left:12px;">VAT: ${escapeEmailHtml(brand.vatNumber)}</span>` : "";
+  const action = actionUrl ? `
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:30px;margin-bottom:28px;">
+                  <tr><td bgcolor="${COLORS.action}" style="background-color:${COLORS.action};">
+                    <a href="${actionUrl}" style="display:inline-block;padding:16px 25px;color:#FFFFFF;background-color:${COLORS.action};font-size:15px;line-height:20px;font-weight:700;text-decoration:none;min-height:20px;">${actionLabel} &rarr;</a>
+                  </td></tr>
+                </table>` : "";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>${title}</title>
+  <style>
+    @media screen and (max-width:620px) {
+      .email-shell { width:100% !important; }
+      .email-gutter { padding-left:24px !important; padding-right:24px !important; }
+      .email-title { font-size:29px !important; line-height:35px !important; }
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:${COLORS.surface};color:${COLORS.ink};font-family:Arial,Helvetica,sans-serif;">
+  <div style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">${preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.surface}" style="width:100%;background-color:${COLORS.surface};border-collapse:collapse;">
+    <tr><td align="center" style="padding:32px 12px;">
+      <!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->
+      <table role="presentation" class="email-shell" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="${COLORS.white}" style="width:100%;max-width:600px;background-color:${COLORS.white};border-collapse:collapse;">
+        <tr><td class="email-gutter" style="padding:28px 44px 26px;border-bottom:1px solid ${COLORS.line};">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td width="58" valign="middle" style="width:58px;">
+                <img src="${LOGO_URL}" width="48" height="48" alt="KT Couriers" style="display:block;width:48px;height:48px;max-width:48px;border:0;object-fit:contain;">
+              </td>
+              <td valign="middle" style="font-size:19px;line-height:24px;font-weight:800;letter-spacing:-0.5px;color:${COLORS.ink};">KT COURIERS</td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td class="email-gutter" style="padding:44px 44px 38px;">
+          <h1 class="email-title" style="margin:0 0 23px;font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:40px;font-weight:700;letter-spacing:-1px;color:${COLORS.ink};">${title}</h1>
+          <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:${COLORS.ink};">${opts.body}</div>
+          ${action}
+          <p style="margin:32px 0 0;padding:22px 0 0;border-top:1px solid ${COLORS.line};font-size:13px;line-height:22px;color:${COLORS.muted};">Need an update? <a href="${PUBLIC_SITE}/track" style="color:${COLORS.action};text-decoration:underline;">Track a parcel</a> or <a href="${PUBLIC_SITE}/contact" style="color:${COLORS.action};text-decoration:underline;">contact our team</a>.</p>
+        </td></tr>
+        <tr><td class="email-gutter" bgcolor="${COLORS.ink}" style="padding:30px 44px;background-color:${COLORS.ink};">
+          <p style="margin:0 0 12px;color:#FFFFFF;font-size:16px;font-weight:700;line-height:22px;">From checkout to doorstep.</p>
+          <p style="margin:0 0 12px;color:#E8E8E8;font-size:12px;line-height:19px;">This is a service email relating to your ${safeName} account, order or delivery. No promotional subscription is required to receive essential service updates.</p>
+          <p style="margin:0;color:#E8E8E8;font-size:12px;line-height:19px;">&copy; ${new Date().getFullYear()} ${safeName} · South Africa ${reg} ${vat}${support ? `<br>Support: <a href="mailto:${escapeEmailHtml(support)}" style="color:#FFFFFF;">${escapeEmailHtml(support)}</a>` : ""}</p>
+        </td></tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+/** Compatibility wrapper for notifications that have only a plain-text payload. */
+export function renderPlainTextNotification(title: string, body: string): string {
+  return renderCanonicalEmail({ title, body });
+}
+
+/** The same verified, escaped notification content gets a polished HTML view
+ * at the delivery boundary; the immutable stored plain-text receipt is retained. */
+export function renderCanonicalEmail(opts: { title: string; body: string; actionRoute?: string | null }): string {
+  const paragraphs = opts.body.split(/\n\s*\n/).filter(Boolean).map((paragraph) =>
+    `<p style="margin:0 0 16px;">${escapeEmailHtml(paragraph).replace(/\n/g, "<br>")}</p>`
+  ).join("");
+  const trackingFallback = /\b(?:delivery|parcel|courier booking)\b/i.test(opts.title) ? "/track" : undefined;
+  const actionUrl = opts.actionRoute || trackingFallback;
+  return renderEmailHtml({
+    title: opts.title,
+    body: paragraphs,
+    actionUrl,
+    actionLabel: actionUrl === "/track" ? "Track your delivery" : "View details",
+    preheader: opts.body.slice(0, 130),
+  });
+}
+
+export function renderEmailText(title: string, body: string, actionUrl?: string, brand?: CompanyBrandSnapshot | null): string {
+  const name = brand?.tradingName || brand?.legalName || "KT Couriers";
+  const location = brand?.physicalAddress?.city
+    ? `${brand.physicalAddress.city}, ${brand.physicalAddress.country || "South Africa"}`
+    : "South Africa";
+  const lines = [
+    name, "====================", "", title, "--------------------", "",
+    body.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").trim(), "",
+  ];
+  if (actionUrl) lines.push(trustedEmailUrl(actionUrl), "");
+  lines.push("--------------------", `You received this email because of activity on your ${name} account or delivery request.`, `© ${name} · ${location}`);
+  if (brand?.registrationNumber) lines.push(`Reg: ${brand.registrationNumber}`);
+  if (brand?.supportEmail) lines.push(`Support: ${brand.supportEmail}`);
   return lines.join("\n");
 }

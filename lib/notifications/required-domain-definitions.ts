@@ -1,11 +1,48 @@
 import { customerOrderNotificationDefinitions, customerOrderRecipientPolicyKey, customerOrderRouteKey } from "./customer-order-configuration";
 
+const COURIER_EMAIL_COPY: Record<string, { title: string; body: string }> = {
+  COURIER_DRIVER_ASSIGNED: {
+    title: "Delivery arranged for order {{orderNumber}}",
+    body: "Your order {{orderNumber}} has been assigned to a courier driver. We will share another update when the parcel is collected. Follow the verified delivery information in your KT Couriers account.",
+  },
+  COURIER_PICKED_UP: {
+    title: "Your parcel has been collected — {{orderNumber}}",
+    body: "Your parcel for order {{orderNumber}} has been collected from the store by our courier. We will keep you informed as its delivery status changes.",
+  },
+  COURIER_IN_TRANSIT: {
+    title: "Your parcel is in transit — {{orderNumber}}",
+    body: "The parcel for order {{orderNumber}} is moving through the KT Couriers delivery process. Check the tracking page for the latest available information. Timing may change as delivery progresses.",
+  },
+  COURIER_DELIVERY_ATTEMPTED: {
+    title: "A delivery attempt was made — {{orderNumber}}",
+    body: "Our courier recorded an attempted delivery for order {{orderNumber}}. The delivery is not marked complete. Check your account for its latest status and any available next steps.",
+  },
+  COURIER_DELIVERED: {
+    title: "Delivery completed — {{orderNumber}}",
+    body: "Your delivery for order {{orderNumber}} is marked delivered. Open your account to review the delivery record and any proof of delivery available to you.",
+  },
+  COURIER_FAILED: {
+    title: "Action may be needed for delivery {{orderNumber}}",
+    body: "We could not complete the delivery for order {{orderNumber}}. The delivery remains unresolved; review the recorded status in your account or contact KT Couriers about the next steps.",
+  },
+};
+
 export const requiredDomainNotificationDefinitions = [
+  {
+    sourceAuthority: "ACCOUNT", eventType: "ACCOUNT_EMAIL_VERIFIED",
+    categoryKey: "ACCOUNT_WELCOME", templateKey: "CLIENT_ACCOUNT_WELCOME",
+    recipientPolicyKey: "CLIENT_VERIFIED_ACCOUNT", subject: "EVENT_ACTOR" as const,
+    routeKey: "CLIENT_ACCOUNT_WELCOME",
+    title: "Welcome to KT Couriers",
+    body: "Your email is verified and your KT Couriers account is ready. Request a courier delivery, manage your orders or explore local stores from your account.",
+    variables: [], actionRoute: "/account",
+    recipientSummary: "The active, verified owner of the newly verified account.",
+  },
   ...customerOrderNotificationDefinitions.map((definition) => ({ ...definition, sourceAuthority: "LEGACY_ORDER", recipientPolicyKey: customerOrderRecipientPolicyKey, subject: "CUSTOMER" as const, routeKey: customerOrderRouteKey(definition.eventType), variables: definition.eventType === "ORDER_CONFIRMED" ? ["orderNumber"] : ["orderNumber", "status"], actionRoute: "/account/orders", recipientSummary: "The customer recorded on the courier order." })),
-  { sourceAuthority: "MARKETPLACE", eventType: "MARKETPLACE_ORDER_CONFIRMED", categoryKey: "MARKETPLACE_ORDER_STATUS", templateKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", title: "KT Couriers: marketplace order {{orderNumber}} confirmed", body: "Your marketplace order {{orderNumber}} is confirmed. Keep this reference when contacting KT Couriers for assistance.", variables: ["orderNumber"], actionRoute: null, recipientSummary: "The account customer or verified guest contact recorded on the marketplace checkout." },
-  { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_RECEIVED", categoryKey: "STORE_ORDER_RECEIVED", templateKey: "CLIENT_VENDOR_ORDER_RECEIVED", recipientPolicyKey: "CLIENT_VENDOR_ORDER_OWNER", subject: "STORE_OWNER" as const, routeKey: "CLIENT_VENDOR_ORDER_RECEIVED", title: "KT Couriers: new store order {{orderNumber}}", body: "Store order {{orderNumber}} is ready for review in your store account.", variables: ["orderNumber"], actionRoute: "/store/orders", recipientSummary: "The current active owner of the store recorded on the paid store order." },
+  { sourceAuthority: "MARKETPLACE", eventType: "MARKETPLACE_ORDER_CONFIRMED", categoryKey: "MARKETPLACE_ORDER_STATUS", templateKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: "CLIENT_MARKETPLACE_ORDER_CONFIRMED", title: "Your marketplace order is placed — {{orderNumber}}", body: "Your marketplace order {{orderNumber}} has been placed with the participating stores. Stores will review the items and we will share status updates as each order progresses. Keep this reference when contacting KT Couriers.", variables: ["orderNumber"], actionRoute: null, recipientSummary: "The account customer or verified guest contact recorded on the marketplace checkout." },
+  { sourceAuthority: "STORE_ORDERS", eventType: "STORE_ORDER_RECEIVED", categoryKey: "STORE_ORDER_RECEIVED", templateKey: "CLIENT_VENDOR_ORDER_RECEIVED", recipientPolicyKey: "CLIENT_VENDOR_ORDER_OWNER", subject: "STORE_OWNER" as const, routeKey: "CLIENT_VENDOR_ORDER_RECEIVED", title: "New order received — {{orderNumber}}", body: "A customer placed order {{orderNumber}} with your store. Sign in to review the items, confirm availability and begin preparation in your store dashboard.", variables: ["orderNumber"], actionRoute: "/store/orders", recipientSummary: "The current active owner of the store recorded on the paid store order." },
   ...["STORE_ORDER_ACCEPTED", "STORE_ORDER_REJECTED", "STORE_ORDER_TIMED_OUT", "PREPARATION_STARTED", "STORE_ORDER_READY_FOR_HANDOFF", "COURIER_ORDER_BRIDGED", "SUBSTITUTION_PROPOSED", "SUBSTITUTION_DECIDED", "SUBSTITUTION_EXPIRED_TO_REFUND", "STORE_ORDER_CANCELLATION_REQUESTED", "STORE_PICKUP_HANDOFF_VERIFIED"].map((eventType) => ({ sourceAuthority: "STORE_ORDERS", eventType, categoryKey: "STORE_ORDER_STATUS", templateKey: `CLIENT_${eventType}`, recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: `CLIENT_${eventType}`, title: "KT Couriers: store order {{orderNumber}} update", body: "Store order {{orderNumber}}: {{status}}. Keep this reference when contacting KT Couriers for assistance.", variables: ["orderNumber", "status"], actionRoute: null, recipientSummary: "The account customer or verified guest contact on the parent marketplace checkout." })),
-  ...["COURIER_DRIVER_ASSIGNED", "COURIER_PICKED_UP", "COURIER_IN_TRANSIT", "COURIER_DELIVERY_ATTEMPTED", "COURIER_DELIVERED", "COURIER_FAILED"].map((eventType) => ({ sourceAuthority: "STORE_ORDERS", eventType, categoryKey: "STORE_ORDER_STATUS", templateKey: `CLIENT_${eventType}`, recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: `CLIENT_${eventType}`, title: "KT Couriers: delivery for {{orderNumber}} updated", body: "Delivery for store order {{orderNumber}}: {{status}}. Keep this reference when contacting KT Couriers for assistance.", variables: ["orderNumber", "status"], actionRoute: null, recipientSummary: "The account customer or verified guest contact on the marketplace checkout linked to this courier delivery." })),
+  ...["COURIER_DRIVER_ASSIGNED", "COURIER_PICKED_UP", "COURIER_IN_TRANSIT", "COURIER_DELIVERY_ATTEMPTED", "COURIER_DELIVERED", "COURIER_FAILED"].map((eventType) => ({ sourceAuthority: "STORE_ORDERS", eventType, categoryKey: "STORE_ORDER_STATUS", templateKey: `CLIENT_${eventType}`, recipientPolicyKey: "CLIENT_MARKETPLACE_CUSTOMER", subject: "MARKETPLACE_CUSTOMER" as const, routeKey: `CLIENT_${eventType}`, title: COURIER_EMAIL_COPY[eventType]?.title ?? "Delivery update — {{orderNumber}}", body: COURIER_EMAIL_COPY[eventType]?.body ?? "Delivery for store order {{orderNumber}}: {{status}}. Check your KT Couriers account for the latest status.", variables: ["orderNumber", "status"], actionRoute: null, recipientSummary: "The account customer or verified guest contact on the marketplace checkout linked to this courier delivery." })),
   { sourceAuthority: "PAYMENT", eventType: "PAYMENT_SUCCEEDED_VERIFIED", categoryKey: "PAYMENT_STATUS", templateKey: "CLIENT_PAYMENT_SUCCEEDED_VERIFIED", recipientPolicyKey: "CLIENT_PAYMENT_CUSTOMER", subject: "PAYMENT_CUSTOMER" as const, routeKey: "CLIENT_PAYMENT_SUCCEEDED_VERIFIED", title: "KT Couriers: payment {{paymentReference}} confirmed", body: "Payment {{paymentReference}} for R{{amount}} has been verified. Keep this reference when contacting KT Couriers for assistance.", variables: ["paymentReference", "amount"], actionRoute: null, recipientSummary: "The payer on the canonical payment, or the verified guest contact on its checkout." },
   { sourceAuthority: "PAYMENT", eventType: "PAYMENT_STATUS_CHANGED", categoryKey: "PAYMENT_STATUS", templateKey: "CLIENT_PAYMENT_STATUS_CHANGED", recipientPolicyKey: "CLIENT_PAYMENT_CUSTOMER", subject: "PAYMENT_CUSTOMER" as const, routeKey: "CLIENT_PAYMENT_STATUS_CHANGED", title: "KT Couriers: payment {{paymentReference}} update", body: "Payment {{paymentReference}}: {{status}}. Keep this reference when contacting KT Couriers for assistance.", variables: ["paymentReference", "status"], actionRoute: null, recipientSummary: "The payer on the canonical payment, or the verified guest contact on its checkout." },
   { sourceAuthority: "REFUND", eventType: "REFUND_STATUS_CHANGED", categoryKey: "REFUND_STATUS", templateKey: "CLIENT_REFUND_STATUS_CHANGED", recipientPolicyKey: "CLIENT_PAYMENT_CUSTOMER", subject: "PAYMENT_CUSTOMER" as const, routeKey: "CLIENT_REFUND_STATUS_CHANGED", title: "KT Couriers: refund {{refundReference}} update", body: "Refund {{refundReference}} for R{{amount}}: {{status}}. Keep this reference when contacting KT Couriers for assistance.", variables: ["refundReference", "amount", "status"], actionRoute: null, recipientSummary: "The customer on the refund and payment, or the verified guest contact on that payment's checkout." },

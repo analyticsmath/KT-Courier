@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { renderTemplate } from "@/lib/email/email-templates";
+import { escapeEmailHtml, renderEmailHtml } from "@/lib/email/email-renderer";
 import { EmailTemplateType } from "@/types/db";
 import {
   NotificationPolicyError,
@@ -152,7 +153,21 @@ export async function deliverSecurityEmail(deliveryId: string) {
     }
     if (guestVerification && (typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || typeof values.name !== "string" || values.name.length > 120 || values.expiresMinutes !== 15)) throw new NotificationPolicyError("SECURITY_EMAIL_PAYLOAD_INVALID");
     const rendered = guestVerification
-      ? { subject: "Your KT Couriers verification code", text: `Hi ${values.name},\n\nYour guest checkout email verification code is ${values.otp}. It expires in 15 minutes.\n\nIf you did not request this code, ignore this email. This code verifies your email for checkout updates; it does not confirm payment.`, html: undefined }
+      ? {
+          subject: "Your KT Couriers verification code",
+          text: `Hi ${values.name},\n\nYour guest checkout email verification code is ${values.otp}. It expires in 15 minutes.\n\nIf you did not request this code, ignore this email. This code verifies your email for checkout updates; it does not confirm payment.`,
+          html: renderEmailHtml({
+            title: "Verify your checkout email",
+            preheader: "Your secure KT Couriers checkout verification code.",
+            body: `<p>Hi ${escapeEmailHtml(String(values.name))},</p>
+              <p>Enter the code below to verify the email address used for checkout updates.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0;">
+                <tr><td align="center" bgcolor="#F4F4F4" style="padding:20px;background-color:#F4F4F4;font-size:34px;font-weight:700;line-height:42px;letter-spacing:7px;color:#191919;">${escapeEmailHtml(String(values.otp))}</td></tr>
+              </table>
+              <p>The code expires in <strong>15 minutes</strong>. If you did not request it, ignore this email.</p>
+              <p style="color:#595959;font-size:14px;">Verifying your email does not confirm payment or place an order.</p>`,
+          }),
+        }
       : renderTemplate(templateType, values);
     const provider = new ResendEmailProvider();
 

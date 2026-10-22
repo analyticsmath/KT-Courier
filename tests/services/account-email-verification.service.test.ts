@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { verifyAccountEmail } from "@/lib/services/account-email-verification.service";
 import { INVALID_VERIFICATION_NOTICE } from "@/lib/auth/public-auth-messages";
-const f = vi.hoisted(() => ({ identity: vi.fn(), user: vi.fn(), lock: vi.fn(), otp: vi.fn(), consume: vi.fn(), update: vi.fn(), session: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => unknown) => work({ $queryRaw: f.lock, user: { findUnique: f.identity, findUniqueOrThrow: f.user, update: f.update }, otpCode: { findFirst: f.otp, updateMany: f.consume }, session: { create: f.session } }) } }));
+const f = vi.hoisted(() => ({ identity: vi.fn(), user: vi.fn(), lock: vi.fn(), otp: vi.fn(), consume: vi.fn(), update: vi.fn(), session: vi.fn(), welcome: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => unknown) => work({ $queryRaw: f.lock, user: { findUnique: f.identity, findUniqueOrThrow: f.user, update: f.update }, otpCode: { findFirst: f.otp, updateMany: f.consume }, session: { create: f.session }, notificationEventIntent: { upsert: f.welcome } }) } }));
 beforeEach(() => {
   vi.resetAllMocks(); f.identity.mockResolvedValue({ id: "account" }); f.lock.mockResolvedValue([{ id: "account" }]);
   f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status: "PENDING_VERIFICATION", emailVerifiedAt: null });
@@ -32,5 +32,11 @@ describe("email verification eligibility and atomic session boundary (T1 doubles
     expect(f.session).toHaveBeenCalledOnce(); expect(f.session.mock.calls[0][0].data.tokenHash).not.toBe(result.ok ? result.rawToken : null);
     expect(f.lock.mock.invocationCallOrder[0]).toBeLessThan(f.user.mock.invocationCallOrder[0]);
     expect(f.consume.mock.invocationCallOrder[0]).toBeLessThan(f.update.mock.invocationCallOrder[0]); expect(f.update.mock.invocationCallOrder[0]).toBeLessThan(f.session.mock.invocationCallOrder[0]);
+    expect(f.welcome).toHaveBeenCalledWith(expect.objectContaining({ where: { operationId: "account-welcome:account" }, create: expect.objectContaining({ sourceAuthority: "ACCOUNT", eventType: "ACCOUNT_EMAIL_VERIFIED", aggregateReference: "account", safePayload: {} }) }));
+  });
+  it("does not re-enqueue a welcome for an already verified account", async () => {
+    f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status: "ACTIVE", emailVerifiedAt: new Date() });
+    expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: true });
+    expect(f.welcome).not.toHaveBeenCalled();
   });
 });
