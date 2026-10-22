@@ -25,7 +25,7 @@ export function StaticSegmentedBar({
       <div
         className={styles.segmentedTrack}
         role="img"
-        aria-label={`${label}: total ${totalLabel ?? total}`}
+        aria-label={`${label}: total ${totalLabel ?? total}; ${segments.map((segment) => `${segment.label}: ${segment.displayValue ?? segment.value.toLocaleString("en-ZA")}`).join("; ")}`}
       >
         {total > 0 ? (
           segments.map((segment) => {
