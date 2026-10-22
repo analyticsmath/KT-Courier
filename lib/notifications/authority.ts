@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 27 is intentionally insulated from deferred Prisma generation. */
 import { createHash } from "node:crypto";
+import { renderCanonicalEmail } from "@/lib/email/email-renderer";
 import { NotificationPolicyError, assertSafeActionRoute, deliveryEligible, type NotificationChannel, type NotificationPurpose, type NotificationSensitivity } from "./contracts";
 import { renderNotificationTemplate, type TemplateVariable } from "./template-renderer";
 import { assertNotificationProductionReady } from "./production-readiness";
@@ -385,7 +386,21 @@ export class NotificationDeliveryService {
     if (!claim) return this.db.notificationDelivery.findUnique({ where: { id: delivery.id } });
     let result: ProviderSendResult;
     try {
-      result = await provider.send({ destination: input.destination, subject: delivery.renderedTitle ?? undefined, body: delivery.renderedBody, idempotencyKey: delivery.publicReference });
+      result = await provider.send({
+        destination: input.destination,
+        subject: delivery.renderedTitle ?? undefined,
+        body: delivery.renderedBody,
+        // Render HTML only at the delivery boundary. Never persist an HTML copy
+        // of a protected event or alter the canonical, audited plain text.
+        htmlBody: delivery.channel === "EMAIL"
+          ? renderCanonicalEmail({
+              title: delivery.renderedTitle ?? "Update from KT Couriers",
+              body: delivery.renderedBody,
+              actionRoute: delivery.actionRoute,
+            })
+          : undefined,
+        idempotencyKey: delivery.publicReference,
+      });
     } catch {
       result = { accepted: false, failureClass: "TRANSIENT_NETWORK", safeCode: "EMAIL_PROVIDER_INTERRUPTED" };
     }
