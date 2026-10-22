@@ -85,3 +85,4 @@
 }
 [data-kt-protected-system] .badge-base {display:inline; padding:0; border:0; border-radius:0; background:transparent; color:inherit; font-size:.78rem; font-weight:550; line-height:1.5; text-transform:none;}
 [data-kt-protected-system] [data-kt-static-signout] {color:#515a55; background:transparent;}
+[data-kt-protected-system] .eo-topbar__primary-action {color:#fff; background:#202522; border-color:#202522;}

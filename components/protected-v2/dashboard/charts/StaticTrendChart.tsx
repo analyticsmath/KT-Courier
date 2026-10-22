@@ -149,7 +149,7 @@ export function StaticTrendChart({
       </div>
 
       <details className={styles.chartAlternative}>
-        <summary>View raw data table for {label}</summary>
+        <summary aria-label={`View data table for ${label}`}>View underlying data</summary>
         <table>
           <caption>{label}</caption>
           <thead>

@@ -138,3 +138,8 @@
 @media(max-width:639px){[data-kt-protected-system] .kt-driver-console .kt-driver-panel {padding:18px;} [data-kt-protected-system] .kt-driver-readiness__list>li {grid-template-columns:minmax(0,1fr) 75px; gap:10px;} [data-kt-protected-system] .kt-driver-feature {grid-template-columns:1fr;} [data-kt-protected-system] .kt-driver-feature__visual {display:none;} }
 [data-kt-protected-system] .kt-driver-text-state {color:#202522; font-weight:550;}
 [data-kt-protected-system] .kt-driver-review-button {color:#202522; border-color:#c8d2cb; font-weight:550;}
+[data-kt-protected-system] .kt-driver-console .kt-driver-panel--controls > div > .rounded-xl,
+[data-kt-protected-system] .kt-driver-console .kt-driver-panel--regions .grid.max-h-48 {background:#f5f7f5; border-color:#e2e7e4;}
+[data-kt-protected-system] .kt-driver-readiness__list .is-verified .kt-driver-readiness__result {color:#202522;}
+[data-kt-protected-system] .kt-driver-console>.kt-driver-panel--readiness .kt-driver-readiness__list {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:32px;}
+@media(max-width:767px){[data-kt-protected-system] .kt-driver-console>.kt-driver-panel--readiness .kt-driver-readiness__list {grid-template-columns:minmax(0,1fr);}}

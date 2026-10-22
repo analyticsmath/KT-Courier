@@ -686,3 +686,5 @@
 .trendLineTeal {stroke:var(--dash-teal);}
 .trendPointTeal {fill:var(--dash-teal);}
 .trendAxisLabel,.trendTick,.barLabel,.barCount,.barChartScale,.barChartDelta {color:#515a55;}
+.chartAlternative summary {color:#515a55; font-size:.73rem; font-weight:500;}
+.chartAlternative:focus-within {outline:2px solid #176b50; outline-offset:3px;}

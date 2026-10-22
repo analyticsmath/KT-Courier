@@ -1,4 +1,13 @@
 @import "tailwindcss";
+/* Protected workspaces never acquire hover decorations from shared controls.
+   Keep the usual pointer-capability check and preserve public-route behavior. */
+@custom-variant hover {
+  @media (hover: hover) {
+    &:hover:where(:not([data-kt-protected-system], [data-kt-protected-system] *)) {
+      @slot;
+    }
+  }
+}
 
 @theme inline {
   /* KT Couriers Urban Signal Palette */

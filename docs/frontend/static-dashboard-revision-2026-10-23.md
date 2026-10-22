@@ -18,3 +18,11 @@ The supplied Task Management and Invoice Management references informed the divi
 The focused dashboard suite includes restricted-access, zero-data and semantic mobile-table coverage. Unit tests and build checks do not establish visual quality. Production acceptance must inspect the deployed authenticated pages at desktop and narrow widths, including disclosures, navigation, table containment and focus. No invented financial or operational metrics, account mutations, schema changes, payment changes or new branches are introduced.
 
 Data-table research: https://www.nngroup.com/articles/data-tables/ and https://carbondesignsystem.com/components/data-table/usage/ support grouping around record finding, comparison and action, rather than presenting every secondary operation as an equally weighted column.
+
+## Live review and closure
+
+The first revision reached Railway SUCCESS as commit `1ce6a57`. The signed-in admin browser was used to inspect the overview, store directory and driver record. The overview and store directory were also inspected at 390px width. Navigation groups started collapsed, table actions remained within their cells, and the compact store layout retained field labels.
+
+Review corrections shorten chart disclosures while retaining their accessible names, add a natural email wrap point, remove repeated driver headings, and move lengthy driver sections out of the narrow context column. A compiled Tailwind hover boundary excludes all protected descendants while preserving public-route hover and keyboard focus. The focused suite now has 34 passing tests.
+
+Authenticated live inspection covered the available administrator session. Vendor and customer changes were verified in source and build checks; separate authenticated role sessions were not available for live acceptance. No numerical design score is asserted.

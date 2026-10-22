@@ -428,8 +428,7 @@ export function DriverDetailsConsole({
       <section className="kt-driver-feature" aria-label="Driver dispatch summary">
         <div className="kt-driver-feature__content">
           <p className="kt-driver-feature__intro">Fleet administration / Driver record</p>
-          <h2>{driver.displayName ?? "Courier account"}</h2>
-          <p className="kt-driver-feature__code">{driver.driverCode}</p>
+          <h2>Fleet readiness</h2>
           <div className="kt-driver-feature__metrics">
             <div><strong>{readiness?.checklist?.filter(item => item.status === "COMPLETED").length ?? "—"}/{readiness?.checklist?.length ?? "—"}</strong><span>Verified checks</span></div>
             <div><strong>{readiness?.blockers.length ?? "—"}</strong><span>Dispatch blockers</span></div>
@@ -1068,6 +1067,9 @@ export function DriverDetailsConsole({
           </div>
         </Card>
 
+
+      </div>
+      </div>
         {/* Dispatch readiness */}
         <Card className="kt-driver-panel kt-driver-panel--readiness">
           <div className="space-y-4">
@@ -1230,8 +1232,6 @@ export function DriverDetailsConsole({
           </div>
         </Card>
 
-      </div>
-      </div>
     </div>
   );
 }
