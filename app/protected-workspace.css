@@ -1,3 +1,5 @@
+/* The document viewport must also remain instant on protected routes. */
+html:has([data-kt-protected-system]){scroll-behavior:auto!important;}
 /* Final protected-workspace authority. Unlayered deliberately: shared utility
    controls must not reintroduce motion or hover decoration on authenticated pages. */
 [data-kt-protected-system="editorial-operations-v1"].eo-root {

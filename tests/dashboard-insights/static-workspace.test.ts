@@ -38,6 +38,7 @@ describe("Static operational workspace", () => {
     expect(css).toContain('animation:none!important');
     expect(css).toContain('transition:none!important');
     expect(css).toContain('scale:none!important');
+    expect(css).toContain('html:has([data-kt-protected-system]){scroll-behavior:auto!important;}');
     expect(css).not.toMatch(/:hover|@keyframes|gradient\(/);
     expect(readFileSync("components/protected-v2/dashboard/DashboardCanvas.tsx","utf8")).not.toContain('dashboard-premium.css');
   });
