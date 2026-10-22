@@ -22,6 +22,6 @@ describe("owned store status restrictions", () => {
   });
   it("retains access for pending onboarding", async () => {
     db.store.findMany.mockResolvedValue([{ id: "store-one", status: "PENDING" }]);
-    await expect(storeAccess("owner-one", "profile")).resolves.toMatchObject({ store: { id: "store-one" }, owner: true });
+    await expect(storeAccess("owner-one", "settings")).resolves.toMatchObject({ store: { id: "store-one" }, owner: true });
   });
 });
