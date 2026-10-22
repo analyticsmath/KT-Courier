@@ -29,7 +29,7 @@ export function escapeEmailHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 function safeUrl(value?: string): string | undefined {
-  if (!value) return undefined;
+  if (!value || value.startsWith("//")) return undefined;
   try {
     const url = new URL(value, WEBSITE);
     if (url.protocol !== "https:" || url.username || url.password || /[\r\n]/.test(value)) return undefined;
