@@ -1,6 +1,6 @@
 /** Build-time routing authority. No caller-provided origin or Host header is trusted. */
 export const PRODUCTION_EDGE_PROJECT = "prj_Q6i3g8JIv1ibkXGspPotBem2FFLD";
-export const PRODUCTION_EDGE_ORIGIN = "https://kt-couriers-preproduction-web.onrender.com";
+export const PRODUCTION_EDGE_ORIGIN = "https://web-production-9f8bb.up.railway.app";
 
 export type EdgeEnvironment = Readonly<Record<string, string | undefined>>;
 export type StagingEdgeRegistration = Readonly<{
@@ -18,7 +18,7 @@ export function resolveEdgeOrigin(
   registrations: readonly StagingEdgeRegistration[] = APPROVED_STAGING,
 ): string | null {
   const onVercel = env.VERCEL === "1" || !!env.VERCEL_ENV || !!env.VERCEL_PROJECT_ID;
-  if (!onVercel) return null; // Render/local app serves itself, with no external rewrite.
+  if (!onVercel) return null; // Railway/local app serves itself, with no external rewrite.
 
   if (env.VERCEL !== "1" || !env.VERCEL_PROJECT_ID) {
     throw new Error("EDGE_ISOLATION: missing Vercel deployment identity; build refused.");
