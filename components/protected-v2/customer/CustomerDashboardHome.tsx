@@ -7,7 +7,6 @@ import {
   DashboardCard,
   DashboardMetricCard,
   DashboardHeader,
-  DashboardIllustrationAsset,
   DashboardPeriodControl,
   StaticActivityChart,
   StaticDonutChart,
@@ -131,9 +130,8 @@ export function CustomerDashboardHome({
               description="Your active delivery will appear here once you send a courier request."
               padding="normal"
             >
-              <div className="flex flex-col sm:flex-row items-center gap-5 py-2">
-                <DashboardIllustrationAsset role="customer" className="sm:max-w-[160px]" />
-                <div className="flex flex-col gap-3 text-center sm:text-left">
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-3 text-left">
                   <p className="text-sm text-[var(--dash-ink-secondary)] m-0">
                     Book point-to-point courier delivery across active service regions with live status tracking.
                   </p>
