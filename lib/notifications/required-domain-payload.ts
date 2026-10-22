@@ -21,6 +21,16 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
     if (!message || message.conversationId !== intent.aggregateReference || message.senderUserId === raw.recipientUserId || !await canReceiveConversationUpdate(db, raw.recipientUserId, message.conversationId)) return invalid();
     return { actorUserId: raw.recipientUserId };
   }
+  if (intent.sourceAuthority === "ACCOUNT") {
+    if (intent.eventType !== "ACCOUNT_EMAIL_VERIFIED") return unsupported();
+    requireOperation(intent, `account-welcome:${intent.aggregateReference}`);
+    const user = await db.user.findUnique({
+      where: { id: intent.aggregateReference },
+      select: { id: true, status: true, emailVerifiedAt: true },
+    });
+    if (!user || user.status !== "ACTIVE" || !user.emailVerifiedAt) return invalid();
+    return { customerUserId: user.id };
+  }
   if (intent.sourceAuthority === "LEGACY_ORDER") {
     const order = await db.order.findUnique({ where: { id: intent.aggregateReference }, select: { customerId: true, orderNumber: true } });
     if (!order) return invalid();
