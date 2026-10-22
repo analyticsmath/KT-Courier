@@ -1,3 +1,4 @@
+import { getProfileAvatarUrl } from "@/lib/client-platform/profile-avatar-url";
 import { EditorialOperationsShell } from "@/components/protected-v2/shell/EditorialOperationsShell";
 import { requireRole } from "@/lib/auth/guards";
 import { UserRole } from "@/types/db";
@@ -37,9 +38,7 @@ export default async function DriverLayout({
       navigationFooter={<SignOutButton />}
       notifications={notifications}
       user={{
-        avatarUrl: avatar?.avatarMediaReference
-          ? "/api/platform/avatar"
-          : undefined,
+        avatarUrl: getProfileAvatarUrl(avatar?.avatarMediaReference),
         displayName,
         roleLabel: "Courier partner",
       }}

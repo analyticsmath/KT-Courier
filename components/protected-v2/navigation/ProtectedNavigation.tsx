@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { ProtectedIcon } from "@/components/protected-v2/icons/ProtectedIcon";
+import { ProtectedAvatar } from "@/components/protected-v2/shell/ProtectedAvatar";
 import type { ProtectedNavigationGroup, ProtectedNavigationItem } from "./types";
 
 type ProtectedNavigationLinksProps = {
@@ -90,10 +91,6 @@ type ProtectedDesktopNavigationProps = {
   searchable?: boolean;
 };
 
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "KT";
-}
-
 export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer, searchable }: ProtectedDesktopNavigationProps) {
   const [railExpanded, setRailExpanded] = useState(false);
 
@@ -130,7 +127,7 @@ export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer,
       </nav>
       <div className="eo-desktop-navigation__account">
         <div className="eo-user-summary">
-          <span aria-hidden="true" className="eo-avatar">{initials(user.displayName)}</span>
+          <ProtectedAvatar name={user.displayName} src={user.avatarUrl} />
           <span className="eo-user-summary__copy"><strong>{user.displayName}</strong><small>{user.roleLabel}</small></span>
         </div>
         {footer ? <div className="eo-desktop-navigation__footer">{footer}</div> : null}

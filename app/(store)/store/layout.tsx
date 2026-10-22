@@ -1,3 +1,4 @@
+import { getProfileAvatarUrl } from "@/lib/client-platform/profile-avatar-url";
 import { redirect } from "next/navigation";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import {
@@ -78,9 +79,7 @@ export default async function StoreLayout({
           : undefined
       }
       user={{
-        avatarUrl: avatar?.avatarMediaReference
-          ? "/api/platform/avatar"
-          : undefined,
+        avatarUrl: getProfileAvatarUrl(avatar?.avatarMediaReference),
         displayName,
         roleLabel: access.owner ? "Business owner" : "Business employee",
       }}

@@ -56,6 +56,7 @@ export function CustomerDashboardHome({
   return (
     <DashboardCanvas>
       <DashboardHeader
+        artRole="customer"
         eyebrow="My delivery desk"
         title={`Welcome back, ${firstName}`}
         description="See the delivery that needs your attention, track active parcels, and start your next request."
@@ -154,7 +155,7 @@ export function CustomerDashboardHome({
             value={activeCount}
             description="Parcels currently in flight"
             href="/account/orders"
-            tone="surface"
+            tone="brand"
           />
         </DashboardCol>
 

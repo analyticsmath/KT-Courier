@@ -55,6 +55,7 @@ export function AdminCommandCentre({
   return (
     <DashboardCanvas>
       <DashboardHeader
+        artRole="admin"
         eyebrow="Command centre"
         title="Operations desk"
         description="Authoritative network state, active dispatch balance, exception queues, and delivery coverage."
@@ -113,7 +114,7 @@ export function AdminCommandCentre({
             value={desk.pendingStores !== null ? desk.pendingStores : "—"}
             description="Pending merchant onboarding"
             href="/admin/stores"
-            tone="surface"
+            tone="brand"
           />
         </DashboardCol>
       </DashboardGrid>

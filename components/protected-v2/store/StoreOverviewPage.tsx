@@ -68,6 +68,7 @@ export function StoreOverviewPage({
   return (
     <DashboardCanvas>
       <DashboardHeader
+        artRole="store"
         eyebrow="Store operations"
         title={storeName}
         description="Marketplace fulfilment bench, confirmed store earnings, pickup point status, and merchant courier requests."
@@ -91,7 +92,7 @@ export function StoreOverviewPage({
             value={summary.needsAttention}
             description="Review, customer action, or reconciliation"
             href="#fulfilment-bench"
-            tone="surface"
+            tone="brand"
             badge={
               summary.needsAttention > 0 ? (
                 <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>

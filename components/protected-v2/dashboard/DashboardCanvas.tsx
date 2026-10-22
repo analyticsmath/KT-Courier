@@ -1,5 +1,6 @@
 import React from "react";
 import styles from "./dashboard.module.css";
+import "./dashboard-premium.css";
 
 export function DashboardCanvas({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (

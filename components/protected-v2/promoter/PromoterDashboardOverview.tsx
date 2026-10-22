@@ -126,6 +126,7 @@ export function PromoterDashboardOverview({
   return (
     <DashboardCanvas>
       <DashboardHeader
+        artRole="promoter"
         eyebrow="Promoter operations"
         title={account.displayName ?? "Promoter overview"}
         description="Your referral activity, programme readiness, wallet projections, and confirmed earnings."
@@ -222,7 +223,7 @@ export function PromoterDashboardOverview({
             value={wallet ? formatPromoterMoney(wallet.availableBalance, wallet.currency) : "Not provisioned"}
             description="Current wallet projection"
             href="/promoter/wallet"
-            tone="surface"
+            tone="brand"
           />
         </DashboardCol>
 

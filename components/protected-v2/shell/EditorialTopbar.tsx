@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { ProtectedAvatar } from "./ProtectedAvatar";
 
 type EditorialTopbarProps = {
   contextLabel: string;
@@ -14,10 +15,6 @@ type EditorialTopbarProps = {
   primaryAction?: { label: string; href: string };
   onNavigationOpen: () => void;
 };
-
-function initials(name: string): string {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "KT";
-}
 
 export function EditorialTopbar({
   contextLabel,
@@ -78,7 +75,7 @@ export function EditorialTopbar({
         ) : null}
         <div className="eo-topbar__account" ref={menuRef}>
           <button ref={accountTrigger} aria-expanded={accountOpen} aria-controls="eo-account-options" aria-label="Open account menu" className={cn("eo-avatar-button", accountOpen && "is-open")} onClick={() => setAccountOpen((current) => !current)} type="button">
-            <span aria-hidden="true" className="eo-avatar">{initials(user.displayName)}</span>
+            <ProtectedAvatar name={user.displayName} src={user.avatarUrl} />
             <span className="eo-topbar__user-copy"><strong>{user.displayName}</strong><small>{user.roleLabel}</small></span>
           </button>
           {accountOpen ? (
