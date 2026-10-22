@@ -708,7 +708,7 @@ export function DriverOnboardingExperience({
                           <button
                             type="button"
                             onClick={() => setActiveTab(targetTab)}
-                            className="text-[11px] font-semibold text-[var(--kt-signal-cobalt)] hover:underline text-left mt-1"
+                            className="text-[11px] font-semibold text-[var(--kt-signal-cobalt)]  text-left mt-1"
                           >
                             Resolve in {targetTab} →
                           </button>
@@ -729,7 +729,7 @@ export function DriverOnboardingExperience({
             className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
               activeTab === "identity"
                 ? "border-[var(--kt-signal-cobalt)] text-[var(--kt-signal-cobalt)]"
-                : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+                : "border-transparent text-[var(--kt-text-muted)] "
             }`}
             onClick={() => setActiveTab("identity")}
             aria-pressed={activeTab === "identity"}
@@ -741,7 +741,7 @@ export function DriverOnboardingExperience({
             className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
               activeTab === "documents"
                 ? "border-[var(--kt-signal-cobalt)] text-[var(--kt-signal-cobalt)]"
-                : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+                : "border-transparent text-[var(--kt-text-muted)] "
             }`}
             onClick={() => setActiveTab("documents")}
             aria-pressed={activeTab === "documents"}
@@ -753,7 +753,7 @@ export function DriverOnboardingExperience({
             className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
               activeTab === "vehicles"
                 ? "border-[var(--kt-signal-cobalt)] text-[var(--kt-signal-cobalt)]"
-                : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+                : "border-transparent text-[var(--kt-text-muted)] "
             }`}
             onClick={() => setActiveTab("vehicles")}
             aria-pressed={activeTab === "vehicles"}
@@ -765,7 +765,7 @@ export function DriverOnboardingExperience({
             className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${
               activeTab === "regions"
                 ? "border-[var(--kt-signal-cobalt)] text-[var(--kt-signal-cobalt)]"
-                : "border-transparent text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+                : "border-transparent text-[var(--kt-text-muted)] "
             }`}
             onClick={() => setActiveTab("regions")}
             aria-pressed={activeTab === "regions"}
@@ -1538,7 +1538,7 @@ export function DriverOnboardingExperience({
                           setAssignedRegionIds(allIds);
                           if (!primaryRegionId && allIds.length > 0) setPrimaryRegionId(allIds[0]);
                         }}
-                        className="text-xs font-semibold text-[var(--kt-signal-cobalt)] hover:underline"
+                        className="text-xs font-semibold text-[var(--kt-signal-cobalt)] "
                       >
                         Select all
                       </button>
@@ -1549,7 +1549,7 @@ export function DriverOnboardingExperience({
                           setAssignedRegionIds([]);
                           setPrimaryRegionId("");
                         }}
-                        className="text-xs font-semibold text-[var(--kt-text-muted)] hover:underline"
+                        className="text-xs font-semibold text-[var(--kt-text-muted)] "
                       >
                         Clear
                       </button>

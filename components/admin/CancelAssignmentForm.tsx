@@ -65,7 +65,7 @@ export function CancelAssignmentForm({ orderId, assignmentId, expectedVersion, o
           <h3 className="text-base font-bold text-[var(--kt-ink-navy)]">Cancel Assignment</h3>
           <button
             onClick={() => setOpen(false)}
-            className="text-[var(--kt-text-muted)] hover:text-[var(--kt-ink-navy)] text-xl leading-none"
+            className="text-[var(--kt-text-muted)]  text-xl leading-none"
           >
             ×
           </button>

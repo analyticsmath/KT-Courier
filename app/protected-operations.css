@@ -9,7 +9,7 @@
     letter-spacing: -.01em;
     border-radius: 10px;
   }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle:hover,
+
   [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-group__toggle[aria-expanded="true"] {
     color: #171D30;
     background: #F5F6FB;
@@ -76,10 +76,6 @@
     padding: 6px 12px;
     font-size: .78rem;
     font-weight: 690;
-  }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-table td .eo-table-action:hover {
-    background: #F3F5FB;
-    border-color: #BAC6DF;
   }
   [data-kt-protected-system="editorial-operations-v1"] .eo-table th:last-child,
   [data-kt-protected-system="editorial-operations-v1"] .eo-table td:last-child {
@@ -337,7 +333,6 @@
     overflow-wrap: anywhere;
   }
   [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table tr:last-child td { border-bottom: 0; }
-  [data-kt-protected-system="editorial-operations-v1"] .kt-processor-table tbody tr:hover { background: #F9FAFF; }
   [data-kt-protected-system="editorial-operations-v1"] .kt-processor-workspace__name {
     color: #1E2740;
     font-family: var(--eo-font-mono);

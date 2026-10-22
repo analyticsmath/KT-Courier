@@ -81,14 +81,14 @@ export default function AdminReportReconciliationPage() {
             <button
               onClick={() => handleScan(true)}
               disabled={scanning}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 py-2 px-4 rounded text-sm font-medium"
+              className="bg-gray-100  text-gray-800 border border-gray-300 py-2 px-4 rounded text-sm font-medium"
             >
               Dry-Run Scan
             </button>
             <button
               onClick={() => handleScan(false)}
               disabled={scanning}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded text-sm font-medium"
+              className="bg-blue-600  text-white py-2 px-4 rounded text-sm font-medium"
             >
               Apply Reconciliation Scan
             </button>

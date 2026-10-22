@@ -34,7 +34,7 @@ export default async function AdminContactMessageDetailPage({
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-[var(--kt-text-muted)]">
-        <Link href="/admin/contact-messages" className="hover:text-[var(--kt-signal-cobalt)] transition-colors">
+        <Link href="/admin/contact-messages" className=" transition-colors">
           Contact Messages
         </Link>
         <span>/</span>

@@ -209,7 +209,7 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
               </tr>
             ) : (
               cases.map((c) => (
-                <tr key={`${c.domain}-${c.publicReference}`} className="hover:bg-[--kt-surface-muted]/50">
+                <tr key={`${c.domain}-${c.publicReference}`} className="">
                   <td className="p-3 font-mono text-xs font-semibold">{c.publicReference}</td>
                   <td className="p-3 text-xs uppercase font-medium">{c.domain.replace(/_/g, " ")}</td>
                   <td className="p-3">
@@ -273,7 +273,7 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
                   setActiveCase(null);
                   setActiveAction(null);
                 }}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                className="text-gray-500  text-lg font-bold"
               >
                 ×
               </button>

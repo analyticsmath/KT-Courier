@@ -58,7 +58,7 @@ export default async function AdminContactMessagesPage({
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               (status ?? "") === f.value
                 ? "bg-[var(--kt-signal-cobalt)] text-white shadow-sm"
-                : "border border-[var(--kt-soft-border)] text-[var(--kt-text-muted)] hover:border-[var(--kt-signal-cobalt)] hover:text-[var(--kt-signal-cobalt)]"
+                : "border border-[var(--kt-soft-border)] text-[var(--kt-text-muted)]  "
             }`}
           >
             {f.label}
@@ -83,11 +83,11 @@ export default async function AdminContactMessagesPage({
               </thead>
               <tbody className="divide-y divide-[var(--kt-soft-border)]">
                 {messages.map((msg) => (
-                  <tr key={msg.id} className="bg-[var(--kt-studio-white)] hover:bg-[var(--kt-cool-gray)] transition-colors">
+                  <tr key={msg.id} className="bg-[var(--kt-studio-white)]  transition-colors">
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/contact-messages/${msg.id}`}
-                        className="font-semibold text-[var(--kt-signal-cobalt)] hover:underline"
+                        className="font-semibold text-[var(--kt-signal-cobalt)] "
                       >
                         {msg.name}
                       </Link>

@@ -124,7 +124,7 @@ export function PricingRulesManager({ rules, regions }: PricingRulesManagerProps
                           <button
                             type="button"
                             onClick={() => setEditingId(editingId === rule.id ? null : rule.id)}
-                            className="text-xs font-semibold text-[--kt-brand-blue] hover:underline"
+                            className="text-xs font-semibold text-[--kt-brand-blue] "
                           >
                             Edit
                           </button>
@@ -133,7 +133,7 @@ export function PricingRulesManager({ rules, regions }: PricingRulesManagerProps
                               type="button"
                               onClick={() => handleDeactivate(rule.id, rule.revision)}
                               disabled={deactivating === rule.id}
-                              className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
+                              className="text-xs font-semibold text-red-600  disabled:opacity-50"
                             >
                               {deactivating === rule.id ? "…" : "Deactivate"}
                             </button>

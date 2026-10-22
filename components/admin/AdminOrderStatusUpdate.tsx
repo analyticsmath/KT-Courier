@@ -89,7 +89,7 @@ export function AdminOrderStatusUpdate({ orderId, currentStatus }: AdminOrderSta
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
                   selectedStatus === status
                     ? "border-[var(--kt-signal-cobalt)] bg-[var(--kt-cloud-blue)] text-[var(--kt-signal-cobalt)]"
-                    : "border-[var(--kt-soft-border)] text-[var(--kt-text-muted)] hover:border-[var(--kt-signal-cobalt)] hover:text-[var(--kt-signal-cobalt)]"
+                    : "border-[var(--kt-soft-border)] text-[var(--kt-text-muted)]  "
                 }`}
               >
                 → {config.label}

@@ -315,7 +315,7 @@ export function DriversManager({ initialRegions }: DriversManagerProps) {
                   </thead>
                   <tbody className="divide-y divide-[var(--kt-soft-border)]">
                     {drivers.map((driver) => (
-                      <tr key={driver.id} className="bg-[var(--kt-studio-white)] hover:bg-[var(--kt-cool-gray)] transition-colors">
+                      <tr key={driver.id} className="bg-[var(--kt-studio-white)]  transition-colors">
                         <td className="px-5 py-4 font-mono font-bold text-[var(--kt-ink-navy)]">{driver.driverCode}</td>
                         <td className="px-5 py-4">
                           <span className="font-semibold text-[var(--kt-ink-navy)]">{driver.displayName || "No Name"}</span>
@@ -440,7 +440,7 @@ export function DriversManager({ initialRegions }: DriversManagerProps) {
           <div className="w-full max-w-lg bg-[var(--kt-studio-white)] rounded-3xl p-6 shadow-2xl border border-[var(--kt-soft-border)] space-y-4">
             <div className="flex justify-between items-start border-b border-[var(--kt-soft-border)] pb-3">
               <h2 className="text-lg font-bold text-[var(--kt-ink-navy)]">Link Driver Profile</h2>
-              <button onClick={() => setModalOpen(false)} className="text-[var(--kt-text-muted)] hover:text-[var(--kt-ink-navy)] font-bold text-lg leading-none">
+              <button onClick={() => setModalOpen(false)} className="text-[var(--kt-text-muted)]  font-bold text-lg leading-none">
                 &times;
               </button>
             </div>

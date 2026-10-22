@@ -253,7 +253,7 @@ export function AdminAdvertisingWorkbench({
           className={`px-4 py-2 font-medium text-sm rounded-lg ${
             activeTab === "campaigns"
               ? "bg-[var(--kt-text)] text-white"
-              : "text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+              : "text-[var(--kt-text-muted)] "
           }`}
         >
           Campaign Requests ({initialRequests.length})
@@ -264,7 +264,7 @@ export function AdminAdvertisingWorkbench({
           className={`px-4 py-2 font-medium text-sm rounded-lg ${
             activeTab === "packages"
               ? "bg-[var(--kt-text)] text-white"
-              : "text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+              : "text-[var(--kt-text-muted)] "
           }`}
         >
           Packages & Placements ({packages.length})
@@ -275,7 +275,7 @@ export function AdminAdvertisingWorkbench({
           className={`px-4 py-2 font-medium text-sm rounded-lg ${
             activeTab === "revenue"
               ? "bg-[var(--kt-text)] text-white"
-              : "text-[var(--kt-text-muted)] hover:text-[var(--kt-text)]"
+              : "text-[var(--kt-text-muted)] "
           }`}
         >
           Revenue Reports ({revenueReports.length})
@@ -307,7 +307,7 @@ export function AdminAdvertisingWorkbench({
                 className={`text-xs px-2.5 py-1 rounded-full border ${
                   statusFilter === s
                     ? "bg-[var(--kt-text)] text-white border-transparent"
-                    : "text-[var(--kt-text-muted)] border-gray-300 hover:border-gray-400"
+                    : "text-[var(--kt-text-muted)] border-gray-300 "
                 }`}
               >
                 {s.replaceAll("_", " ")}
@@ -405,7 +405,7 @@ export function AdminAdvertisingWorkbench({
                             disabled={busy}
                             onClick={() => void callAction(req.publicReference, "approve")}
                             size="sm"
-                            className="bg-green-700 hover:bg-green-800"
+                            className="bg-green-700 "
                           >
                             Approve Campaign
                           </Button>
@@ -433,7 +433,7 @@ export function AdminAdvertisingWorkbench({
                             disabled={busy}
                             onClick={() => setRunningRef(req.publicReference)}
                             size="sm"
-                            className="bg-indigo-700 hover:bg-indigo-800"
+                            className="bg-indigo-700 "
                           >
                             Run Manually
                           </Button>
@@ -445,7 +445,7 @@ export function AdminAdvertisingWorkbench({
                           disabled={busy}
                           onClick={() => setRunningRef(req.publicReference)}
                           size="sm"
-                          className="bg-indigo-700 hover:bg-indigo-800"
+                          className="bg-indigo-700 "
                         >
                           Run Manually
                         </Button>

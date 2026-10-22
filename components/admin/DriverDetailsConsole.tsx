@@ -634,7 +634,7 @@ export function DriverDetailsConsole({
                     <Button onClick={() => handleStatusTransition("ACTIVE")} variant="primary" size="sm" loading={statusLoading} disabled={statusLoading}>
                       Approve & Active
                     </Button>
-                    <Button onClick={() => handleStatusTransition("REJECTED")} className="bg-[var(--kt-signal-red)] text-white hover:bg-[var(--kt-signal-red)]/90" size="sm" loading={statusLoading} disabled={statusLoading}>
+                    <Button onClick={() => handleStatusTransition("REJECTED")} className="bg-[var(--kt-signal-red)] text-white " size="sm" loading={statusLoading} disabled={statusLoading}>
                       Reject Driver
                     </Button>
                   </>
@@ -645,7 +645,7 @@ export function DriverDetailsConsole({
                     <Button onClick={() => handleStatusTransition("INACTIVE")} variant="secondary" size="sm" loading={statusLoading} disabled={statusLoading}>
                       Set Inactive
                     </Button>
-                    <Button onClick={() => handleStatusTransition("SUSPENDED")} className="bg-[var(--kt-signal-red)] text-white hover:bg-[var(--kt-signal-red)]/90" size="sm" loading={statusLoading} disabled={statusLoading}>
+                    <Button onClick={() => handleStatusTransition("SUSPENDED")} className="bg-[var(--kt-signal-red)] text-white " size="sm" loading={statusLoading} disabled={statusLoading}>
                       Suspend Driver
                     </Button>
                   </>
@@ -656,7 +656,7 @@ export function DriverDetailsConsole({
                     <Button onClick={() => handleStatusTransition("ACTIVE")} variant="primary" size="sm" loading={statusLoading} disabled={statusLoading}>
                       Reactivate Active
                     </Button>
-                    <Button onClick={() => handleStatusTransition("SUSPENDED")} className="bg-[var(--kt-signal-red)] text-white hover:bg-[var(--kt-signal-red)]/90" size="sm" loading={statusLoading} disabled={statusLoading}>
+                    <Button onClick={() => handleStatusTransition("SUSPENDED")} className="bg-[var(--kt-signal-red)] text-white " size="sm" loading={statusLoading} disabled={statusLoading}>
                       Suspend Driver
                     </Button>
                   </>
@@ -1099,11 +1099,10 @@ export function DriverDetailsConsole({
                   </span>
                 </div>
                 <ol className="kt-driver-readiness__list">
-                  {readiness.checklist.map((item, index) => {
+                  {readiness.checklist.map((item) => {
                     const complete = item.status === "COMPLETED";
                     return (
                       <li key={item.key} className={complete ? "is-verified" : "is-unverified"}>
-                        <span className="kt-driver-readiness__index">{String(index + 1).padStart(2, "0")}</span>
                         <div className="kt-driver-readiness__detail">
                           <strong>{item.label}</strong>
                           <span>{item.detail || item.description}</span>
@@ -1125,7 +1124,6 @@ export function DriverDetailsConsole({
                 <ul className="kt-driver-blockers__list">
                   {readiness.blockers.map((item) => (
                     <li key={item.key}>
-                      <span className="kt-driver-blockers__bullet" aria-hidden="true">!</span>
                       <div>
                         <p>{item.message}</p>
                         {item.actionHref && item.actionLabel ? (
@@ -1175,9 +1173,9 @@ export function DriverDetailsConsole({
                   </thead>
                   <tbody className="divide-y divide-[var(--kt-soft-border)]">
                     {recentAssignments.map((a) => (
-                      <tr key={a.id} className="hover:bg-[var(--kt-cool-gray)]/40 transition-colors">
+                      <tr key={a.id} className=" transition-colors">
                         <td className="py-2.5 px-3 font-bold text-[var(--kt-signal-cobalt)]">
-                          <a href={`/admin/orders/${a.order.id}`} className="hover:underline">
+                          <a href={`/admin/orders/${a.order.id}`} className="">
                             {a.order.orderNumber}
                           </a>
                         </td>

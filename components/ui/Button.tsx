@@ -53,14 +53,14 @@ export function Button({
 
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} data-kt-button-variant={variant}>
         {children}
       </Link>
     );
   }
 
   return (
-    <button className={classes} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
+    <button className={classes} data-kt-button-variant={variant} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
       {loading && (
         <svg
           className="animate-spin -ml-1 mr-1 h-4 w-4"

@@ -86,7 +86,7 @@ export default async function AdminEmailsPage({
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               (status ?? "") === f.value
                 ? "bg-[var(--kt-signal-cobalt)] text-white shadow-sm"
-                : "border border-[var(--kt-soft-border)] text-[var(--kt-text-muted)] hover:border-[var(--kt-signal-cobalt)] hover:text-[var(--kt-signal-cobalt)]"
+                : "border border-[var(--kt-soft-border)] text-[var(--kt-text-muted)]  "
             }`}
           >
             {f.label}
@@ -115,11 +115,11 @@ export default async function AdminEmailsPage({
               </thead>
               <tbody className="divide-y divide-[--kt-border]">
                 {logs.map((log) => (
-                  <tr key={log.id} className="bg-[var(--kt-studio-white)] hover:bg-[var(--kt-cool-gray)] transition-colors">
+                  <tr key={log.id} className="bg-[var(--kt-studio-white)]  transition-colors">
                     <td className="px-4 py-3">
                       <Link
                         href={`/admin/emails/${log.id}`}
-                        className="text-[var(--kt-signal-cobalt)] hover:underline truncate max-w-[180px] block"
+                        className="text-[var(--kt-signal-cobalt)]  truncate max-w-[180px] block"
                       >
                         {log.recipient}
                       </Link>

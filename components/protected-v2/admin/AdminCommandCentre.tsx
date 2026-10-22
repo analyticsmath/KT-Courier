@@ -9,8 +9,6 @@ import {
   DashboardCard,
   DashboardPeriodControl,
   StaticActivityChart,
-  StaticDonutChart,
-  type DonutItem,
 } from "@/components/protected-v2/dashboard";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
@@ -30,172 +28,64 @@ export function AdminCommandCentre({
   const insight = desk.insight;
   const comparison = insight?.comparison;
 
-  // Build authoritative dispatch distribution items (Assigned vs Unassigned only)
-  const dispatchItems: DonutItem[] = desk.dispatch
-    ? [
-        {
-          key: "assigned",
-          label: "Assigned in transit",
-          value: desk.dispatch.counts.assigned,
-          color: "var(--dash-green)",
-        },
-        {
-          key: "unassigned",
-          label: "Unassigned queue",
-          value: desk.dispatch.counts.unassigned,
-          color: "var(--dash-brand)",
-        },
-      ]
-    : [];
-
   const totalDispatchOrders = desk.dispatch
     ? desk.dispatch.counts.assigned + desk.dispatch.counts.unassigned
     : 0;
 
   return (
     <DashboardCanvas>
-      <section className={studio.cover} aria-label="Operations overview">
-        <div className={studio.coverMain}>
-          <div className={studio.coverHeading}>
-            <span className={studio.coverLocation}>KT COURIERS <span aria-hidden="true">/</span> NETWORK OPERATIONS</span>
-            <h1>See the whole network. <em>Move what matters.</em></h1>
-            <p>Dispatch, deliveries and exceptions in one clear operational view. All figures are sourced from the active courier system.</p>
-          </div>
-          <div className={studio.coverSignals}>
-            <div className={studio.coverSignal}>
-              <span>Courier orders in period</span>
-              <strong>{comparison ? comparison.current.toLocaleString("en-ZA") : "—"}</strong>
-              <small>{insight?.periodLabel ?? "Operational history"}</small>
-            </div>
-            <div className={studio.coverSignal}>
-              <span>Recorded exceptions</span>
-              <strong>{desk.exceptionCount !== null ? desk.exceptionCount.toLocaleString("en-ZA") : "—"}</strong>
-              <small>Pickup & delivery event history</small>
-            </div>
-          </div>
-          {desk.ordersAllowed ? (
-            <Link className={studio.coverAction} href="/admin/orders">
-              Explore courier orders <span aria-hidden="true">↗</span>
-            </Link>
-          ) : null}
+      <header className={studio.pageHeading}>
+        <div>
+          <h1>Operations overview</h1>
+          <p>Deliveries, dispatch and the work that needs your attention.</p>
         </div>
-        <div className={studio.coverVisual}>
-          <div className={studio.coverImageFrame}>
-            <Image src="/media/dashboard/delivery-truck.webp" alt="Courier handing over a parcel" width={740} height={620} sizes="(max-width: 760px) 100vw, 460px" loading="eager" priority />
+        {desk.ordersAllowed ? <Link className={studio.primaryAction} href="/admin/orders">View courier orders</Link> : null}
+      </header>
+
+      <section className={studio.overview} aria-label="Operations overview">
+        <div className={studio.volume}>
+          <div className={studio.volumeHeading}>
+            <h2>Courier activity</h2>
+            <DashboardPeriodControl period={period} href="/admin" ariaLabel="Filter courier volume period" />
           </div>
-          <div className={studio.coverDispatch}>
-            <div><span>Waiting for assignment</span><strong>{desk.dispatch ? desk.dispatch.counts.unassigned.toLocaleString("en-ZA") : "—"} <small>orders</small></strong></div>
-            {desk.dispatch ? <Link href="/admin/dispatch">Dispatch board <span aria-hidden="true">↗</span></Link> : null}
-          </div>
+          {insight ? <>
+            <div className={studio.volumeValue}>
+              <strong>{comparison ? comparison.current.toLocaleString("en-ZA") : "Unavailable"}</strong>
+              <span>courier orders<br />{insight.periodLabel}</span>
+            </div>
+            {insight.seriesUnavailable ? <p>Activity detail exceeds display limits. Choose a shorter period.</p> : insight.buckets.some((b) => b.value > 0) ? (
+              <StaticActivityChart buckets={insight.buckets} label={`${insight.title} · ${insight.periodLabel}`} tone="brand" />
+            ) : <div className={studio.quietState}><p>No orders recorded in this period.</p><span>Choose another period to review earlier activity.</span></div>}
+            <p className={studio.volumeNote}>Courier orders by creation date. Marketplace orders excluded.</p>
+          </> : <ProtectedState kind="restricted" title="Activity data restricted" description="Your role does not have access to aggregated order metrics." />}
         </div>
+        <aside className={studio.dispatchSummary}>
+          <div className={studio.dispatchHeading}>
+            <h2>Dispatch workload</h2>
+            <Image src="/media/dashboard/delivery-truck.webp" alt="" width={160} height={130} sizes="130px" priority />
+          </div>
+          <div className={studio.dispatchTotal}><strong>{desk.dispatch ? totalDispatchOrders : "Unavailable"}</strong><span>active courier runs</span></div>
+          {desk.dispatch ? <>
+            <dl className={studio.dispatchBreakdown}>
+              <div><dt>Assigned in transit</dt><dd>{desk.dispatch.counts.assigned}</dd></div>
+              <div><dt>Waiting for assignment</dt><dd>{desk.dispatch.counts.unassigned}</dd></div>
+            </dl>
+            <Link className={studio.lightAction} href="/admin/dispatch">Open dispatch board</Link>
+          </> : <p>Dispatch access is restricted for this account.</p>}
+        </aside>
       </section>
 
-      <div className={studio.reviewRibbon} role="region" aria-label="Immediate action summary">
-        <Link className={studio.reviewLink} href="/admin/stores">
-          <span className={studio.reviewIcon} aria-hidden="true">01</span>
-          <span><strong>{desk.pendingStores !== null ? desk.pendingStores.toLocaleString("en-ZA") : "—"} stores awaiting review</strong><small>Seller onboarding and account decisions</small></span>
-          <span className={studio.reviewArrow} aria-hidden="true">↗</span>
-        </Link>
-        {desk.ordersAllowed && desk.attention ? (
-          <Link className={studio.reviewLink} href="/admin/orders">
-            <span className={studio.reviewIcon} aria-hidden="true">02</span>
-            <span><strong>{desk.attention.length.toLocaleString("en-ZA")} orders in the attention queue</strong><small>Review priority routes and exceptions</small></span>
-            <span className={studio.reviewArrow} aria-hidden="true">↗</span>
-          </Link>
-        ) : null}
-      </div>
-
-      {/* Row 1: Primary Analytics (7 cols) + Dispatch Workload Balance (5 cols) */}
-      <DashboardGrid ariaLabel="Primary operational analytics">
-        <DashboardCol span={7}>
-          {insight ? (
-            <DashboardCard
-              eyebrow="Activity trend"
-              title={insight.title}
-              description={`${insight.definition} · ${insight.periodLabel}`}
-              action={<DashboardPeriodControl period={period} href="/admin" ariaLabel="Filter courier volume period" />}
-              padding="normal"
-            >
-              {insight.seriesUnavailable ? (
-                <p role="status" className={styles.emptyStateDesc}>
-                  Total is available. Activity detail exceeds display limits for this window; choose a shorter period.
-                </p>
-              ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticActivityChart
-                  buckets={insight.buckets}
-                  label={`${insight.title} · ${insight.periodLabel}`}
-                  tone="brand"
-                  heroValue={comparison ? comparison.current : undefined}
-                  comparisonText={
-                    comparison && comparison.changePercent !== null
-                      ? `${comparison.changePercent > 0 ? "+" : ""}${comparison.changePercent.toFixed(1)}% vs prior period`
-                      : undefined
-                  }
-                />
-              ) : (
-                <div className={styles.emptyState}>
-                  <p className={styles.emptyStateTitle}>No recorded activity</p>
-                  <p className={styles.emptyStateDesc}>No courier orders recorded in this period. Choose another window to review.</p>
-                </div>
-              )}
-            </DashboardCard>
-          ) : (
-            <DashboardCard eyebrow="Activity trend" title="Courier orders" padding="normal">
-              <ProtectedState
-                kind="restricted"
-                title="Activity data restricted"
-                description="Your administrative role does not have permission to view aggregated order metrics."
-              />
-            </DashboardCard>
-          )}
-        </DashboardCol>
-
-        <DashboardCol span={5}>
-          <DashboardCard
-            eyebrow="Fleet balance"
-            title="Dispatch active workload"
-            description="Assignable vs assigned courier runs"
-            action={
-              desk.dispatch ? (
-                <Link className={`${styles.btn} ${styles.btnQuiet} ${styles.btnSm}`} href="/admin/dispatch">
-                  Open board
-                </Link>
-              ) : undefined
-            }
-            padding="normal"
-          >
-            {desk.dispatch ? (
-              totalDispatchOrders > 0 ? (
-                <StaticDonutChart
-                  items={dispatchItems}
-                  title="Dispatch active workload"
-                  centerValue={totalDispatchOrders}
-                  centerLabel="Active runs"
-                  layout="row"
-                />
-              ) : (
-                <div className={styles.emptyState}>
-                  <p className={styles.emptyStateTitle}>No active dispatch orders</p>
-                  <p className={styles.emptyStateDesc}>There are currently no assigned or unassigned orders in the active dispatch board.</p>
-                </div>
-              )
-            ) : (
-              <ProtectedState
-                kind="restricted"
-                title="Dispatch data restricted"
-                description="Administrative dispatch permissions are required to view live dispatch counts."
-              />
-            )}
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
+      <section className={studio.actionStrip} aria-label="Immediate action summary">
+        {desk.pendingStores !== null ? <Link href="/admin/stores"><strong>{desk.pendingStores}</strong><span>Stores awaiting review<small>Business details and account approval</small></span></Link> : null}
+        {desk.ordersAllowed && desk.attention ? <Link href="/admin/orders"><strong>{desk.attention.length}</strong><span>Orders in review list<small>Oldest requests and unresolved routes</small></span></Link> : null}
+        <div><strong>{desk.exceptionCount ?? "Unavailable"}</strong><span>Recorded exceptions<small>Pickup and delivery event history</small></span></div>
+      </section>
 
       {/* Row 2: Attention Queue (7 cols) + Network Coverage & Context (5 cols) */}
       <DashboardGrid ariaLabel="Operational queues and network context">
         <DashboardCol span={7}>
           <DashboardCard
             className={studio.reviewPanel}
-            eyebrow="Prioritised review"
             title="Attention queue"
             description="Oldest requests needing manual administrative review or missing a recorded route."
             action={
@@ -248,7 +138,6 @@ export function AdminCommandCentre({
 
         <DashboardCol span={5}>
           <DashboardCard
-            eyebrow="Regional network"
             title="Service coverage"
             description="Active regional courier zones"
             action={
@@ -265,7 +154,7 @@ export function AdminCommandCentre({
               <div className={styles.coveragePanel}>
                 <div className={studio.coverageVisual}>
                   <Image src="/media/dashboard/merchant-handoff.webp" alt="Merchant handing over a shipment" width={420} height={180} sizes="(max-width: 768px) 100vw, 350px" loading="lazy" />
-                  <span>Active regional network</span>
+                  <span>Local delivery network</span>
                 </div>
                 <div className={styles.coverageSummary}>
                   <span className={styles.coverageNumber}>{desk.regions.length.toLocaleString("en-ZA")}</span>
@@ -296,7 +185,6 @@ export function AdminCommandCentre({
       <DashboardGrid ariaLabel="Secondary queues and event logs">
         <DashboardCol span={7}>
           <DashboardCard
-            eyebrow="Ready to dispatch"
             title="Dispatch assignable queue"
             description="Active orders ready for driver allocation"
             action={
@@ -325,7 +213,7 @@ export function AdminCommandCentre({
                             )}
                           </td>
                           <td className={styles.queueRoute}>{row.pickupCity ?? "Pickup"} → {row.dropoffCity ?? "Destination"}</td>
-                          <td className={styles.queueStatus}><span className={`${styles.chip} ${styles.chipWarning}`}>Unassigned</span></td>
+                          <td className={styles.queueStatus}><ProtectedStatus label="Awaiting assignment" /></td>
                         </tr>
                       ))}
                     </tbody>
@@ -345,7 +233,6 @@ export function AdminCommandCentre({
 
         <DashboardCol span={5}>
           <DashboardCard
-            eyebrow="Audit trail"
             title="Recent exceptions"
             description="Pickup & delivery failure logs"
             action={
@@ -374,7 +261,7 @@ export function AdminCommandCentre({
                         </td>
                         <td className={styles.queueRoute}>{row.label}</td>
                         <td className={styles.queueDate}>{formatDateTime(row.occurredAt)}</td>
-                        <td className={styles.queueStatus}><span className={`${styles.chip} ${styles.chipDanger}`}>Exception</span></td>
+                        <td className={styles.queueStatus}><ProtectedStatus label="Exception recorded" /></td>
                       </tr>
                     ))}
                   </tbody>

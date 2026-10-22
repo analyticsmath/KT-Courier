@@ -132,7 +132,7 @@ export function PrivacyRequestsManager({ initialRequests }: PrivacyRequestsManag
               </tr>
             ) : (
               requests.map((r) => (
-                <tr key={r.publicReference} className="hover:bg-[--kt-surface-muted]/50">
+                <tr key={r.publicReference} className="">
                   <td className="p-3 font-mono text-xs font-bold">{r.publicReference}</td>
                   <td className="p-3">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
@@ -187,7 +187,7 @@ export function PrivacyRequestsManager({ initialRequests }: PrivacyRequestsManag
               <button
                 type="button"
                 onClick={() => setActiveRequest(null)}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                className="text-gray-500  text-lg font-bold"
               >
                 ×
               </button>

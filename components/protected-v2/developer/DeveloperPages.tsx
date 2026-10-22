@@ -21,7 +21,7 @@ function DeliveryStatus({ delivery }: { delivery: DeveloperDeliveryRecord }) { c
 
 function ApplicationTable({ applications }: { applications: readonly DeveloperApplicationRecord[] }) {
   return <EditorialTable caption="Owner-scoped developer applications" mobileMode="stack" rows={applications} emptyState={<p className="eo-table-empty" role="status">No developer applications are available.</p>} columns={[
-    { id: "application", header: "Application", priority: "primary", cell: (application) => <Link className="font-semibold text-[var(--eo-operational)] hover:underline" href={`/developers/applications/${application.reference}`}>{application.name}</Link> },
+    { id: "application", header: "Application", priority: "primary", cell: (application) => <Link className="font-semibold text-[var(--eo-operational)] " href={`/developers/applications/${application.reference}`}>{application.name}</Link> },
     { id: "environment", header: "Environment", cell: (application) => { const environment = getDeveloperEnvironmentStatus(application.environment, application.productionLocked); return <ProtectedStatus label={environment.label} tone={environment.tone} />; } },
     { id: "status", header: "Lifecycle", cell: (application) => <ApplicationStatus application={application} /> },
     { id: "scopes", header: "Approved scopes", align: "end", priority: "secondary", cell: (application) => application.scopeGrants.flatMap((grant) => grant.scopes.filter((scope) => scope.state === "approved")).length },
@@ -42,7 +42,7 @@ function CredentialTable({ credentials, capabilities }: { credentials: readonly 
 
 function WebhookTable({ webhooks }: { webhooks: readonly DeveloperWebhookRecord[] }) {
   return <EditorialTable caption="Owner-scoped webhook endpoints" mobileMode="stack" rows={webhooks} emptyState={<p className="eo-table-empty" role="status">No webhook endpoints are available.</p>} columns={[
-    { id: "endpoint", header: "Endpoint", priority: "primary", cell: (webhook) => <Link className="font-mono text-sm font-semibold text-[var(--eo-operational)] hover:underline" href={`/developers/webhooks/${webhook.reference}`}>{webhook.endpoint}</Link> },
+    { id: "endpoint", header: "Endpoint", priority: "primary", cell: (webhook) => <Link className="font-mono text-sm font-semibold text-[var(--eo-operational)] " href={`/developers/webhooks/${webhook.reference}`}>{webhook.endpoint}</Link> },
     { id: "application", header: "Application", priority: "secondary", cell: (webhook) => webhook.applicationName },
     { id: "environment", header: "Environment", cell: (webhook) => webhook.environment === "TEST" ? "Test" : "Live" },
     { id: "state", header: "State", cell: (webhook) => <WebhookStatus webhook={webhook} /> },
@@ -52,7 +52,7 @@ function WebhookTable({ webhooks }: { webhooks: readonly DeveloperWebhookRecord[
 
 function DeliveryTable({ deliveries }: { deliveries: readonly DeveloperDeliveryRecord[] }) {
   return <EditorialTable caption="Safe webhook delivery metadata" mobileMode="stack" rows={deliveries} emptyState={<p className="eo-table-empty" role="status">No webhook deliveries are available.</p>} columns={[
-    { id: "event", header: "Event", priority: "primary", cell: (delivery) => <Link className="font-mono text-sm font-semibold text-[var(--eo-operational)] hover:underline" href={`/developers/webhook-deliveries/${delivery.reference}`}>{delivery.eventType ?? "Event metadata unavailable"}</Link> },
+    { id: "event", header: "Event", priority: "primary", cell: (delivery) => <Link className="font-mono text-sm font-semibold text-[var(--eo-operational)] " href={`/developers/webhook-deliveries/${delivery.reference}`}>{delivery.eventType ?? "Event metadata unavailable"}</Link> },
     { id: "endpoint", header: "Endpoint", priority: "secondary", cell: (delivery) => delivery.webhookEndpoint },
     { id: "state", header: "Delivery state", cell: (delivery) => <DeliveryStatus delivery={delivery} /> },
     { id: "attempts", header: "Attempts", align: "end", priority: "secondary", cell: (delivery) => delivery.attemptCount },

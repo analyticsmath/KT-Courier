@@ -219,7 +219,7 @@ export function CustomerSecurityWorkbench({
           <div className="flex gap-2">
             <Link
               href="/forgot-password"
-              className="inline-flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium text-[var(--kt-brand-blue)] hover:bg-[var(--kt-surface-muted)] transition-colors"
+              className="inline-flex items-center px-3 py-1.5 rounded-lg border text-xs font-medium text-[var(--kt-brand-blue)]  transition-colors"
             >
               Reset / Change Password
             </Link>
@@ -318,7 +318,7 @@ export function CustomerSecurityWorkbench({
                   const isActive = !isRevoked && !isExpired;
 
                   return (
-                    <tr key={session.id} className="hover:bg-slate-50/50">
+                    <tr key={session.id} className="">
                       <td className="py-3 px-3 font-mono text-[var(--kt-text-soft)]">
                         {session.id.substring(0, 10)}...
                       </td>
@@ -382,7 +382,7 @@ export function CustomerSecurityWorkbench({
                 </tr>
               ) : (
                 initialLoginHistory.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50">
+                  <tr key={item.id} className="">
                     <td className="py-3 px-3 font-mono">{new Date(item.createdAt).toLocaleString()}</td>
                     <td className="py-3 px-3">
                       {item.success ? (
@@ -490,7 +490,7 @@ export function CustomerSecurityWorkbench({
                   </tr>
                 ) : (
                   privacyRequests.map((req) => (
-                    <tr key={req.id} className="hover:bg-slate-50/50">
+                    <tr key={req.id} className="">
                       <td className="py-3 px-3 font-mono font-medium text-[var(--kt-brand-blue)]">
                         {req.publicReference}
                       </td>

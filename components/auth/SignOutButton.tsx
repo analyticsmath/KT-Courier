@@ -18,6 +18,7 @@ export function SignOutButton() {
 
   return (
     <button
+      data-kt-static-signout
       type="button"
       onClick={handleSignOut}
       disabled={loading}

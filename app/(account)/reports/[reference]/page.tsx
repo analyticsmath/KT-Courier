@@ -81,7 +81,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ referen
             <h1 className="text-xl font-bold text-gray-900">Report Job {job.publicReference}</h1>
             <p className="text-sm text-gray-500">{job.definitionKey}</p>
           </div>
-          <Link href="/reports" className="text-sm text-blue-600 hover:underline">
+          <Link href="/reports" className="text-sm text-blue-600 ">
             &larr; Back to Reports
           </Link>
         </div>
@@ -118,7 +118,7 @@ export default function ReportDetailPage({ params }: { params: Promise<{ referen
               <button
                 onClick={handleDownload}
                 disabled={downloading}
-                className="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition"
+                className="mt-2 bg-green-600  text-white text-sm font-medium py-2 px-4 rounded transition"
               >
                 {downloading ? "Preparing Download..." : "Download Export Artifact"}
               </button>

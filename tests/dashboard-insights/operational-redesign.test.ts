@@ -59,9 +59,10 @@ describe("Dashboard operational design regression", () => {
     expect(page).toContain("<ProtectedPagination");
   });
 
-  it("uses an original logistics illustration and an intentional artwork column", () => {
+  it("loads illustrations through the owning CSS module", () => {
     expect(read("components/protected-v2/dashboard/DashboardIllustrationAsset.tsx")).toContain("OperationsSceneIllustration");
-    expect(read("components/protected-v2/dashboard/dashboard-premium.css")).toContain(".ktDashboard .headerArtwork");
+    expect(read("components/protected-v2/dashboard/DashboardCanvas.tsx")).not.toContain("dashboard-premium.css");
+    expect(read("components/protected-v2/dashboard/dashboard.module.css")).toContain("--dash-brand:#176b50");
     const illustration = read("components/protected-v2/illustrations/OperationsSceneIllustration.tsx");
     expect(illustration).toContain("<svg");
     expect(illustration).toContain("scene-blue");

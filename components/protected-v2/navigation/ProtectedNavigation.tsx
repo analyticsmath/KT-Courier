@@ -31,7 +31,7 @@ export function ProtectedNavigationLinks({ groups, onNavigate, compact = false, 
 
   return (
     <div className="eo-navigation-links">
-      {searchable ? <label className="eo-navigation-search"><span>Find a workspace</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search navigation" /></label> : null}
+      {searchable ? <label className="eo-navigation-search"><span>Find a workspace</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search navigation" aria-label="Search navigation" /></label> : null}
       {visibleGroups.length === 0 ? <p role="status" className="eo-navigation-search">No matching destinations.</p> : null}
       {visibleGroups.map((group) => {
         const isOpen = Boolean(query.trim()) || openGroups.has(group.id);
@@ -92,10 +92,9 @@ type ProtectedDesktopNavigationProps = {
 };
 
 export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer, searchable }: ProtectedDesktopNavigationProps) {
-  const [railExpanded, setRailExpanded] = useState(false);
 
   return (
-    <aside aria-label={`${contextLabel} primary navigation`} className={cn("eo-desktop-navigation", railExpanded && "is-rail-expanded")}>
+    <aside aria-label={`${contextLabel} primary navigation`} className="eo-desktop-navigation is-rail-expanded">
       <div className="eo-desktop-navigation__brand">
         <Link aria-label="KT Couriers home" className="eo-brand" href="/">
           <span className="eo-brand__mark flex items-center justify-center p-0.5 overflow-hidden !bg-transparent !border-0">
@@ -111,19 +110,11 @@ export function ProtectedDesktopNavigation({ contextLabel, groups, user, footer,
           </span>
           <span className="eo-brand__wordmark">KT Couriers</span>
         </Link>
-        <button
-          aria-label={railExpanded ? "Collapse navigation labels" : "Expand navigation labels"}
-          aria-pressed={railExpanded}
-          className="eo-rail-control"
-          onClick={() => setRailExpanded((current) => !current)}
-          type="button"
-        >
-          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path d={railExpanded ? "m15 18-6-6 6-6" : "m9 18 6-6-6-6"} /></svg>
-        </button>
+
       </div>
       <p className="eo-desktop-navigation__context">{contextLabel}</p>
       <nav aria-label={`${contextLabel} sections`} className="eo-desktop-navigation__scroll">
-        <ProtectedNavigationLinks compact={!railExpanded} groups={groups} searchable={searchable} />
+        <ProtectedNavigationLinks compact={false} groups={groups} searchable={searchable} />
       </nav>
       <div className="eo-desktop-navigation__account">
         <div className="eo-user-summary">

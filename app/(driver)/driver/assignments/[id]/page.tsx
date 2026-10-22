@@ -703,7 +703,7 @@ export default function DriverAssignmentDetailPage() {
                 <Button
                   variant="ghost"
                   onClick={() => { setPickupAction("fail"); setPickupError(null); }}
-                  className="text-[var(--kt-signal-red)] border-[var(--kt-signal-red)]/30 hover:bg-[var(--kt-signal-red)]/5"
+                  className="text-[var(--kt-signal-red)] border-[var(--kt-signal-red)]/30 "
                 >
                   Pickup Failed
                 </Button>
@@ -789,7 +789,7 @@ export default function DriverAssignmentDetailPage() {
                   onChange={(e) => setCompleteConfirm(e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded accent-[var(--kt-signal-cobalt)]"
                 />
-                <span className="text-sm font-semibold text-[var(--kt-ink-navy)] group-hover:text-[var(--kt-signal-cobalt)]">
+                <span className="text-sm font-semibold text-[var(--kt-ink-navy)] ">
                   I confirm the parcel has been collected.
                 </span>
               </label>
@@ -836,7 +836,7 @@ export default function DriverAssignmentDetailPage() {
                   type="submit"
                   variant="secondary"
                   disabled={pickupLoading}
-                  className="border-[var(--kt-signal-red)]/40 text-[var(--kt-signal-red)] hover:bg-[var(--kt-signal-red)]/5"
+                  className="border-[var(--kt-signal-red)]/40 text-[var(--kt-signal-red)] "
                 >
                   {pickupLoading ? "Submitting…" : "Record Pickup Failure"}
                 </Button>
@@ -1042,7 +1042,7 @@ export default function DriverAssignmentDetailPage() {
                   onChange={(e) => setDeliveryConfirm(e.target.checked)}
                   className="mt-0.5 w-4 h-4 rounded accent-[var(--kt-signal-cobalt)]"
                 />
-                <span className="text-sm font-semibold text-[var(--kt-ink-navy)] group-hover:text-[var(--kt-signal-cobalt)]">
+                <span className="text-sm font-semibold text-[var(--kt-ink-navy)] ">
                   I confirm the parcel has been delivered and the OTP code is correct.
                 </span>
               </label>

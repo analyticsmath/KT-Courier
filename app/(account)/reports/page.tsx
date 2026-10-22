@@ -151,7 +151,7 @@ export default function ReportsPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md disabled:opacity-50 transition"
+                className="w-full bg-blue-600  text-white font-medium py-2 px-4 rounded-md disabled:opacity-50 transition"
               >
                 {submitting ? "Requesting..." : "Generate Export"}
               </button>
@@ -180,7 +180,7 @@ export default function ReportsPage() {
                 </thead>
                 <tbody className="divide-y text-gray-800">
                   {jobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
+                    <tr key={job.id} className="">
                       <td className="p-3 font-mono font-medium">{job.publicReference}</td>
                       <td className="p-3">{job.definitionKey}</td>
                       <td className="p-3">{job.outputFormat}</td>
@@ -202,7 +202,7 @@ export default function ReportsPage() {
                       <td className="p-3">
                         <Link
                           href={`/reports/${job.publicReference}`}
-                          className="text-blue-600 hover:underline font-medium"
+                          className="text-blue-600  font-medium"
                         >
                           View & Download
                         </Link>

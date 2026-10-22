@@ -49,7 +49,6 @@ export function EditorialTopbar({
         <button aria-label="Open navigation" className="eo-icon-button eo-topbar__menu-button" onClick={onNavigationOpen} type="button">
           <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
-        <span className="eo-topbar__workspace" aria-hidden="true">KT<span> / </span>WORKSPACE</span>
         <p className="eo-topbar__context">{contextLabel}</p>
       </div>
       <div className="eo-topbar__actions">

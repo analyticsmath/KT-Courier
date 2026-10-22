@@ -1,11 +1,8 @@
 .scope { display: grid; gap: var(--eo-space-6); }
 .actions { display: flex; flex-wrap: wrap; gap: var(--eo-space-2); }
 .action { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); padding: 0 var(--eo-space-3); color: var(--eo-text-secondary); font-size: .8125rem; font-weight: 650; }
-.action:hover { border-color: var(--eo-operational); color: var(--eo-operational); }
 .actionPrimary { border-color: var(--eo-surface-dark); background: var(--eo-surface-dark); color: #fff; }
-.actionPrimary:hover { border-color: var(--eo-text-secondary); background: var(--eo-text-secondary); color: #fff; }
 .reference { color: var(--eo-operational); font-family: var(--eo-font-mono); font-size: .8125rem; font-weight: 650; text-decoration: none; }
-.reference:hover { text-decoration: underline; text-underline-offset: 3px; }
 .summary { display: grid; gap: var(--eo-space-4); }
 .facts { display: grid; gap: var(--eo-space-3); margin: 0; }
 .facts > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--eo-space-3); border-bottom: 1px solid var(--eo-line-soft); padding-bottom: var(--eo-space-2); }

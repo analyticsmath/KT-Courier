@@ -10,13 +10,15 @@ describe("KT operations studio v4 structure", () => {
     const navigation = read("components/protected-v2/navigation/ProtectedNavigation.tsx");
     expect(navigation).toContain("/media/public/illustrations/logo.svg");
     expect(topbar).not.toContain("/media/public/illustrations/logo.svg");
-    expect(topbar).toContain("eo-topbar__workspace");
+    expect(topbar).not.toContain("eo-topbar__workspace");
   });
-  it("replaces the four compulsory metric cards with a composed operational cover", () => {
+  it("prioritizes activity and dispatch over a promotional cover", () => {
     const overview = read("components/protected-v2/admin/AdminCommandCentre.tsx");
-    expect(overview).toContain("studio.cover");
+    expect(overview).toContain("studio.volume");
     expect(overview).toContain("/media/dashboard/delivery-truck.webp");
-    expect(overview).toContain("studio.coverSignals");
+    expect(overview).toContain("studio.dispatchSummary");
+    expect(overview).not.toContain("See the whole network");
+    expect(overview).not.toContain(">01<");
     expect(overview).not.toContain('label="Courier order volume"');
   });
   it("makes driver readiness a readable ordered evidence list instead of eight cramped cards", () => {
@@ -44,9 +46,10 @@ describe("KT operations studio v4 structure", () => {
 
   it("keeps illustrations purposefully loaded and uses static WebP assets", () => {
     const overview = read("components/protected-v2/admin/AdminCommandCentre.tsx");
-    expect(overview).toContain('alt="Courier handing over a parcel"');
-    expect(overview).toContain('loading="eager"');
-    const css = read("components/protected-v2/admin/adminStudio.module.css");
-    expect(css).toContain("prefers-reduced-motion");
+    expect(overview).toContain('alt=""');
+    expect(overview).toContain('sizes="130px" priority');
+    const css = read("app/protected-workspace.css");
+    expect(css).toContain("animation:none!important");
+    expect(css).toContain("transition:none!important");
   });
 });

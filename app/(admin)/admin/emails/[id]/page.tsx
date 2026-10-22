@@ -44,7 +44,7 @@ export default async function EmailLogDetailPage({
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-2 text-sm text-[var(--kt-text-muted)]">
-        <Link href="/admin/emails" className="hover:text-[var(--kt-signal-cobalt)] transition-colors">
+        <Link href="/admin/emails" className=" transition-colors">
           Email Logs
         </Link>
         <span>/</span>
@@ -80,12 +80,12 @@ export default async function EmailLogDetailPage({
         )}
         <Row label="Related user" value={
           log.relatedUserId
-            ? <Link href={`/admin/users/${log.relatedUserId}`} className="text-[var(--kt-signal-cobalt)] hover:underline font-mono text-xs">{log.relatedUserId}</Link>
+            ? <Link href={`/admin/users/${log.relatedUserId}`} className="text-[var(--kt-signal-cobalt)]  font-mono text-xs">{log.relatedUserId}</Link>
             : null
         } />
         <Row label="Related order" value={
           log.relatedOrderId
-            ? <Link href={`/admin/orders/${log.relatedOrderId}`} className="text-[var(--kt-signal-cobalt)] hover:underline font-mono text-xs">{log.relatedOrderId}</Link>
+            ? <Link href={`/admin/orders/${log.relatedOrderId}`} className="text-[var(--kt-signal-cobalt)]  font-mono text-xs">{log.relatedOrderId}</Link>
             : null
         } />
       </AdministrationPanel>

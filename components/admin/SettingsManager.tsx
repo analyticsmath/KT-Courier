@@ -97,7 +97,7 @@ function SettingRow({ setting }: SettingRowProps) {
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
                 rawValue === v
                   ? "border-[--kt-brand-blue] bg-[--kt-blue-soft] text-[--kt-brand-blue]"
-                  : "border-[--kt-border] text-[--kt-text-soft] hover:border-[--kt-brand-blue]"
+                  : "border-[--kt-border] text-[--kt-text-soft] "
               }`}
             >
               {v}

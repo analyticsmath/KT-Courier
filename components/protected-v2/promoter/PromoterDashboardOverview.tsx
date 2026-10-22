@@ -203,7 +203,7 @@ export function PromoterDashboardOverview({
               </div>
               <div className="flex justify-between items-center text-sm py-1.5 border-b border-[var(--dash-charcoal-line)]">
                 <span className="text-[var(--dash-charcoal-muted)]">Notifications</span>
-                <Link className="text-[var(--dash-brand-border)] hover:underline" href="/promoter/notifications">
+                <Link className="text-[var(--dash-brand-border)] " href="/promoter/notifications">
                   {unreadNotifications} unread
                 </Link>
               </div>

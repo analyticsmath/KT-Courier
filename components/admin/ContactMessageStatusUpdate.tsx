@@ -93,7 +93,7 @@ export function ContactMessageStatusUpdate({
             className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
               selected === status
                 ? "border-[--kt-brand-blue] bg-[--kt-blue-soft] text-[--kt-brand-blue]"
-                : "border-[--kt-border] text-[--kt-text-soft] hover:border-[--kt-brand-blue]"
+                : "border-[--kt-border] text-[--kt-text-soft] "
             }`}
           >
             → {STATUS_LABELS[status]}

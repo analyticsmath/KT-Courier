@@ -15,7 +15,6 @@
 .scope :global(.eo-driver-record-list) { display: grid; gap: var(--eo-space-2); margin: 0; padding: 0; list-style: none; }
 .scope :global(.eo-driver-record) { border: 1px solid var(--eo-line-soft); border-radius: var(--eo-radius-control); background: var(--eo-surface); }
 .scope :global(.eo-driver-record__link) { display: block; min-height: 76px; padding: var(--eo-space-3); color: var(--eo-text); text-decoration: none; }
-.scope :global(.eo-driver-record__link:hover) { background: var(--eo-surface-subtle); }
 .scope :global(.eo-driver-record__reference) { font-family: var(--eo-font-mono); font-size: .875rem; font-weight: 650; }
 .scope :global(.eo-driver-record__route) { margin-top: 5px !important; color: var(--eo-text); font-size: .875rem; font-weight: 650; }
 .scope :global(.eo-driver-record__facts) { display: flex; flex-wrap: wrap; gap: 5px var(--eo-space-3); margin-top: 5px !important; color: var(--eo-text-muted); font-size: .75rem; line-height: 1.35; }
@@ -28,13 +27,11 @@
 .scope :global(.eo-driver-context-list li:last-child) { border-bottom: 0; padding-bottom: 0; }
 .scope :global(.eo-driver-button) { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); padding: 9px 14px; color: var(--eo-text); font-size: .875rem; font-weight: 650; line-height: 1.2; text-decoration: none; }
 .scope :global(.eo-driver-button--primary) { border-color: var(--eo-surface-dark); background: var(--eo-surface-dark); color: #fff; }
-.scope :global(.eo-driver-button--primary:hover) { background: var(--eo-text-secondary); }
 .scope :global(.eo-driver-button--secondary) { background: var(--eo-surface); }
 .scope :global(.eo-driver-money) { margin: 0; color: var(--eo-text); font-size: 1.35rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .scope :global(.eo-driver-detail-grid) { display: grid; gap: var(--eo-space-4); grid-template-columns: minmax(0, 1fr); }
 .scope :global(.eo-driver-availability-options) { display: grid; gap: var(--eo-space-2); grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--eo-space-4); }
 .scope :global(.eo-driver-availability-option) { display: grid; min-height: 104px; align-content: center; gap: 5px; border: 1px solid var(--eo-line-strong); border-radius: var(--eo-radius-control); background: var(--eo-surface); padding: var(--eo-space-3); color: var(--eo-text); text-align: left; }
-.scope :global(.eo-driver-availability-option:hover:not(:disabled)) { background: var(--eo-surface-subtle); }
 .scope :global(.eo-driver-availability-option[aria-pressed="true"]) { border-color: var(--eo-operational); box-shadow: inset 3px 0 0 var(--eo-operational); }
 .scope :global(.eo-driver-availability-option strong) { font-size: .875rem; }
 .scope :global(.eo-driver-availability-option span) { color: var(--eo-text-secondary); font-size: .75rem; line-height: 1.35; }

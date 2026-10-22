@@ -177,7 +177,7 @@ export function LegalDocumentsManager({ initialDocuments }: LegalDocumentsManage
               </tr>
             ) : (
               documents.map((doc) => (
-                <tr key={doc.publicReference} className="hover:bg-[--kt-surface-muted]/50">
+                <tr key={doc.publicReference} className="">
                   <td className="p-3 font-mono text-xs font-bold">{doc.publicReference}</td>
                   <td className="p-3 text-xs font-semibold">{doc.documentType}</td>
                   <td className="p-3 font-mono text-xs">{doc.version}</td>
@@ -282,7 +282,7 @@ export function LegalDocumentsManager({ initialDocuments }: LegalDocumentsManage
               <button
                 type="button"
                 onClick={() => setActiveDoc(null)}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                className="text-gray-500  text-lg font-bold"
               >
                 ×
               </button>

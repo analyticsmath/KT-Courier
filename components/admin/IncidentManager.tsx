@@ -230,7 +230,7 @@ export function IncidentManager({ initialIncidents }: IncidentManagerProps) {
               </tr>
             ) : (
               filteredIncidents.map((inc) => (
-                <tr key={inc.publicReference} className="hover:bg-[--kt-surface-muted]/50">
+                <tr key={inc.publicReference} className="">
                   <td className="p-3 font-mono text-xs font-bold">{inc.publicReference}</td>
                   <td className="p-3">
                     <span
@@ -342,7 +342,7 @@ export function IncidentManager({ initialIncidents }: IncidentManagerProps) {
               <button
                 type="button"
                 onClick={() => setActiveIncident(null)}
-                className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+                className="text-gray-500  text-lg font-bold"
               >
                 ×
               </button>

@@ -147,7 +147,7 @@ export function ProcessorOperationsManager({ processors: initialProcessors }: Pr
                 p.lastRun?.leaseExpiresAt && new Date(p.lastRun.leaseExpiresAt) > new Date();
 
               return (
-                <tr key={p.name} className="hover:bg-[--kt-surface-muted]/50">
+                <tr key={p.name} className="">
                   <td className="p-3">
                     <p className="kt-processor-workspace__name">{p.name}</p>
                     <p className="kt-processor-workspace__purpose">{p.purpose}</p>

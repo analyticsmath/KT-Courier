@@ -57,7 +57,7 @@ export default async function AdminVehiclesPage() {
                   {vehicles.map((v) => {
                     const approvedDocs = v.documents.filter((d) => d.status === "APPROVED").length;
                     return (
-                      <tr key={v.id} className="hover:bg-[var(--kt-cool-gray)] transition-colors">
+                      <tr key={v.id} className=" transition-colors">
                         <td className="py-3 px-3 font-bold text-[var(--kt-ink-navy)]">
                           {v.make} {v.model} {v.year ? `(${v.year})` : ""}
                           <span className="block text-[10px] text-[var(--kt-text-muted)] font-normal">
@@ -104,7 +104,7 @@ export default async function AdminVehiclesPage() {
                           {v.driverProfile?.id && (
                             <Link
                               href={`/admin/drivers/${v.driverProfile.id}`}
-                              className="text-xs font-bold text-[var(--kt-signal-cobalt)] hover:underline"
+                              className="text-xs font-bold text-[var(--kt-signal-cobalt)] "
                             >
                               Inspect Driver →
                             </Link>

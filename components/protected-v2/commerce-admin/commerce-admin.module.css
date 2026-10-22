@@ -1,6 +1,6 @@
 .workspaceNav { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; scrollbar-width: thin; }
 .workspaceNav a { min-height: 2.5rem; border: 1px solid var(--eo-line); border-radius: 999px; background: var(--eo-surface); color: var(--eo-text-secondary); padding: .55rem .75rem; font-size: .8125rem; font-weight: 650; text-decoration: none; white-space: nowrap; }
-.workspaceNav a:hover, .workspaceNav a:focus-visible { border-color: var(--eo-operational); color: var(--eo-operational); outline: none; }
+ .workspaceNav a:focus-visible { border-color: var(--eo-operational); color: var(--eo-operational); outline: none; }
 .workspaceNav a[aria-current="page"] { border-color: var(--eo-operational); background: var(--eo-operational-soft); color: var(--eo-operational); }
 .definitionGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .75rem 1rem; margin: 0; }
 .definitionGrid > div { border-bottom: 1px solid var(--eo-line-soft); padding-bottom: .65rem; }

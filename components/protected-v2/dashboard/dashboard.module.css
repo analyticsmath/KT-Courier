@@ -548,18 +548,11 @@
   color: #FFFFFF;
   border-color: var(--dash-brand);
 }
-.btnPrimary:hover {
-  background-color: var(--dash-brand-strong);
-  border-color: var(--dash-brand-strong);
-}
 
 .btnSecondary {
   background-color: var(--dash-surface);
   color: var(--dash-ink);
   border-color: var(--dash-line-strong);
-}
-.btnSecondary:hover {
-  background-color: var(--dash-surface-muted);
 }
 
 .btnDark {
@@ -567,16 +560,10 @@
   color: #FFFFFF;
   border-color: var(--dash-charcoal-line);
 }
-.btnDark:hover {
-  background-color: var(--dash-charcoal-subtle);
-}
 
 .btnQuiet {
   background-color: transparent;
   color: var(--dash-ink);
-}
-.btnQuiet:hover {
-  background-color: var(--dash-surface-muted);
 }
 
 .btnSm {
@@ -631,11 +618,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.recordTitle:hover {
-  color: var(--dash-brand);
-  text-decoration: underline;
 }
 
 .recordSub {
@@ -1226,7 +1208,6 @@
 .btnPrimary { color: #FFFFFF; }
 .btnDark { color: #FFFFFF; }
 .btnQuiet { color: #315CFD; }
-.btnQuiet:hover { background: #EFF3FF; color: #244DDD; }
 .btnSm {
   min-height: 34px;
   padding: 6px 11px;
@@ -1403,7 +1384,7 @@
   white-space: normal;
   line-height: 1.35;
 }
-.toneDark .quickAccessList .btnDark:hover,
+
 .toneDark .quickAccessList .btnDark:focus-visible {
   background: #33405A;
   border-color: #5B6C8B;
@@ -1475,7 +1456,6 @@
   line-height: 1.4;
 }
 .queueTable tbody tr:last-child td { border-bottom: 0; }
-.queueTable tbody tr:hover { background: #F8FAFF; }
 .queueTable td:first-child { min-width: 115px; }
 .queueTable td:last-child { width: 1%; }
 .queueReference {
@@ -1486,7 +1466,6 @@
   letter-spacing: -0.025em;
   overflow-wrap: anywhere;
 }
-a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underline-offset: 3px; }
 .queueRoute { min-width: 150px; overflow-wrap: anywhere; }
 .queueDate { color: #79859B !important; white-space: nowrap; font-size: 0.725rem; }
 .queueStatus { text-align: right; }
@@ -1507,7 +1486,6 @@ a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underl
     border: 1px solid #E7ECF5;
     background: #F9FBFE;
   }
-  .queueTable tbody tr:hover { background: #F4F7FF; }
   .queueTable td {
     display: block;
     width: auto;
@@ -1543,10 +1521,9 @@ a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underl
   border-color: #465574;
   color: #FFFFFF;
 }
-.toneDark .btnDark:hover,
+
 .toneDark .btnDark:focus-visible { background: #3A4A6B; border-color: #62749A; }
 .toneDark .btnQuiet { color: #D3DFFF; }
-.toneDark .btnQuiet:hover { color: #FFFFFF; background: #32425F; }
 .toneDark .emptyState { background: #212C42; border-color: #445372; }
 .toneDark .emptyStateTitle { color: #FFFFFF; }
 .toneDark .emptyStateDesc { color: #CAD3E5; }
@@ -1566,3 +1543,63 @@ a.queueReference:hover { color: #315CFD; text-decoration: underline; text-underl
   .headerActions > * { max-width: 100%; }
   .recordTitle { overflow-wrap: anywhere; white-space: normal; }
 }
+
+/* Shared static workspace tokens. Keep these in the module that owns the classes. */
+.ktDashboard {
+  --dash-canvas:transparent; --dash-surface:#fff; --dash-surface-subtle:#f7f9f7; --dash-surface-muted:#e9eeeb;
+  --dash-ink:#202522; --dash-ink-secondary:#515a55; --dash-muted:#515a55;
+  --dash-line:#e2e7e4; --dash-line-strong:#b8c4bd;
+  --dash-charcoal:#202d27; --dash-charcoal-subtle:#34483c; --dash-charcoal-line:#48564e;
+  --dash-charcoal-text:#fff; --dash-charcoal-muted:#fff;
+  --dash-brand:#176b50; --dash-brand-strong:#176b50; --dash-brand-soft:#edf3ee; --dash-brand-border:#c6d8cb;
+  --dash-green:#176b50; --dash-green-soft:#edf3ee; --dash-green-border:#c6d8cb;
+  --dash-teal:#42584b; --dash-teal-soft:#edf3ee; --dash-teal-border:#c6d8cb;
+  --dash-neutral-data:#a8b7ad; --dash-orange:#515a55; --dash-orange-soft:#f1f4f2;
+  --dash-yellow:#515a55; --dash-yellow-soft:#f1f4f2; --dash-lime:#72864a; --dash-lime-soft:#e8f0d6;
+  --dash-shadow-subtle:none; --dash-shadow-card:none;
+  color:#202522; background:transparent;
+}
+.ktDashboard .canvas {gap:22px;}
+.ktDashboard .card {border-color:var(--dash-line); border-radius:16px; box-shadow:none;}
+.ktDashboard .padCompact {padding:20px;}
+.ktDashboard .padNormal {padding:24px;}
+.ktDashboard .padSpacious {padding:28px;}
+.ktDashboard .cardEyebrow,.ktDashboard .eyebrow {display:none;}
+.ktDashboard .cardTitle {font-size:1rem; font-weight:600; color:inherit; letter-spacing:-.02em; line-height:1.4;}
+.ktDashboard .cardDescription {font-size:.78rem; line-height:1.55; color:var(--dash-ink-secondary);}
+.ktDashboard .cardHeader {flex-wrap:wrap; gap:12px; align-items:start;}
+.ktDashboard .cardHeadingGroup {min-width:0; flex:1 1 220px;}
+.ktDashboard .cardAction {max-width:100%; min-width:0;}
+.ktDashboard .toneDark {color:#fff; background:var(--dash-charcoal); border-color:var(--dash-charcoal);}
+.ktDashboard .toneDark :is(.cardTitle,.cardDescription,.metricValue,.metricLabel,.metricMeta) {color:#fff;}
+.ktDashboard .toneBrand {color:var(--dash-ink); background:#edf3ee; border-color:#dce5df;}
+.ktDashboard .toneBrand :is(.cardTitle,.cardDescription,.metricValue,.metricLabel,.metricMeta) {color:var(--dash-ink);}
+.ktDashboard .metricValue {font-size:2.4rem; font-weight:600; letter-spacing:-.05em;}
+.ktDashboard .metricLabel {color:inherit; font-size:.8rem; font-weight:550;}
+.ktDashboard .metricMeta {font-size:.73rem; color:var(--dash-muted);}
+.ktDashboard .metricDelta {color:inherit; border:0; border-radius:0; background:transparent; font-weight:500;}
+.ktDashboard .btn {border-radius:8px; min-height:40px; padding:9px 14px; font-size:.78rem; font-weight:600; white-space:normal;}
+.ktDashboard .btnPrimary,.ktDashboard .btnDark {color:#fff; background:#202522; border-color:#202522;}
+.ktDashboard .btnSecondary {color:#202522; background:#fff; border-color:#c8d2cb;}
+.ktDashboard .btnQuiet {color:inherit; background:transparent; text-decoration:underline; text-underline-offset:4px;}
+.ktDashboard .chip {padding:0; border:0; background:transparent; color:inherit; border-radius:0; font-size:.76rem; font-weight:550;}
+.ktDashboard .emptyState {background:#f7f9f7; border:0; border-radius:10px; min-height:140px;}
+.ktDashboard .emptyStateTitle {color:inherit; font-weight:550; font-size:.9rem;}
+.ktDashboard .emptyStateDesc {color:var(--dash-muted); font-size:.8rem;}
+.ktDashboard .queueTableWrap {max-width:100%; overflow-x:auto; border-radius:0;}
+.ktDashboard .queueTable {width:100%; min-width:480px; font-size:.8rem;}
+.ktDashboard .queueTable th {background:#f4f7f4; padding:13px 14px; color:#515a55; text-transform:none; letter-spacing:0; font-weight:550; font-size:.74rem; border-radius:0;}
+.ktDashboard .queueTable td {padding:16px 14px; color:var(--dash-ink); border-color:#e9eeeb; line-height:1.5;}
+.ktDashboard .queueTable td:last-child {width:auto; min-width:125px;}
+.ktDashboard .queueReference {color:inherit; font-family:inherit; font-weight:600; font-size:.79rem; text-decoration:underline; text-underline-offset:3px; white-space:nowrap;}
+.ktDashboard .queueDate {font-size:.74rem; color:#515a55!important;}
+.ktDashboard .queueStatus {text-align:left;}
+.ktDashboard .queueStatus>* {margin-left:0;}
+.ktDashboard .coverageList {display:flex; flex-direction:column; gap:0;}
+.ktDashboard .coverageItem {border:0; border-radius:0; background:transparent; padding:11px 0; border-bottom:1px solid #e9eeeb;}
+.ktDashboard .coverageName {color:var(--dash-ink); font-size:.78rem; font-weight:550; line-height:1.45;}
+.ktDashboard .coverageCity {color:#515a55; font-size:.72rem;}
+.ktDashboard .header {padding:0 0 12px; min-height:0; border:0; background:transparent;}
+.ktDashboard .title {font-size:clamp(1.85rem,2.6vw,2.65rem); font-weight:650; letter-spacing:-.045em; color:inherit;}
+.ktDashboard .description {color:#515a55; font-size:.875rem;}
+@media(max-width:639px){.ktDashboard .padNormal,.ktDashboard .padSpacious {padding:18px;} .ktDashboard .canvas {gap:16px;} .ktDashboard .cardHeader {display:flex;flex-direction:column;} .ktDashboard .cardHeadingGroup {flex:auto;} .ktDashboard .queueTable {min-width:440px;} }

@@ -27,7 +27,7 @@ export default async function CustomerRefundsPage({ searchParams }: { searchPara
           rows={rows}
           emptyState={<p className="eo-table-empty" role="status">No refund requests yet.</p>}
           columns={[
-            { id: "reference", header: "Reference", cell: (refund) => <Link href={`/account/refunds/${refund.publicReference}`} className="font-mono font-semibold text-[var(--eo-operational)] hover:underline">{refund.publicReference}</Link> },
+            { id: "reference", header: "Reference", cell: (refund) => <Link href={`/account/refunds/${refund.publicReference}`} className="font-mono font-semibold text-[var(--eo-operational)] ">{refund.publicReference}</Link> },
             { id: "amount", header: "Amount", align: "end", cell: (refund) => formatCustomerMoney(refund.amount, refund.currency) },
             { id: "method", header: "Method", cell: (refund) => refund.method === "CUSTOMER_WALLET" ? "Customer wallet" : "Original payment method" },
             { id: "status", header: "Status", cell: (refund) => { const status = getCustomerRefundStatus(refund.status); return <ProtectedStatus label={status.label} tone={status.tone} />; } },

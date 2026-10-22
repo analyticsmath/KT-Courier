@@ -68,12 +68,6 @@
     font-size: 0.8125rem;
     font-weight: 650;
   }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-topbar__primary-action:hover,
-  [data-kt-protected-system="editorial-operations-v1"] .eo-button--primary:hover {
-    border-color: #3559F4;
-    background: #3559F4;
-    color: #FFFFFF;
-  }
   [data-kt-protected-system="editorial-operations-v1"] .eo-desktop-navigation {
     border-right: 1px solid #E9ECF4;
     background: #FFFFFF;
@@ -100,11 +94,6 @@
     color: #4B546B;
     font-size: 0.83rem;
     font-weight: 570;
-  }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-link:hover {
-    color: #141928;
-    background: #F5F7FE;
-    border-color: #F5F7FE;
   }
   [data-kt-protected-system="editorial-operations-v1"] .eo-navigation-link.is-current {
     color: #294ED9;
@@ -266,18 +255,11 @@
     font-weight: 700;
     letter-spacing: -.01em;
   }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-table tbody tr:hover {
-    background: #F7F9FF;
-  }
   [data-kt-protected-system="editorial-operations-v1"] .eo-table td a {
     color: #3154DE;
     font-size: .78rem;
     font-weight: 670;
     text-decoration: none;
-  }
-  [data-kt-protected-system="editorial-operations-v1"] .eo-table td a:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
   }
   [data-kt-protected-system="editorial-operations-v1"] .eo-table__secondary-note {
     font-size: .75rem;

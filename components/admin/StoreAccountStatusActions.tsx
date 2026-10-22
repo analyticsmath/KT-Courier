@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { StoreStatus } from "@/types/db";
 
 type ActionableStatus = "ACTIVE" | "SUSPENDED" | "DISABLED";
-export function StoreAccountStatusActions({ storeId, status }: { storeId: string; status: StoreStatus }) {
+export function StoreAccountStatusActions({ storeId, status, summaryLabel = "Manage store" }: { storeId: string; status: StoreStatus; summaryLabel?: string }) {
   const router = useRouter();
   const pending = useRef(false);
   const [reason, setReason] = useState("");
@@ -40,7 +40,7 @@ export function StoreAccountStatusActions({ storeId, status }: { storeId: string
     }
   }
   return <details className="min-w-40 text-sm">
-    <summary className="cursor-pointer rounded-md border px-3 py-2 font-medium">Manage store</summary>
+    <summary className="cursor-pointer rounded-md border px-3 py-2 font-medium">{summaryLabel}</summary>
     <div className="mt-2 space-y-2">
       <label className="block"><span className="block text-xs">Status change reason</span>
         <textarea aria-label="Store status reason" className="mt-1 min-h-20 w-full rounded-md border p-2" maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Non-payment, policy breach, or reason for reinstatement" />

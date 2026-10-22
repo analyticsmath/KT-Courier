@@ -34,7 +34,7 @@ export default async function Page() {
             <Link
               key={href}
               href={href}
-              className="border border-[var(--eo-border)] rounded-[var(--eo-radius-panel)] p-6 font-semibold hover:bg-[var(--eo-surface-subtle)]"
+              className="border border-[var(--eo-border)] rounded-[var(--eo-radius-panel)] p-6 font-semibold "
             >
               {label}
             </Link>

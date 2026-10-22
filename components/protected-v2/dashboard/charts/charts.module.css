@@ -36,11 +36,6 @@
   user-select: none;
 }
 
-.periodLink:hover {
-  color: var(--dash-ink);
-  background-color: rgba(255, 255, 255, 0.4);
-}
-
 .periodActive {
   background-color: var(--dash-surface);
   color: var(--dash-ink);
@@ -495,10 +490,6 @@
   user-select: none;
 }
 
-.chartAlternative summary:hover {
-  text-decoration: underline;
-}
-
 .chartAlternative table {
   width: 100%;
   min-width: 520px;
@@ -676,3 +667,22 @@
   .donutLegendItem { flex-wrap: wrap; }
   .barChartColumns { overflow: hidden; }
 }
+
+/* Data marks carry color. Chart labels remain a consistent neutral. */
+.periods {background:#f1f5f1; border-radius:8px; gap:2px; padding:4px;}
+.periodLink {color:#515a55; border-radius:5px; font-size:.72rem; font-weight:500; min-height:32px;}
+.periodActive {background:#fff; color:#202522; box-shadow:none; font-weight:600;}
+.donutCenterValue {color:#202522; font-weight:600;}
+.donutCenterText,.donutLegendLabel,.donutLegendValue,.donutLegendPercent {color:#515a55;}
+@media(max-width:420px){.periods {flex-wrap:wrap; width:100%;} .periodLink {flex:1; text-align:center;}}
+.barFill {background:var(--dash-brand);}
+.barFillGreen {background:var(--dash-green);}
+.barFillTeal {background:var(--dash-teal);}
+.barFillCharcoal {background:var(--dash-charcoal);}
+.trendLine {stroke:var(--dash-brand);}
+.trendPoint {fill:var(--dash-brand);}
+.trendLineGreen {stroke:var(--dash-green);}
+.trendPointGreen {fill:var(--dash-green);}
+.trendLineTeal {stroke:var(--dash-teal);}
+.trendPointTeal {fill:var(--dash-teal);}
+.trendAxisLabel,.trendTick,.barLabel,.barCount,.barChartScale,.barChartDelta {color:#515a55;}

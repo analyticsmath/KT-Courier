@@ -14,7 +14,6 @@
 }
 
 .scope :global(.eo-button--primary) { border-color: var(--eo-surface-dark); background: var(--eo-surface-dark); color: #fff; }
-.scope :global(.eo-button--primary:hover) { background: var(--eo-text-secondary); }
 .scope :global(.eo-button--secondary) { border-color: var(--eo-line-strong); background: var(--eo-surface); }
 .scope :global(.eo-button--danger) { border-color: var(--eo-danger); background: var(--eo-danger-soft); color: #80211b; }
 .scope :global(.eo-button:disabled) { cursor: not-allowed; opacity: .62; }
@@ -24,7 +23,6 @@
 .scope :global(.eo-store-record-list) { display: grid; gap: var(--eo-space-2); }
 .scope :global(.eo-store-record-list__item) { border: 1px solid var(--eo-line-soft); border-radius: var(--eo-radius-control); }
 .scope :global(.eo-store-record-list__link) { display: flex; min-height: 58px; align-items: center; justify-content: space-between; gap: var(--eo-space-3); padding: var(--eo-space-3); color: var(--eo-text); text-decoration: none; }
-.scope :global(.eo-store-record-list__link:hover) { background: var(--eo-surface-subtle); }
 .scope :global(.eo-store-record-list__meta) { margin: 3px 0 0; color: var(--eo-text-muted); font-size: .75rem; line-height: 1.45; }
 .scope :global(.eo-store-queue-stages) { margin-top: var(--eo-space-3); color: var(--eo-text-secondary); font-size: .75rem; }
 .scope :global(.eo-store-queue-stages summary) { cursor: pointer; font-weight: 650; }
@@ -51,7 +49,6 @@
 .scope :global(.eo-store-issue-list) { grid-column: 1 / -1; display: grid; gap: 4px; color: #80211b; font-size: .75rem; }
 .catalogNavigation { display: flex; gap: var(--eo-space-2); overflow-x: auto; padding-bottom: 2px; }
 .catalogNavigation a { display: inline-flex; min-height: 44px; align-items: center; flex: 0 0 auto; border: 1px solid var(--eo-line); border-radius: var(--eo-radius-control); background: var(--eo-surface); padding: 8px 12px; color: var(--eo-text-secondary); font-size: .8125rem; font-weight: 650; text-decoration: none; }
-.catalogNavigation a:hover { border-color: var(--eo-line-strong); background: var(--eo-surface-subtle); color: var(--eo-text); }
 
 @media (max-width: 599px) {
   .scope :global(.eo-store-record-list__link) { align-items: flex-start; }
