@@ -329,6 +329,19 @@ async function main() {
   for (const storeId of touchedStoreIds) {
     await rebuildStorefrontStoreDocument(storeId);
   }
+  // A primary category is often a leaf. Its real ancestors also need public
+  // navigation projections, even when no product is assigned directly to them.
+  const categoryParents = await prisma.catalogCategory.findMany({ select: { id: true, parentId: true } });
+  const parentById = new Map(categoryParents.map(category => [category.id, category.parentId]));
+  for (const categoryId of [...touchedCategoryIds]) {
+    const visited = new Set<string>([categoryId]);
+    let parentId = parentById.get(categoryId);
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      touchedCategoryIds.add(parentId);
+      parentId = parentById.get(parentId);
+    }
+  }
   for (const categoryId of touchedCategoryIds) {
     await rebuildStorefrontCategoryDocument(categoryId);
   }
