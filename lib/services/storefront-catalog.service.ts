@@ -60,11 +60,16 @@ export async function getStorefrontStore(slug: string) {
   const rows = await prisma.$queryRaw<StoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount", "sourceUpdatedAt" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND "slug" = ${slug} LIMIT 1`);
   const row = rows[0];
   if (!row) return null;
-  const [products, storeCategories] = await Promise.all([
+  const [products, storeCategories, reviews] = await Promise.all([
     loadStorefrontDocuments({ storeSlug: row.slug, limit: 10000 }),
     getStorefrontStoreCategories(row.slug),
+    prisma.deliveryReview.aggregate({
+      where: { store: { slug: row.slug, status: "ACTIVE" } },
+      _avg: { rating: true },
+      _count: { rating: true },
+    }),
   ]);
-  return { reference: row.storePublicReference, slug: row.slug, name: row.name, ...(row.shortDescription ? { description: row.shortDescription } : {}), ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}), ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}), categories: storeCategories.map((c) => c.reference), storeCategories, fulfilmentModes: publicArray(row.fulfilmentModes), serviceAreaReferences: publicArray(row.serviceAreaReferences), publishedOfferCount: row.publishedOfferCount, scheduleStatus: publicStoreScheduleStatus(), products };
+  return { reference: row.storePublicReference, slug: row.slug, name: row.name, ...(row.shortDescription ? { description: row.shortDescription } : {}), ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}), ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}), categories: storeCategories.map((c) => c.reference), storeCategories, fulfilmentModes: publicArray(row.fulfilmentModes), serviceAreaReferences: publicArray(row.serviceAreaReferences), publishedOfferCount: row.publishedOfferCount, ratingAverage: reviews._count.rating ? Math.round((reviews._avg.rating ?? 0) * 10) / 10 : null, ratingCount: reviews._count.rating, scheduleStatus: publicStoreScheduleStatus(), products };
 }
 
 export type StorefrontModifierOptionDTO = {

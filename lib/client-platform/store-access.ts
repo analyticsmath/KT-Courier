@@ -20,8 +20,12 @@ export async function storeAccess(userId: string, section?: StoreModule) {
     where: { ownerUserId: userId },
     take: 2,
   });
-  if (owned.length === 1)
+  // Ownership never bypasses a suspension; pending stores retain onboarding access.
+  if (owned.length === 1) {
+    if (owned[0].status === "SUSPENDED" || owned[0].status === "DISABLED")
+      throw new PlatformError("STORE_SUSPENDED", "This store is suspended or disabled. Contact KT Couriers support to request a review.", 403);
     return { store: owned[0], owner: true, permissions: ["*"] };
+  }
   if (owned.length > 1)
     throw new PlatformError(
       "STORE_CONTEXT_AMBIGUOUS",

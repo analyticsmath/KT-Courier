@@ -20,6 +20,8 @@ interface StoreHeroProps {
     logoMediaReference?: string;
     heroMediaReference?: string;
     publishedOfferCount: number;
+    ratingAverage?: number | null;
+    ratingCount?: number;
     storeCategories?: readonly StoreCategory[];
   };
 }
@@ -69,6 +71,11 @@ export function StoreHero({ store }: StoreHeroProps) {
               <span style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)" }}>
                 {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
               </span>
+              <div aria-label={store.ratingCount ? `Customer store rating ${store.ratingAverage} out of 5 from ${store.ratingCount} verified delivery reviews` : "No verified store ratings yet"} style={{ fontSize: "0.875rem", marginTop: 6, color: "var(--kt-public-text-muted)" }}>
+                {store.ratingCount && store.ratingAverage != null
+                  ? <><span aria-hidden="true">★</span> <strong>{store.ratingAverage.toFixed(1)}/5</strong> · {store.ratingCount} verified {store.ratingCount === 1 ? "review" : "reviews"}</>
+                  : "No verified store reviews yet"}
+              </div>
             </div>
           </div>
 

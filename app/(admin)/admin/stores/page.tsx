@@ -13,6 +13,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreStatusConfig } from "@/lib/constants/statuses";
 import { listStores } from "@/lib/services/admin-stores.service";
 import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
+import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
 import type { StoreStatus } from "@/types/db";
 
 export const metadata: Metadata = { title: "Store administration" };
@@ -56,7 +57,7 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
     ...(user.role === "SUPER_ADMIN" ? [{ id:"support", header:"Support", priority:"secondary" as const, cell:(store: {id:string})=><Link href={`/admin/business-support/${store.id}`} className="inline-flex min-h-11 items-center">Open support dashboard</Link> }] : []),
     { id: "storefront", header: "Storefront", priority: "secondary", cell: () => <ProtectedStatus label="Separate catalog review" tone="information" /> },
     { id: "seller", header: "Seller identity", priority: "secondary", cell: (store) => canReviewSellerIdentity ? <Link href={`/admin/stores/${store.id}/seller-identity`} className="inline-flex min-h-11 items-center">Review seller identity</Link> : "Separate legal-document review permission required" },
-    ...(canApprove ? [{ id: "approval", header: "Account approval", priority: "primary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "PENDING" ? <StoreAccountApproval storeId={store.id} /> : "No approval action required" }] : []),
+    ...(canApprove ? [{ id: "approval", header: "Account approval", priority: "primary" as const, cell: (store: { id: string; status: StoreStatus }) => store.status === "PENDING" ? <StoreAccountApproval storeId={store.id} /> : <StoreAccountStatusActions storeId={store.id} status={store.status} /> }] : []),
   ]} /></OperationalPanel>
     <ProtectedPagination currentPage={page} pageCount={pageCount} hrefForPage={(nextPage) => filterHref(selectedFilter, nextPage)} />
   </ProtectedPageFrame>;

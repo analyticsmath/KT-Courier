@@ -42,7 +42,7 @@ export function PersonalizedRatesManager({owners,rates}:{owners:OwnerOption[];ra
     });
   }
   return <div className="space-y-7">
-    <p className="text-sm">Create tailored rates for an identified active customer or store; public guest quotations retain normal prices. Rate amounts are calculated on verified road routes and still include configured risk charges and VAT. Active rates are locked into each accepted quotation.</p>
+    <p className="text-sm">Assign negotiated delivery pricing to an individual store without changing publicly advertised tariffs for other stores or guest customers. A R170 base fee plus R0/km is a flat base charge; configured surcharges and VAT may still apply. Rates must be approved and activated before use.</p>
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={event=>{event.preventDefault();create(event.currentTarget);}}>
       <label className="text-sm">Customer or store
         <select name="owner" required defaultValue="" className="mt-1 w-full rounded-lg border p-3" >

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import {
   toAdminStoreListItem,
   type AdminStoreListItem,
@@ -136,7 +137,15 @@ export async function adminUpdateStore(
 }
 
 export async function setStoreStatus(id: string, status: StoreStatus) {
-  return prisma.store.update({ where: { id }, data: { status } });
+  // Publication visibility and store status are committed atomically.
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.store.update({
+      where: { id },
+      data: { status, ...(status !== "ACTIVE" ? { featured: false } : {}) },
+    });
+    await rebuildStorefrontStoreDocument(id, tx);
+    return updated;
+  });
 }
 
 export async function setStoreFeatured(id: string, featured: boolean) {

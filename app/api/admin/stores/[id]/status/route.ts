@@ -52,7 +52,7 @@ export async function PATCH(
       entityType: "Store",
       entityId: id,
       message: `Changed store "${existing.name}" status from ${existing.status} to ${parsed.data.status}`,
-      metadata: { from: existing.status, to: parsed.data.status },
+      metadata: { from: existing.status, to: parsed.data.status, reason: parsed.data.reason ?? null },
     });
 
     return ok({ id: updated.id, status: updated.status });
