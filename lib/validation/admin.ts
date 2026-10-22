@@ -30,11 +30,7 @@ export const AdminStoreUpdateSchema = z.object({
   city: z.string().max(100).trim().optional(),
   province: z.string().max(100).trim().optional(),
   postalCode: z.string().max(20).trim().optional(),
-  status: z
-    .enum(["PENDING", "ACTIVE", "SUSPENDED", "DISABLED"])
-    .optional(),
-  featured: z.boolean().optional(),
-});
+}).strict();
 
 export type AdminStoreUpdateInput = z.infer<typeof AdminStoreUpdateSchema>;
 

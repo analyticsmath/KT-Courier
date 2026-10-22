@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
+import { assertAdvertisingProductionReady } from "@/lib/advertising/production-lock";
 import {
   toAdminStoreListItem,
   type AdminStoreListItem,
@@ -110,8 +111,6 @@ export interface AdminUpdateStoreInput {
   city?: string;
   province?: string;
   postalCode?: string;
-  status?: StoreStatus;
-  featured?: boolean;
 }
 
 export async function adminUpdateStore(
@@ -130,9 +129,7 @@ export async function adminUpdateStore(
       ...(input.city !== undefined && { city: input.city || null }),
       ...(input.province !== undefined && { province: input.province || null }),
       ...(input.postalCode !== undefined && { postalCode: input.postalCode || null }),
-      ...(input.status !== undefined && { status: input.status }),
-      ...(input.featured !== undefined && { featured: input.featured }),
-    },
+     },
   });
 }
 
@@ -149,6 +146,26 @@ export async function setStoreStatus(id: string, status: StoreStatus) {
 }
 
 export async function setStoreFeatured(id: string, featured: boolean) {
+  if (featured) {
+    // The legacy admin flag cannot bypass paid campaign validation.
+    assertAdvertisingProductionReady("SPONSORED_SERVING");
+    const now = new Date();
+    const eligible = await prisma.advertisingCampaignVersion.findFirst({
+      where: {
+        sponsoredObjectType: "STORE",
+        sponsoredStoreId: id,
+        status: "ACTIVE",
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+        campaign: { storeId: id, status: "ACTIVE", store: { status: "ACTIVE" } },
+        fundingAllocations: {
+          some: { storeId: id, status: { in: ["FUNDED", "PARTIALLY_SPENT"] }, remainingAmount: { gt: 0 } },
+        },
+      },
+      select: { id: true },
+    });
+    if (!eligible) throw new Error("A current, active, funded store advertising campaign is required before featuring this store.");
+  }
   return prisma.store.update({ where: { id }, data: { featured } });
 }
 

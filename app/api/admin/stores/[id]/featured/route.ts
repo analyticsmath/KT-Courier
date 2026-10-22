@@ -7,7 +7,7 @@ import {
   ok,
   notFound,
   unprocessable,
-  serverError,
+  conflict,
 } from "@/lib/api/response";
 import { StoreFeaturedUpdateSchema } from "@/lib/validation/admin";
 import { formatZodErrors } from "@/lib/validation/auth";
@@ -55,7 +55,7 @@ export async function PATCH(
     });
 
     return ok({ id: updated.id, featured: updated.featured });
-  } catch {
-    return serverError();
+  } catch (error) {
+    return conflict(error instanceof Error ? error.message : "Store featuring is unavailable.");
   }
 }
