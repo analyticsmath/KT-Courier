@@ -4,9 +4,9 @@ import { edgeRewrites, PRODUCTION_EDGE_ORIGIN, PRODUCTION_EDGE_PROJECT, resolveE
 describe("edge deployment environment isolation", () => {
   const production = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: PRODUCTION_EDGE_PROJECT, KT_EDGE_ROLE: "production" };
   it("routes the real production Vercel project to the newly verified Railway service", () => {
-    expect(PRODUCTION_EDGE_ORIGIN).toBe("https://web-production-3d0c1.up.railway.app");
-    expect(resolveEdgeOrigin(production)).toBe("https://web-production-3d0c1.up.railway.app");
-    expect(edgeRewrites(resolveEdgeOrigin(production)).beforeFiles[0].destination).toBe("https://web-production-3d0c1.up.railway.app/:path*");
+    expect(PRODUCTION_EDGE_ORIGIN).toBe("https://kt-couriers-preproduction-web.onrender.com");
+    expect(resolveEdgeOrigin(production)).toBe("https://kt-couriers-preproduction-web.onrender.com");
+    expect(edgeRewrites(resolveEdgeOrigin(production)).beforeFiles[0].destination).toBe("https://kt-couriers-preproduction-web.onrender.com/:path*");
   });
   it("only the identified production deployment can select the fixed production origin", () => {
     expect(resolveEdgeOrigin(production)).toBe(PRODUCTION_EDGE_ORIGIN);

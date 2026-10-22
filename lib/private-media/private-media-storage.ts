@@ -2,6 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { disposableBrowserPrivateMediaAllowed } from "./disposable-private-media-policy";
+import { CloudinaryImageStorage, CloudinaryImageStorageError, cloudinaryImageConfig } from "../media/cloudinary-image-storage";
 
 export class PrivateMediaStorageError extends Error {
   constructor(
@@ -158,9 +159,35 @@ export class LockedPrivateMediaStorageAdapter implements PrivateMediaStorageAdap
   async delete(): Promise<void> { return this.unavailable(); }
 }
 
+/** PDFs remain authenticated raw assets; raster images use the separate image adapter. */
+export class CloudinaryPrivateDocumentStorageAdapter implements PrivateMediaStorageAdapter {
+  readonly code = "CLOUDINARY_AUTHENTICATED_DOCUMENT";
+  constructor(private readonly storage: CloudinaryImageStorage) {}
+  private async operation<T>(work: () => Promise<T>): Promise<T> {
+    try { return await work(); } catch (error) {
+      if (error instanceof CloudinaryImageStorageError) throw new PrivateMediaStorageError(error.code === "MISSING" ? "PRIVATE_MEDIA_STORAGE_MISSING" : "PRIVATE_MEDIA_STORAGE_FAILURE", error.message);
+      throw error;
+    }
+  }
+  async write(input: { key: string; bytes: Uint8Array; mimeType: string }) {
+    if (!validKey(input.key) || input.mimeType !== "application/pdf" || Buffer.from(input.bytes.slice(0, 5)).toString("ascii") !== "%PDF-") throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_FAILURE", "Only validated PDF documents use private raw storage.");
+    await this.operation(() => this.storage.write(input.key, input.bytes, 10 * 1024 * 1024));
+  }
+  read(key: string) {
+    if (!validKey(key)) throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_FAILURE", "Invalid private document identity.");
+    return this.operation(() => this.storage.read(key, 10 * 1024 * 1024));
+  }
+  async delete(key: string) {
+    if (!validKey(key)) throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_FAILURE", "Invalid private document identity.");
+    await this.operation(() => this.storage.delete(key));
+  }
+}
+
 export function createPrivateMediaStorageAdapter(): PrivateMediaStorageAdapter {
   if (disposableBrowserPrivateMediaAllowed()) return new LocalPrivateMediaStorageAdapter(process.env.PRIVATE_MEDIA_LOCAL_DIR);
   const mode = process.env.PRIVATE_MEDIA_STORAGE?.trim().toLowerCase();
+  const cloudinary = mode === "cloudinary" ? cloudinaryImageConfig() : null;
+  if (cloudinary) return new CloudinaryPrivateDocumentStorageAdapter(new CloudinaryImageStorage(cloudinary, fetch, "raw"));
   const s3 = configuredS3();
   if (mode === "s3" && s3) return new S3PrivateMediaStorageAdapter(s3);
   if (process.env.NODE_ENV !== "production" && (mode === "local" || !mode)) return new LocalPrivateMediaStorageAdapter();

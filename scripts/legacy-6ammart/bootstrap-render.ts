@@ -1,25 +1,18 @@
-import { createHash } from "node:crypto";
 import { readFile, writeFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import sharp from "sharp";
 import { PrismaClient } from "@prisma/client";
 import { installSystemPermissionDefaults } from "../../lib/auth/permission-bootstrap";
-import { assertCatalogMediaDimensions, CATALOG_MEDIA_MAX_UPLOAD_BYTES } from "../../lib/catalog/media/catalog-media-policy";
+import { attestDecodedManifest } from "../../lib/migrations/legacy-6ammart/media-attestation";
 import { decryptSource } from "./source-envelope.mjs";
 
-// Free Render instances have a 512 MiB limit shared by all child processes.
-// Disable libvips caching and decode without retaining a full raster buffer.
-sharp.cache(false);
-sharp.concurrency(1);
 process.env.NODE_OPTIONS = "--max-old-space-size=192";
 const client = new PrismaClient();
 const fingerprint = "ea0f3e236ac6c03d2ce30144185ee5b615de18bd24800fbc2c27e2f7673d948e";
-const digest = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-function run(script: string, args: string[]) {
+function run(script: string, args: string[], environment = process.env) {
   const result = spawnSync(process.execPath, ["--import", "tsx", script, ...args], {
-    env: process.env, stdio: "inherit", timeout: 900_000,
+    env: environment, stdio: "inherit", timeout: 900_000,
   });
   if (result.status !== 0) throw new Error("Migration stage failed: " + path.basename(script));
 }
@@ -70,32 +63,18 @@ async function main() {
         run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--rehearse"]);
         run("scripts/legacy-6ammart/import-catalog-core.ts", ["--source", sourcePath, "--apply"]);
       }
-      const assets = [];
-      for (const original of bundle.assets) {
-        const resource = new URL(original.secure_url);
-        const expectedPath = `/q8gbzml2/image/upload/v${original.version}/${original.public_id}.webp`;
-        if (resource.origin !== "https://res.cloudinary.com" || resource.pathname !== expectedPath || resource.search || resource.hash) throw new Error("Unapproved public media origin.");
-        const response = await fetch(resource, { redirect: "error", signal: AbortSignal.timeout(30_000) });
-        if (!response.ok || Number(response.headers.get("content-length") ?? 0) > CATALOG_MEDIA_MAX_UPLOAD_BYTES) throw new Error("Cloudinary retrieval failed.");
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (bytes.length !== original.bytes || bytes.length > CATALOG_MEDIA_MAX_UPLOAD_BYTES) throw new Error("Cloudinary size changed.");
-        const metadata = await sharp(bytes, { limitInputPixels: 25_000_000 }).metadata();
-        if (metadata.format !== "webp" || metadata.width !== original.width || metadata.height !== original.height) throw new Error("Cloudinary dimensions changed.");
-        assertCatalogMediaDimensions(metadata.width!, metadata.height!);
-        await sharp(bytes, { limitInputPixels: 25_000_000 }).stats();
-        const checksum = digest(bytes);
-        if (original.sha256 && checksum !== original.sha256) throw new Error("Previously recorded Cloudinary checksum changed.");
-        const storageKey = "catalog-media/" + original.public_id.replace("kt-courier/catalog/", "") + ".webp";
-        assets.push({ kind: original.kind, source_id: original.source_id, source_store_id: original.source_store_id,
-          filename: original.filename, purpose: original.purpose, role: original.kind === "product" ? "PRIMARY" : null,
-          normalized_width: metadata.width, normalized_height: metadata.height, normalized_bytes: bytes.length,
-          checksum, storage_key: storageKey, normalized_relpath: storageKey, cloudinary_public_id: original.public_id,
-          cloudinary_secure_url: original.secure_url, full_decode_verified: true });
-      }
-      if (assets.length !== 341) throw new Error("Reviewed media inventory is incomplete.");
-      await writeFile(manifestPath, JSON.stringify({ version: 1, sourceDumpSha256: fingerprint, storageOrigin: "Cloudinary", assetCount: assets.length, assets }), { mode: 0o600 });
+      const manifest = bundle.verifiedManifest;
+      if (!manifest || manifest.sourceDumpSha256 !== fingerprint || manifest.assetCount !== 341 || manifest.assets.length !== 341 || manifest.assets.some((asset: { cloudinary_public_id: string; full_decode_verified: boolean }) => !asset.full_decode_verified || !bundle.assets.some((original: { public_id: string }) => original.public_id === asset.cloudinary_public_id))) throw new Error("The verified source-media manifest is incomplete.");
+      const manifestBytes = JSON.stringify(manifest);
+      process.env.KT_LEGACY_DECODE_ATTESTATION = attestDecodedManifest(manifestBytes, process.env.KT_RENDER_LEGACY_SOURCE_KEY!);
+      await writeFile(manifestPath, manifestBytes, { mode: 0o600 });
       run("scripts/legacy-6ammart/sync-catalog-media.ts", ["--manifest", manifestPath, "--cloudinary-existing", "--apply"]);
       run("scripts/legacy-6ammart/publish-catalog.ts", ["--source-fingerprint", fingerprint, "--apply"]);
+    }
+    if (!await client.systemSetting.findUnique({ where: { key: "migration_reviewed_client_launch_20261022" } })) {
+      await client.$disconnect();
+      run("scripts/initialize-reviewed-client-launch.ts", [], { ...process.env, KT_DATABASE_CLASSIFICATION: "production" });
+      await client.systemSetting.create({ data: { key: "migration_reviewed_client_launch_20261022", label: "Reviewed client launch initialization", type: "JSON", value: { sourceFingerprint: fingerprint, completedAt: new Date().toISOString() } } });
     }
     console.log(JSON.stringify({ event: "render.legacy_catalog_verified", stores: await client.store.count(), products: await client.catalogProduct.count(), publishedProducts: await client.catalogProduct.count({ where: { publicationStatus: "PUBLISHED" } }), media: await client.catalogMediaAsset.count(), activeAdministrators: await client.user.count({ where: { role: { in: ["ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" } }) }));
   } finally { await rm(directory, { recursive: true, force: true }); }

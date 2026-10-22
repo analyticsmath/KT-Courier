@@ -1,5 +1,6 @@
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
+import { cloudinaryImageConfig } from "@/lib/media/cloudinary-image-storage";
 
 export type ConfigurationBlock = "STARTUP" | "READINESS" | "NONE";
 
@@ -102,16 +103,17 @@ export function evaluateProductionConfiguration(
     issues.push(issue("transactional_email", "CONSOLE_DELIVERY_DISABLED", "APPROVED_EMAIL_PROVIDER", "NONE"));
   }
 
-  if (!source.REPORT_ARTIFACT_STORAGE || source.REPORT_ARTIFACT_STORAGE === "local") {
+  const cloudinaryReady = cloudinaryImageConfig(source) !== null;
+  if (!source.REPORT_ARTIFACT_STORAGE || source.REPORT_ARTIFACT_STORAGE === "local" || (source.REPORT_ARTIFACT_STORAGE === "cloudinary" && !cloudinaryReady)) {
     issues.push(issue("report_artifacts", "LOCAL_STORAGE_NOT_PRODUCTION_APPROVED", "DURABLE_ARTIFACT_STORAGE", "READINESS"));
   }
 
-  const privateMediaReady = source.PRIVATE_MEDIA_STORAGE === "s3"
+  const privateMediaReady = (source.PRIVATE_MEDIA_STORAGE === "cloudinary" && cloudinaryReady) || (source.PRIVATE_MEDIA_STORAGE === "s3"
     && hasUsableValue(source.PRIVATE_MEDIA_S3_ENDPOINT)
     && hasUsableValue(source.PRIVATE_MEDIA_S3_BUCKET)
     && hasUsableValue(source.PRIVATE_MEDIA_S3_REGION)
     && hasUsableValue(source.PRIVATE_MEDIA_S3_ACCESS_KEY_ID)
-    && hasUsableValue(source.PRIVATE_MEDIA_S3_SECRET_ACCESS_KEY);
+    && hasUsableValue(source.PRIVATE_MEDIA_S3_SECRET_ACCESS_KEY));
   if (!privateMediaReady) {
     issues.push(issue("private_media", "PRIVATE_MEDIA_STORAGE_UNCONFIGURED", "DURABLE_PRIVATE_OBJECT_STORAGE", "READINESS"));
   }

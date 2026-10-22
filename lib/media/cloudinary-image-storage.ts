@@ -48,14 +48,19 @@ async function boundedBody(response: Response, maximumBytes: number): Promise<Ui
 }
 
 export class CloudinaryImageStorage {
-  constructor(private readonly config: CloudinaryImageConfig, private readonly request: typeof fetch = fetch) {}
+  constructor(private readonly config: CloudinaryImageConfig, private readonly request: typeof fetch = fetch, private readonly resourceType: "image" | "raw" = "image") {}
 
   private publicId(key: string): string {
+    if (this.resourceType === "raw") {
+      if (/^private-media\/[a-f0-9-]{36}$/.test(key)) return `${this.config.prefix}/${key}.pdf`;
+      if (/^reports\/REP-[A-Z0-9-]{8,120}\/[a-f0-9]{64}\.(csv|json)$/.test(key)) return `${this.config.prefix}/${key}`;
+      throw new CloudinaryImageStorageError("FAILURE", "Invalid private Cloudinary document identity.");
+    }
     if (!/^(catalog-media\/[a-f0-9]{64}|private-media\/[a-f0-9-]{36})$/.test(key)) throw new CloudinaryImageStorageError("FAILURE", "Invalid Cloudinary image identity.");
     return `${this.config.prefix}/${key}`;
   }
 
-  private async post(action: "image/upload" | "image/explicit" | "image/destroy" | "asset/download", parameters: Record<string, string>, file?: Uint8Array): Promise<Response> {
+  private async post(action: `${"image" | "raw"}/${"upload" | "explicit" | "destroy"}` | "asset/download", parameters: Record<string, string>, file?: Uint8Array): Promise<Response> {
     const signed = { ...parameters, timestamp: String(Math.floor(Date.now() / 1000)) };
     const form = new FormData();
     for (const [key, value] of Object.entries(signed)) form.set(key, value);
@@ -77,14 +82,14 @@ export class CloudinaryImageStorage {
     const bytes = await boundedBody(response, 64 * 1024);
     let body: { asset_id?: unknown; public_id?: unknown; resource_type?: unknown; type?: unknown };
     try { body = JSON.parse(Buffer.from(bytes).toString("utf8")); } catch { throw new CloudinaryImageStorageError("FAILURE", "Cloudinary returned invalid image evidence."); }
-    if (body.public_id !== publicId || body.resource_type !== "image" || body.type !== "authenticated" || typeof body.asset_id !== "string" || !/^[a-f0-9]{32}$/.test(body.asset_id)) throw new CloudinaryImageStorageError("FAILURE", "Cloudinary returned mismatched image evidence.");
+    if (body.public_id !== publicId || body.resource_type !== this.resourceType || body.type !== "authenticated" || typeof body.asset_id !== "string" || !/^[a-f0-9]{32}$/.test(body.asset_id)) throw new CloudinaryImageStorageError("FAILURE", "Cloudinary returned mismatched protected asset evidence.");
     return { asset_id: body.asset_id };
   }
 
   async write(key: string, bytes: Uint8Array, maximumBytes: number): Promise<void> {
     const publicId = this.publicId(key);
     if (!bytes.byteLength || bytes.byteLength > maximumBytes) throw new CloudinaryImageStorageError("FAILURE", "Image exceeds its upload size bound.");
-    await this.metadata(await this.post("image/upload", { public_id: publicId, type: "authenticated", overwrite: "false", unique_filename: "false" }, bytes), publicId);
+    await this.metadata(await this.post(`${this.resourceType}/upload`, { public_id: publicId, type: "authenticated", overwrite: "false", unique_filename: "false" }, bytes), publicId);
     // An immutable retry must match the existing original, not merely succeed with overwrite=false.
     const original = await this.read(key, maximumBytes);
     if (createHash("sha256").update(original).digest("hex") !== createHash("sha256").update(bytes).digest("hex")) throw new CloudinaryImageStorageError("FAILURE", "Stored image does not match the upload checksum.");
@@ -92,14 +97,14 @@ export class CloudinaryImageStorage {
 
   async read(key: string, maximumBytes: number): Promise<Uint8Array> {
     const publicId = this.publicId(key);
-    const metadata = await this.metadata(await this.post("image/explicit", { public_id: publicId, type: "authenticated" }), publicId);
+    const metadata = await this.metadata(await this.post(`${this.resourceType}/explicit`, { public_id: publicId, type: "authenticated" }), publicId);
     const response = await this.post("asset/download", { asset_id: metadata.asset_id, expires_at: String(Math.floor(Date.now() / 1000) + 60) });
     // No format/quality/transformation is requested: publication hashes bind the original bytes.
     return boundedBody(response, maximumBytes);
   }
 
   async delete(key: string): Promise<boolean> {
-    const response = await this.post("image/destroy", { public_id: this.publicId(key), type: "authenticated", invalidate: "true" });
+    const response = await this.post(`${this.resourceType}/destroy`, { public_id: this.publicId(key), type: "authenticated", invalidate: "true" });
     const bytes = await boundedBody(response, 16 * 1024);
     let result: unknown;
     try { result = JSON.parse(Buffer.from(bytes).toString("utf8")).result; } catch { throw new CloudinaryImageStorageError("FAILURE", "Cloudinary returned invalid deletion evidence."); }

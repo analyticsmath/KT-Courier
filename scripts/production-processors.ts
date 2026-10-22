@@ -23,7 +23,7 @@ const server = createServer((request, response) => {
   response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" });
   response.end(JSON.stringify({ ...state, processors: productionProcessors, readinessBlockers, lastCycleAt: lastCycleAt ? new Date(lastCycleAt).toISOString() : null }));
 });
-server.listen(Number(process.env.PORT ?? 3000), "0.0.0.0");
+if (process.env.KT_PROCESSOR_HTTP_DISABLED !== "true") server.listen(Number(process.env.PORT ?? 3000), "0.0.0.0");
 const shutdown = () => { stopping = true; healthy = false; wake?.(); };
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
@@ -102,7 +102,7 @@ async function main() {
     healthy = cycleReadiness.healthy;
     readinessBlockers = cycleReadiness.readinessBlockers;
     try {
-      const value = { observedAt: new Date(lastCycleAt).toISOString(), healthy, readinessBlockers, releaseSha: process.env.RAILWAY_GIT_COMMIT_SHA ?? null, processors: results.map((result) => ({ name: result.name, status: result.status, itemsRetried: result.itemsRetried })) };
+      const value = { observedAt: new Date(lastCycleAt).toISOString(), healthy, readinessBlockers, releaseSha: process.env.RENDER_GIT_COMMIT ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? null, processors: results.map((result) => ({ name: result.name, status: result.status, itemsRetried: result.itemsRetried })) };
       await prisma.systemSetting.upsert({ where: { key: "production_processor_heartbeat" }, create: { key: "production_processor_heartbeat", label: "Operations processor heartbeat", type: "JSON", value }, update: { value } });
     } catch { healthy = false; console.error(JSON.stringify({ event: "production_processors.heartbeat_failed", category: "DATABASE_UNAVAILABLE" })); }
     console.log(JSON.stringify({ event: "production_processors.cycle", healthy, readinessBlockers, results }));
@@ -113,4 +113,4 @@ async function main() {
   }
 }
 main().catch(() => { console.error("Production processor loop failed."); process.exitCode = 1; })
-  .finally(async () => { healthy = false; server.close(); await prisma.$disconnect(); });
+  .finally(async () => { healthy = false; if (server.listening) server.close(); await prisma.$disconnect(); });

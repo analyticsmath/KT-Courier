@@ -10,6 +10,7 @@ import {
 } from "../../lib/catalog/media/catalog-media-policy";
 import { createProductionCatalogMediaStorageAdapter, createCloudinaryCatalogMediaReadAdapter } from "../../lib/catalog/media/catalog-media-storage-adapter";
 import { legacyReferences } from "../../lib/migrations/legacy-6ammart/catalog-policy";
+import { decodedManifestAttested } from "../../lib/migrations/legacy-6ammart/media-attestation";
 
 sharp.cache(false);
 sharp.concurrency(1);
@@ -115,10 +116,12 @@ async function main() {
   const manifestBytes = await readFile(manifestPath, "utf8");
   const manifestFingerprint = createHash("sha256").update(manifestBytes).digest("hex");
   const manifest = JSON.parse(manifestBytes) as NormalizedManifest;
+  const decodeAttested = decodedManifestAttested(manifestBytes, process.env.KT_RENDER_LEGACY_SOURCE_KEY, process.env.KT_LEGACY_DECODE_ATTESTATION);
+  if (process.env.KT_LEGACY_DECODE_ATTESTATION && !decodeAttested) throw new Error("Full-decode attestation does not match the manifest.");
   if (
     manifest.version !== 1 ||
     !/^[a-f0-9]{64}$/.test(manifest.sourceDumpSha256) ||
-    manifest.assetCount !== manifest.assets.length
+    manifest.assetCount !== manifest.assets.length || manifest.assets.reduce((sum, asset) => sum + asset.normalized_bytes, 0) > 64 * 1024 * 1024
   ) {
     throw new Error("Normalized legacy media manifest is invalid.");
   }
@@ -198,7 +201,7 @@ async function main() {
       );
     }
     assertCatalogMediaDimensions(width, height);
-    await sharp(Buffer.from(bytes), { limitInputPixels: 25_000_000 }).stats();
+    if (!decodeAttested) await sharp(Buffer.from(bytes), { limitInputPixels: 25_000_000 }).stats();
 
     const target = await findTarget(asset, run.id);
     let ownerStoreId: string | null = null;

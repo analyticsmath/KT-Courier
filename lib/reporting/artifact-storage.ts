@@ -2,11 +2,12 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ReportingError, type ReportExportFormat } from "./contracts";
+import { CloudinaryImageStorage, CloudinaryImageStorageError, cloudinaryImageConfig } from "../media/cloudinary-image-storage";
 
 const STORAGE_KEY_PATTERN = /^reports\/[A-Z0-9-]+\/[a-f0-9]{64}\.(csv|json)$/;
 
 export interface ReportArtifactStorage {
-  readonly provider: "LOCAL_SECURE";
+  readonly provider: "LOCAL_SECURE" | "CLOUDINARY_AUTHENTICATED_RAW";
   readonly root: string;
   createStorageKey(reference: string, format: ReportExportFormat, content: string): string;
   store(storageKey: string, content: string): Promise<void>;
@@ -102,7 +103,43 @@ export class LocalSecureReportArtifactStorage implements ReportArtifactStorage {
 
 let defaultStorage: ReportArtifactStorage | undefined;
 
+export class CloudinaryReportArtifactStorage implements ReportArtifactStorage {
+  readonly provider = "CLOUDINARY_AUTHENTICATED_RAW" as const;
+  readonly root = "cloudinary://authenticated-reports";
+  private readonly keys = new LocalSecureReportArtifactStorage();
+  constructor(private readonly storage: CloudinaryImageStorage) {}
+  createStorageKey(reference: string, format: ReportExportFormat, content: string) { return this.keys.createStorageKey(reference, format, content); }
+  private assertContent(key: string, bytes: Uint8Array) {
+    if (!STORAGE_KEY_PATTERN.test(key) || key.split("/")[2].split(".")[0] !== crypto.createHash("sha256").update(bytes).digest("hex")) throw new ReportingError("ARTIFACT_STORAGE_CONFLICT", 409, "Report artifact identity does not match its content.");
+  }
+  async store(key: string, content: string) {
+    const bytes = Buffer.from(content, "utf8"); this.assertContent(key, bytes);
+    try { await this.storage.write(key, bytes, 10 * 1024 * 1024); }
+    catch { throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report storage is unavailable."); }
+  }
+  async open(key: string): Promise<Buffer> {
+    if (!STORAGE_KEY_PATTERN.test(key)) throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+    try { const bytes = Buffer.from(await this.storage.read(key, 10 * 1024 * 1024)); this.assertContent(key, bytes); return bytes; }
+    catch (error) {
+      if (error instanceof ReportingError) throw error;
+      throw new ReportingError(error instanceof CloudinaryImageStorageError && error.code === "MISSING" ? "ARTIFACT_NOT_AVAILABLE" : "ARTIFACT_STORAGE_FAILURE", error instanceof CloudinaryImageStorageError && error.code === "MISSING" ? 404 : 503, "Private report artifact is unavailable.");
+    }
+  }
+  async exists(key: string) {
+    try { await this.open(key); return true; } catch (error) { if (error instanceof ReportingError && error.code === "ARTIFACT_NOT_AVAILABLE") return false; throw error; }
+  }
+  async delete(key: string) {
+    if (!STORAGE_KEY_PATTERN.test(key)) throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+    try { return await this.storage.delete(key); } catch { throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report storage is unavailable."); }
+  }
+}
+
 export function getReportArtifactStorage(): ReportArtifactStorage {
+  if (!defaultStorage && process.env.REPORT_ARTIFACT_STORAGE === "cloudinary") {
+    const config = cloudinaryImageConfig();
+    if (!config) throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report storage is not configured.");
+    defaultStorage = new CloudinaryReportArtifactStorage(new CloudinaryImageStorage(config, fetch, "raw"));
+  }
   defaultStorage ??= new LocalSecureReportArtifactStorage();
   return defaultStorage;
 }
