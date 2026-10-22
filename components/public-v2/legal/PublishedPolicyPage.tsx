@@ -76,9 +76,6 @@ export async function PublishedPolicyPage({ documentId }: { documentId: PublicPo
   const policy = await currentPolicy(documentId);
   const copy = editorial[documentId];
   const sections = policy ? parsePublishedPolicy(policy.content) : [];
-  const effectiveDate = policy ? new Date(policy.effectiveAt).toLocaleDateString("en-ZA", {
-    year: "numeric", month: "long", day: "numeric", timeZone: "Africa/Johannesburg",
-  }) : null;
 
   return <article className={styles.page}>
     <header className={styles.header}>
@@ -86,7 +83,6 @@ export async function PublishedPolicyPage({ documentId }: { documentId: PublicPo
         <Link href="/" className={styles.backLink}>← Back to KT Couriers</Link>
         <h1 className={styles.title}>{definition.title}</h1>
         <p className={styles.summary}>{copy.introduction}</p>
-        {effectiveDate && <p className={styles.effectiveDate}>Effective from {effectiveDate}</p>}
       </div>
     </header>
 
