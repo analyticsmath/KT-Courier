@@ -1,5 +1,5 @@
 import { EmailTemplateType } from "@/types/db";
-import { renderEmailHtml, renderEmailText } from "./email-renderer";
+import { escapeEmailHtml, renderEmailHtml, renderEmailText } from "./email-renderer";
 import type { RenderedEmail } from "./email.types";
 
 // ─── Template context interfaces ──────────────────────────────────────────────
@@ -96,6 +96,27 @@ export function getStatusLabel(status: string): string {
 // ─── Template registry ────────────────────────────────────────────────────────
 
 export function renderTemplate(
+  templateType: EmailTemplateType,
+  context: Record<string, unknown>
+): RenderedEmail {
+  // Keep the plain-text alternative human-readable. Escape all dynamic HTML
+  // values separately so a name, address or customer message cannot become
+  // markup in a security or delivery email. Action URLs are independently
+  // validated and attribute-escaped by the shared email layout.
+  const plain = renderTemplateContent(templateType, context);
+  const htmlContext = Object.fromEntries(
+    Object.entries(context).map(([key, value]) => [
+      key,
+      typeof value === "string" && !/(?:Url)$/i.test(key)
+        ? escapeEmailHtml(value)
+        : value,
+    ])
+  );
+  const sanitized = renderTemplateContent(templateType, htmlContext);
+  return { ...plain, html: sanitized.html };
+}
+
+function renderTemplateContent(
   templateType: EmailTemplateType,
   context: Record<string, unknown>
 ): RenderedEmail {
