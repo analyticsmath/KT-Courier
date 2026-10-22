@@ -1,110 +1,49 @@
-import Link from "next/link";
-import { PublicBreadcrumbs } from "@/components/public-v2/navigation";
+import { EditorialInformationPage } from "@/components/public-v2/legal/EditorialInformationPage";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
 
 export const metadata = publicPageMetadata({
-  title: "Safety Information",
-  description: "Safety and operational policy information for KT Couriers.",
+  title: "Safety and Delivery Standards",
+  description: "Important guidance for preparing parcels, safe delivery handovers, restricted goods and reporting delivery incidents.",
   route: "/safety",
   noindex: true,
 });
 
 export default function SafetyPage() {
-  return (
-    <main style={{ padding: "clamp(36px, 5vw, 64px) var(--kt-grid-inset, 32px) clamp(60px, 8vw, 100px)", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
-      <div style={{ marginBottom: 28 }}>
-        <PublicBreadcrumbs
-          items={[{ label: "Home", href: "/" }, { label: "Safety & Operations" }]}
-        />
-      </div>
-
-      <header style={{ marginBottom: 48, maxWidth: 840 }}>
-        <span style={{ fontSize: "0.85rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--kt-public-brand-signal)" }}>
-          Operational Standards
-        </span>
-        <h1 style={{ fontSize: "clamp(2.4rem, 5vw, 4.2rem)", fontWeight: 560, letterSpacing: "-0.035em", color: "var(--kt-public-text-primary)", margin: "12px 0 16px", lineHeight: 1.02 }}>
-          Safety & Chain of Custody.
-        </h1>
-        <p style={{ fontSize: "clamp(1.05rem, 1.6vw, 1.25rem)", color: "var(--kt-public-text-muted)", lineHeight: 1.5, margin: 0 }}>
-          Operating standards, coordinate verification, and chain-of-custody protocols for courier transit and marketplace fulfilment across South Africa.
-        </p>
-      </header>
-
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24, marginBottom: 48 }}>
-        <div style={{ padding: 28, backgroundColor: "var(--kt-public-surface-primary)", border: "1px solid var(--kt-public-border-subtle)", borderRadius: 6 }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, color: "var(--kt-public-text-primary)", margin: "0 0 10px" }}>
-            1. Coordinate Verification
-          </h2>
-          <p style={{ fontSize: "0.92rem", color: "var(--kt-public-text-muted)", lineHeight: 1.5, margin: 0 }}>
-            Every delivery request requires authenticated collection and dropoff coordinates within verified service regions before dispatch assignment.
-          </p>
-        </div>
-
-        <div style={{ padding: 28, backgroundColor: "var(--kt-public-surface-primary)", border: "1px solid var(--kt-public-border-subtle)", borderRadius: 6 }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, color: "var(--kt-public-text-primary)", margin: "0 0 10px" }}>
-            2. Chain of Custody
-          </h2>
-          <p style={{ fontSize: "0.92rem", color: "var(--kt-public-text-muted)", lineHeight: 1.5, margin: 0 }}>
-            Orders transition through strictly recorded status milestones: staged by merchant, collected by verified courier, in transit, and confirmed at dropoff.
-          </p>
-        </div>
-
-        <div style={{ padding: 28, backgroundColor: "var(--kt-public-surface-primary)", border: "1px solid var(--kt-public-border-subtle)", borderRadius: 6 }}>
-          <h2 style={{ fontSize: "1.2rem", fontWeight: 600, color: "var(--kt-public-text-primary)", margin: "0 0 10px" }}>
-            3. Prohibited & Regulated Goods
-          </h2>
-          <p style={{ fontSize: "0.92rem", color: "var(--kt-public-text-muted)", lineHeight: 1.5, margin: 0 }}>
-            Hazardous chemicals, unsealed flammables, illegal contraband, and unapproved medical substances are strictly excluded from network courier transit.
-          </p>
-        </div>
-      </section>
-
-      <section style={{ padding: "32px 36px", backgroundColor: "var(--kt-public-surface-secondary)", border: "1px solid var(--kt-public-border-subtle)", borderRadius: 6, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 20 }}>
-        <div>
-          <h3 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--kt-public-text-primary)", margin: "0 0 6px" }}>
-            Have a specialized safety or dispatch query?
-          </h3>
-          <p style={{ fontSize: "0.9rem", color: "var(--kt-public-text-muted)", margin: 0 }}>
-            Our operations team can assist with high-value item coordination and transport requirements.
-          </p>
-        </div>
-
-        <div style={{ display: "flex", gap: 14 }}>
-          <Link
-            href="/contact"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              backgroundColor: "var(--kt-public-surface-inverse)",
-              color: "var(--kt-public-text-inverse)",
-              padding: "10px 20px",
-              fontSize: "0.9rem",
-              fontWeight: 600,
-              textDecoration: "none",
-              borderRadius: 4,
-            }}
-          >
-            Contact Operations
-          </Link>
-          <Link
-            href="/services"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              color: "var(--kt-public-text-primary)",
-              fontSize: "0.9rem",
-              fontWeight: 600,
-              textDecoration: "none",
-              padding: "10px 16px",
-              border: "1px solid var(--kt-public-border-subtle)",
-              backgroundColor: "var(--kt-public-surface-primary)",
-              borderRadius: 4,
-            }}
-          >
-            Delivery Services &rarr;
-          </Link>
-        </div>
-      </section>
-    </main>
-  );
+  return <EditorialInformationPage
+    title="A safer way to send."
+    introduction="Good deliveries start with clear information, responsible handling and a handover that can be verified. Here is what we ask of customers, businesses and delivery partners."
+    highlights={[
+      { title: "Prepare your parcel", description: "Use appropriate protective packaging and provide an accurate description of what is being transported." },
+      { title: "Verify the handover", description: "Follow the confirmation instructions associated with your order, including any required delivery code or proof of delivery." },
+      { title: "Report a concern", description: "If a parcel is missing, damaged, delayed or delivered incorrectly, contact support with your order reference." },
+    ]}
+    sections={[
+      { id: "before-dispatch", title: "Before a delivery is arranged", paragraphs: [
+        "Give the correct collection and delivery addresses, reachable contact details, an appropriate parcel description and any access or handling instructions relevant to the request.",
+        "A quote or delivery request does not guarantee availability. KT Couriers checks supported service areas and other operational requirements before confirming an applicable service.",
+      ] },
+      { id: "prohibited-goods", title: "Restricted and prohibited goods", paragraphs: [
+        "Do not submit prohibited, unlawful, dangerous or improperly packaged goods for collection. Particular products, including regulated medical items and high-risk shipments, may require additional checks, specialist handling or may be unsuitable for the service.",
+        "KT Couriers may refuse or pause a request when necessary to verify the nature, safety or lawful transport of its contents. See the Shipping and Delivery Policy and applicable service terms for more detail.",
+      ], points: [
+        "Do not conceal a parcel’s contents or misdescribe goods.",
+        "Do not tender loose, leaking, unstable or inadequately protected items.",
+        "Confirm additional requirements before requesting transport of fragile, valuable or regulated goods.",
+      ] },
+      { id: "courier-verification", title: "Delivery-partner verification", paragraphs: [
+        "Delivery partners are subject to the applicable onboarding and operational requirements. Dispatch eligibility involves identity, driving and vehicle documentation, relevant approvals and availability in an assigned service area.",
+        "A driver profile, an availability indicator or a newly submitted document does not by itself establish dispatch approval.",
+      ] },
+      { id: "custody-and-confirmation", title: "Collection, custody and handover", paragraphs: [
+        "Collection and delivery events may be recorded as the order moves through the delivery process. Proof-of-delivery information, recipient confirmation and one-time delivery codes may be required for certain handovers.",
+        "Do not share a delivery confirmation code until you are satisfied that you are completing the relevant authorised handover. Never share account login codes or passwords with someone claiming to be a courier.",
+      ] },
+      { id: "problems-and-claims", title: "If something goes wrong", paragraphs: [
+        "Report missing, damaged, incorrect or undelivered orders as soon as reasonably possible. Include your order reference, a factual description and photos where relevant.",
+        "KT Couriers may review account records, delivery events and information from the relevant vendor or delivery partner. Any remedy remains subject to the applicable contract, refund policy and South African law.",
+      ] },
+    ]}
+    contactTitle="Have a safety or delivery concern?"
+    contactBody="Contact support with the order reference, what happened and the safest way to reach you. For urgent danger, contact the appropriate local emergency service."
+  />;
 }
