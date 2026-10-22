@@ -4,7 +4,7 @@ export const requiredDomainNotificationDefinitions = [
   {
     sourceAuthority: "ACCOUNT", eventType: "ACCOUNT_EMAIL_VERIFIED",
     categoryKey: "ACCOUNT_WELCOME", templateKey: "CLIENT_ACCOUNT_WELCOME",
-    recipientPolicyKey: "CLIENT_VERIFIED_ACCOUNT", subject: "CUSTOMER" as const,
+    recipientPolicyKey: "CLIENT_VERIFIED_ACCOUNT", subject: "EVENT_ACTOR" as const,
     routeKey: "CLIENT_ACCOUNT_WELCOME",
     title: "Welcome to KT Couriers",
     body: "Your email is verified and your KT Couriers account is ready. Request a courier delivery, manage your orders or explore local stores from your account.",
