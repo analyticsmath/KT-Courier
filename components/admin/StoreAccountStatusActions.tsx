@@ -45,7 +45,7 @@ export function StoreAccountStatusActions({ storeId, status }: { storeId: string
       <label className="block"><span className="block text-xs">Status change reason</span>
         <textarea aria-label="Store status reason" className="mt-1 min-h-20 w-full rounded-md border p-2" maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Non-payment, policy breach, or reason for reinstatement" />
       </label>
-      <p className="text-xs">Provide at least 12 characters to suspend or disable a store. All changes are audited.</p>
+      <p className="text-xs">Provide at least 12 characters to suspend or disable a store. The reason will be recorded and shown to the business owner on their restricted-account page. Changes are audited.</p>
       {actions.map(action => <button key={action.status} type="button" className="mr-2 rounded-md border px-3 py-2 text-xs font-semibold disabled:opacity-50" disabled={busy || (action.status !== "ACTIVE" && reason.trim().length < 12)} onClick={() => void change(action.status)}>{busy ? "Saving…" : action.label}</button>)}
       {error ? <p role="alert" className="text-red-700">{error}</p> : null}
       {notice ? <p role="status">{notice}</p> : null}

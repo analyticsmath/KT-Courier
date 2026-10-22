@@ -26,6 +26,15 @@ export default async function StoreLayout({
   try {
     access = await storeAccess(user.id);
   } catch {
+    // Suspended/disabled business owners must be able to see the reason for
+    // the restriction without entering the protected store workspace.
+    if (user.role === UserRole.STORE) {
+      const restrictedStore = await prisma.store.findFirst({
+        where: { ownerUserId: user.id, status: { in: ["SUSPENDED", "DISABLED"] } },
+        select: { id: true },
+      });
+      if (restrictedStore) redirect("/store-status");
+    }
     redirect("/account");
   }
 
