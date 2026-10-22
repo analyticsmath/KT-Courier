@@ -221,27 +221,27 @@ export function AdminCommandCentre({
           >
             {desk.attention ? (
               desk.attention.length > 0 ? (
-                <ul className={styles.recordList}>
-                  {desk.attention.map((row) => {
-                    const status = presentOrderStatus(row.status);
-                    return (
-                      <li key={row.id} className={styles.recordItem}>
-                        <div className={styles.recordLeading}>
-                          <Link className={styles.recordTitle} href={`/admin/orders/${row.id}`}>
-                            {row.orderNumber}
-                          </Link>
-                          <span className={styles.recordSub}>
-                            {row.pickupAddress?.city ?? "Pickup unavailable"} → {row.dropoffAddress?.city ?? "Destination unavailable"}
-                          </span>
-                          <span className={styles.recordTime}>{formatDateTime(row.createdAt)}</span>
-                        </div>
-                        <div className={styles.recordTrailing}>
-                          <ProtectedStatus label={status.label} tone={status.tone} />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className={styles.queueTableWrap}>
+                  <table className={styles.queueTable}>
+                    <caption className="sr-only">Orders requiring administrative attention</caption>
+                    <thead>
+                      <tr><th scope="col">Order</th><th scope="col">Route</th><th scope="col">Requested</th><th scope="col">Status</th></tr>
+                    </thead>
+                    <tbody>
+                      {desk.attention.map((row) => {
+                        const status = presentOrderStatus(row.status);
+                        return (
+                          <tr key={row.id}>
+                            <td><Link className={styles.queueReference} href={`/admin/orders/${row.id}`}>{row.orderNumber}</Link></td>
+                            <td className={styles.queueRoute}>{row.pickupAddress?.city ?? "Pickup unavailable"} → {row.dropoffAddress?.city ?? "Destination unavailable"}</td>
+                            <td className={styles.queueDate}>{formatDateTime(row.createdAt)}</td>
+                            <td className={styles.queueStatus}><ProtectedStatus label={status.label} tone={status.tone} /></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div className={styles.emptyState}>
                   <p className={styles.emptyStateTitle}>Queue clear</p>
@@ -318,30 +318,27 @@ export function AdminCommandCentre({
           >
             {desk.dispatch ? (
               desk.dispatch.unassignedOrders.length > 0 ? (
-                <ul className={styles.recordList}>
-                  {desk.dispatch.unassignedOrders.slice(0, 5).map((row) => (
-                    <li key={row.id} className={styles.recordItem}>
-                      <div className={styles.recordLeading}>
-                        {desk.ordersAllowed ? (
-                          <Link className={styles.recordTitle} href={`/admin/orders/${row.id}`}>
-                            {row.orderNumber}
-                          </Link>
-                        ) : (
-                          <span className={styles.recordTitle}>{row.orderNumber}</span>
-                        )}
-                        <span className={styles.recordSub}>
-                          {row.pickupCity ?? "Pickup"} → {row.dropoffCity ?? "Destination"}
-                        </span>
-                      </div>
-                      <div className={styles.recordTrailing}>
-                        <span className={`${styles.chip} ${styles.chipWarning}`}>
-                          <span className={styles.chipDot} />
-                          Unassigned
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                <div className={styles.queueTableWrap}>
+                  <table className={styles.queueTable}>
+                    <caption className="sr-only">Orders waiting for driver assignment</caption>
+                    <thead><tr><th scope="col">Order</th><th scope="col">Delivery route</th><th scope="col">Dispatch</th></tr></thead>
+                    <tbody>
+                      {desk.dispatch.unassignedOrders.slice(0, 5).map((row) => (
+                        <tr key={row.id}>
+                          <td>
+                            {desk.ordersAllowed ? (
+                              <Link className={styles.queueReference} href={`/admin/orders/${row.id}`}>{row.orderNumber}</Link>
+                            ) : (
+                              <span className={styles.queueReference}>{row.orderNumber}</span>
+                            )}
+                          </td>
+                          <td className={styles.queueRoute}>{row.pickupCity ?? "Pickup"} → {row.dropoffCity ?? "Destination"}</td>
+                          <td className={styles.queueStatus}><span className={`${styles.chip} ${styles.chipWarning}`}>Unassigned</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div className={styles.emptyState}>
                   <p className={styles.emptyStateTitle}>No unassigned orders</p>
@@ -369,29 +366,28 @@ export function AdminCommandCentre({
             padding="normal"
           >
             {desk.exceptions && desk.exceptions.length > 0 ? (
-              <ul className={styles.recordList}>
-                {desk.exceptions.slice(0, 5).map((row) => (
-                  <li key={row.id} className={styles.recordItem}>
-                    <div className={styles.recordLeading}>
-                      {desk.ordersAllowed ? (
-                        <Link className={styles.recordTitle} href={`/admin/orders/${row.orderId}`}>
-                          {row.orderNumber}
-                        </Link>
-                      ) : (
-                        <span className={styles.recordTitle}>{row.orderNumber}</span>
-                      )}
-                      <span className={styles.recordSub}>{row.label}</span>
-                      <span className={styles.recordTime}>{formatDateTime(row.occurredAt)}</span>
-                    </div>
-                    <div className={styles.recordTrailing}>
-                      <span className={`${styles.chip} ${styles.chipDanger}`}>
-                        <span className={styles.chipDot} />
-                        Exception
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className={styles.queueTableWrap}>
+                <table className={styles.queueTable}>
+                  <caption className="sr-only">Most recent delivery exceptions</caption>
+                  <thead><tr><th scope="col">Order</th><th scope="col">Issue</th><th scope="col">Recorded</th><th scope="col">Status</th></tr></thead>
+                  <tbody>
+                    {desk.exceptions.slice(0, 5).map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          {desk.ordersAllowed ? (
+                            <Link className={styles.queueReference} href={`/admin/orders/${row.orderId}`}>{row.orderNumber}</Link>
+                          ) : (
+                            <span className={styles.queueReference}>{row.orderNumber}</span>
+                          )}
+                        </td>
+                        <td className={styles.queueRoute}>{row.label}</td>
+                        <td className={styles.queueDate}>{formatDateTime(row.occurredAt)}</td>
+                        <td className={styles.queueStatus}><span className={`${styles.chip} ${styles.chipDanger}`}>Exception</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className={styles.emptyState}>
                 <p className={styles.emptyStateTitle}>No recent exceptions</p>
