@@ -24,7 +24,7 @@ const NAVY = "#102943";
 const BLUE = "#1769E0";
 const INK = "#15263B";
 const WEBSITE = "https://www.ktcouriers.com";
-const LOGO = WEBSITE + "/images/kt-couriers/brand/logo.svg";
+const LOGO = WEBSITE + "/images/kt-couriers/brand/icon-192.png";
 export function escapeEmailHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
@@ -57,7 +57,7 @@ export function renderEmailHtml(opts: LayoutOptions): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#EDF2F7" style="background:#EDF2F7;"><tr><td align="center" style="padding:32px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:collapse;">
 <tr><td style="background:${NAVY};padding:26px 34px;border-radius:10px 10px 0 0;border-bottom:4px solid ${BLUE};">
-<img src="${LOGO}" width="150" alt="KT Couriers" style="display:block;max-width:150px;height:auto;border:0;color:#ffffff;font-size:19px;font-weight:bold;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle;padding-right:14px;"><img src="${LOGO}" width="52" height="52" alt="" style="display:block;width:52px;height:52px;border:0;"></td><td style="vertical-align:middle;font-size:23px;letter-spacing:-.4px;font-weight:700;color:#ffffff;">KT Couriers</td></tr></table>
 <div style="color:#C7D7EA;font-size:11px;letter-spacing:1px;line-height:20px;margin-top:12px;">DELIVERING WHAT MATTERS</div></td></tr>
 <tr><td bgcolor="#ffffff" style="background:#ffffff;padding:44px 36px 38px;">
 <h1 style="font-family:Arial,sans-serif;margin:0 0 20px;color:${NAVY};font-size:28px;line-height:1.22;font-weight:700;letter-spacing:-.5px;">${escapeEmailHtml(opts.title)}</h1>
