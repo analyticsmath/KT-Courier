@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderCanonicalEmail, renderEmailHtml, renderEmailText } from "@/lib/email/email-renderer";
+import { renderTemplate } from "@/lib/email/email-templates";
+import { EmailTemplateType } from "@/types/db";
 
 describe("KT Couriers transactional email experience", () => {
   it("uses the genuine public logo, neutral palette and accessible email structure", () => {
@@ -34,6 +36,19 @@ describe("KT Couriers transactional email experience", () => {
     expect(() => renderEmailHtml({ title: "Security", body: "Check", actionUrl: "javascript:alert(1)" })).toThrow();
     expect(() => renderEmailHtml({ title: "Security", body: "Check", actionUrl: "https://phishing.example/reset" })).toThrow();
     expect(() => renderEmailHtml({ title: "Security", body: "Check", actionUrl: "//phishing.example" })).toThrow();
+  });
+
+  it("escapes dynamic OTP greeting markup and retains the exact plaintext alternative", () => {
+    const greeting = "<strong>Customer</strong>";
+    const email = renderTemplate(EmailTemplateType.EMAIL_VERIFICATION_OTP, {
+      name: greeting,
+      otp: "143029",
+      expiresMinutes: 15,
+    });
+    expect(email.html).toContain("&lt;strong&gt;Customer&lt;/strong&gt;");
+    expect(email.text).toContain(greeting);
+    expect(email.html).toContain("143029");
+    expect(email.text).toContain("143029");
   });
 
   it("preserves a useful plain-text alternative", () => {
