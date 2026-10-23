@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { refreshPublicMotion } from "../redesign/motion-refresh";
+import { createHeroEntrance } from "./hero-entrance";
 
 /** Section-specific motion, scoped and reverted when the route leaves. */
 export function HomeStoryMotion() {
@@ -13,7 +14,9 @@ export function HomeStoryMotion() {
     gsap.registerPlugin(ScrollTrigger);
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
+      let disposeHero: (() => void) | undefined;
       const ctx = gsap.context(() => {
+        disposeHero = createHeroEntrance(root);
         const hero = root.querySelector("[data-hero-window]");
         if (hero)
           gsap.fromTo(
@@ -46,7 +49,10 @@ export function HomeStoryMotion() {
             });
           });
       }, root);
-      return () => ctx.revert();
+      return () => {
+        ctx.revert();
+        disposeHero?.();
+      };
     });
     media.add(
       "(min-width: 1000px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",

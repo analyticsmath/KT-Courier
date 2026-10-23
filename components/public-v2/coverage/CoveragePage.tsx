@@ -1,154 +1,172 @@
-import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import Image from "next/image";
 import Link from "next/link";
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
 import type { PublicCoverageSnapshot } from "@/lib/public-coverage/coverage";
-import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
 import { CoverageInteractiveView } from "./CoverageInteractiveView";
-import styles from "./coverage-page.module.css";
-
-interface CoveragePageProps {
+import styles from "@/components/public-v3/editorial/editorial-pages.module.css";
+export function CoveragePage({
+  snapshot,
+}: {
   snapshot: PublicCoverageSnapshot;
-}
-
-export function CoveragePage({ snapshot }: CoveragePageProps) {
+}) {
   return (
     <EditorialMotion>
-      <article className={styles.coverageRoot}>
+      <article className={styles.page}>
         <script
+          type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: publicBreadcrumbJsonLd([
               { label: "Home", href: "/" },
-              { label: "Coverage Areas", href: "/coverage" },
+              { label: "Coverage areas", href: "/coverage-areas" },
             ]),
           }}
-          type="application/ld+json"
         />
-
-        <div className={styles.coverageHeaderInner}>
-          <div className="mb-6">
-            <Link
-              href="/"
-              className="text-xs font-mono tracking-wider uppercase text-[var(--kt-public-text-muted)] hover:text-[var(--kt-public-text-primary)] transition-colors inline-flex items-center gap-1.5"
-            >
-              ← Home
-            </Link>
-          </div>
-
-          <div className={styles.heroCopyBlock}>
-            <h1 data-split-heading className={styles.heroTitle}>
-              Where we deliver.
+        <section className={styles.hero}>
+          <div className={styles.heroHeader}>
+            <h1 data-split-heading>
+              Places we know.
+              <br />
+              People we connect.
             </h1>
-            <p className={styles.heroLead}>
-              KT Couriers currently operates primarily across Johannesburg,
-              Pretoria, Gauteng and surrounding areas. Availability for a
-              specific route is confirmed from the pickup and drop-off details
-              in your request.
-            </p>
-
-            {/* Product Truth Contract (Accessible / Screen Reader disclosure) */}
-            <div className="sr-only">
-              Availability is confirmed from the pickup and drop-off details in
-              your request. There is no postcode checker or anonymous live
-              driver location tool on this page. The system does not treat an
-              unavailable source as an empty coverage list.
+            <div className={styles.heroAside}>
+              <p>
+                {
+                  "KT Couriers operates primarily across Johannesburg, Pretoria, Gauteng and surrounding areas. Your exact route is confirmed from the details of your request."
+                }
+              </p>
+              <Link href="/quote" className="kt-pill">
+                Check your delivery route ↗
+              </Link>
             </div>
           </div>
-
-          {/* Transit Corridor Aerial Hero Banner */}
-          <div
-            data-media-aperture
-            className="relative aspect-[21/9] sm:aspect-[24/8] w-full mt-8 overflow-hidden border border-[var(--kt-public-border-default)]/60 bg-[var(--kt-public-surface-inverse)]"
-          >
+          <div className={styles.heroPhoto} data-media-aperture>
             <Image
-              src={ktMediaV3.pages.coverage.hero.src}
-              alt={ktMediaV3.pages.coverage.hero.alt}
+              data-parallax
+              src="/media/public/home/kt-home-11-route-city.webp"
+              alt="The streets and buildings of Johannesburg"
               fill
               preload
-              sizes="(max-width: 1200px) 100vw, 1200px"
-              className="object-cover opacity-90"
+              sizes="100vw"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[var(--kt-public-text-primary)]/80 via-transparent to-transparent" />
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-[var(--kt-public-text-inverse)]">
-              <span className="text-xs font-mono uppercase tracking-widest bg-[var(--kt-public-surface-inverse)]/60 px-3 py-1">
-                Service Coverage
-              </span>
-              <span className="text-xs font-mono text-[var(--kt-public-border-default)] hidden sm:inline">
-                Connecting roads and regional routes
-              </span>
-            </div>
           </div>
-        </div>
-
-        <CoverageInteractiveView snapshot={snapshot} />
-
-        {/* Route Environments Photography Strip */}
+          <div className="sr-only">
+            {
+              "There is no postcode checker or anonymous live driver location tool on this page. The system does not treat an unavailable source as an empty coverage list."
+            }
+          </div>
+        </section>
         <section
-          aria-label="Route Environments"
-          className="max-w-6xl mx-auto px-6 md:px-12 py-16 border-t border-[var(--kt-public-border-default)]/40"
+          className={styles.statement}
+          data-chapter-takeover
+          data-section-transition="open"
         >
-          <div className="mb-10">
-            <span className="text-xs font-mono uppercase tracking-widest text-[var(--kt-public-text-muted)] block mb-2">
-              Route Environments
-            </span>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--kt-public-text-primary)]">
-              Service Areas & Road Networks
+          <h2 data-text-scrub>
+            One place to collect.{" "}
+            <span className={styles.inlinePhoto}>
+              <Image
+                src="/media/public/home/kt-home-08-merchant-prepare.webp"
+                alt="A merchant preparing an order for collection"
+                fill
+                sizes="180px"
+              />
+            </span>{" "}
+            Another to connect. The details between them make the difference.
+          </h2>
+          <p>
+            A region is the starting point. Pickup and destination addresses,
+            the service you choose and current availability determine whether a
+            specific route can go ahead.
+          </p>
+        </section>
+        <section className={styles.mapChapter} data-chapter-takeover>
+          <div className={styles.mapHeading}>
+            <h2 data-split-heading>
+              Explore the places
+              <br />
+              we connect.
             </h2>
+            <p>
+              Select a configured delivery region to see its details. A quote
+              confirms availability for your individual route.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-[var(--kt-public-border-default)]/40">
-            <div className="space-y-4 pb-8 md:pb-0 md:pr-8">
-              <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
-                <Image
-                  src={ktMediaV3.pages.coverage.skyline.src}
-                  alt={ktMediaV3.pages.coverage.skyline.alt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 30vw"
-                  className="object-cover"
-                />
-              </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
-                Urban routes
-              </h3>
-              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
-                Metropolitan street grids and city distribution.
+          <CoverageInteractiveView snapshot={snapshot} />
+        </section>
+        <section className={styles.routeGuide} data-section-transition="open">
+          <h2 data-split-heading>
+            Start with two places.
+            <br />
+            Then add the details.
+          </h2>
+          <div className={styles.routeDetails}>
+            <div>
+              <h3>Where it begins.</h3>
+              <p>
+                Your collection address, contact and any access instructions. A
+                clear starting point helps make the handoff practical.
               </p>
             </div>
-
-            <div className="space-y-4 py-8 md:py-0 md:px-8">
-              <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
-                <Image
-                  src={ktMediaV3.pages.coverage.capeTown.src}
-                  alt={ktMediaV3.pages.coverage.capeTown.alt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 30vw"
-                  className="object-cover"
-                />
-              </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
-                Long-distance roads
-              </h3>
-              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
-                Connecting transit links between locations.
+            <div>
+              <h3>Where it belongs.</h3>
+              <p>
+                The destination, recipient contact and delivery instructions.
+                Include the details that help someone find the right door.
               </p>
             </div>
-
-            <div className="space-y-4 pt-8 md:pt-0 md:pl-8">
-              <div className="relative aspect-[16/10] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20">
-                <Image
-                  src={ktMediaV3.pages.coverage.interchange.src}
-                  alt={ktMediaV3.pages.coverage.interchange.alt}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 30vw"
-                  className="object-cover"
-                />
-              </div>
-              <h3 className="font-display text-lg font-bold text-[var(--kt-public-text-primary)]">
-                Regional movement
-              </h3>
-              <p className="text-xs text-[var(--kt-public-text-muted)] leading-relaxed">
-                Highway networks and regional transfer points.
+            <div>
+              <h3>What’s going with it.</h3>
+              <p>
+                The service, parcel size and weight where applicable. Include a
+                future date if you’re planning ahead.
               </p>
+              <Link href="/services" className="kt-text-link">
+                Find the right service ↗
+              </Link>
             </div>
+          </div>
+          <div className={styles.roadPair}>
+            <div data-media-aperture>
+              <Image
+                data-parallax
+                src="/media/public/home/kt-home-11-route-city.webp"
+                alt="Johannesburg streets connecting local neighbourhoods"
+                fill
+                sizes="(max-width:760px) 90vw, 40vw"
+              />
+            </div>
+            <div data-media-aperture>
+              <Image
+                data-parallax
+                src="/media/public/home/kt-home-12-route-road.webp"
+                alt="Evening traffic moving along a road at sunset"
+                fill
+                sizes="(max-width:760px) 90vw, 48vw"
+              />
+            </div>
+          </div>
+        </section>
+        <section
+          className={styles.coverageCta}
+          data-chapter-takeover
+          data-section-transition="rise"
+        >
+          <h2 data-split-heading>
+            Got somewhere
+            <br />
+            in mind?
+          </h2>
+          <div>
+            <p>
+              Bring the pickup, destination and delivery details. Let’s find the
+              right next step.
+            </p>
+            <Link href="/quote" className="kt-pill">
+              Get a delivery quote ↗
+            </Link>
+            <Link href="/contact" className="kt-text-link">
+              Talk through a route ↗
+            </Link>
           </div>
         </section>
       </article>

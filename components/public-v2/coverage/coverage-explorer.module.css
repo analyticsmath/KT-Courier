@@ -1,0 +1,125 @@
+.explorer {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 6vw;
+  align-items: start;
+  color: #191919;
+}
+.map {
+  position: sticky;
+  top: 110px;
+  height: clamp(430px, 66svh, 700px);
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background: #eee;
+}
+.mapCanvas {
+  width: 100%;
+  height: 100%;
+}
+.notice {
+  font-size: 18px !important;
+  line-height: 1.5;
+  margin: 0 0 35px !important;
+}
+.selected {
+  border-block: 1px solid #bbb;
+  padding: 30px 0;
+  margin-bottom: 35px;
+  background: transparent;
+}
+.selected h3 {
+  font-size: 38px !important;
+  margin: 0 0 20px;
+}
+.selected p {
+  font-size: 17px !important;
+  margin-top: 15px !important;
+}
+.listTitle {
+  font-size: 28px !important;
+  line-height: 1.15 !important;
+  margin: 0 0 25px !important;
+}
+.regions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid #bbb;
+}
+.regions button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #bbb;
+  padding: 22px 0;
+  color: #191919;
+  font: inherit;
+  font-size: 23px;
+  letter-spacing: -0.03em;
+  cursor: pointer;
+}
+.regions small {
+  display: block;
+  font-size: 14px;
+  letter-spacing: 0;
+  margin-top: 7px;
+}
+.regions button[aria-pressed="true"] {
+  padding-inline: 18px;
+  background: #fff;
+}
+.regions button:focus-visible {
+  outline: 2px solid #191919;
+  outline-offset: 3px;
+}
+.sourceNotice {
+  border-top: 1px solid #bbb;
+  padding-top: 25px;
+}
+.sourceNotice p {
+  font-size: 17px !important;
+}
+.sourceNotice a {
+  margin-top: 20px;
+}
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 15px;
+  margin-top: 35px;
+}
+@media (max-width: 1000px) {
+  .explorer {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .map {
+    position: relative;
+    top: auto;
+    height: 440px;
+  }
+}
+@media (max-width: 760px) {
+  .map {
+    height: 380px;
+  }
+  .notice {
+    font-size: 17px !important;
+  }
+  .selected h3 {
+    font-size: 31px !important;
+  }
+  .regions button {
+    font-size: 22px;
+  }
+  .listTitle {
+    font-size: 25px !important;
+  }
+}

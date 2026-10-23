@@ -5,6 +5,7 @@ import gsap from "gsap";
 import {
   isCinematicDestination,
   routeMotionLabel,
+  routeMotionMedia,
 } from "./route-motion-policy";
 import { refreshPublicMotion } from "./motion-refresh";
 import styles from "./route-curtain.module.css";
@@ -23,6 +24,7 @@ export function PublicRouteCurtain() {
     const curtain = root.current;
     if (!curtain) return;
     const panels = curtain.querySelectorAll("i");
+    const preview = curtain.querySelector<HTMLElement>("[data-route-preview]");
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
     const clear = () => {
       animation.current?.kill();
@@ -33,6 +35,7 @@ export function PublicRouteCurtain() {
       gsap.set(panels, { clearProps: "transform" });
       if (label.current)
         gsap.set(label.current, { clearProps: "transform,opacity" });
+      if (preview) gsap.set(preview, { clearProps: "transform,opacity" });
     };
     if (previous.current !== pathname) {
       animation.current?.kill();
@@ -42,6 +45,8 @@ export function PublicRouteCurtain() {
       if (!reduced.matches && isCinematicDestination(pathname)) {
         if (label.current)
           label.current.textContent = routeMotionLabel(pathname);
+        if (preview)
+          preview.style.backgroundImage = `url("${routeMotionMedia(pathname)}")`;
         gsap.set(curtain, { visibility: "visible" });
         gsap.set(panels, { xPercent: 0 });
         animation.current = gsap
@@ -51,6 +56,19 @@ export function PublicRouteCurtain() {
               refreshPublicMotion();
             },
           })
+          .fromTo(
+            preview,
+            { opacity: 1, y: 0, scale: 1, rotation: 0 },
+            {
+              opacity: 0,
+              y: -45,
+              scale: 0.85,
+              rotation: -5,
+              duration: 0.5,
+              ease: "power3.in",
+            },
+            0.08,
+          )
           .fromTo(
             label.current,
             { y: 0, opacity: 1 },
@@ -109,11 +127,14 @@ export function PublicRouteCurtain() {
         ?.close();
       if (label.current)
         label.current.textContent = routeMotionLabel(destination.pathname);
+      if (preview)
+        preview.style.backgroundImage = `url("${routeMotionMedia(destination.pathname)}")`;
       gsap.set(curtain, { visibility: "visible" });
       gsap.set(panels, {
         xPercent: (index: number) => (index === 0 ? -101 : 101),
       });
       gsap.set(label.current, { y: 28, opacity: 0 });
+      gsap.set(preview, { opacity: 0, y: 30, rotation: 6, scale: 0.8 });
       animation.current?.kill();
       animation.current = gsap
         .timeline({
@@ -126,6 +147,18 @@ export function PublicRouteCurtain() {
           panels,
           { xPercent: 0, stagger: 0.04, duration: 0.5, ease: "power3.inOut" },
           0,
+        )
+        .to(
+          preview,
+          {
+            opacity: 1,
+            y: 0,
+            rotation: 0,
+            scale: 1,
+            duration: 0.4,
+            ease: "power3.out",
+          },
+          0.12,
         )
         .to(
           label.current,
@@ -153,6 +186,7 @@ export function PublicRouteCurtain() {
         <i />
       </div>
       <div className={styles.label}>
+        <div className={styles.preview} data-route-preview />
         <span ref={label}>KT Couriers.</span>
       </div>
     </div>

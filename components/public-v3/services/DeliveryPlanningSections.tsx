@@ -4,7 +4,11 @@ import styles from "./delivery-planning.module.css";
 
 export function ServiceStartingPoints() {
   return (
-    <section className={styles.starting} data-section-transition="open">
+    <section
+      className={styles.starting}
+      data-section-transition="open"
+      data-chapter-takeover
+    >
       <div className={styles.heading}>
         <h2 data-split-heading>
           Different days.
@@ -18,7 +22,6 @@ export function ServiceStartingPoints() {
       </div>
       <div className={styles.paths}>
         <Link href="/services/parcel">
-          <span>For your everyday</span>
           <h3>
             A parcel.
             <br />A person.
@@ -36,7 +39,6 @@ export function ServiceStartingPoints() {
           <b aria-hidden="true">↗</b>
         </Link>
         <Link href="/services/business">
-          <span>For your business</span>
           <h3>
             More orders.
             <br />
@@ -56,7 +58,6 @@ export function ServiceStartingPoints() {
           <b aria-hidden="true">↗</b>
         </Link>
         <Link href="/services/moving">
-          <span>For a bigger move</span>
           <h3>
             New stock.
             <br />
@@ -90,7 +91,11 @@ export function QuotePlanningSection({
     "Your delivery service and a future date if you’re planning ahead.",
   ];
   return (
-    <section className={styles.quote} data-section-transition="sweep">
+    <section
+      className={styles.quote}
+      data-section-transition="sweep"
+      data-chapter-takeover
+    >
       <div className={styles.quoteImage}>
         <Image
           data-parallax
@@ -130,7 +135,11 @@ export function QuotePlanningSection({
 }
 export function ParcelPackingSection() {
   return (
-    <section className={styles.parcel} data-section-transition="open">
+    <section
+      className={styles.parcel}
+      data-section-transition="open"
+      data-chapter-takeover
+    >
       <div className={styles.heading}>
         <h2 data-split-heading>
           Small details.
@@ -197,7 +206,11 @@ export function ParcelPackingSection() {
 }
 export function DeliveryCoverageSection() {
   return (
-    <section className={styles.coverage} data-section-transition="rise">
+    <section
+      className={styles.coverage}
+      data-section-transition="rise"
+      data-chapter-takeover
+    >
       <h2 data-split-heading>
         Start with the route.
         <br />

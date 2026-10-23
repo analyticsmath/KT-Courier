@@ -6,6 +6,7 @@ import { EditorialMotion } from "../redesign/EditorialMotion";
 import { OpeningCurtain } from "./OpeningCurtain";
 import { HomeStoryMotion } from "./HomeStoryMotion";
 import styles from "./home-story.module.css";
+import { ConnectionOrbit } from "../editorial/ConnectionOrbit";
 
 const journeys = [
   {
@@ -88,11 +89,11 @@ export function PublicHomeExperience() {
         aria-labelledby="kt-opening-title"
       >
         <div className={styles.heroTop}>
-          <h1 id="kt-opening-title">
+          <h1 id="kt-opening-title" data-wave-title>
             <span>Good things.</span>
             <span>Going places.</span>
           </h1>
-          <div className={styles.heroIntro}>
+          <div className={styles.heroIntro} data-hero-intro>
             <p>
               From the shop around the corner
               <br />
@@ -113,16 +114,20 @@ export function PublicHomeExperience() {
             preload
             sizes="100vw"
           />
-          <div className={styles.heroSeal} aria-hidden="true">
+          <Link
+            className={styles.heroSeal}
+            href="#little-connections"
+            aria-label="Discover the little connections behind every delivery"
+          >
             <span>
               Made of little
               <br />
               connections.
             </span>
-            <svg viewBox="0 0 40 40">
+            <svg viewBox="0 0 40 40" aria-hidden="true">
               <path d="M8 32 32 8M8 8h24v24" />
             </svg>
-          </div>
+          </Link>
         </div>
         <nav className={styles.intentBar} aria-label="Start your journey">
           <Link href="/shop">
@@ -139,10 +144,10 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.manifesto}
+        data-chapter-takeover
         data-home-chapter="connection"
         data-section-transition="rise"
       >
-        <span className={styles.marginNote}>Every parcel has a person.</span>
         <h2 data-text-scrub>
           It’s never just a box.
           <br />
@@ -158,6 +163,8 @@ export function PublicHomeExperience() {
           </p>
         </div>
       </section>
+
+      <ConnectionOrbit />
 
       <section
         className={styles.aperture}
@@ -268,6 +275,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.local}
+        data-chapter-takeover
         data-home-chapter="local"
         data-section-transition="open"
         aria-labelledby="local-heading"
@@ -305,6 +313,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.business}
+        data-chapter-takeover
         data-home-chapter="business"
         data-section-transition="rise"
       >
@@ -391,6 +400,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.choices}
+        data-chapter-takeover
         data-home-chapter="services"
         data-section-transition="open"
         aria-labelledby="choices-heading"
@@ -431,6 +441,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.freight}
+        data-chapter-takeover
         data-home-chapter="larger-loads"
         data-vehicle-scene
         data-section-transition="rise"
@@ -470,6 +481,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.packing}
+        data-chapter-takeover
         data-home-chapter="packing"
         data-section-transition="open"
       >
@@ -533,6 +545,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.closing}
+        data-chapter-takeover
         data-home-chapter="keep-connected"
         data-section-transition="sweep"
       >

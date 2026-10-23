@@ -35,3 +35,16 @@ export function routeMotionLabel(pathname: string) {
   };
   return labels[pathname] ?? "KT Couriers.";
 }
+
+/** A local photographic cue for the public destination. */
+export function routeMotionMedia(pathname: string) {
+  if (pathname === "/about" || pathname === "/contact")
+    return "/media/public/editorial/conversation.webp";
+  if (pathname === "/coverage-areas")
+    return "/media/public/home/kt-home-11-route-city.webp";
+  if (pathname.startsWith("/services"))
+    return "/media/public/editorial/collection.webp";
+  if (pathname === "/track")
+    return "/media/public/home/kt-home-13-arrival.webp";
+  return "/media/public/home/kt-home-09-package-detail.webp";
+}

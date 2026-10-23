@@ -910,3 +910,33 @@
 .orbitCopy:focus-within {
   opacity: 1 !important;
 }
+
+.heroSeal {
+  text-decoration: none;
+  transition: transform 0.4s;
+}
+.heroSeal:hover {
+  transform: rotate(-8deg);
+}
+.heroSeal svg {
+  transition: transform 0.4s;
+}
+.heroSeal:hover svg {
+  transform: translate(3px, -3px);
+}
+.manifesto h2 {
+  grid-column: 2;
+}
+.hero :global(.kt-hero-char-mask) {
+  padding-bottom: 0.16em;
+  margin-bottom: -0.16em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroSeal,
+  .heroSeal svg {
+    transition: none;
+  }
+  .heroSeal:hover {
+    transform: none;
+  }
+}

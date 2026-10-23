@@ -1,145 +1,116 @@
 "use client";
-
 import { useState } from "react";
 import Link from "next/link";
-import { PublicCoverageMap, type PublicDeliveryRegion } from "@/components/public-v2/maps";
+import {
+  PublicCoverageMap,
+  type PublicDeliveryRegion,
+} from "@/components/public-v2/maps";
 import type { PublicCoverageSnapshot } from "@/lib/public-coverage/coverage";
-import { KtIconArrowRight, KtIconArrowUpRight } from "@/components/public-v2/graphics/KtIcons";
-import styles from "./coverage-page.module.css";
-
-interface CoverageInteractiveViewProps {
+import styles from "./coverage-explorer.module.css";
+export function CoverageInteractiveView({
+  snapshot,
+}: {
   snapshot: PublicCoverageSnapshot;
-}
-
-export function CoverageInteractiveView({ snapshot }: CoverageInteractiveViewProps) {
+}) {
   const [selectedIdx, setSelectedIdx] = useState(0);
   const regions: readonly PublicDeliveryRegion[] = snapshot.regions;
-  const selectedRegion = regions[selectedIdx] || regions[0];
-
+  const selected = regions[selectedIdx] || regions[0];
   return (
-    <div className={styles.coverageSpatialLayout}>
-      {/* Interactive Map Canvas */}
-      <div className={styles.mapCanvasHolder}>
+    <div className={styles.explorer}>
+      <div className={styles.map}>
         <PublicCoverageMap
-          className={styles.mapElement}
-          interactive={true}
+          className={styles.mapCanvas}
+          interactive
           onSelectIndex={setSelectedIdx}
           regions={regions}
           selectedIndex={selectedIdx}
-          showBadge={true}
+          showBadge={false}
         />
       </div>
-
-      {/* Region Content & Serviceability Stream */}
-      <div className={styles.regionStreamHolder}>
-        <div className={styles.productTruthNotice}>
-          <span className={styles.noticeTitle}>Delivery Verification</span>
-          <p className={styles.noticeText}>
-            Route availability depends on the exact pickup and destination, selected service and current operational capacity. Additional provinces can be enabled as KT Couriers expands. For custom cross-provincial dispatches, contact our operations team.
-          </p>
-        </div>
-
-        {selectedRegion && (
-          <div className={styles.corridorTelemetryPanel} style={{ padding: "1.5rem" }}>
-            <div className={styles.telemetryHeader} style={{ marginBottom: "1rem" }}>
-              <span className={styles.telemetryTitle}>Region · {selectedRegion.name}</span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem", borderTop: "1px solid var(--kt-public-border-subtle)", paddingTop: "1rem" }}>
-              <div>
-                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-public-text-inverse-muted)", display: "block" }}>Location</span>
-                <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-public-text-inverse)" }}>
-                  {[selectedRegion.city, selectedRegion.province].filter(Boolean).join(", ") || "Active Region"}
-                </span>
-              </div>
-              {selectedRegion.coverageMode === "PROVINCE" ? <div><span style={{ fontSize: "0.75rem", textTransform: "uppercase", display: "block" }}>Coverage</span><span>Entire {selectedRegion.province} province</span></div> : selectedRegion.coverageRadiusKm && (
-                <div>
-                  <span style={{ fontSize: "0.75rem", textTransform: "uppercase", color: "var(--kt-public-text-inverse-muted)", display: "block" }}>Service Range</span>
-                  <span style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--kt-public-text-inverse)" }}>
-                    ~{selectedRegion.coverageRadiusKm} km Radius
-                  </span>
-                </div>
-              )}
-            </div>
-            {selectedRegion.description && (
-              <p style={{ marginTop: "1rem", fontSize: "0.9rem", color: "var(--kt-public-text-inverse-muted)", lineHeight: 1.5 }}>
-                {selectedRegion.description}
+      <div className={styles.details}>
+        <p className={styles.notice}>
+          Route availability depends on the exact pickup and destination,
+          selected service and current operational capacity. For a route that
+          needs a closer look, talk to our team.
+        </p>
+        {selected && (
+          <section
+            className={styles.selected}
+            aria-label="Selected delivery region"
+          >
+            <h3>{selected.name}</h3>
+            <p>
+              {[selected.city, selected.province].filter(Boolean).join(", ")}
+            </p>
+            {selected.description && <p>{selected.description}</p>}
+            {selected.coverageMode === "PROVINCE" ? (
+              <p>Configured coverage: {selected.province} province.</p>
+            ) : selected.coverageRadiusKm ? (
+              <p>
+                Configured service radius: approximately{" "}
+                {selected.coverageRadiusKm} km.
               </p>
-            )}
-          </div>
+            ) : null}
+          </section>
         )}
-
-        <div className={styles.activeRegionsListSection}>
-          <h2 className={styles.sectionHeading}>
-            {snapshot.state === "ACTIVE_REGIONS"
-              ? `Delivery Regions (${regions.length})`
-              : snapshot.state === "SOURCE_UNAVAILABLE"
-                ? "Delivery Regions · updating"
-                : "Coverage list being updated"}
-          </h2>
-
-          {snapshot.state === "SOURCE_UNAVAILABLE" ? (
-            <div className={styles.emptyStateCard}>
-              <p>Current delivery coverage cannot be verified automatically. Please contact our team to confirm pickup and destination availability before booking.</p>
-              <Link className={styles.primaryActionButton} href="/contact">
-                Contact operations team &rarr;
-              </Link>
-            </div>
-          ) : snapshot.state === "EMPTY_CONFIGURATION" || regions.length === 0 ? (
-            <div className={styles.emptyStateCard}>
-              <p>We’re updating the public coverage list. Availability is confirmed from the pickup and drop-off details in your request.</p>
-              <Link className={styles.primaryActionButton} href="/contact">
-                Contact the team to check availability &rarr;
-              </Link>
-            </div>
-          ) : (
-            <ul className={styles.regionsScrollList}>
-              {regions.map((region, idx) => {
-                const isSelected = idx === selectedIdx;
-                return (
-                  <li key={region.name}>
-                    <button
-                      className={`${styles.regionCardButton} ${
-                        isSelected ? styles.regionCardButtonActive : ""
-                      }`}
-                      aria-pressed={isSelected}
-                      onClick={() => setSelectedIdx(idx)}
-                      onFocus={() => setSelectedIdx(idx)}
-                      type="button"
-                    >
-                      <div className={styles.regionCardHeader}>
-                        <span className={styles.regionCardName}>{region.name}</span>
-                        <span className={styles.regionCardCoords}>
-                          {[region.city, region.province].filter(Boolean).join(", ") || "Active Region"}
-                        </span>
-                      </div>
-
-                      {region.description && (
-                        <p className={styles.regionCardDesc}>{region.description}</p>
-                      )}
-
-                      {region.coverageMode === "PROVINCE" ? <div className={styles.regionRadiusBadge}>Entire {region.province} province</div> : region.coverageRadiusKm && (
-                        <div className={styles.regionRadiusBadge}>
-                          Coverage Radius: ~{region.coverageRadiusKm} km
-                        </div>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        {/* Action Links */}
-        <div className={styles.coverageActionGroup}>
-          <Link className="kt-action-filled" href="/services/pricing">
-            <span>View pricing factors</span>
-            <KtIconArrowRight size={16} />
+        <h3 className={styles.listTitle}>
+          {snapshot.state === "ACTIVE_REGIONS"
+            ? "Choose a delivery region"
+            : snapshot.state === "SOURCE_UNAVAILABLE"
+              ? "Checking the latest coverage."
+              : "Coverage list being updated"}
+        </h3>
+        {snapshot.state === "SOURCE_UNAVAILABLE" ? (
+          <div className={styles.sourceNotice}>
+            <p>
+              Current delivery coverage cannot be verified automatically. Please
+              contact our team to confirm pickup and destination availability
+              before booking.
+            </p>
+            <Link href="/contact" className="kt-text-link">
+              Contact operations team ↗
+            </Link>
+          </div>
+        ) : snapshot.state === "EMPTY_CONFIGURATION" || !regions.length ? (
+          <div className={styles.sourceNotice}>
+            <p>
+              We’re updating the public coverage list. Availability is confirmed
+              from the pickup and drop-off details in your request.
+            </p>
+            <Link href="/contact" className="kt-text-link">
+              Check availability with the team ↗
+            </Link>
+          </div>
+        ) : (
+          <ul className={styles.regions}>
+            {regions.map((region, i) => (
+              <li key={region.id || region.name}>
+                <button
+                  type="button"
+                  aria-pressed={i === selectedIdx}
+                  onClick={() => setSelectedIdx(i)}
+                  onFocus={() => setSelectedIdx(i)}
+                >
+                  <span>
+                    {region.name}
+                    <small>
+                      {[region.city, region.province]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </small>
+                  </span>
+                  <span aria-hidden="true">↗</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className={styles.actions}>
+          <Link href="/quote" className="kt-pill">
+            Check your delivery route ↗
           </Link>
-          <Link className="kt-action-outline" href="/contact">
-            <span>Delivery question?</span>
-            <KtIconArrowUpRight size={16} />
+          <Link href="/services/pricing" className="kt-text-link">
+            What shapes a quote? ↗
           </Link>
         </div>
       </div>

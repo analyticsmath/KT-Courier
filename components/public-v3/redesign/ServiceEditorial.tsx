@@ -8,6 +8,7 @@ import {
   type PublicServicePageDefinition,
 } from "@/lib/public-services/service-page-registry";
 import { EditorialMotion } from "./EditorialMotion";
+import { ServiceJourney } from "../services/ServiceJourney";
 import {
   ParcelPackingSection,
   QuotePlanningSection,
@@ -20,7 +21,6 @@ export function ServiceEditorial({
   service: PublicServicePageDefinition;
 }) {
   const hero = serviceMedia[service.heroMediaId];
-  const second = serviceMedia[service.detailMediaIds[0] ?? service.heroMediaId];
   const parcel = service.id === "parcel";
   const freight = service.id === "freight" || service.id === "moving";
   const food = service.id === "food" || service.id === "grocery";
@@ -81,43 +81,16 @@ export function ServiceEditorial({
           />
         </div>
       )}
-      <section
-        className="kt-detail-process"
-        data-section-transition="sweep"
-        data-process-sequence
-      >
-        <div className="kt-detail-process-photo">
-          <Image
-            data-parallax
-            src={
-              parcel ? "/media/public/home/kt-home-13-arrival.webp" : second.src
-            }
-            alt={
-              parcel ? "A recipient accepting a parcel at her door" : second.alt
-            }
-            fill
-            sizes="(max-width:760px) 100vw, 49vw"
-          />
-        </div>
-        <div>
-          <h2 data-split-heading>
-            {parcel
-              ? "A clear start.\nA considered handoff."
-              : "Start with the details."}
-          </h2>
-          {service.process.map((step) => (
-            <div className="kt-process-point" key={step.title}>
-              <h3>{step.title}</h3>
-              <p>{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <ServiceJourney service={service} />
       {parcel && <ParcelPackingSection />}
       {service.primaryActionIsQuote && (
         <QuotePlanningSection factors={service.pricingFactors} />
       )}
-      <section className="kt-detail-preparation" data-section-transition="open">
+      <section
+        className="kt-detail-preparation"
+        data-section-transition="open"
+        data-chapter-takeover
+      >
         <div data-reveal>
           <h2 data-split-heading>
             {parcel ? "Ready to send?" : "Before it moves."}
@@ -154,7 +127,11 @@ export function ServiceEditorial({
         </div>
       </section>
       {service.primaryActionIsQuote && <DeliveryCoverageSection />}
-      <section className="kt-detail-questions" data-section-transition="rise">
+      <section
+        className="kt-detail-questions"
+        data-section-transition="rise"
+        data-chapter-takeover
+      >
         <h2 data-split-heading>
           A little more
           <br />

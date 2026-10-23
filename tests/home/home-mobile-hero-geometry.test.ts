@@ -15,6 +15,17 @@ describe("replacement homepage initial content", () => {
     expect(opening).toContain('href="/services/parcel"');
     expect(opening).toContain('href="/shop"');
   });
+  it("connects the hero seal and every in-page link to an existing destination", () => {
+    const fragments = [...markup.matchAll(/href="#([^"]+)"/g)].map(
+      (match) => match[1],
+    );
+    expect(fragments).toContain("little-connections");
+    for (const fragment of fragments)
+      expect(markup).toContain(`id="${fragment}"`);
+    expect(opening).toContain(
+      "Discover the little connections behind every delivery",
+    );
+  });
   it("keeps the van out of the opening while providing its later scene", () => {
     expect(opening).not.toContain("protagonist-van");
     expect(markup.indexOf("protagonist-van")).toBeGreaterThan(

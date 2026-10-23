@@ -55,6 +55,11 @@ export function OpeningCurtain() {
             duration: 0.3,
             ease: "power2.in",
           })
+          .call(
+            () => window.dispatchEvent(new Event("kt:opening-reveal")),
+            [],
+            0.12,
+          )
           .to(
             curtain.querySelector("[data-curtain-left]"),
             { xPercent: -101, duration: 1.05, ease: "power4.inOut" },

@@ -1,194 +1,165 @@
-import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import Image from "next/image";
 import Link from "next/link";
+import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
+import { ConnectionOrbit } from "@/components/public-v3/editorial/ConnectionOrbit";
 import { publicBreadcrumbJsonLd } from "@/lib/public-services/public-breadcrumb-json-ld";
-import { ktMediaV3 } from "@/components/public-v3/media/kt-media-v3";
-import { KtIconArrowRight } from "@/components/public-v2/graphics/KtIcons";
-import { FloatingImageGallery } from "./FloatingImageGallery";
-import styles from "./about-page.module.css";
+import styles from "@/components/public-v3/editorial/editorial-pages.module.css";
 
-const networkPillars = [
+const chapters = [
   {
-    category: "Makers & Merchants",
-    title: "Trade begins with local preparation.",
-    desc: "Independent shops, craft producers, and local suppliers prepare items for pickup and delivery.",
-    media: ktMediaV3.pages.about.photoEssay[0],
+    title: "It begins with someone.",
+    copy: "An independent shop. A carefully chosen gift. An order a customer is waiting for. Behind the delivery is a person with something to send and someone ready to receive it.",
+    src: "/media/public/home/kt-home-08-merchant-prepare.webp",
+    alt: "A shop owner preparing a customer’s order",
+    href: "/shop",
+    action: "Discover the shop",
   },
   {
-    category: "Workshop Staging",
-    title: "Careful packaging and preparation.",
-    desc: "Items are packed with protective materials and prepared for courier collection.",
-    media: ktMediaV3.pages.about.photoEssay[2],
+    title: "Care travels with it.",
+    copy: "The right packaging. Clear addresses. A practical note for collection. Small details help turn an everyday request into a considered journey.",
+    src: "/media/public/derived/photo-prep-artisan-woodwork-labeling-640w.webp",
+    alt: "Clothing, parcel labels and paperwork being prepared together",
+    href: "/services/parcel",
+    action: "Prepare your next parcel",
   },
   {
-    category: "Regional Transport",
-    title: "Connecting routes across South Africa.",
-    desc: "Couriers and transport operators move parcels across confirmed regional roads and urban corridors.",
-    media: ktMediaV3.pages.about.photoEssay[1],
+    title: "A connection at the door.",
+    copy: "KT brings delivery requests, account updates and operational coordination together. The journey is shaped around the service, the route and the details of your request.",
+    src: "/media/public/home/kt-home-13-arrival.webp",
+    alt: "A parcel reaching its recipient at the front door",
+    href: "/services",
+    action: "Find the right delivery",
   },
-  {
-    category: "Doorstep Delivery",
-    title: "Direct handoff at the destination.",
-    desc: "Packages reach recipients directly at homes and business addresses, with clear in-person handovers upon arrival.",
-    media: ktMediaV3.pages.about.photoEssay[4],
-  },
-] as const;
-
+];
 export function AboutPage() {
   return (
     <EditorialMotion>
-      <article className={styles.aboutRoot}>
+      <article className={styles.page}>
         <script
+          type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: publicBreadcrumbJsonLd([
               { label: "Home", href: "/" },
               { label: "About", href: "/about" },
             ]),
           }}
-          type="application/ld+json"
         />
-
-        <div className={styles.aboutInner}>
-          {/* Narrative Intro with Inline-Image-In-Type Moment */}
-          <section aria-labelledby="about-heading" className={styles.aboutHero}>
-            <h1 className={styles.aboutTitle} id="about-heading">
-              Commerce does not end at the checkout.{" "}
-              <span className="inline-block align-middle mx-1 sm:mx-2 w-12 h-6 sm:w-20 sm:h-9 relative overflow-hidden rounded-full border border-[var(--kt-public-surface-inverse)]/15 shadow-inner">
-                <Image
-                  src={ktMediaV3.pages.about.photoEssay[3].src}
-                  alt={ktMediaV3.pages.about.photoEssay[3].alt}
-                  fill
-                  sizes="80px"
-                  preload
-                  className="object-cover"
-                />
-              </span>{" "}
-              Delivery does not start at the road. KT sits between the two.
+        <section className={styles.hero}>
+          <div className={styles.heroHeader}>
+            <h1 data-split-heading>
+              A little closer.
+              <br />
+              To each other.
             </h1>
-            <p className={styles.aboutLead}>
-              KT Couriers connects local merchant stores, independent senders,
-              and courier operators across South African communities.
+            <div className={styles.heroAside}>
+              <p>
+                KT Couriers connects local stores, independent senders and
+                courier operators. A shared journey, made of little connections.
+              </p>
+              <Link className="kt-text-link" href="/services">
+                Find your next move ↗
+              </Link>
+            </div>
+          </div>
+          <div className={styles.heroPhoto} data-media-aperture>
+            <Image
+              data-parallax
+              src="/media/public/home/kt-home-01-world-market.webp"
+              alt="People and independent stalls inside a Johannesburg market"
+              fill
+              preload
+              sizes="100vw"
+            />
+          </div>
+          <div className={styles.heroFoot}>
+            <p>
+              For the things you make. The people you care about. And everything
+              in between.
             </p>
-          </section>
-
-          {/* Human Narrative Sequence */}
-          <section
-            aria-label="Our Network"
-            className={styles.ecosystemSequence}
-            data-section-transition="sweep"
-          >
-            {networkPillars.map((pillar, index) => (
-              <div className={styles.ecosystemNode} key={pillar.category}>
-                <div className={styles.nodeMediaFrame} data-media-aperture>
-                  <Image
-                    alt={pillar.media.alt}
-                    fill
-                    sizes="(max-width: 899px) 100vw, 50vw"
-                    preload={index === 0}
-                    src={pillar.media.src}
-                    className="object-cover"
-                  />
-                </div>
-
-                <div className={styles.nodeCopyPlane}>
-                  <span className={styles.nodeStepIndex}>
-                    {pillar.category}
-                  </span>
-                  <h2 data-split-heading className={styles.nodeTitle}>
-                    {pillar.title}
-                  </h2>
-                  <p className={styles.nodeDesc} data-text-scrub>
-                    {pillar.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </section>
-
-          {/* Floating Asymmetrical Gallery */}
-          <FloatingImageGallery />
-
-          {/* The People Behind the Network — Unboxed Editorial Portraits */}
-          <section
-            data-section-transition="open"
-            aria-label="People of KT Couriers"
-            className="my-16 pt-12 border-t border-[var(--kt-public-border-default)]/40"
-          >
-            <div className="max-w-2xl mb-8">
-              <span className="font-mono text-xs uppercase tracking-widest text-[var(--kt-public-text-muted)] font-semibold block mb-2">
-                People behind the journey
-              </span>
-              <h2
-                data-split-heading
-                className="font-display text-3xl sm:text-4xl font-extrabold text-[var(--kt-public-text-primary)]"
-              >
-                The people who build and move the network.
-              </h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:divide-x md:divide-[var(--kt-public-border-default)]/40">
-              <div className="space-y-4 md:pr-6">
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
-                  <Image
-                    src={ktMediaV3.pages.about.portraits[0].src}
-                    alt={ktMediaV3.pages.about.portraits[0].alt}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 45vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="pt-2">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
-                    Local Merchants
-                  </span>
-                  <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
-                    Artisans & Independent Shops
-                  </h3>
-                  <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
-                    From neighborhood craft markets to established boutiques,
-                    independent South African merchants rely on KT for
-                    dependable fulfillment.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-4 md:pl-6">
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[var(--kt-public-border-default)]/20 border border-[var(--kt-public-border-default)]/30">
-                  <Image
-                    src={ktMediaV3.pages.about.portraits[1].src}
-                    alt={ktMediaV3.pages.about.portraits[1].alt}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 45vw"
-                    className="object-cover"
-                  />
-                </div>
-                <div className="pt-2">
-                  <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--kt-public-text-muted)] block">
-                    Couriers & Drivers
-                  </span>
-                  <h3 className="font-display text-xl font-bold text-[var(--kt-public-text-primary)] mt-1">
-                    Delivery & Route Operators
-                  </h3>
-                  <p className="text-sm text-[var(--kt-public-text-muted)] leading-relaxed mt-2">
-                    Operating across urban corridors and regional roads,
-                    bringing packages safely to their destinations.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Direct Pathway Links */}
-          <div className={styles.pathwayRow}>
-            <Link className={styles.pathwayLink} href="/shop">
-              <span>Explore Marketplace</span>
-              <KtIconArrowRight size={18} />
-            </Link>
-            <Link className={styles.pathwayLink} href="/services">
-              <span>Explore Delivery Services</span>
-              <KtIconArrowRight size={18} />
+            <Link href="#our-story" className="kt-text-link">
+              Follow the story ↓
             </Link>
           </div>
-        </div>
+        </section>
+        <section
+          id="our-story"
+          className={styles.statement}
+          data-chapter-takeover
+          data-section-transition="open"
+        >
+          <h2 data-text-scrub>
+            Good things start with people.{" "}
+            <span className={styles.inlinePhoto}>
+              <Image
+                src="/media/public/editorial/conversation.webp"
+                alt="A florist speaking with a customer"
+                fill
+                sizes="180px"
+              />
+            </span>{" "}
+            They grow through care. And they go further when we connect.
+          </h2>
+          <p>
+            Our role is to bring the request, the route and the handoff
+            together. So the next step is easier to understand, whether you’re
+            sending for yourself or for your business.
+          </p>
+        </section>
+        <ConnectionOrbit id="people-in-the-journey" about />
+        <section className={styles.essay} data-section-transition="rise">
+          <div className={styles.essayHeader}>
+            <h2 data-split-heading>
+              Every journey.
+              <br />A human story.
+            </h2>
+            <p>A few of the everyday moments behind the things that move.</p>
+          </div>
+          {chapters.map((chapter) => (
+            <div className={styles.essayRow} key={chapter.title}>
+              <div className={styles.essayImage} data-media-aperture>
+                <Image
+                  data-parallax
+                  src={chapter.src}
+                  alt={chapter.alt}
+                  fill
+                  sizes="(max-width:760px) 90vw, 48vw"
+                />
+              </div>
+              <div className={styles.essayCopy}>
+                <h3 data-split-heading>{chapter.title}</h3>
+                <p data-text-scrub>{chapter.copy}</p>
+                <Link href={chapter.href} className="kt-text-link">
+                  {chapter.action} ↗
+                </Link>
+              </div>
+            </div>
+          ))}
+        </section>
+        <section
+          className={styles.actions}
+          data-chapter-takeover
+          data-section-transition="open"
+        >
+          <h2 data-split-heading>
+            There’s a place for you
+            <br />
+            in the story.
+          </h2>
+          <nav
+            className={styles.actionLinks}
+            aria-label="Ways to connect with KT"
+          >
+            <Link href="/services/parcel">
+              Send something thoughtful.<span aria-hidden="true">↗</span>
+            </Link>
+            <Link href="/services/business">
+              Build your next chapter.<span aria-hidden="true">↗</span>
+            </Link>
+            <Link href="/services/driver-network">
+              Know these streets?<span aria-hidden="true">↗</span>
+            </Link>
+          </nav>
+        </section>
       </article>
     </EditorialMotion>
   );

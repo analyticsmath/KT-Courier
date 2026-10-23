@@ -7,6 +7,7 @@ import { SplitText } from "gsap/SplitText";
 import { usePathname } from "next/navigation";
 import { createSectionChoreography } from "./section-choreography";
 import { refreshPublicMotion } from "./motion-refresh";
+import { createChapterTakeovers } from "./chapter-takeovers";
 
 /** Local, reversible enhancements. Content is visible before JS and without motion. */
 export function EditorialMotion({
@@ -215,6 +216,19 @@ export function EditorialMotion({
         }, root);
         return () => {
           disposeChoreography?.();
+          ctx.revert();
+        };
+      },
+    );
+    mm.add(
+      "(min-width: 1000px) and (min-height: 520px) and (prefers-reduced-motion: no-preference)",
+      () => {
+        let dispose: (() => void) | undefined;
+        const ctx = gsap.context(() => {
+          if (root.current) dispose = createChapterTakeovers(root.current);
+        }, root);
+        return () => {
+          dispose?.();
           ctx.revert();
         };
       },

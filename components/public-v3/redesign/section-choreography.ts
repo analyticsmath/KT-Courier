@@ -127,6 +127,24 @@ export function createSectionChoreography(root: HTMLElement) {
         });
       });
     });
+  root
+    .querySelectorAll<HTMLElement>("[data-process-stack]")
+    .forEach((stack) => {
+      const panels = Array.from(stack.children);
+      if (!window.matchMedia("(min-width:761px)").matches) return;
+      panels.slice(0, -1).forEach((panel, index) => {
+        gsap.to(panel, {
+          scale: 0.94,
+          ease: "none",
+          scrollTrigger: {
+            trigger: panels[index + 1],
+            start: "top 80%",
+            end: "top 125px",
+            scrub: 0.6,
+          },
+        });
+      });
+    });
   const montage = root.querySelector<HTMLElement>("[data-montage]");
   if (montage) {
     const photo = montage.querySelector(".kt-montage-main");
