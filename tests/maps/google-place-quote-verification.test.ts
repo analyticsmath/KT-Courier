@@ -41,6 +41,10 @@ describe("quotes verify a browser-selected Google Place server-side", () => {
     const request = new URL(String(spy.mock.calls[0][0]));
     expect(request.searchParams.get("place_id")).toBe(selected.placeId);
     expect(request.searchParams.has("address")).toBe(false);
+    // Place ID geocoding only accepts place_id/key (+ reverse-geocoding
+    // options). Forward-only country components/region can cause HTTP 400.
+    expect(request.searchParams.has("components")).toBe(false);
+    expect(request.searchParams.has("region")).toBe(false);
   });
 
   it("rejects forged coordinates rather than trusting the browser's marker", async () => {

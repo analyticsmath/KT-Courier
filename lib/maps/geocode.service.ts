@@ -130,8 +130,14 @@ export async function geocodeSouthAfricanAddress(
   } else {
     url.searchParams.set("address", southAfricanAddressQuery(address));
   }
-  url.searchParams.set("region", config.regionBias || "za");
-  url.searchParams.set("components", "country:ZA");
+  // Forward geocoding supports region/components restrictions, but Google's
+  // Place ID geocoding endpoint uses reverse-geocoding-style parameters.
+  // Do not combine place_id with forward-only filters: that returns HTTP 400.
+  // The provider country/province and service-zone checks below remain mandatory.
+  if (!address.placeId) {
+    url.searchParams.set("region", config.regionBias || "za");
+    url.searchParams.set("components", "country:ZA");
+  }
   url.searchParams.set("key", config.serverKey);
 
   const controller = new AbortController();
@@ -144,7 +150,17 @@ export async function geocodeSouthAfricanAddress(
       signal: controller.signal,
       cache: "no-store",
     });
-    if (!response.ok) return rejectForwardGeocode("GEOCODE_PROVIDER_HTTP_REJECTED");
+    if (!response.ok) {
+      logApplicationEvent({
+        level: "WARN",
+        event: "courier.geocode_provider_http_rejected",
+        message: "The mapping provider rejected a geocoding request.",
+        outcome: "UNAVAILABLE",
+        errorCategory: "GEOCODE_PROVIDER_HTTP_REJECTED",
+        context: { httpStatus: response.status },
+      });
+      return null;
+    }
 
     const payload = await response.json() as GeocodeResponse;
     if (payload.status !== "OK") return rejectForwardGeocode(

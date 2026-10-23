@@ -34,6 +34,7 @@ describe("safe geocoding production diagnostics", () => {
     expect(await geocodeSouthAfricanAddress(address, config)).toBeNull();
     expect(logApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({
       errorCategory: "GEOCODE_PROVIDER_HTTP_REJECTED",
+      context: { httpStatus: 403 },
     }));
     expect(JSON.stringify(vi.mocked(logApplicationEvent).mock.calls)).not.toContain("permission denied");
   });
