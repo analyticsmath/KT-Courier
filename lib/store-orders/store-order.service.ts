@@ -15,8 +15,7 @@ import { assertStoreOrderProductionReady } from "@/lib/store-orders/production-l
 import { requireStoreOrderActor, type StoreOrderPermission } from "@/lib/store-orders/store-order-auth";
 import { assertAcceptanceTransition, assertFinancialTransition, assertPreparationTransition, deriveStoreOrderStatus } from "@/lib/store-orders/state-machine";
 import { completeMarketplacePickupInTx } from "@/lib/services/pickup-custody.service";
-import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
-import { dispatchIssuedDeliveryOtpEmail } from "@/lib/services/delivery-otp-email-dispatch.service";
+import { sendStorePickupChallengeEmail } from "@/lib/notifications/store-pickup-email";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
@@ -701,17 +700,14 @@ export async function generateStoreOrderPickupChallenge(input: Readonly<{ storeO
     select: { ownerUserId: true },
   });
   if (!store?.ownerUserId) return { ...handoffResult, emailDeliveryStatus: "STORE_OWNER_NOT_FOUND" };
-  const emailOperationId = `store-pickup-email:${createHash("sha256").update(input.operationId).digest("hex").slice(0,32)}`;
   try {
-    await queueSecurityNotification({
-      eventType: "STORE_PICKUP_CODE",
-      operationId: emailOperationId,
-      subjectUserId: store.ownerUserId,
-      aggregateReference: input.storeOrderReference,
+    const email = await sendStorePickupChallengeEmail({
+      storeOrderReference: input.storeOrderReference,
+      pickupOperationId: input.operationId,
+      recipientUserId: store.ownerUserId,
+      code: emailDetails.pickupCode as string,
       expiresAt: new Date(emailDetails.expiresAt as string),
-      values: { otp: emailDetails.pickupCode as string, orderNumber: input.storeOrderReference, pickupOperationId: input.operationId },
     });
-    const email = await dispatchIssuedDeliveryOtpEmail(emailOperationId);
     return { ...handoffResult, emailDeliveryStatus: email.status };
   } catch {
     // Never suppress the existing approved store-to-driver handoff or

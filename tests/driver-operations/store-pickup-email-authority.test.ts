@@ -7,7 +7,7 @@ const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 describe("marketplace pickup vendor-email authority", () => {
   it("reuses the single store-owned challenge rather than creating a second OTP", () => {
     const store = read("lib/store-orders/store-order.service.ts");
-    expect(store).toContain('eventType: "STORE_PICKUP_CODE"');
+    expect(store).toContain("sendStorePickupChallengeEmail");
     expect(store).toContain("emailDetails.pickupCode");
     expect(store).toContain("MARKETPLACE_PICKUP_EMAIL_ENABLED");
     expect(store).toContain("emailDeliveryStatus");
@@ -26,8 +26,10 @@ describe("marketplace pickup vendor-email authority", () => {
 
   it("sends only encrypted, idempotent notification intents to the verified store owner", () => {
     const queue = read("lib/notifications/security-delivery.ts");
+    const pickupEmail = read("lib/notifications/store-pickup-email.ts");
     const helper = read("lib/services/delivery-otp-email-dispatch.service.ts");
     expect(queue).toContain('"STORE_PICKUP_CODE"');
+    expect(pickupEmail).toContain('eventType: "STORE_PICKUP_CODE"');
     expect(queue).toContain("sealSecurityPayload");
     expect(queue).toContain("VERIFIED_NOTIFICATION_DESTINATION_REQUIRED");
     expect(helper).toContain('"STORE_PICKUP_CODE"');
