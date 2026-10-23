@@ -171,11 +171,26 @@ describe("admin permission service", () => {
     );
   });
 
-  it("rejects self-permission override updates", async () => {
+  it("merges a scoped grant without deleting unrelated permission overrides", async () => {
+    const permission = { id: "publish", key: PERMISSIONS.NOTIFICATION_TEMPLATE_PUBLISH, name: "Publish templates", category: "Notifications" };
+    prismaMock.user.findUnique.mockResolvedValue(targetUser());
+    prismaMock.permission.findMany.mockResolvedValue([permission]);
+    prismaMock.rolePermission.findMany.mockResolvedValue([]);
+    prismaMock.userPermission.findMany.mockResolvedValue([]);
+    const tx = { userPermission: { deleteMany: vi.fn(), upsert: vi.fn().mockResolvedValue({}) } };
+    prismaMock.$transaction.mockImplementation(async callback => callback(tx));
+    await updateUserPermissionOverrides({ userId: "target-admin", mode: "MERGE", overrides: [{ permissionKey: permission.key, effect: PermissionEffect.ALLOW, reason: "Operator approved reviewer access" }], actor: { id: "super-admin", role: UserRole.SUPER_ADMIN } });
+    expect(tx.userPermission.deleteMany).not.toHaveBeenCalled();
+    expect(tx.userPermission.upsert).toHaveBeenCalledTimes(1);
+    expect(recordSecurityEventMock).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ mode: "MERGE" }) }));
+  });
+
+  it.each(["REPLACE", "MERGE"] as const)("rejects self-permission override updates in %s mode", async mode => {
     prismaMock.user.findUnique.mockResolvedValue(targetUser({ id: "admin-1" }));
 
     await expect(
       updateUserPermissionOverrides({
+        mode,
         userId: "admin-1",
         overrides: [],
         actor: { id: "admin-1", role: UserRole.SUPER_ADMIN },
@@ -187,13 +202,14 @@ describe("admin permission service", () => {
     );
   });
 
-  it("blocks normal admins from modifying SUPER_ADMIN overrides", async () => {
+  it.each(["REPLACE", "MERGE"] as const)("blocks normal admins from modifying SUPER_ADMIN overrides in %s mode", async mode => {
     prismaMock.user.findUnique.mockResolvedValue(
       targetUser({ id: "super-admin", role: UserRole.SUPER_ADMIN })
     );
 
     await expect(
       updateUserPermissionOverrides({
+        mode,
         userId: "super-admin",
         overrides: [
           {
@@ -210,12 +226,13 @@ describe("admin permission service", () => {
     );
   });
 
-  it("rejects normal admin overrides without employee permission management", async () => {
+  it.each(["REPLACE", "MERGE"] as const)("rejects normal admin overrides without employee permission management in %s mode", async mode => {
     prismaMock.user.findUnique.mockResolvedValue(targetUser());
     hasPermissionMock.mockResolvedValue(false);
 
     await expect(
       updateUserPermissionOverrides({
+        mode,
         userId: "target-admin",
         overrides: [
           {

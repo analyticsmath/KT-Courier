@@ -4,7 +4,7 @@ Status: **INCOMPLETE — not a production launch sign-off.** Work remains on `ma
 
 ## Automated evidence
 
-- Standard Vitest suite: **897 files passed, 4,485 tests passed**. This suite excludes database integration and browser tests; these counts must not be presented as end-to-end coverage.
+- Standard Vitest suite: **897 files passed, 4,489 tests passed**. This suite excludes database integration and browser tests; these counts must not be presented as end-to-end coverage.
 - TypeScript: passed after the changes.
 - Targeted ESLint: passed; the inventory generator is ignored by ESLint and separately passed `node --check`.
 - Route authorization inventory: **762 API routes**, including the new store media-content and seller-document endpoints. Generation now also records direct catalog guard permission keys.
@@ -26,7 +26,7 @@ CI investigation found that all 20 PostgreSQL matrix jobs, Redis/recovery and re
 | Vendor catalog access | Red Apples 1 kg saved with matching photograph, R29.99 price, SKU and 12 units in the sandbox stockroom; product and offer submitted for review | Admin review and publication passed; stock changes and purchase remain |
 | Product schemas | Compatible v2 definitions deployed; Groceries and Fresh Produce v2 used successfully for live listing authoring | Admin review and subsequent product edits |
 | Vendor product photos | Store-owned apple photo selected and saved on the matching Red Apples listing | Upload another image |
-| Seller supporting documents | Public sample PDF uploaded privately, downloaded as owner, and submitted as GBG-UAT-20261023; admin review page displays the file link and effective window ending 13:30 UTC | Admin file request returned HTTP 200 in 267 ms; download save-path confirmation timed out. Bounded test version approved; obsolete placeholder rejected. |
+| Seller supporting documents | Public sample PDF uploaded privately, downloaded as owner, and submitted as GBG-UAT-20261023; admin review page displays the file link and effective window ending 13:30 UTC | Admin download completed in the cloud browser and extracted text matched the expected public dummy PDF. Bounded test version approved; obsolete placeholder rejection confirmed in the admin UI. |
 | Email provider | Actual connection-test email accepted by the provider for the vendor account | Recipient inbox receipt remains unconfirmed |
 | Lifecycle notifications | All 31 prepared templates and their recipient policies approved through the administrator UI | Separate administrator must publish; routes then need preparation, approval and activation before new-event tests |
 | Driver onboarding | Driver login/readiness checked; existing licence approved; identity document and compliant vehicle missing; vehicle registration form exercised (save result unconfirmed) | Sample file intake/review, vehicle workflow and scoped dispatch/delivery tests |
@@ -48,7 +48,7 @@ The controlled Red Apples listing is saved and submitted: product `CP-37F567A472
 
 File-URL access has been enabled by the operator, and live browser control recovered. Seller PDF upload, owner download and submission succeeded. The admin private-file request returned HTTP 200; browser download-path confirmation timed out and reset the connection. A fresh tab recovered control. The bounded seller test version was approved, and the old placeholder proposal rejected. A later driver file-chooser attempt also timed out; no successful driver upload is claimed.
 
-The notification authority requires a publisher different from the approver. Only one administrator login has been supplied. A second existing authorized administrator is needed for normal publication/activation; no artificial administrator identity was created and the approval rule was not removed. Commercial policy approval/activation has its own independent-review requirements.
+The notification authority requires a publisher different from the approver. The operator supplied a second existing administrator and explicitly approved granting it template-publication and route-approval permissions. Its login succeeded, but its existing 199 effective permissions did not include those actions. The employee directory was read-only despite an existing audited permission API. A narrow Super Admin form now requests only the two approved permissions, using a new explicit MERGE mode that preserves unrelated overrides. The legacy replacement behavior remains the default. The merge-preservation regression failed before the fix and passes afterward; self-edit, protected-Super-Admin and missing-manager denial tests cover both modes. Actual grant and notification activation remain pending deployment and live verification. No artificial administrator identity was created, and independent approval rules remain in force. Commercial policy approval/activation has its own independent-review requirements.
 
 A downloaded sample PDF is test evidence only, not proof of genuine identity or legal registration. Keep test records and any resulting approvals clearly scoped to the controlled acceptance exercise. Do not claim a sample establishes real-world eligibility.
 

@@ -78,6 +78,7 @@ export async function PATCH(
     const result = await updateUserPermissionOverrides({
       userId: id,
       overrides: parsed.data.overrides,
+      mode: parsed.data.mode,
       actor: { id: auth.user.id, role: auth.user.role },
       request: req,
     });

@@ -6,6 +6,7 @@ export const RolePermissionsUpdateSchema = z.object({
 });
 
 export const UserPermissionOverridesUpdateSchema = z.object({
+  mode: z.enum(["REPLACE", "MERGE"]).default("REPLACE"),
   overrides: z
     .array(
       z.object({

@@ -326,6 +326,7 @@ async function assertCanUpdateUserOverrides(args: {
 
 export async function updateUserPermissionOverrides(args: {
   userId: string;
+  mode?: "REPLACE" | "MERGE";
   overrides: UserPermissionOverrideInput[];
   actor: PermissionActor;
   request?: Request;
@@ -360,14 +361,16 @@ export async function updateUserPermissionOverrides(args: {
       (override) => permissionsByKey.get(override.permissionKey)!.id
     );
 
-    await tx.userPermission.deleteMany({
-      where: {
-        userId: target.id,
-        ...(permissionIdsToKeep.length > 0
-          ? { permissionId: { notIn: permissionIdsToKeep } }
-          : {}),
-      },
-    });
+    if (args.mode !== "MERGE") {
+      await tx.userPermission.deleteMany({
+        where: {
+          userId: target.id,
+          ...(permissionIdsToKeep.length > 0
+            ? { permissionId: { notIn: permissionIdsToKeep } }
+            : {}),
+        },
+      });
+    }
 
     for (const override of args.overrides) {
       const permission = permissionsByKey.get(override.permissionKey);
@@ -404,6 +407,7 @@ export async function updateUserPermissionOverrides(args: {
     message: "User permission overrides updated",
     request: args.request,
     metadata: {
+      mode: args.mode ?? "REPLACE",
       targetRole: target.role,
       overrides: args.overrides.map((override) => ({
         permissionKey: override.permissionKey,
@@ -419,6 +423,7 @@ export async function updateUserPermissionOverrides(args: {
     entityId: target.id,
     message: `Updated permissions for ${target.email}`,
     metadata: {
+      mode: args.mode ?? "REPLACE",
       overrides: args.overrides.map((override) => ({
         permissionKey: override.permissionKey,
         effect: override.effect,
