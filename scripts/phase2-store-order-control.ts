@@ -30,7 +30,8 @@ async function main() {
       const policy = await createStoreOrderOperationalPolicy({ name: "Disposable store-order operational policy", versionNumber: 1, acceptanceWindowSeconds: 3600, customerDecisionWindowSeconds: 3600, maximumPrepMinutes: 120, maximumPrepExtensionMinutes: 60, maximumIssueCount: 10, maximumSubstitutionProposalsPerLine: 3, substitutionMode: "CUSTOMER_APPROVAL_REQUIRED", effectiveFrom: new Date("2026-01-01") });
       await submitStoreOrderOperationalPolicy(policy.publicReference);
       await approveStoreOrderOperationalPolicy({ publicReference: policy.publicReference, approvedByUserId: checker.id });
-      await activateStoreOrderOperationalPolicy({ publicReference: policy.publicReference });
+      const activator = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
+      await activateStoreOrderOperationalPolicy({ publicReference: policy.publicReference, activatedByUserId: activator.id });
     }
     await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 100 });
     const initialized = await prisma.marketplaceStoreOrder.findUniqueOrThrow({ where: { id: source.id } });

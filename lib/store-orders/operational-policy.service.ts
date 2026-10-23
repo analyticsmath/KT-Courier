@@ -1,3 +1,4 @@
+import { assertDistinctStoreOrderPolicyActivator } from "@/lib/store-orders/operational-policy-approval";
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 21 delegates remain dynamic until Phase 26.5 Prisma generation. */
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -61,12 +62,13 @@ export async function rejectStoreOrderOperationalPolicy(input: Readonly<{ public
 }
 
 /** Activation is source-locked. Active policy versions are never updated. */
-export async function activateStoreOrderOperationalPolicy(input: Readonly<{ publicReference: string; testApproval?: { approved: true } }>) {
+export async function activateStoreOrderOperationalPolicy(input: Readonly<{ publicReference: string; activatedByUserId: string; testApproval?: { approved: true } }>) {
   assertStoreOrderProductionReady("POLICY_ACTIVATION", input.testApproval);
   return prisma.$transaction(async (rawTx) => {
     const tx = rawTx as unknown as Db; const policies = delegate(tx);
     const candidate = await policies.findUnique({ where: { publicReference: input.publicReference } });
     assertStoreOrder(candidate?.status === "APPROVED", "STORE_ORDER_POLICY_INVALID_STATE", "Only an approved policy may be activated.");
+    assertDistinctStoreOrderPolicyActivator(candidate.approvedByUserId, input.activatedByUserId);
     const active = await policies.findFirst({ where: { status: "ACTIVE" } });
     if (active) await policies.update({ where: { id: active.id }, data: { status: "RETIRED", retiredAt: new Date() } });
     return policies.update({ where: { id: candidate.id }, data: { status: "ACTIVE", activatedAt: new Date() } });
