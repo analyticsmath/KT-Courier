@@ -30,6 +30,16 @@ export async function reviewedProtectedRowAudit() {
       for (const reason of reasons) blockers[reason] = (blockers[reason] ?? 0) + 1;
     }
     report.driverReadiness = { profileCount: drivers.length, readyBeforeCapacity, profileStatuses, availabilityStates, blockers };
+    const stores = await tx.store.findMany({ where: { status: "ACTIVE" }, select: {
+      name: true, slug: true,
+      defaultPickupAddress: { select: { line1: true, city: true, province: true } },
+      savedAddresses: { select: { type: true, isDefault: true, line1: true, city: true, province: true } },
+    } });
+    // Public store identity and readiness flags only, never street addresses.
+    report.storeCollectionReadiness = stores.map(store => {
+      const pickup = store.defaultPickupAddress ?? store.savedAddresses.find(address => address.type === "PICKUP" || address.isDefault);
+      return { name: store.name, slug: store.slug, collectionAddressPresent: Boolean(pickup), collectionAddressComplete: Boolean(pickup?.line1 && pickup.city && pickup.province) };
+    });
     const protectedRows: Record<string, unknown> = {};
     for (const name of ["User", "Store", "Address", "Order", "Payment", "MarketplaceOrder", "MarketplaceStoreOrder", "CashOnDelivery", "PrivateMediaObject", "StoreEarning", "DriverProfile", "LedgerAccount", "CatalogProduct", "CatalogProductVariant", "CatalogCategory", "CatalogMediaAsset", "StorefrontProductDocument"]) {
       const rows = await tx.$queryRawUnsafe<Record<string, unknown>[]>('SELECT count(*)::int AS count,encode(sha256(convert_to(COALESCE(string_agg(to_jsonb(t)::text,chr(10) ORDER BY to_jsonb(t)::text),\'\'),\'UTF8\')),\'hex\') AS hash FROM "' + name + '" t');

@@ -1,7 +1,28 @@
 import { describe, expect, it, vi } from "vitest";
-import { installSystemPermissionDefaults, installStoreCatalogPermissionDefaults } from "@/lib/auth/permission-bootstrap";
-import { ROLE_DEFAULT_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
+import { installSystemPermissionDefaults, installStoreCatalogPermissionDefaults, installSelfNotificationPermissionDefaults } from "@/lib/auth/permission-bootstrap";
+import { ROLE_DEFAULT_PERMISSION_KEYS, SELF_NOTIFICATION_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
 import type { Prisma } from "@/types/db";
+it("backfills only canonical own-inbox grants without overriding disabled grants or user denials", async () => {
+  const db = {
+    permission: { upsert: vi.fn(({ where }: { where: { key: string } }) => Promise.resolve({ id: where.key })) },
+    rolePermission: { upsert: vi.fn(async () => ({})) },
+  };
+  const registry = db as unknown as Prisma.TransactionClient;
+  await installSelfNotificationPermissionDefaults(registry);
+  expect(db.permission.upsert).toHaveBeenCalledTimes(SELF_NOTIFICATION_PERMISSION_KEYS.length);
+  for (const [command] of db.permission.upsert.mock.calls) {
+    expect(SELF_NOTIFICATION_PERMISSION_KEYS).toContain(command.where.key);
+    expect(command).toMatchObject({ update: {} });
+  }
+  const commands = db.rolePermission.upsert.mock.calls as unknown as Array<[{ update: object; create: { role: keyof typeof ROLE_DEFAULT_PERMISSION_KEYS; permissionId: string; enabled: boolean } }]>;
+  expect(commands.some(([command]) => command.create.role === "CUSTOMER")).toBe(true);
+  for (const [command] of commands) {
+    expect(command.update).toEqual({});
+    expect(command.create.enabled).toBe(true);
+    expect(ROLE_DEFAULT_PERMISSION_KEYS[command.create.role]).toContain(command.create.permissionId);
+  }
+  expect(db).not.toHaveProperty("userPermission");
+});
 describe("additive canonical permission bootstrap", () => {
   it("installs all canonical defaults without updating disabled grants or touching user overrides", async () => {
     const db = {

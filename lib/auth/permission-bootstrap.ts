@@ -1,5 +1,5 @@
 import { type Prisma, UserRole } from "@/types/db";
-import { ROLE_DEFAULT_PERMISSION_KEYS, SYSTEM_PERMISSION_DEFINITIONS } from "./permission-keys";
+import { ROLE_DEFAULT_PERMISSION_KEYS, SELF_NOTIFICATION_PERMISSION_KEYS, SYSTEM_PERMISSION_DEFINITIONS } from "./permission-keys";
 
 type PermissionRegistry = Pick<Prisma.TransactionClient, "permission" | "rolePermission">;
 
@@ -64,4 +64,28 @@ export async function installStoreCatalogPermissionDefaults(db: PermissionRegist
     });
   }
   return { permissionsUpserted: keys.length, rolePermissionsUpserted: keys.length };
+}
+
+/** Backfill missing own-inbox defaults on upgraded production databases. */
+export async function installSelfNotificationPermissionDefaults(db: PermissionRegistry) {
+  let grants = 0;
+  for (const key of SELF_NOTIFICATION_PERMISSION_KEYS) {
+    const definition = SYSTEM_PERMISSION_DEFINITIONS.find(item => item.key === key);
+    if (!definition) throw new Error("Missing notification permission definition.");
+    const permission = await db.permission.upsert({
+      where: { key },
+      update: {},
+      create: { ...definition, isSystem: true },
+    });
+    for (const [role, defaults] of Object.entries(ROLE_DEFAULT_PERMISSION_KEYS)) {
+      if (!defaults.includes(key)) continue;
+      await db.rolePermission.upsert({
+        where: { role_permissionId: { role: role as UserRole, permissionId: permission.id } },
+        update: {},
+        create: { role: role as UserRole, permissionId: permission.id, enabled: true },
+      });
+      grants++;
+    }
+  }
+  return { permissionsUpserted: SELF_NOTIFICATION_PERMISSION_KEYS.length, rolePermissionsUpserted: grants };
 }
