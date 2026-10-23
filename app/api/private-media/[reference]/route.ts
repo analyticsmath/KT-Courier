@@ -2,13 +2,21 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { badRequest, conflict, forbidden, notFound, serviceUnavailable, unauthorized } from "@/lib/api/response";
 import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-media/private-media.service";
 
-export async function GET(_request: Request, context: { params: Promise<{ reference: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ reference: string }> }) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
   const { reference } = await context.params;
   try {
     const media = await new PrivateMediaService().read({ actor: { userId: user.id, role: user.role }, reference });
-    return new Response(Buffer.from(media.bytes), { headers: { "Content-Type": media.mimeType, "Content-Disposition": `attachment; filename="${media.fileName.replace(/[\"\\]/g, "_")}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+    const preview = new URL(request.url).searchParams.get("preview") === "1";
+    const metadata = preview
+      ? await new PrivateMediaService().getMetadata({ actor: { userId: user.id, role: user.role }, reference })
+      : null;
+    const inline = preview && metadata?.ownerType === "PROOF_OF_DELIVERY"
+      && metadata.purpose === "POD_EVIDENCE"
+      && ["image/jpeg", "image/png", "image/webp"].includes(media.mimeType);
+    const disposition = inline ? "inline" : "attachment";
+    return new Response(Buffer.from(media.bytes), { headers: { "Content-Type": media.mimeType, "Content-Disposition": `${disposition}; filename="${media.fileName.replace(/[\"\\]/g, "_")}"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox" } });
   } catch (error) {
     if (error instanceof PrivateMediaPolicyError) {
       if (error.status === 403) return forbidden(error.message);

@@ -16,6 +16,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getAdminOrderDetail } from "@/lib/services/admin-orders.service";
+import { listAdminDeliveryEvidence } from "@/lib/services/admin-delivery-evidence.service";
 import { getOrderActiveAssignment, getOrderAssignmentHistory } from "@/lib/services/admin-dispatch.service";
 import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
 import { getOrderOperationalEvents } from "@/lib/services/admin-pickup-operations.service";
@@ -37,7 +38,11 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     getOrderAssignmentHistory(id),
     getOrderOperationalEvents(id),
   ]);
-  const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
+  const [canViewTracking, canViewPrivateEvidence] = await Promise.all([
+    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ }),
+    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ }),
+  ]);
+  const deliveryEvidence = canViewPrivateEvidence ? await listAdminDeliveryEvidence(id) : [];
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
@@ -82,6 +87,28 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         {canViewTracking && ["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(order.status) && (
           <OperationalPanel title="Live courier progress" description="Approximate, verified device GPS from the accepted driver. Precise location and post-delivery tracking are protected.">
             <CourierTrackingMap scope="PARCEL" reference={order.id} />
+          </OperationalPanel>
+        )}
+
+        {canViewPrivateEvidence && (
+          <OperationalPanel title="Driver delivery evidence" description="Private, validated driver photographs for operational disputes. Uploaded evidence appears here immediately, before final delivery. Review is read-only; no approval is required.">
+            {deliveryEvidence.length ? (
+              <div className="grid gap-4 sm:grid-cols-2" aria-label="Private delivery evidence photographs">
+                {deliveryEvidence.map(item => (
+                  <figure key={item.id} className="overflow-hidden rounded-lg border border-[var(--kt-soft-border)]">
+                    <a href={`/api/private-media/${encodeURIComponent(item.mediaReference)}?preview=1`} target="_blank" rel="noopener noreferrer" aria-label={`View private delivery proof uploaded by ${item.driver}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- authenticated private route must not enter the public image optimizer */}
+                      <img src={`/api/private-media/${encodeURIComponent(item.mediaReference)}?preview=1`} alt={`Delivery evidence recorded by ${item.driver}`} loading="lazy" className="aspect-video w-full object-contain bg-[var(--kt-surface)]" />
+                    </a>
+                    <figcaption className="space-y-2 p-3 text-sm">
+                      <p className="font-semibold">{item.driver}</p>
+                      <p className="text-[var(--kt-text-muted)]">{formatDateTime(item.createdAt)} · {item.usedAt ? "Attached to delivery handover" : "Uploaded for evidence"}</p>
+                      <a className="eo-inline-action" href={`/api/private-media/${encodeURIComponent(item.mediaReference)}`} download>Download original evidence</a>
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            ) : <p className="eo-panel-copy">No driver delivery photographs have been uploaded for this order yet.</p>}
           </OperationalPanel>
         )}
 
