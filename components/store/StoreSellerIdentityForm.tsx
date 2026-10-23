@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { FileInput } from "@/components/ui/FileInput";
 import { Input } from "@/components/ui/Input";
+import { utcDateInputToIso } from "@/lib/utils/utc-date-input";
 
 export function StoreSellerIdentityForm({ currentReference }: { currentReference: string | null }) {
   const router = useRouter(), pending = useRef(false), command = useRef<{ signature: string; body: Record<string, unknown> } | null>(null);
@@ -28,7 +29,7 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
     event.preventDefault(); if (pending.current) return; pending.current = true; setBusy(true); setError(""); setStatus("");
     const data = new FormData(event.currentTarget), value = (key: string) => String(data.get(key) ?? "").trim(), optional = (key: string) => value(key) || null;
     try {
-      const fields = { expectedIdentityReference: currentReference, identityVersion: value("identityVersion"), legalName: value("legalName"), tradingName: optional("tradingName"), registrationReference: optional("registrationReference"), vatRegistrationStatus: value("vatRegistrationStatus"), vatNumber: optional("vatNumber"), countryCode: "ZA", termsReference: optional("termsReference"), invoiceClassification: value("invoiceClassification"), effectiveFrom: new Date(value("effectiveFrom")).toISOString(), effectiveUntil: value("effectiveUntil") ? new Date(value("effectiveUntil")).toISOString() : null, sourceEvidenceReference: value("sourceEvidenceReference"), confirmSuppliedDetails: data.get("confirmSuppliedDetails") === "on" };
+      const fields = { expectedIdentityReference: currentReference, identityVersion: value("identityVersion"), legalName: value("legalName"), tradingName: optional("tradingName"), registrationReference: optional("registrationReference"), vatRegistrationStatus: value("vatRegistrationStatus"), vatNumber: optional("vatNumber"), countryCode: "ZA", termsReference: optional("termsReference"), invoiceClassification: value("invoiceClassification"), effectiveFrom: utcDateInputToIso(value("effectiveFrom")), effectiveUntil: value("effectiveUntil") ? utcDateInputToIso(value("effectiveUntil")) : null, sourceEvidenceReference: value("sourceEvidenceReference"), confirmSuppliedDetails: data.get("confirmSuppliedDetails") === "on" };
       const signature = JSON.stringify(fields);
       if (command.current?.signature !== signature) command.current = { signature, body: { ...fields, operationId: crypto.randomUUID() } };
       const response = await fetch("/api/store/seller-identity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(command.current.body) });
@@ -56,8 +57,9 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       <label>VAT reference<Input name="vatNumber" maxLength={160} /></label>
       <div><label htmlFor="seller-receipt-classification">Receipt classification</label><select id="seller-receipt-classification" name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></div>
       <label>Terms reference<Input name="termsReference" maxLength={160} /></label>
-      <label>Effective from<Input name="effectiveFrom" type="datetime-local" required /></label>
-      <label>Effective until (optional)<Input name="effectiveUntil" type="datetime-local" /></label>
+      <p className="sm:col-span-2">Enter effective times in UTC. The review window uses these exact UTC times regardless of your device time zone.</p>
+      <label>Effective from (UTC)<Input name="effectiveFrom" type="datetime-local" required /></label>
+      <label>Effective until (UTC, optional)<Input name="effectiveUntil" type="datetime-local" /></label>
       <label className="sm:col-span-2">Supplied evidence reference<Input name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} required minLength={8} maxLength={240} /></label>
     </div>
     <label className="flex items-start gap-2"><input name="confirmSuppliedDetails" type="checkbox" required />I confirm these are the supplied seller details and evidence for review.</label>
