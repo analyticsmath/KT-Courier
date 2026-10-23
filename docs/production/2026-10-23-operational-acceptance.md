@@ -23,16 +23,16 @@ CI investigation found that all 20 PostgreSQL matrix jobs, Redis/recovery and re
 | Sandbox parcel payment | Two confirmed Paystack sandbox payments; decline/retry/success exercised | Refund and reconciliation lifecycle, email receipts |
 | Customer cancellation and tracking | One paid sandbox request cancelled; exact/lowercase reference tracking checked; invalid lookup remained generic | Driver progress and final delivery tracking |
 | Customer cart and saved address | Quantity increase/decrease/removal; address creation/editing | Marketplace checkout through store fulfilment |
-| Vendor catalog access | Fixed missing catalog permission grants; inventory location saved | Complete realistic product save, review, publication, stock changes and purchase |
-| Product schemas | Insert-only compatible v2 definitions deployed; original immutable definitions preserved | Complete the live authoring round trip |
-| Vendor product photos | Private previews loaded and showed actual store-owned apple photos | Finish listing with a matching product identity; upload another image |
-| Seller supporting documents | Owner upload and owner/admin download controls implemented, deployed and covered by focused authority tests | Upload the sample, download as owner/admin, submit and review the proposal |
+| Vendor catalog access | Red Apples 1 kg saved with matching photograph, R29.99 price, SKU and 12 units in the sandbox stockroom; product and offer submitted for review | Admin review and publication passed; stock changes and purchase remain |
+| Product schemas | Compatible v2 definitions deployed; Groceries and Fresh Produce v2 used successfully for live listing authoring | Admin review and subsequent product edits |
+| Vendor product photos | Store-owned apple photo selected and saved on the matching Red Apples listing | Upload another image |
+| Seller supporting documents | Public sample PDF uploaded privately, downloaded as owner, and submitted as GBG-UAT-20261023; admin review page displays the file link and effective window ending 13:30 UTC | Admin file request returned HTTP 200 in 267 ms; download save-path confirmation timed out. Bounded test version approved; obsolete placeholder rejected. |
 | Email provider | Actual connection-test email accepted by the provider for the vendor account | Recipient inbox receipt remains unconfirmed |
 | Lifecycle notifications | All 31 prepared templates and their recipient policies approved through the administrator UI | Separate administrator must publish; routes then need preparation, approval and activation before new-event tests |
 | Driver onboarding | Driver login/readiness checked; existing licence approved; identity document and compliant vehicle missing | Sample file intake/review, vehicle workflow and scoped dispatch/delivery tests |
 | Admin operational controls | Account/store/driver dossiers and review requirements inspected | Complete commercial-policy activation, dispatch and exception workflows |
 
-The realistic grocery listing remains an unsaved browser draft. Its details and photograph must agree before submission. No successful catalog save or marketplace purchase is claimed in this report.
+The controlled Red Apples listing is saved and submitted: product `CP-37F567A4727533C69753C2E0CFDF68D9`, offer `CO-B79D37B2BAE8C941DC3758FA7FCA14FC`. Admin product/offer approval and publication succeeded; the shop and product page showed the matching image, R29.99 price and in-stock state. The product was then suspended with reason `SANDBOX_PUBLICATION_VERIFIED_TEST_LISTING_CLOSED` to prevent further purchases. No successful live marketplace purchase is claimed.
 
 ## Deployed fixes already verified by release checks
 
@@ -46,7 +46,7 @@ The realistic grocery listing remains an unsaved browser draft. Its details and 
 
 ## Access needed to finish live acceptance
 
-File-URL access has been enabled by the operator. Browser setup can respond, but subsequent browser commands have timed out; live tab control must be restored before further account operations can be certified.
+File-URL access has been enabled by the operator, and live browser control recovered. Seller PDF upload, owner download and submission succeeded. The admin private-file request returned HTTP 200; browser download-path confirmation timed out and reset the connection. A fresh tab recovered control. The bounded seller test version was approved, and the old placeholder proposal rejected. A later driver file-chooser attempt also timed out; no successful driver upload is claimed.
 
 The notification authority requires a publisher different from the approver. Only one administrator login has been supplied. A second existing authorized administrator is needed for normal publication/activation; no artificial administrator identity was created and the approval rule was not removed. Commercial policy approval/activation has its own independent-review requirements.
 
@@ -55,3 +55,11 @@ A downloaded sample PDF is test evidence only, not proof of genuine identity or 
 ## Remaining release gates
 
 Complete vendor product/media/inventory/moderation and seller-document round trips; activate reviewed commercial and notification configuration through authorized accounts; complete a sandbox marketplace purchase and vendor fulfilment; complete driver onboarding, dispatch, pickup, OTP/POD, tracking and delivery exceptions; verify new-event email delivery/audits; run isolated database integration and browser checks; review the final deployment and test-data disposition. Only then consider a real-customer launch decision.
+
+## Current-head CI checkpoint
+
+For `10682d3a074e97b4f08efe74e59b6fdd87c35c01`, Production Certification run `39957281363` has passed quality, all 20 PostgreSQL groups, Redis/recovery and recovery. Its browser job has passed store earning reversal, canonical store PostgreSQL acceptance with verified Paystack source, and the new-vendor five-product media/cart/chat/delivery scenario. Directed acceptance, withdrawal finance and canonical offline Paystack stages subsequently passed. The final Phase 1 full Chromium stage completed with 141 passed and 4 failed out of 145; later Phase 1 stages were not started. Three assertions referred to the retired homepage/navigation and one inspected undecoded lazy images. The updated checks target the current editorial homepage/native dialog and exercise rendered images after scrolling them into view. Fresh browser evidence remains required. Regular CI run `39957281353` completed with 10 successful jobs and 18 optional jobs skipped. Skipped optional jobs are not counted as passes. The certification run failed at the final browser stage; it is not a launch certification.
+
+A live catalog review exposed missing presentation labels for canonical `PENDING`, `PENDING_VALIDATION`, `PUBLISHED` and `WITHDRAWN` states. Added explicit labels while preserving the neutral fallback for unknown values. The existing commerce closure suite passed all 8 tests after this display-only change.
+
+The operator subsequently authorized extending the temporary Paystack sandbox through **2026-10-23 16:30 UTC**. Railway accepted that expiry update and began redeployment. The original seller approval remains expired and the test product suspended; any new live purchase needs a fresh bounded seller submission plus normal commercial-policy authority.

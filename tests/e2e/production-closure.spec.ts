@@ -5,12 +5,12 @@ test("anonymous quote copy and form semantics work on desktop and mobile", async
   for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 844 }, { width: 720, height: 450 }]) {
     await page.setViewportSize(viewport); await page.goto("/quote");
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Skip to main content", exact: true })).toBeFocused();
+    await expect(page.getByRole("link", { name: "Skip to content", exact: true })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.locator("#main-content")).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("group", { name: "Collection address", exact: true }).getByRole("textbox", { name: "Street address", exact: true })).toBeFocused();
-    await expect(page.getByText("Get a quotation without an account.", { exact: false })).toBeVisible();
+    await expect(page.getByText("No account needed to start.", { exact: false })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.getByLabel("Parcel size", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Calculate delivery price", exact: true })).toBeVisible();
@@ -30,27 +30,27 @@ test("public navigation drawer stays inert while closed and contains keyboard fo
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/quote");
 
-  const drawer = page.locator("#public-navigation-dialog");
+  const drawer = page.locator("#kt-editorial-menu");
   const shopLink = drawer.locator('a[href="/shop"]');
-  await expect(drawer).toHaveAttribute("aria-hidden", "true");
+  await expect(drawer).not.toBeVisible();
   const hiddenLinkReceivedFocus = await shopLink.evaluate((element) => {
     (element as HTMLElement).focus();
     return document.activeElement === element;
   });
   expect(hiddenLinkReceivedFocus).toBe(false);
 
-  const openButton = page.getByRole("button", { name: "Open expanded navigation menu", exact: true });
+  const openButton = page.getByRole("button", { name: "Menu", exact: true });
   await openButton.focus();
   await page.keyboard.press("Enter");
-  await expect(drawer).toHaveAttribute("aria-hidden", "false");
-  const closeButton = drawer.getByRole("button", { name: "Close menu", exact: true });
-  await expect(closeButton).toBeFocused();
+  await expect(drawer).toBeVisible();
+  const firstMenuControl = drawer.locator("a, button").first();
+  await expect(firstMenuControl).toBeFocused();
 
-  const finalMenuLink = drawer.getByRole("link", { name: "Customer / Store Sign In", exact: true });
+  const finalMenuLink = drawer.getByRole("link", { name: "Terms", exact: true });
   await page.keyboard.press("Shift+Tab");
   await expect(finalMenuLink).toBeFocused();
   await page.keyboard.press("Escape");
-  await expect(drawer).toHaveAttribute("aria-hidden", "true");
+  await expect(drawer).not.toBeVisible();
   await expect(openButton).toHaveAttribute("aria-expanded", "false");
   await expect(openButton).toBeFocused();
 });

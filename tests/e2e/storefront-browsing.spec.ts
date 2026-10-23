@@ -137,10 +137,13 @@ test.describe("Storefront Browsing & Discovery", () => {
     await expect(fallbackImage).toHaveCount(1);
     await expect(fallbackImage).toBeVisible();
 
-    const brokenImages = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll("img")).filter((img) => img.naturalWidth === 0 && img.src !== "");
-    });
-    expect(brokenImages.length).toBe(0);
+    await expect(gallery.locator("img")).toHaveCount(0);
+    // Closed-menu and below-fold lazy images may legitimately have no decoded
+    // pixels yet. Exercise every rendered image after bringing it into view.
+    for (const image of await page.locator("img:visible").all()) {
+      await image.scrollIntoViewIfNeeded();
+      await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.complete && element.naturalWidth > 0)).toBe(true);
+    }
 
     monitor.assertClean();
   });
