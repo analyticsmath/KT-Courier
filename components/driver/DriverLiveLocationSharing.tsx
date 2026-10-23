@@ -64,7 +64,7 @@ export function DriverLiveLocationSharing({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          operationId: `driver-gps-${crypto.randomUUID()}`,
+          operationId: crypto.randomUUID(),
           assignmentVersion,
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
