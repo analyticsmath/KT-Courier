@@ -1126,13 +1126,14 @@ export function DriverOnboardingExperience({
               title="Step 3: Fleet Vehicle Registration"
               description="Register the vehicle(s) you will operate for deliveries. Each vehicle must have approved registration, licence disc, and insurance documentation."
             >
-              <form onSubmit={handleVehicleCreate} className="space-y-4">
+              <form aria-label="Vehicle registration" onSubmit={handleVehicleCreate} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-type" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Vehicle Type *
                     </label>
                     <select
+                        id="vehicle-type"
                       value={vType}
                       onChange={(e) => setVType(e.target.value as VehicleSubtype)}
                       className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
@@ -1143,10 +1144,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-make" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Make *
                     </label>
                     <input
+                        id="vehicle-make"
                       type="text"
                       required
                       value={vMake}
@@ -1157,10 +1159,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-model" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Model *
                     </label>
                     <input
+                        id="vehicle-model"
                       type="text"
                       required
                       value={vModel}
@@ -1171,10 +1174,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-year" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Year
                     </label>
                     <input
+                        id="vehicle-year"
                       type="number"
                       value={vYear}
                       onChange={(e) => setVYear(e.target.value)}
@@ -1184,10 +1188,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-colour" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Colour
                     </label>
                     <input
+                        id="vehicle-colour"
                       type="text"
                       value={vColour}
                       onChange={(e) => setVColour(e.target.value)}
@@ -1197,10 +1202,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-registration" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Registration / Plate *
                     </label>
                     <input
+                        id="vehicle-registration"
                       type="text"
                       required
                       value={vReg}
@@ -1214,10 +1220,11 @@ export function DriverOnboardingExperience({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                    <label htmlFor="vehicle-capacity" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                       Cargo Capacity (kg)
                     </label>
                     <input
+                        id="vehicle-capacity"
                       type="number"
                       step="0.1"
                       min="0.001"
@@ -1249,13 +1256,14 @@ export function DriverOnboardingExperience({
                 title="Upload Vehicle Compliance Documents"
                 description="Upload registration, licence disc, and insurance certificates for your registered vehicles."
               >
-                <form onSubmit={handleVehicleDocUpload} className="space-y-4">
+                <form aria-label="Vehicle compliance document upload" onSubmit={handleVehicleDocUpload} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-document-target" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Select Vehicle *
                       </label>
                       <select
+                        id="vehicle-document-target"
                         required
                         value={selectedVehicleId}
                         onChange={(e) => setSelectedVehicleId(e.target.value)}
@@ -1271,10 +1279,11 @@ export function DriverOnboardingExperience({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-document-type" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Document Type *
                       </label>
                       <select
+                        id="vehicle-document-type"
                         value={vehDocType}
                         onChange={(e) => setVehDocType(e.target.value)}
                         className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
@@ -1286,10 +1295,11 @@ export function DriverOnboardingExperience({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-document-expiry" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Expiry Date
                       </label>
                       <input
+                        id="vehicle-document-expiry"
                         type="date"
                         value={vehDocExpiresAt}
                         onChange={(e) => setVehDocExpiresAt(e.target.value)}
@@ -1327,13 +1337,14 @@ export function DriverOnboardingExperience({
                 title="Upload Vehicle Photos (Front & Side Views)"
                 description="Upload clear photographs showing the front (including number plate) and side of your vehicle."
               >
-                <form onSubmit={handleVehicleMediaUpload} className="space-y-4">
+                <form aria-label="Vehicle photo upload" onSubmit={handleVehicleMediaUpload} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-photo-target" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Select Vehicle *
                       </label>
                       <select
+                        id="vehicle-photo-target"
                         required
                         value={selectedVehicleMediaId}
                         onChange={(e) => setSelectedVehicleMediaId(e.target.value)}
@@ -1349,10 +1360,11 @@ export function DriverOnboardingExperience({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
+                      <label htmlFor="vehicle-photo-angle" className="block text-xs font-bold text-[var(--kt-ink-navy)] mb-1">
                         Photo Angle *
                       </label>
                       <select
+                        id="vehicle-photo-angle"
                         value={vehMediaPurpose}
                         onChange={(e) => setVehMediaPurpose(e.target.value as "FRONT" | "REAR" | "SIDE" | "INTERIOR")}
                         className="w-full text-sm rounded-xl border border-[var(--kt-soft-border)] px-3 py-2 bg-white text-[var(--kt-text)]"
