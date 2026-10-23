@@ -67,7 +67,7 @@ export const StorePickupAddressSchema = AddressInputSchema.extend({
   country: z.string().trim().refine(
     (country) => country.toLowerCase() === "south africa",
     "Only South African collection addresses are currently supported",
-  ),
+  ).default("South Africa"),
   label: labelField,
 }).superRefine(validateCoordinatePair);
 

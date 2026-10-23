@@ -37,6 +37,7 @@ describe("production marketplace collection address readiness", () => {
   it("prevents saving pickup records that checkout cannot use", () => {
     const valid = { line1: depot.line1, city: depot.city, province: depot.province, country: depot.country };
     expect(StorePickupAddressSchema.safeParse(valid).success).toBe(true);
+    expect(StorePickupAddressSchema.safeParse({ line1: depot.line1, city: depot.city, province: depot.province }).success).toBe(true);
     for (const patch of [{ city: null }, { province: null }, { city: "" }, { province: " " }, { country: "United States" }]) {
       expect(StorePickupAddressSchema.safeParse({ ...valid, ...patch }).success).toBe(false);
     }
