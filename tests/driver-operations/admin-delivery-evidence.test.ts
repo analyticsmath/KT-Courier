@@ -25,7 +25,7 @@ describe("admin private delivery evidence", () => {
   it("renders an admin-only gallery with audited download and inline private image preview", () => {
     const page = read("../../app/(admin)/admin/orders/[id]/page.tsx");
     const endpoint = read("../../app/api/private-media/[reference]/route.ts");
-    expect(page).toContain("canViewPrivateEvidence && (");
+    expect(page).toContain("listAdminDeliveryEvidence(id)");
     expect(page).toContain("listAdminDeliveryEvidence(id)");
     expect(page).toContain("Download original evidence");
     expect(endpoint).toContain('metadata?.ownerType === "PROOF_OF_DELIVERY"');

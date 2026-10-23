@@ -38,11 +38,10 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     getOrderAssignmentHistory(id),
     getOrderOperationalEvents(id),
   ]);
-  const [canViewTracking, canViewPrivateEvidence] = await Promise.all([
-    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ }),
-    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ }),
-  ]);
-  const deliveryEvidence = canViewPrivateEvidence ? await listAdminDeliveryEvidence(id) : [];
+  const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
+  // This page already requires ORDERS_READ. Restrict gallery reads to
+  // order-owned delivery-proof objects at the private-media boundary.
+  const deliveryEvidence = await listAdminDeliveryEvidence(id);
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
@@ -90,7 +89,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </OperationalPanel>
         )}
 
-        {canViewPrivateEvidence && (
+        {(
           <OperationalPanel title="Driver delivery evidence" description="Private, validated driver photographs for operational disputes. Uploaded evidence appears here immediately, before final delivery. Review is read-only; no approval is required.">
             {deliveryEvidence.length ? (
               <div className="grid gap-4 sm:grid-cols-2" aria-label="Private delivery evidence photographs">

@@ -232,6 +232,12 @@ export class PrivateMediaService {
       });
       return Boolean(assignment);
     }
+    // Operations staff who can read courier orders may inspect custody
+    // evidence for those orders, but not identities, licences, claims, or
+    // unrelated private media. The reader audits each accessed object.
+    if (ownerType === PrivateMediaOwnerType.PROOF_OF_DELIVERY &&
+        (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN) &&
+        await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.ORDERS_READ })) return true;
     if (actor.role === UserRole.SUPER_ADMIN || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ })) return true;
     if (ownerType === PrivateMediaOwnerType.DRIVER) {
       const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });
