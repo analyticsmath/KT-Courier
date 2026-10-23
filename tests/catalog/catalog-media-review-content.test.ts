@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { catalogPngFixture } from "@/tests/catalog/catalog-media-test-fixtures";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
-const f = vi.hoisted(() => ({ find: vi.fn(), read: vi.fn(), cloudRead: vi.fn(), auth: vi.fn() }));
+const f = vi.hoisted(() => ({ find: vi.fn(), read: vi.fn(), cloudRead: vi.fn(), auth: vi.fn(), business: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { catalogMediaAsset: { findUnique: f.find } } }));
-vi.mock("@/lib/catalog/catalog-auth", () => ({ requireCatalogAdminPermission: f.auth }));
+vi.mock("@/lib/catalog/catalog-auth", () => ({ requireCatalogAdminPermission: f.auth, requireStoreCatalogPermission: f.auth }));
 vi.mock("@/lib/catalog/media/catalog-media-storage-adapter", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/catalog/media/catalog-media-storage-adapter")>(),
   createProductionCatalogMediaStorageAdapter: () => ({ createReadTarget: f.read }),
@@ -16,6 +16,9 @@ vi.mock("@/lib/catalog/media/cloudinary-catalog-media-storage", () => ({
   createCloudinaryCatalogWriteAdapter: () => ({ createReadTarget: f.cloudRead }),
 }));
 
+vi.mock("@/lib/client-platform/business-auth", () => ({ requireBusinessApi: f.business }));
+
+import { GET as storeGET } from "@/app/api/store/catalog/media/[publicReference]/content/route";
 import { GET } from "@/app/api/admin/catalog/media/[id]/content/route";
 
 const bytes = catalogPngFixture();
@@ -74,5 +77,48 @@ describe("private catalog image review route", () => {
   it("returns no content for missing assets", async () => {
     f.find.mockResolvedValue(null);
     expect((await GET(request(), { params: Promise.resolve({ id: "missing" }) })).status).toBe(404);
+  });
+});
+
+
+describe("private store catalog image previews", () => {
+  const storeRequest = () => new NextRequest("http://localhost/api/store/catalog/media/CMA-owned/content");
+  const params = () => ({ params: Promise.resolve({ publicReference: "CMA-owned" }) });
+  beforeEach(() => {
+    f.business.mockResolvedValue(null);
+    f.auth.mockResolvedValue({ user: { id: "owner" }, store: { id: "store-owned" } });
+    f.find.mockResolvedValue(asset());
+    f.read.mockResolvedValue({ body: bytes, byteSize: bytes.byteLength });
+  });
+
+  it("requires business and catalog access before looking up any image", async () => {
+    f.business.mockResolvedValue(new Response("Denied", { status: 403 }));
+    expect((await storeGET(storeRequest(), params())).status).toBe(403);
+    expect(f.find).not.toHaveBeenCalled();
+    f.business.mockResolvedValue(null);
+    f.auth.mockResolvedValue({ response: new Response("Denied", { status: 401 }) });
+    expect((await storeGET(storeRequest(), params())).status).toBe(401);
+    expect(f.find).not.toHaveBeenCalled();
+  });
+
+  it("scopes the original lookup to this store and serves validated bytes privately", async () => {
+    const response = await storeGET(storeRequest(), params());
+    expect(response.status).toBe(200);
+    expect(f.auth).toHaveBeenCalledWith(PERMISSIONS.CATALOG_READ, expect.any(NextRequest));
+    expect(f.find).toHaveBeenCalledWith(expect.objectContaining({ where: { publicReference: "CMA-owned", ownerType: "STORE", ownerStoreId: "store-owned" } }));
+    expect(response.headers.get("cache-control")).toContain("private, no-store");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(Uint8Array.from(bytes));
+  });
+
+  it("returns no storage content for an unowned image", async () => {
+    f.find.mockResolvedValue(null);
+    expect((await storeGET(storeRequest(), params())).status).toBe(404);
+    expect(f.read).not.toHaveBeenCalled();
+  });
+
+  it.each(["QUARANTINED", "REJECTED", "PENDING_UPLOAD"])("does not show %s images to a store", async status => {
+    f.find.mockResolvedValue({ ...asset(), status });
+    expect((await storeGET(storeRequest(), params())).status).toBe(409);
+    expect(f.read).not.toHaveBeenCalled();
   });
 });

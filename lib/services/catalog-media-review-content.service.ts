@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
@@ -8,12 +9,21 @@ import { CLOUDINARY_CATALOG_STORAGE_CODE, createCloudinaryCatalogWriteAdapter } 
 
 /** Private review reads original validated bytes, independently of public publication. */
 export async function readCatalogMediaForReview(id: string, download = false) {
-  const asset = await prisma.catalogMediaAsset.findUnique({ where: { id }, select: {
+  return readValidatedCatalogMedia({ id }, ["READY", "QUARANTINED"], download);
+}
+
+/** Store previews never expose another owner's or quarantined image. */
+export async function readCatalogMediaForStore(publicReference: string, storeId: string, download = false) {
+  return readValidatedCatalogMedia({ publicReference, ownerType: "STORE", ownerStoreId: storeId }, ["READY"], download);
+}
+
+async function readValidatedCatalogMedia(where: Prisma.CatalogMediaAssetWhereUniqueInput, allowedStatuses: string[], download: boolean) {
+  const asset = await prisma.catalogMediaAsset.findUnique({ where, select: {
     status: true, purpose: true, mimeType: true, byteSize: true, checksum: true,
     privacyInspectionPassed: true, storageKey: true, storageProvider: true,
   } });
   if (!asset) throw new CatalogNotFoundError("Catalog image was not found.");
-  if (!["READY", "QUARANTINED"].includes(asset.status) || asset.purpose === "COMPLIANCE_DOCUMENT"
+  if (!allowedStatuses.includes(asset.status) || asset.purpose === "COMPLIANCE_DOCUMENT"
     || !asset.mimeType || !isCatalogMediaMimeType(asset.mimeType) || !asset.privacyInspectionPassed
     || !asset.byteSize || asset.byteSize > CATALOG_MEDIA_MAX_UPLOAD_BYTES || !asset.checksum) {
     throw new CatalogPolicyError("CATALOG_MEDIA_REVIEW_CONTENT_UNAVAILABLE", "This image has no safe validated content available for inspection.", 409);
