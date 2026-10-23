@@ -10,9 +10,12 @@ export function InboxControls({ reference, state }: { reference: string; state: 
     if (busy.current) return; busy.current = true; setSaving(true); setMessage("");
     try {
       const response = await fetch(`/api/notifications/${encodeURIComponent(reference)}/${action}`, { method: "POST" });
-      if (!response.ok) throw new Error();
+      if (!response.ok) {
+        const result = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(result?.error || "The notification could not be updated. Refresh and retry.");
+      }
       setMessage(action === "archive" ? "Notification archived." : action === "read" ? "Notification marked read." : "Notification marked unread."); router.refresh();
-    } catch { setMessage("The notification could not be updated. Refresh and retry."); }
+    } catch (error) { setMessage(error instanceof Error ? error.message : "The notification could not be updated. Refresh and retry."); }
     finally { busy.current = false; setSaving(false); }
   }
   return <div className="mt-3 space-y-2"><div className="flex flex-wrap gap-2">

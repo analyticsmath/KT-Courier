@@ -4,6 +4,7 @@ import { forbidden, tooManyRequests, unauthorized } from "@/lib/api/response";
 import { checkIpRateLimit } from "@/lib/security/rate-limit";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS, type PermissionKey } from "@/lib/auth/permission-keys";
+import { validateSameOriginRequest } from "@/lib/security/request-origin";
 
 export async function requireNotificationUser(request: Request, mutation = false, permission: PermissionKey = mutation ? PERMISSIONS.NOTIFICATION_MANAGE_OWN_READ_STATE : PERMISSIONS.NOTIFICATION_READ_OWN) {
   const user = await getCurrentUser();
@@ -12,12 +13,12 @@ export async function requireNotificationUser(request: Request, mutation = false
   if (!rate.ok) return { response: tooManyRequests() } as const;
   if (!await hasPermission({ userId: user.id, role: user.role, permissionKey: permission })) return { response: forbidden("Notification permission denied.") } as const;
   if (mutation) {
-    const origin = request.headers.get("origin");
-    const host = request.headers.get("host");
-    try {
-      const source = new URL(origin ?? "");
-      if (!host || !["http:", "https:"].includes(source.protocol) || source.host !== host) return { response: forbidden("Same-origin request required.") } as const;
-    } catch { return { response: forbidden("Same-origin request required.") } as const; }
+    // The public browser origin can differ from the reverse proxy's upstream
+    // Host. Use the same configured-origin authority as other mutations, while
+    // retaining this API's requirement for an explicit browser Origin header.
+    if (!request.headers.get("origin") || !validateSameOriginRequest(request).ok) {
+      return { response: forbidden("Same-origin request required.") } as const;
+    }
   }
   return { user } as const;
 }
