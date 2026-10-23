@@ -53,7 +53,7 @@ export default async function StoreProfilePage() {
         <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
       </OperationalPanel>
       <OperationalPanel title="Store photos"><StoreBrandingUploader /></OperationalPanel>
-      {sellerIdentity ? <OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}</li>)}</ul></OperationalPanel> : null}
+      {sellerIdentity ? <OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}{/^PMO-[a-f0-9-]{36}$/.test(item.input.sourceEvidenceReference) ? <a className="ml-3 underline" href={`/api/private-media/${encodeURIComponent(item.input.sourceEvidenceReference)}`}>Download submitted document</a> : null}</li>)}</ul></OperationalPanel> : null}
       <OperationalPanel
         title="Store identity"
         description="Existing validation and save authority remain inside this form."

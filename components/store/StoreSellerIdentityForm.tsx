@@ -2,11 +2,28 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { FileInput } from "@/components/ui/FileInput";
 import { Input } from "@/components/ui/Input";
 
 export function StoreSellerIdentityForm({ currentReference }: { currentReference: string | null }) {
   const router = useRouter(), pending = useRef(false), command = useRef<{ signature: string; body: Record<string, unknown> } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [status, setStatus] = useState("");
+  const [evidenceReference, setEvidenceReference] = useState("");
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  async function uploadEvidence() {
+    if (!documentFile || uploading) return;
+    setUploading(true); setError(""); setStatus("");
+    try {
+      const data = new FormData(); data.set("file", documentFile);
+      const response = await fetch("/api/store/seller-identity/documents", { method: "POST", body: data });
+      const reply = await response.json();
+      if (!response.ok || !reply.document?.publicReference) { setError(reply.error ?? "Document upload could not be confirmed."); return; }
+      setEvidenceReference(reply.document.publicReference);
+      setStatus("Private document uploaded. Submit the seller details below to send it for review.");
+    } catch { setError("Document upload could not be confirmed. Please retry."); }
+    finally { setUploading(false); }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (pending.current) return; pending.current = true; setBusy(true); setError(""); setStatus("");
     const data = new FormData(event.currentTarget), value = (key: string) => String(data.get(key) ?? "").trim(), optional = (key: string) => value(key) || null;
@@ -22,6 +39,14 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
   }
   return <form onSubmit={submit} aria-label="Seller legal identity submission" className="space-y-4">
     <p>Supply the seller details and supporting evidence for a separate administrator to review. Checkout requires an effective reviewed identity and approved commercial policies.</p>
+    <fieldset className="space-y-3 rounded-lg border p-4" disabled={busy || uploading}>
+      <legend className="font-bold">Supporting document</legend>
+      <label htmlFor="seller-evidence-file">Verification file</label>
+      <FileInput id="seller-evidence-file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={event => setDocumentFile(event.target.files?.[0] ?? null)} />
+      <p className="text-sm">PDF, JPEG, PNG or WebP, up to 10 MB. Files stay private and can be downloaded by authorized reviewers.</p>
+      <Button type="button" disabled={!documentFile || uploading} onClick={uploadEvidence}>{uploading ? "Uploading document…" : "Upload supporting document"}</Button>
+      {/^PMO-[a-f0-9-]{36}$/.test(evidenceReference) ? <a className="block underline" href={`/api/private-media/${encodeURIComponent(evidenceReference)}`}>Download uploaded document</a> : null}
+    </fieldset>
     <div className="grid gap-4 sm:grid-cols-2">
       <label>Identity version<Input name="identityVersion" required maxLength={80} /></label>
       <label>Legal seller name<Input name="legalName" required maxLength={240} /></label>
@@ -33,10 +58,10 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       <label>Terms reference<Input name="termsReference" maxLength={160} /></label>
       <label>Effective from<Input name="effectiveFrom" type="datetime-local" required /></label>
       <label>Effective until (optional)<Input name="effectiveUntil" type="datetime-local" /></label>
-      <label className="sm:col-span-2">Supplied evidence reference<Input name="sourceEvidenceReference" required minLength={8} maxLength={240} /></label>
+      <label className="sm:col-span-2">Supplied evidence reference<Input name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} required minLength={8} maxLength={240} /></label>
     </div>
     <label className="flex items-start gap-2"><input name="confirmSuppliedDetails" type="checkbox" required />I confirm these are the supplied seller details and evidence for review.</label>
     {error ? <p role="alert">{error}</p> : null}<p role="status" aria-live="polite">{status}</p>
-    <Button type="submit" disabled={busy}>{busy ? "Submitting seller details…" : "Submit seller identity"}</Button>
+    <Button type="submit" disabled={busy || uploading}>{busy ? "Submitting seller details…" : "Submit seller identity"}</Button>
   </form>;
 }

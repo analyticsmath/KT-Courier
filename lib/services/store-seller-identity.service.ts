@@ -38,6 +38,10 @@ export async function submitStoreSellerIdentity(storeId: string, actorUserId: st
       if (saved.storeId !== storeId || saved.makerUserId !== actorUserId || saved.requestHash !== digest(input)) throw new PlatformError("SELLER_OPERATION_CONFLICT", "This operation was used for different seller details.", 409);
       return { ...saved, updatedAt: prior.updatedAt.toISOString(), replayed: true };
     }
+    if (input.sourceEvidenceReference.startsWith("PMO-")) {
+      const evidence = await tx.privateMediaObject.findFirst({ where: { publicReference: input.sourceEvidenceReference, ownerType: "STORE", ownerId: storeId, purpose: "STORE_VERIFICATION_DOCUMENT", status: "READY" }, select: { id: true } });
+      if (!evidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", "Choose an available verification document uploaded for this store.", 422);
+    }
     if ((await latestIdentity(tx, storeId))?.publicReference !== (input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "Refresh the current seller identity before submitting.", 409);
     if (await tx.storeSellerLegalIdentity.findFirst({ where: { storeId, identityVersion: input.identityVersion }, select: { id: true } })) throw new PlatformError("SELLER_VERSION_ALREADY_USED", "Use a new identity version; approved seller facts are preserved.", 409);
     if (await tx.systemSetting.count({ where: { key: { startsWith: prefix(storeId) }, value: { path: ["status"], equals: "PENDING_REVIEW" } } }) >= 20) throw new PlatformError("SELLER_REVIEW_LIMIT", "Resolve pending seller identity reviews before adding another.", 409);
@@ -70,6 +74,10 @@ export async function reviewStoreSellerIdentity(storeId: string, actorUserId: st
     if (row.updatedAt.toISOString() !== input.expectedUpdatedAt) throw new PlatformError("SELLER_REVIEW_STALE", "Refresh this proposal before reviewing.", 409);
     let identityReference: string | undefined;
     if (input.action === "APPROVE") {
+      if (saved.input.sourceEvidenceReference.startsWith("PMO-")) {
+        const evidence = await tx.privateMediaObject.findFirst({ where: { publicReference: saved.input.sourceEvidenceReference, ownerType: "STORE", ownerId: storeId, purpose: "STORE_VERIFICATION_DOCUMENT", status: "READY" }, select: { id: true } });
+        if (!evidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", "The uploaded seller evidence is no longer available for approval.", 422);
+      }
       const current = await latestIdentity(tx, storeId);
       if (current?.publicReference !== (saved.input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "The seller identity changed after submission; request a new proposal.", 409);
       const start = new Date(saved.input.effectiveFrom), end = saved.input.effectiveUntil ? new Date(saved.input.effectiveUntil) : null;
