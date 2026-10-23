@@ -88,6 +88,16 @@ describe("address pin interaction", () => {
     expect(change.mock.calls).toEqual([[null]]);
     expect(button("Confirm pin location").disabled).toBe(false);
   });
+  it("removes the provider's broken map viewport when authentication fails after initial render", async () => {
+    await render();
+    expect(host.querySelector('[aria-label="Dropoff address map"]')).not.toBeNull();
+    await act(async () => { window.dispatchEvent(new Event("kt:maps-test-failure")); });
+    expect(host.querySelector('[aria-label="Dropoff address map"]')).toBeNull();
+    expect(host.textContent).toContain("Map preview is unavailable");
+    expect(host.textContent).toContain("still enter your address");
+    expect(button("Confirm pin location").disabled).toBe(true);
+    expect(change).not.toHaveBeenCalled();
+  });
   it("falls back safely when the map provider cannot load", async () => {
     provider.load.mockRejectedValue(new Error("not configured")); await render(); expect(pins).toHaveLength(0); expect(button("Confirm pin location").disabled).toBe(true); expect(host.textContent).toContain("still enter your address");
   });

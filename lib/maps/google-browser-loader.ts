@@ -1,11 +1,13 @@
 "use client";
 
 let promise: Promise<void> | null = null;
+let authenticationRejected = false;
 export const GOOGLE_MAPS_AUTH_FAILURE = "kt:google-maps-auth-failure";
 
 /** A single Places/Maps/Marker loader shared by every public and account map. */
 export function loadGoogleBrowserMaps(): Promise<void> {
   if (typeof window === "undefined") return Promise.reject(new Error("Maps require a browser."));
+  if (authenticationRejected) return Promise.reject(new Error("Maps authentication is unavailable."));
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY;
   if (!key) return Promise.reject(new Error("The browser Maps key is not configured."));
   if (promise) return promise;
@@ -22,6 +24,10 @@ export function loadGoogleBrowserMaps(): Promise<void> {
     };
     const timeout = setTimeout(() => finish(new Error("Maps loading timed out.")), 20_000);
     globals.gm_authFailure = () => {
+      // This callback can run *after* the script's ready callback. Retain
+      // the failure for any subsequently mounted map, and hide the invalid
+      // provider viewport already rendered on the current page.
+      authenticationRejected = true;
       window.dispatchEvent(new Event(GOOGLE_MAPS_AUTH_FAILURE));
       finish(new Error("Maps authentication failed."));
     };

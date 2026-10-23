@@ -34,6 +34,7 @@ export function AddressLocationMap({ value, onChange, label, editRevision = 0 }:
   const resolvePin = useRef<(position: google.maps.LatLngLiteral) => Promise<void>>(async () => {});
   const [feedback, setFeedback] = useState({ value, revision: editRevision, text: "Loading map…", confirming: false });
   const [ready, setReady] = useState(false);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const [locating, setLocating] = useState(false);
   const currentFeedback = feedback.value === value && feedback.revision === editRevision;
   const confirming = currentFeedback && feedback.confirming;
@@ -70,8 +71,9 @@ export function AddressLocationMap({ value, onChange, label, editRevision = 0 }:
       if (!active) return;
       generation.current++;
       setReady(false);
+      setMapUnavailable(true);
       setConfirming(false);
-      setStatus("The map is unavailable. You can still enter your address.");
+      setStatus("Map preview is unavailable. You can still enter your address.");
     };
     window.addEventListener(GOOGLE_MAPS_AUTH_FAILURE, failed);
     async function resolveLocation(location: google.maps.LatLngLiteral) {
@@ -167,7 +169,13 @@ export function AddressLocationMap({ value, onChange, label, editRevision = 0 }:
     }, { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 });
   }
   return <div className="space-y-3">
-    <div ref={container} aria-label={`${label} map`} className="h-80 w-full rounded-xl border border-[var(--kt-border)] bg-[var(--kt-cloud-blue)]" />
+    {mapUnavailable ? (
+      <p role="status" className="rounded-lg border border-[var(--kt-border)] p-3 text-sm text-[var(--kt-text-muted)]">
+        Map preview is unavailable. You can still enter your address. KT Couriers validates the route against its configured address and coverage provider before quoting.
+      </p>
+    ) : (
+      <div ref={container} aria-label={`${label} map`} className="h-80 w-full rounded-xl border border-[var(--kt-border)] bg-[var(--kt-cloud-blue)]" />
+    )}
     <p role="status" className="text-sm text-[var(--kt-text-muted)]">{status}</p>
     <div className="flex flex-wrap gap-3">
       <Button type="button" variant="secondary" size="sm" disabled={!ready || confirming || locating} onClick={() => { const position = markerPosition(marker.current?.position); if (position) void resolvePin.current(position); }}>{confirming ? "Confirming pin…" : "Confirm pin location"}</Button>
