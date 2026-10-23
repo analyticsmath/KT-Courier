@@ -75,3 +75,8 @@ The scoped notification grant exposed an upgraded-database defect: the canonical
 
 
 The cloud vendor upload of a clearly marked sample PDF succeeded, returning private reference `PMO-a8d6814d-6feb-459c-a030-c7b2eb7d16e6`. The seller form's device-local effective-time fields caused ambiguity over the authorized 16:30 UTC expiry; automatic review blocked submission. The form now labels effective times as UTC and parses those values explicitly in UTC. Eight regression cases cover multiple device time zones and malformed/offset inputs. The seller proposal has not yet been submitted with this new evidence.
+
+
+The new seller sample PDF was downloaded through the cloud vendor UI. SHA-256 matched the original exactly (`88f37ee478f4f2b58636df4245e282da492d48ede999df23c10474baf1c0e64e`). The admin review page exposed the same private reference and exact UTC window, 07:00–16:30 UTC.
+
+A suspended-product recovery exercise revealed that the initial-listing publisher could not republish a corrected, independently reapproved product with its existing active variant and current reviewed active price. The admin page now exposes this explicit republication for existing published offers when the product has been reapproved. The service requires the exact current active price, preserves the existing price activation, creates a fresh publication snapshot and retains version, media, independent-review and source-state checks. Seventeen focused service/API tests pass, including denial of stale prices, expired prices, suspended offers, missing approval, stale versions and self-review. Deployment/live verification remains pending.

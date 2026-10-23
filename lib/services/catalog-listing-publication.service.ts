@@ -35,16 +35,20 @@ export async function publishApprovedCatalogListing(offerId: string, actorUserId
     const offer = await tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: offerId }, include: { store: true, product: { include: { productTypeDefinition: true, primaryCategory: true, media: { include: { asset: true } } } }, variant: true } });
     const price = await tx.storeOfferPriceVersion.findFirst({ where: { offerId, publicReference: input.priceVersionReference } });
     if (offer.version !== input.version || offer.product.version !== input.productVersion) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product or offer changed; reload before publication.");
+    const republishing = offer.status === "ACTIVE" && offer.publicationStatus === "PUBLISHED"
+      && offer.variant.status === "ACTIVE" && price?.status === "ACTIVE" && offer.currentPriceVersionId === price.id;
     if (offer.store.status !== "ACTIVE" || offer.product.scope !== "STORE_PRIVATE" || offer.product.sourceStoreId !== offer.storeId
       || !["APPROVED", "ACTIVE"].includes(offer.product.status) || offer.product.moderationStatus !== "APPROVED" || !offer.product.approvedByUserId
-      || offer.status !== "SUBMITTED" || !offer.approvedByUserId || offer.variant.status !== "DRAFT"
+      || (!republishing && (offer.status !== "SUBMITTED" || offer.variant.status !== "DRAFT")) || !offer.approvedByUserId
       || offer.product.productTypeDefinition.status !== "ACTIVE" || offer.product.primaryCategory.status !== "ACTIVE") throw new CatalogPolicyError("CATALOG_PUBLICATION_NOT_REVIEWED", "An active store, approved product type/category and separately approved product and offer are required.");
-    if (!price || price.status !== "DRAFT" || price.effectiveFrom > new Date() || (price.effectiveUntil && price.effectiveUntil <= new Date())) throw new CatalogPolicyError("CATALOG_PUBLICATION_PRICE_INVALID", "Choose the exact reviewed draft price within its effective window.");
+    if (!price || (!republishing && price.status !== "DRAFT") || price.effectiveFrom > new Date() || (price.effectiveUntil && price.effectiveUntil <= new Date())) throw new CatalogPolicyError("CATALOG_PUBLICATION_PRICE_INVALID", "Choose the exact reviewed price within its effective window.");
     if ([offer.store.ownerUserId, offer.product.createdByUserId, offer.product.submittedByUserId, offer.createdByUserId, offer.submittedByUserId, price.createdByUserId].includes(actorUserId)) throw new CatalogPolicyError("CATALOG_PUBLICATION_SELF_REVIEW", "A separate administrator must publish this vendor listing.", 403);
     if (offer.product.media.filter(media => media.role === "PRIMARY" && media.variantId === null).length !== 1
       || offer.product.media.some(media => media.asset.status !== "READY" || !media.asset.privacyInspectionPassed || !media.asset.storageConfirmedAt || !media.asset.validatedAt)) throw new CatalogPolicyError("CATALOG_PUBLICATION_MEDIA_INVALID", "Every attached image must have confirmed, privacy-inspected READY storage.");
-    await tx.storeOfferPriceVersion.updateMany({ where: { offerId, status: "ACTIVE" }, data: { status: "RETIRED", retiredAt: new Date() } });
-    await tx.storeOfferPriceVersion.update({ where: { id: price.id }, data: { status: "ACTIVE", activatedByUserId: actorUserId, activatedAt: new Date() } });
+    if (!republishing) {
+      await tx.storeOfferPriceVersion.updateMany({ where: { offerId, status: "ACTIVE" }, data: { status: "RETIRED", retiredAt: new Date() } });
+      await tx.storeOfferPriceVersion.update({ where: { id: price.id }, data: { status: "ACTIVE", activatedByUserId: actorUserId, activatedAt: new Date() } });
+    }
     await tx.catalogProduct.update({ where: { id: offer.productId }, data: { status: "ACTIVE", publicationStatus: "PUBLISHED", version: { increment: 1 } } });
     await tx.catalogProductVariant.update({ where: { id: offer.variantId }, data: { status: "ACTIVE", version: { increment: 1 } } });
     const published = await tx.storeCatalogOffer.update({ where: { id: offer.id }, data: { status: "ACTIVE", publicationStatus: "PUBLISHED", currentPriceVersionId: price.id, version: { increment: 1 } }, select: { status: true, publicationStatus: true, version: true } });
@@ -52,7 +56,7 @@ export async function publishApprovedCatalogListing(offerId: string, actorUserId
     await new StorefrontProjectionService(tx).buildPublishedSnapshot(snapshot.publicReference);
     await rebuildStorefrontStoreDocument(offer.storeId, tx);
     await rebuildStorefrontCategoryDocument(offer.product.primaryCategoryId, tx);
-    await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: price.publicReference, aggregateVersion: price.versionNumber, action: "ACTIVATED", eventType: "PRICE_ACTIVATED", actorUserId, reasonCode: input.reasonCode });
+    if (!republishing) await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: price.publicReference, aggregateVersion: price.versionNumber, action: "ACTIVATED", eventType: "PRICE_ACTIVATED", actorUserId, reasonCode: input.reasonCode });
     // The receipt binds the complete atomic publication, not a browser success state.
     await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: offer.publicReference, aggregateVersion: published.version, action: "LISTING_PUBLISHED", eventType: "OFFER_PUBLISHED", actorUserId, reasonCode: input.reasonCode, safeMetadata: { snapshotReference: snapshot.publicReference } });
     await tx.catalogOperationReceipt.create({ data: { actorUserId, storeId: offer.storeId, action: "OFFER:LISTING_PUBLISHED", operationId: input.operationId, requestHash: hash, aggregateReference: snapshot.publicReference } });
