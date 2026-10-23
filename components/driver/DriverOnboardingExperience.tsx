@@ -1226,7 +1226,7 @@ export function DriverOnboardingExperience({
                     <input
                         id="vehicle-capacity"
                       type="number"
-                      step="0.1"
+                      step="0.001"
                       min="0.001"
                       max="99999999"
                       value={vCapacityKg}
