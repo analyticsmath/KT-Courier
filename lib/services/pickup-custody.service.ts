@@ -9,6 +9,7 @@ import {
 import type { PrismaClient } from "@prisma/client";
 import type { StartPickupInput, CompletePickupInput, FailPickupInput } from "@/lib/validation/pickup";
 import { verifyDeliveryOtpInTx } from "@/lib/services/delivery-otp.service";
+import { requiresSenderPickupOtp } from "@/lib/driver-operations/pickup-otp-rollout";
 import { toWorkbenchAssignmentDto, type WorkbenchAssignmentDto } from "@/lib/dto/pickup.dto";
 import {
   isPickupEligible,
@@ -336,7 +337,7 @@ export async function completePickup(
   // This release gate allows existing in-flight work and historical API clients
   // to remain usable until sender addresses and pickup email delivery are
   // independently certified. When active, no parcel pickup bypasses the OTP.
-  const senderOtpRequired = process.env.PICKUP_SENDER_OTP_REQUIRED === "true";
+  const senderOtpRequired = requiresSenderPickupOtp(order.createdAt);
   if (senderOtpRequired && !/^\d{6}$/.test(input.pickupOtpCode ?? "")) {
     return { ok: false, error: "Ask the sender for their six-digit parcel pickup confirmation code." };
   }
