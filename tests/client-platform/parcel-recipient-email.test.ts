@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { QuoteBookingSchema } from "@/lib/client-platform/contracts";
 import { CreateOrderSchema } from "@/lib/validation/order";
-const booking = { pickupContactName: "Sender Person", pickupContactPhone: "+27820000001", recipientName: "Recipient Person", recipientPhone: "+27820000002" };
+const booking = { pickupContactName: "Sender Person", pickupContactPhone: "+27820000001", pickupContactEmail: "sender@example.test", recipientName: "Recipient Person", recipientPhone: "+27820000002" };
 describe("parcel recipient email capture", () => {
   it("normalizes the intended recipient independently of the sender", () => {
     expect(QuoteBookingSchema.parse({ ...booking, recipientEmail: "  Receiver@Example.TEST " }).recipientEmail).toBe("receiver@example.test");

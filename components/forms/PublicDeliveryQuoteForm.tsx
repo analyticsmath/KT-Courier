@@ -426,6 +426,7 @@ export function PublicDeliveryQuoteForm({
                       body: JSON.stringify({
                         pickupContactName: f.get("pickupContactName"),
                         pickupContactPhone: f.get("pickupContactPhone"),
+                        pickupContactEmail: f.get("pickupContactEmail"),
                         recipientName: f.get("recipientName"),
                         recipientPhone: f.get("recipientPhone"),
                         recipientEmail: f.get("recipientEmail"),
@@ -459,6 +460,7 @@ export function PublicDeliveryQuoteForm({
                 [
                   ["pickupContactName", "Sender name", pickup.contactName],
                   ["pickupContactPhone", "Sender phone", pickup.contactPhone],
+                  ["pickupContactEmail", "Sender email for pickup code", ""],
                   ["recipientName", "Recipient name", prefill?.recipientName],
                   ["recipientEmail", "Recipient email for delivery code", prefill?.recipientEmail],
                   [
@@ -474,9 +476,9 @@ export function PublicDeliveryQuoteForm({
                     id={`booking-${key}`}
                     name={key}
                     required
-                    type={key === "recipientEmail" ? "email" : key.endsWith("Phone") ? "tel" : "text"}
+                    type={key.endsWith("Email") ? "email" : key.endsWith("Phone") ? "tel" : "text"}
                     minLength={key.endsWith("Phone") ? 7 : 2}
-                    maxLength={key === "recipientEmail" ? 254 : key.endsWith("Phone") ? 30 : 150}
+                    maxLength={key.endsWith("Email") ? 254 : key.endsWith("Phone") ? 30 : 150}
                     defaultValue={value ?? ""}
                   />
                 </div>

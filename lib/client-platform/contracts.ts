@@ -106,6 +106,7 @@ export const QuoteBookingSchema = z
   .object({
     pickupContactName: z.string().trim().min(2).max(150),
     pickupContactPhone: z.string().trim().min(7).max(30),
+    pickupContactEmail: z.string().trim().toLowerCase().email("Enter a valid sender email for the pickup code.").max(254),
     recipientName: z.string().trim().min(2).max(150),
     recipientPhone: z.string().trim().min(7).max(30),
     recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254),

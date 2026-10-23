@@ -5,6 +5,7 @@ import { QuoteBookingSchema } from "@/lib/client-platform/contracts";
 const booking = {
   pickupContactName: "Sender Example",
   pickupContactPhone: "0821234567",
+  pickupContactEmail: "sender@example.com",
   recipientName: "Recipient Example",
   recipientPhone: "0827654321",
 };

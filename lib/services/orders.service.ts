@@ -169,6 +169,7 @@ export async function createOrder(
         pricingTaxAmount: quote.taxAmount,
         pricingTaxRate: quote.taxRate,
         pricingSnapshot: {
+          senderContact: { email: input.senderEmail ?? null },
           quoteId: quote.id,
           calculationVersion: quote.calculationVersion,
           input: quote.inputSnapshot,

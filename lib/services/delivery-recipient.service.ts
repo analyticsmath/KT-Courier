@@ -7,6 +7,7 @@ import { resolveVerifiedGuestContact } from "@/lib/notifications/guest-recipient
 export type DeliveryOtpRecipient =
   | { kind: "ACCOUNT"; subjectUserId: string; email: string; name: string }
   | { kind: "SHIPMENT_RECIPIENT"; subjectUserId: string; email: string; name: string }
+  | { kind: "SHIPMENT_SENDER"; subjectUserId: string; email: string; name: string }
   | { kind: "GUEST_CHECKOUT_CONTACT"; subjectUserId: string; contactSnapshotId: string; email: string; name: string };
 
 const unresolved = (): never => { throw new NotificationPolicyError("DELIVERY_RECIPIENT_NOT_RESOLVED"); };
@@ -62,7 +63,8 @@ export async function resolvePickupOtpSender(
   const order = await db.order.findUnique({
     where: { id: orderId },
     select: {
-      id: true, status: true, customerId: true,
+      id: true, status: true, customerId: true, pricingSnapshot: true,
+      pickupAddress: { select: { contactName: true } },
       customer: { select: { id: true, email: true, name: true, status: true, emailVerifiedAt: true } },
     },
   });
@@ -71,6 +73,20 @@ export async function resolvePickupOtpSender(
     where: { courierOrderId: orderId }, select: { id: true },
   });
   if (bridge) return unresolved();
+  const snapshot = order.pricingSnapshot;
+  const contact = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) && "senderContact" in snapshot
+    ? snapshot.senderContact : null;
+  const senderEmail = contact && typeof contact === "object" && !Array.isArray(contact) && "email" in contact
+    && typeof contact.email === "string" ? contact.email.trim().toLowerCase() : null;
+  if (senderEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
+    const addressHash = createHash("sha256").update(senderEmail).digest("hex").slice(0, 24);
+    return {
+      kind: "SHIPMENT_SENDER",
+      subjectUserId: `pickup-sender:${order.id}:${addressHash}`,
+      email: senderEmail,
+      name: order.pickupAddress?.contactName ?? "Sender",
+    };
+  }
   const account = order.customer;
   if (!account?.email || !order.customerId || order.customerId !== account.id ||
     account.status !== "ACTIVE" || !account.emailVerifiedAt) return unresolved();
