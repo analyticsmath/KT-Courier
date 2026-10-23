@@ -57,7 +57,7 @@ test("product cart checkout action creates a canonical checkout session", async 
   await expect.poll(() => new URL(page.url()).pathname).toBe("/checkout");
   const reference = new URL(page.url()).searchParams.get("ref");
   expect(reference).toBeTruthy();
-  await expect(page.getByRole("heading", { name: "Secure checkout", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your checkout.", exact: true })).toBeVisible();
   await expect(page.getByLabel("Recipient Full Name", { exact: true })).toBeVisible();
 
   const response = await page.request.get(`/api/checkout/${reference}`);

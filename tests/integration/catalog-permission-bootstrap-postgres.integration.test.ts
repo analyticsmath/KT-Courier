@@ -65,7 +65,10 @@ describe("canonical catalog bootstrap and authority on isolated PostgreSQL", { t
     }
     expect(await prisma.user.findUniqueOrThrow({ where: { id: employee.id } })).toMatchObject({ role: "CUSTOMER" });
     await prisma.store.update({ where: { id: store.id }, data: { status: "SUSPENDED" } });
-    expect((await storeCatalogPermission(owner.id, PERMISSIONS.CATALOG_MANAGE)).allowed).toBe(false);
+    await expect(storeCatalogPermission(owner.id, PERMISSIONS.CATALOG_MANAGE)).rejects.toMatchObject({
+      code: "STORE_SUSPENDED",
+      status: 403,
+    });
   });
   it("conceals foreign-store media using the canonical asset reader", async () => {
     const { owner, store } = await source();

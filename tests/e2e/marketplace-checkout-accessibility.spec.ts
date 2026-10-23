@@ -10,7 +10,7 @@ async function openCheckout(page: Page) {
   expect(checkoutRes.status()).toBe(201);
   const checkout = (await checkoutRes.json()).checkout;
   await page.goto(`/checkout?ref=${checkout.reference}`);
-  await expect(page.getByRole("heading", { name: "Secure checkout", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your checkout.", exact: true })).toBeVisible();
   return checkout;
 }
 

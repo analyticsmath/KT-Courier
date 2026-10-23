@@ -23,7 +23,19 @@ it("activates the reviewed vendor account through the permission-protected statu
   try {
     await act(async () => root.render(React.createElement(StoreAccountApproval, { storeId: "store-123" })));
     const button = [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Approve vendor account"));
+    const acknowledgement = host.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     expect(button).toBeDefined();
+    expect(acknowledgement).not.toBeNull();
+    expect(button?.disabled).toBe(true);
+    await act(async () => {
+      button!.click();
+      await Promise.resolve();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => {
+      acknowledgement!.click();
+    });
+    expect(button?.disabled).toBe(false);
     await act(async () => {
       button!.click();
       await Promise.resolve();
