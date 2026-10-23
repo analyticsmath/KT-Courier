@@ -1,3 +1,5 @@
+import { LiveDeliveryStatusRefresh } from "@/components/tracking/LiveDeliveryStatusRefresh";
+import { shouldRefreshMarketplaceStatus } from "@/lib/tracking/delivery-status-refresh";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
@@ -39,7 +41,9 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
   const decisions = await Promise.all(tracking.storeOrders.map(storeOrder => getCustomerStoreOrderActions({ marketplaceOrderReference: publicReference, storeOrderReference: storeOrder.storeOrderReference, customerUserId, guestSecret })));
 
   const confirmed = tracking.status === "CONFIRMED";
-  return <main className={styles.commerceRoot} id="storefront-content">
+  return <>
+    <LiveDeliveryStatusRefresh active={shouldRefreshMarketplaceStatus(tracking.storeOrders.map(row => row.deliveryStatus))} />
+    <main className={styles.commerceRoot} id="storefront-content">
     <div className={styles.commerceInner}>
       <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Order status" }]} />
       <header className={styles.orderStatusIntro}>
@@ -75,5 +79,6 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
       <section aria-label="Delivery map" className={styles.orderStoreCard}><h2>Delivery map</h2><CourierTrackingMap scope="MARKETPLACE" reference={tracking.marketplaceOrderReference} /></section>
       <div className={styles.orderStatusActions}><Link className={`${styles.productActionButton} ${styles.productActionButtonPrimary}`} href="/shop">Continue shopping</Link></div>
     </div>
-  </main>;
+    </main>
+  </>;
 }

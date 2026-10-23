@@ -1,3 +1,5 @@
+import { LiveDeliveryStatusRefresh } from "@/components/tracking/LiveDeliveryStatusRefresh";
+import { shouldRefreshParcelStatus } from "@/lib/tracking/delivery-status-refresh";
 import { prisma } from "@/lib/db/prisma";
 import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
 import { Conversations } from "@/components/forms/Conversations";
@@ -38,6 +40,7 @@ export default async function AccountOrderDetailPage({
   });
   return (
     <>
+      <LiveDeliveryStatusRefresh active={shouldRefreshParcelStatus(order.status)} />
       <CustomerOrderDetail
         cancelAction={
           canCancel ? (
