@@ -21,7 +21,8 @@ export type SecurityNotificationInput = {
     | "PASSWORD_RESET"
     | "PASSWORD_CHANGED"
     | "DELIVERY_OTP"
-    | "PICKUP_OTP";
+    | "PICKUP_OTP"
+    | "STORE_PICKUP_CODE";
   operationId: string;
   subjectUserId?: string;
   aggregateReference: string;
@@ -44,6 +45,8 @@ function securityEmailSubject(
       return "Your KT Couriers delivery code";
     case "PICKUP_OTP":
       return "Your KT Couriers parcel pickup code";
+    case "STORE_PICKUP_CODE":
+      return "Your KT Couriers store handoff code";
   }
 }
 

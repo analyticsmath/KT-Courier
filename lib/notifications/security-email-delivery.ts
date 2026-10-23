@@ -13,6 +13,7 @@ import type { ProviderSendResult } from "./providers";
 import { guestContactSubjectKey } from "./guest-recipient";
 import { resolveDeliveryOtpRecipient, resolvePickupOtpSender } from "@/lib/services/delivery-recipient.service";
 import { hashOtp } from "@/lib/auth/otp";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   EMAIL_VERIFICATION_OTP: EmailTemplateType.EMAIL_VERIFICATION_OTP,
@@ -20,6 +21,7 @@ const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   PASSWORD_CHANGED: EmailTemplateType.PASSWORD_CHANGED,
   DELIVERY_OTP: EmailTemplateType.DELIVERY_OTP,
   PICKUP_OTP: EmailTemplateType.DELIVERY_OTP,
+  STORE_PICKUP_CODE: EmailTemplateType.DELIVERY_OTP,
 };
 
 function acceptedStatus(status: string): boolean {
@@ -111,6 +113,22 @@ export async function deliverSecurityEmail(deliveryId: string) {
       return { accepted: false, status: "EXPIRED", deliveryId: delivery.id };
     }
     destination = contact.email;
+  } else if (intent.eventType === "STORE_PICKUP_CODE") {
+    const order = await prisma.marketplaceStoreOrder.findUnique({
+      where: { publicReference: intent.aggregateReference },
+      select: { store: { select: { ownerUserId: true } }, pickupHandoff: { select: { status: true, expiresAt: true } } },
+    });
+    if (!order || order.store.ownerUserId !== subjectUserId ||
+      order.pickupHandoff?.status !== "CHALLENGE_ACTIVE" || order.pickupHandoff.expiresAt <= new Date()) {
+      await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "STORE_PICKUP_CHALLENGE_REVOKED", nextAttemptAt: null } });
+      return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
+    }
+    const owner = await prisma.user.findUnique({ where: { id: subjectUserId }, select: { email: true, emailVerifiedAt: true, status: true } });
+    if (!owner?.email || !owner.emailVerifiedAt || owner.status !== "ACTIVE") {
+      await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "STORE_OWNER_EMAIL_NOT_VERIFIED", nextAttemptAt: null } });
+      return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
+    }
+    destination = owner.email;
   } else if (intent.eventType === "DELIVERY_OTP" || intent.eventType === "PICKUP_OTP") {
     try {
       const recipient = intent.eventType === "PICKUP_OTP" ? await resolvePickupOtpSender(intent.aggregateReference) : await resolveDeliveryOtpRecipient(intent.aggregateReference);
@@ -152,6 +170,23 @@ export async function deliverSecurityEmail(deliveryId: string) {
       const otp = await activeDeliveryOtp(intent.operationId, intent.aggregateReference, intent.eventType === "PICKUP_OTP");
       if (!otp || typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || hashOtp(values.otp) !== otp.codeHash) throw new NotificationPolicyError("DELIVERY_OTP_NOT_ACTIVE");
     }
+    if (intent.eventType === "STORE_PICKUP_CODE") {
+      const order = await prisma.marketplaceStoreOrder.findUnique({
+        where: { publicReference: intent.aggregateReference },
+        select: { store: { select: { ownerUserId: true } }, pickupHandoff: { select: { operationId: true, status: true, expiresAt: true, challengeHash: true } } },
+      });
+      const code = typeof values.otp === "string" ? values.otp : "";
+      const challenge = order?.pickupHandoff;
+      const candidateHash = createHash("sha256").update(`phase21-pickup:${code}`).digest("hex");
+      const expected = challenge?.challengeHash ?? "";
+      if (order?.store.ownerUserId !== subjectUserId || !challenge ||
+        challenge.status !== "CHALLENGE_ACTIVE" || challenge.expiresAt <= new Date() ||
+        typeof values.pickupOperationId !== "string" || values.pickupOperationId !== challenge.operationId ||
+        !/^\d{6}$/.test(code) || expected.length !== candidateHash.length ||
+        !timingSafeEqual(Buffer.from(candidateHash), Buffer.from(expected))) {
+        throw new NotificationPolicyError("STORE_PICKUP_CHALLENGE_REVOKED");
+      }
+    }
     if (guestVerification && (typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || typeof values.name !== "string" || values.name.length > 120 || values.expiresMinutes !== 15)) throw new NotificationPolicyError("SECURITY_EMAIL_PAYLOAD_INVALID");
     const rendered = guestVerification
       ? {
@@ -169,7 +204,17 @@ export async function deliverSecurityEmail(deliveryId: string) {
               <p style="color:#595959;font-size:14px;">Verifying your email does not confirm payment or place an order.</p>`,
           }),
         }
-      : intent.eventType === "PICKUP_OTP"
+      : intent.eventType === "STORE_PICKUP_CODE"
+        ? {
+            subject: "Your KT Couriers store pickup handoff code",
+            text: `Your store pickup verification code is ${String(values.otp)} for order ${String(values.orderNumber)}. Give it only to the assigned driver when releasing the prepared packages. It expires in 10 minutes. If you did not initiate the handoff, contact KT Couriers.`,
+            html: renderEmailHtml({
+              title: "Verify store handoff",
+              preheader: "Secure six-digit collection code",
+              body: `<p>Release the prepared order only to the authorized assigned driver.</p><p style="font-size:30px;font-weight:700;letter-spacing:5px;">${escapeEmailHtml(String(values.otp))}</p><p>Order: ${escapeEmailHtml(String(values.orderNumber))}</p><p>Expires in 10 minutes. If you did not initiate this handoff, contact KT Couriers.</p>`,
+            }),
+          }
+        : intent.eventType === "PICKUP_OTP"
         ? {
             subject: "Your KT Couriers parcel pickup code",
             text: `Hi ${String(values.name ?? "Sender")},\n\nYour six-digit parcel pickup code is ${String(values.otp)}. Share it only with the assigned driver when they collect your parcel. It expires in ${String(values.expiresMinutes)} minutes.\n\nIf you did not request this pickup, contact KT Couriers.`,

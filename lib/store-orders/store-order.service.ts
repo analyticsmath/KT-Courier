@@ -15,6 +15,8 @@ import { assertStoreOrderProductionReady } from "@/lib/store-orders/production-l
 import { requireStoreOrderActor, type StoreOrderPermission } from "@/lib/store-orders/store-order-auth";
 import { assertAcceptanceTransition, assertFinancialTransition, assertPreparationTransition, deriveStoreOrderStatus } from "@/lib/store-orders/state-machine";
 import { completeMarketplacePickupInTx } from "@/lib/services/pickup-custody.service";
+import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
+import { dispatchIssuedDeliveryOtpEmail } from "@/lib/services/delivery-otp-email-dispatch.service";
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
@@ -669,7 +671,7 @@ function challengeHash(code: string): string { return createHash("sha256").updat
 
 export async function generateStoreOrderPickupChallenge(input: Readonly<{ storeOrderReference: string; actorUserId: string; operationId: string; requestHash: string; testApproval?: TestApproval }>) {
   assertStoreOrderProductionReady("HANDOFF", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
-  return transaction(async (tx) => {
+  const handoffResult = await transaction(async (tx) => {
     const order = await authorize(tx, input.storeOrderReference, input.actorUserId, "store_orders.handoff");
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder(order.preparationStatus === "READY_FOR_HANDOFF" && order.deliveryBridge?.courierOrderId, "STORE_ORDER_HANDOFF_NOT_READY", "Ready state and a courier bridge are required.");
@@ -683,6 +685,38 @@ export async function generateStoreOrderPickupChallenge(input: Readonly<{ storeO
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "HANDOFF_CHALLENGE", response: { storeOrderReference: order.publicReference, handoffReference: handoff.publicReference, expiresAt: expiresAt.toISOString(), pickupCodeIssued: true } });
     return { ...response, replayed: false };
   });
+  // Existing store handoff is the canonical pickup challenge. Email is an
+  // additional store-owner channel, not a second code or a custody override.
+  // This opt-in preserves legacy handoffs while sender email is certified.
+  if (process.env.MARKETPLACE_PICKUP_EMAIL_ENABLED !== "true" ||
+      handoffResult.replayed !== false || typeof handoffResult.pickupCode !== "string" ||
+      typeof handoffResult.expiresAt !== "string") {
+    return handoffResult;
+  }
+  const store = await prisma.store.findUnique({
+    where: { id: (await prisma.marketplaceStoreOrder.findUniqueOrThrow({
+      where: { publicReference: input.storeOrderReference }, select: { storeId: true },
+    })).storeId },
+    select: { ownerUserId: true },
+  });
+  if (!store?.ownerUserId) return { ...handoffResult, emailDeliveryStatus: "STORE_OWNER_NOT_FOUND" };
+  const emailOperationId = `store-pickup-email:${createHash("sha256").update(input.operationId).digest("hex").slice(0,32)}`;
+  try {
+    await queueSecurityNotification({
+      eventType: "STORE_PICKUP_CODE",
+      operationId: emailOperationId,
+      subjectUserId: store.ownerUserId,
+      aggregateReference: input.storeOrderReference,
+      expiresAt: new Date(handoffResult.expiresAt),
+      values: { otp: handoffResult.pickupCode, orderNumber: input.storeOrderReference, pickupOperationId: input.operationId },
+    });
+    const email = await dispatchIssuedDeliveryOtpEmail(emailOperationId);
+    return { ...handoffResult, emailDeliveryStatus: email.status };
+  } catch {
+    // Never suppress the existing approved store-to-driver handoff or
+    // claim a code reached the vendor when the provider did not accept it.
+    return { ...handoffResult, emailDeliveryStatus: "EMAIL_NOT_ACCEPTED" };
+  }
 }
 
 function sameChallenge(candidate: string, expectedHash: string): boolean {
