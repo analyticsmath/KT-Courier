@@ -3,23 +3,23 @@
 .public-v3-root.kt-redesign {
   --font-display: var(--kt-redesign-font, "Arial"), sans-serif;
   --font-body: var(--kt-redesign-font, "Arial"), sans-serif;
-  --kt-public-canvas: #fff;
-  --kt-public-surface-primary: #fff;
-  --kt-public-surface-secondary: #f4f4f4;
-  --kt-public-surface-tertiary: #ededed;
-  --kt-public-text-primary: #191919;
-  --kt-public-text-secondary: #434343;
-  --kt-public-text-muted: #595959;
-  --kt-public-action-primary: #191919;
-  --kt-public-action-primary-hover: #383838;
-  --kt-public-interactive: #191919;
-  --kt-public-interactive-text: #191919;
-  --kt-public-focus: #982c35;
-  --kt-public-border-default: #d4d4d4;
-  --kt-public-border-subtle: #e4e4e4;
+  --kt-public-canvas: var(--kt-white-000);
+  --kt-public-surface-primary: var(--kt-white-000);
+  --kt-public-surface-secondary: var(--kt-editorial-surface);
+  --kt-public-surface-tertiary: var(--kt-palette-ededed);
+  --kt-public-text-primary: var(--kt-editorial-ink);
+  --kt-public-text-secondary: var(--kt-palette-434343);
+  --kt-public-text-muted: var(--kt-editorial-copy);
+  --kt-public-action-primary: var(--kt-editorial-ink);
+  --kt-public-action-primary-hover: var(--kt-palette-383838);
+  --kt-public-interactive: var(--kt-editorial-ink);
+  --kt-public-interactive-text: var(--kt-editorial-ink);
+  --kt-public-focus: var(--kt-editorial-signal);
+  --kt-public-border-default: var(--kt-palette-d4d4d4);
+  --kt-public-border-subtle: var(--kt-palette-e4e4e4);
   --kt-header-height: 80px;
-  background: #fff;
-  color: #191919;
+  background: var(--kt-white-000);
+  color: var(--kt-editorial-ink);
   font-family: var(--font-body);
 }
 .public-v3-root.kt-redesign :is(h1, h2, h3) {
@@ -29,7 +29,7 @@
   text-wrap: balance;
 }
 .kt-redesign :where(a, button, input, select, textarea):focus-visible {
-  outline: 2px solid #982c35;
+  outline: 2px solid var(--kt-editorial-signal);
   outline-offset: 5px;
 }
 .kt-redesign :where(button, a) {
@@ -52,8 +52,8 @@
   min-height: 54px;
   padding: 16px 25px;
   border-radius: 40px;
-  background: #191919;
-  color: #fff;
+  background: var(--kt-editorial-ink);
+  color: var(--kt-white-000);
   text-decoration: none;
   font-size: 15px;
   font-weight: 500;
@@ -62,7 +62,7 @@
     transform 0.3s;
 }
 .kt-redesign .kt-pill:hover {
-  background: #3c3c3c;
+  background: var(--kt-palette-3c3c3c);
   transform: translateY(-2px);
 }
 .kt-redesign .kt-text-link {
@@ -83,7 +83,7 @@
   inset: 0 0 auto;
   height: 80px;
   z-index: 80;
-  background: #fff;
+  background: var(--kt-white-000);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -137,7 +137,7 @@
   margin-left: 5px;
   align-items: center;
   justify-content: center;
-  background: #f0f0f0;
+  background: var(--kt-palette-f0f0f0);
   border-radius: 50%;
   width: 25px;
   height: 25px;
@@ -148,8 +148,8 @@
   top: -100px;
   left: 20px;
   z-index: 200;
-  background: #191919;
-  color: #fff;
+  background: var(--kt-editorial-ink);
+  color: var(--kt-white-000);
   padding: 14px;
 }
 .kt-redesign .kt-new-skip:focus {
@@ -165,14 +165,14 @@
   margin: 0;
   padding: 0 4.5vw 38px;
   border: 0;
-  background: #fff;
-  color: #191919;
+  background: var(--kt-white-000);
+  color: var(--kt-editorial-ink);
   overflow: auto;
   overscroll-behavior: contain;
   font-family: var(--font-body);
 }
 .kt-redesign .kt-new-menu::backdrop {
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .kt-redesign .kt-new-menu[open] {
   animation: kt-menu-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
@@ -233,8 +233,8 @@
   position: absolute;
   bottom: 20px;
   left: 20px;
-  background: #fff;
-  color: #191919;
+  background: var(--kt-white-000);
+  color: var(--kt-editorial-ink);
   text-decoration: none;
   padding: 17px 20px;
   font-size: 14px;
@@ -257,7 +257,7 @@
   font-size: 13px;
 }
 .kt-redesign .kt-menu-legal a {
-  color: #595959;
+  color: var(--kt-editorial-copy);
   text-decoration: none;
 }
 @keyframes kt-menu-enter {
@@ -378,7 +378,7 @@
   display: block;
   position: relative;
   padding: 35px 44px 35px 0;
-  color: #191919;
+  color: var(--kt-editorial-ink);
   text-decoration: none;
   transition: transform 0.35s;
 }
@@ -395,7 +395,7 @@
   font-size: 15px;
   line-height: 1.6;
   max-width: 390px;
-  color: #595959;
+  color: var(--kt-editorial-copy);
   margin: 0;
 }
 .kt-redesign .kt-atlas-index > a > span {
@@ -428,7 +428,7 @@
   bottom: 25px;
   left: 25px;
   right: 25px;
-  background: #fff;
+  background: var(--kt-white-000);
   padding: 18px;
   font-size: 16px;
 }
@@ -526,7 +526,7 @@
 }
 .kt-redesign .kt-process-point p {
   max-width: 32ch;
-  color: #595959;
+  color: var(--kt-editorial-copy);
   font-size: 17px;
   line-height: 1.65;
   margin: 0;
@@ -535,7 +535,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9vw;
-  background: #f4f4f4;
+  background: var(--kt-editorial-surface);
   margin: 0 -4.5vw;
   padding: 90px 4.5vw;
 }
@@ -555,7 +555,7 @@
 .kt-redesign .kt-detail-guidance p {
   font-size: 16px;
   line-height: 1.7;
-  color: #4b4b4b;
+  color: var(--kt-palette-4b4b4b);
 }
 .kt-redesign .kt-detail-guidance ul {
   list-style: disc;
@@ -585,7 +585,7 @@
 .kt-redesign .kt-detail-questions p {
   font-size: 16px;
   line-height: 1.7;
-  color: #595959;
+  color: var(--kt-editorial-copy);
 }
 .kt-redesign .kt-related-services {
   display: flex;
@@ -741,8 +741,8 @@
   bottom: 25px;
   left: 22px;
   right: 22px;
-  background: #fff;
-  color: #191919;
+  background: var(--kt-white-000);
+  color: var(--kt-editorial-ink);
   font-size: 36px;
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -948,7 +948,7 @@
 }
 .kt-redesign .kt-local-reel {
   padding: 60px 0;
-  background: #f4f4f4;
+  background: var(--kt-editorial-surface);
 }
 .kt-redesign .kt-local-reel-heading {
   display: flex;
@@ -966,7 +966,7 @@
 .kt-redesign .kt-reel-window {
   overflow-x: auto;
   scrollbar-width: thin;
-  scrollbar-color: #999 transparent;
+  scrollbar-color: var(--kt-palette-999999) transparent;
 }
 .kt-redesign .kt-reel-track {
   display: flex;
@@ -1070,7 +1070,7 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #fff;
+  background: var(--kt-white-000);
   font-size: 28px;
   transition: transform 0.3s;
 }
@@ -1292,13 +1292,13 @@
   margin-top: -95px;
   padding-top: 180px;
   padding-bottom: 155px;
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .kt-redesign .kt-service-cinema[data-section-transition] {
   z-index: 4;
   margin-top: -55px;
   padding-top: 100px;
-  background: #f4f4f4;
+  background: var(--kt-editorial-surface);
 }
 .kt-redesign .kt-detail-preparation[data-section-transition] {
   position: relative;
@@ -1306,7 +1306,7 @@
 }
 .kt-redesign .kt-detail-questions[data-section-transition] {
   position: relative;
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .kt-redesign .kt-footer-boundary {
   width: 100%;

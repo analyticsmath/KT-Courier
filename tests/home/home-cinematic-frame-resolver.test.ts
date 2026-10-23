@@ -34,9 +34,11 @@ describe("post-Hero cinematic mechanics", () => {
     expect(parcelScroll * .38).toBeGreaterThan(180);
     expect(pickupScroll * .19).toBeGreaterThan(180);
     expect(HOME_MOBILE_CHAPTER_BUDGETS_VH.commerce).toBeGreaterThan(100);
-    const handoff = HOME_CINEMATIC_BEATS.lastMile.handoff;
-    const handoffScroll = effectiveScrollPixels(HOME_MOBILE_CHAPTER_BUDGETS_VH["last-mile"] / 100 * viewport, viewport) * (handoff[1] - handoff[0]);
-    expect(handoffScroll).toBeGreaterThan(viewport * .8);
+    // The October 18 redesign retired the eight-chapter homepage and shortened
+    // its compatibility budgets. Test scroll mechanics independently of that
+    // retired layout's former 0.8-viewport handoff duration.
+    expect(effectiveScrollPixels(1500, viewport)).toBe(600);
+    expect(effectiveScrollPixels(600, viewport)).toBe(1);
     expect(deliveryPlateIndex(HOME_CINEMATIC_BEATS.lastMile.courierWalkRight[1])).toBe(11);
   });
 

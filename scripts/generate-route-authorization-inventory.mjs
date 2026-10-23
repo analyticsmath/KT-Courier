@@ -197,7 +197,7 @@ for (const file of routeFiles) {
   // Extract the permission key(s) actually passed to requireAdminApiPermission(PERMISSIONS.X, ...)
   // and resolve them to their canonical string values from lib/auth/permission-keys.ts.
   for (const match of content.matchAll(
-    /requireAdminApiPermission\(\s*PERMISSIONS\.([A-Z0-9_]+)/g,
+    /require(?:AdminApi|CatalogAdmin|StoreCatalog)Permission\(\s*PERMISSIONS\.([A-Z0-9_]+)/g,
   )) {
     const value = permissionValues.get(match[1]);
     if (value && !requiredPermissions.includes(value)) requiredPermissions.push(value);

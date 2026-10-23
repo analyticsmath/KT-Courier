@@ -72,7 +72,9 @@ describe("R13 protected Editorial Operations foundation", () => {
     const protectedSources = [
       ...["components/protected-v2", "lib/protected-navigation", "lib/protected-presentation"].flatMap((directory) => collectSources(directory)),
       "app/fonts/protected-fonts.ts",
-    ].map(readSource).join("\n");
+    // The October operations refinement added one static illustrated scene;
+    // keep gradients prohibited in the rest of the operational interface.
+    ].filter(file => file !== "components/protected-v2/illustrations/OperationsSceneIllustration.tsx").map(readSource).join("\n");
     const css = readSource("app/globals.css");
     const r13Start = css.indexOf("R13 Editorial Operations");
     const firstR13Css = css.slice(r13Start, css.indexOf("\n:root", r13Start));
@@ -126,11 +128,17 @@ describe("R13 protected Editorial Operations foundation", () => {
     expect(focus).not.toMatch(/tabIndex=\{?[1-9]/);
   });
 
-  it("keeps four original, data-free foundation illustrations", () => {
+  it("keeps four local, data-free foundation illustrations", () => {
     expect(Object.keys(PROTECTED_ILLUSTRATIONS)).toHaveLength(4);
     for (const file of collectSources("components/protected-v2/illustrations")) {
       const source = readSource(file);
-      expect(source).not.toMatch(/linearGradient|radialGradient|<text\b|https?:\/\//);
+      expect(source).not.toMatch(/<text\b|https?:\/\/|fetch\(/);
+      if (file.endsWith("OperationsSceneIllustration.tsx")) {
+        expect(source.match(/<linearGradient\b/g)).toHaveLength(2);
+        expect(source).toContain('id="scene-blue"');
+        expect(source).toContain('id="scene-window"');
+        expect(source).not.toMatch(/radialGradient/);
+      } else expect(source).not.toMatch(/linearGradient|radialGradient/);
     }
   });
 });

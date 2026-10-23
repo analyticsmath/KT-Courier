@@ -5,7 +5,7 @@
   visibility: hidden;
   pointer-events: none;
   overflow: hidden;
-  color: #191919;
+  color: var(--kt-editorial-ink);
   font-family: var(--kt-redesign-font, Arial), sans-serif;
 }
 .panels {
@@ -17,10 +17,10 @@
 .panels i {
   display: block;
   height: 100%;
-  background: #f4f4f4;
+  background: var(--kt-editorial-surface);
 }
 .panels i:nth-child(2) {
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .label {
   position: absolute;
@@ -51,7 +51,7 @@
   width: clamp(110px, 13vw, 190px);
   aspect-ratio: 4/3;
   max-height: 22svh;
-  background: #ededed center/cover;
+  background: var(--kt-palette-ededed) center/cover;
 }
 @media (max-height: 620px) and (min-width: 761px) {
   .preview {

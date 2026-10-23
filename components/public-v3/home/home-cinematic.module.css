@@ -163,11 +163,11 @@
 
 
 /* Editorial intertitle, not a duplicate brand/footer wordmark. */
-.finale { background: #fff; color: #14213a; }
+.finale { background: var(--kt-white-000); color: var(--kt-palette-14213a); }
 .finale .delivered { max-width: 11ch; font-size: clamp(2.9rem, 7.3vw, 8rem); font-weight: 590; text-transform: none; }
 .finale .finaleBrand { top: 22svh; }
 .finale .finaleBrand h2 { font-weight: 590; font-size: clamp(4rem, 11vw, 13rem); line-height: .88; }
-.finale .finaleBrand h2 span:last-child { color: #205fdc; }
+.finale .finaleBrand h2 span:last-child { color: var(--kt-palette-205fdc); }
 .finale .finaleUtility a { text-decoration: underline; text-underline-offset: 6px; font-size: clamp(.92rem,1vw,1.15rem); }
 @media(max-width:767px) {
  .finale .finaleBrand { left: 6vw; top: 24svh; max-width: 87vw; }

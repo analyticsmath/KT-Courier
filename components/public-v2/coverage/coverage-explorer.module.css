@@ -3,15 +3,15 @@
   grid-template-columns: 1.2fr 1fr;
   gap: 6vw;
   align-items: start;
-  color: #191919;
+  color: var(--kt-editorial-ink);
 }
 .map {
   position: sticky;
   top: 110px;
   height: clamp(430px, 66svh, 700px);
   overflow: hidden;
-  border: 1px solid #ccc;
-  background: #eee;
+  border: 1px solid var(--kt-palette-cccccc);
+  background: var(--kt-palette-eeeeee);
 }
 .mapCanvas {
   width: 100%;
@@ -23,7 +23,7 @@
   margin: 0 0 35px !important;
 }
 .selected {
-  border-block: 1px solid #bbb;
+  border-block: 1px solid var(--kt-palette-bbbbbb);
   padding: 30px 0;
   margin-bottom: 35px;
   background: transparent;
@@ -45,7 +45,7 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
 }
 .regions button {
   display: flex;
@@ -56,9 +56,9 @@
   text-align: left;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid #bbb;
+  border-bottom: 1px solid var(--kt-palette-bbbbbb);
   padding: 22px 0;
-  color: #191919;
+  color: var(--kt-editorial-ink);
   font: inherit;
   font-size: 23px;
   letter-spacing: -0.03em;
@@ -72,14 +72,14 @@
 }
 .regions button[aria-pressed="true"] {
   padding-inline: 18px;
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .regions button:focus-visible {
-  outline: 2px solid #191919;
+  outline: 2px solid var(--kt-editorial-ink);
   outline-offset: 3px;
 }
 .sourceNotice {
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
   padding-top: 25px;
 }
 .sourceNotice p {

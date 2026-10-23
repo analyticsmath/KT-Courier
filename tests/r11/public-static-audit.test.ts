@@ -11,7 +11,7 @@ describe("R11 public static audit", () => {
     const page = readSource("app/(public)/page.tsx");
     const preview = readSource("components/public-v2/home/MarketplacePreview.tsx");
     expect(page).toContain("publicPageMetadata");
-    expect(page).toContain("HomepageV2");
+    expect(page).toContain("PublicHomeExperience");
     expect(preview).toContain("getStorefrontHome");
     expect(preview).toContain("Marketplace source unavailable");
     expect(preview).not.toContain("getPublicMarketplaceState");

@@ -3,6 +3,76 @@
 [data-kt-version="v3"],
 [data-kt-signature="v2"],
 [data-kt-visual-system="editorial-freight-v1"] {
+  /* Shared exact colors from the approved editorial composition and existing scenes.
+     Component references preserve their rendered values; no palette change. */
+  --kt-editorial-ink: #191919;
+  --kt-editorial-surface: #f4f4f4;
+  --kt-editorial-copy: #595959;
+  --kt-editorial-signal: #982c35;
+  --kt-palette-f5f5f5: #f5f5f5;
+  --kt-palette-c5c5c5: #c5c5c5;
+  --kt-palette-383838: #383838;
+  --kt-palette-d5d5d5: #d5d5d5;
+  --kt-palette-6b6b6b: #6b6b6b;
+  --kt-palette-f0f0f0: #f0f0f0;
+  --kt-palette-434343: #434343;
+  --kt-palette-bfbfbf: #bfbfbf;
+  --kt-palette-cccccc: #cccccc;
+  --kt-palette-eeeeee: #eeeeee;
+  --kt-palette-bbbbbb: #bbbbbb;
+  --kt-palette-dcdcdc: #dcdcdc;
+  --kt-palette-dedede: #dedede;
+  --kt-palette-d6d6d6: #d6d6d6;
+  --kt-palette-d7d7d7: #d7d7d7;
+  --kt-palette-e5e5e5: #e5e5e5;
+  --kt-palette-cfcfcf: #cfcfcf;
+  --kt-palette-ededed: #ededed;
+  --kt-palette-4e4e4e: #4e4e4e;
+  --kt-palette-393939: #393939;
+  --kt-palette-000000: #000000;
+  --kt-palette-12213c: #12213c;
+  --kt-palette-2164e6: #2164e6;
+  --kt-palette-1549b8: #1549b8;
+  --kt-palette-f2f2f2: #f2f2f2;
+  --kt-palette-b9b9b9: #b9b9b9;
+  --kt-palette-c8c8c8: #c8c8c8;
+  --kt-palette-14213a: #14213a;
+  --kt-palette-205fdc: #205fdc;
+  --kt-palette-rgba-13-33-72--10: rgba(13,33,72,.10);
+  --kt-palette-f3f3f3: #f3f3f3;
+  --kt-palette-dddddd: #dddddd;
+  --kt-palette-d0d0d0: #d0d0d0;
+  --kt-palette-101827: #101827;
+  --kt-palette-2566e7: #2566e7;
+  --kt-palette-4e5a6a: #4e5a6a;
+  --kt-palette-205edc: #205edc;
+  --kt-palette-1248bc: #1248bc;
+  --kt-palette-b8c6da: #b8c6da;
+  --kt-palette-edf4ff: #edf4ff;
+  --kt-palette-c9d9ef: #c9d9ef;
+  --kt-palette-1052c7: #1052c7;
+  --kt-palette-d3e2ff: #d3e2ff;
+  --kt-palette-bcd2ff: #bcd2ff;
+  --kt-palette-rgba-255-255-255--24: rgba(255,255,255,.24);
+  --kt-palette-99ccff: #99ccff;
+  --kt-palette-d4d4d4: #d4d4d4;
+  --kt-palette-e4e4e4: #e4e4e4;
+  --kt-palette-3c3c3c: #3c3c3c;
+  --kt-palette-4b4b4b: #4b4b4b;
+  --kt-palette-999999: #999999;
+  --kt-palette-101d34: #101d34;
+  --kt-palette-52627b: #52627b;
+  --kt-palette-1755c7: #1755c7;
+  --kt-palette-eaf2ff: #eaf2ff;
+  --kt-palette-rgba-25-52-92--1: rgba(25,52,92,.1);
+  --kt-palette-5a6880: #5a6880;
+  --kt-palette-182744: #182744;
+  --kt-palette-d9e4f1: #d9e4f1;
+  --kt-palette-f4f8ff: #f4f8ff;
+  --kt-palette-1558d3: #1558d3;
+  --kt-palette-798ba5: #798ba5;
+  --kt-palette-617189: #617189;
+  --kt-palette-215fdb: #215fdb;
   /* Raw palette: fixed values; no generated shades. */
   --kt-white-000: #FFFFFF;
   --kt-white-050: #F7F8FA;

@@ -80,7 +80,11 @@ describe("R10 legal publication gate", () => {
       "accessibility",
     ]) {
       const source = read(`app/(public)/${route}/page.tsx`);
-      expect(source).toContain(["terms", "privacy-policy"].includes(route) ? "PublishedPolicyPage" : "LegalDocumentPage");
+      expect(source).toContain(["terms", "privacy-policy"].includes(route) ? "PublishedPolicyPage" : route === "accessibility" ? "EditorialInformationPage" : "LegalDocumentPage");
+      if (route === "accessibility") {
+        expect(source).toContain("noindex: true");
+        expect(source).toContain("not a certification of compliance");
+      }
       expect(source).not.toMatch(
         /lastUpdated|placeholder|retention period|liability cap|refund period/i,
       );

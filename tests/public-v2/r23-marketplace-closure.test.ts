@@ -48,6 +48,7 @@ const CANONICAL_MOCK_DOCUMENTS = Array.from({ length: 250 }, (_, i) => ({
 
 describe("R23 Category and Storefront Data-Binding Closure", () => {
   beforeEach(() => {
+    vi.spyOn(prisma.deliveryReview, "aggregate").mockResolvedValue({ _avg: { rating: null }, _count: { rating: 0 } } as never);
     vi.spyOn(prisma, "$queryRaw").mockImplementation((async (query: unknown) => {
       const queryObj = query as { strings?: string[]; values?: unknown[] } | string | null | undefined;
       const sqlText = typeof queryObj === "string" ? queryObj : Array.isArray(queryObj?.strings) ? queryObj.strings.join(" ") : String(queryObj);

@@ -16,6 +16,15 @@ describe("Phase 27 source audits", () => {
     expect(security).toContain("encryptedPayload");
     expect(security).toContain("safePayload");
     expect(endpoint).not.toContain("endpoint: item.endpoint");
-    expect(readFileSync(join(process.cwd(), "app", "api", "admin", "emails", "test", "route.ts"), "utf8")).toContain("Manual sending is not available");
+    const diagnostic = readFileSync(join(process.cwd(), "app", "api", "admin", "emails", "test", "route.ts"), "utf8");
+    expect(diagnostic).toContain("requireAdminApiPermission(PERMISSIONS.EMAILS_TEST");
+    expect(diagnostic).toContain("enforceSameOriginRequest");
+    expect(diagnostic).toContain("RATE_LIMITS.ADMIN_TEST_EMAIL");
+    expect(diagnostic).toContain("sendAdminEmailDiagnostic");
+    expect(diagnostic).not.toMatch(/new Resend|provider\.send/);
+    const diagnosticService = readFileSync(join(process.cwd(), "lib", "notifications", "admin-email-diagnostic.ts"), "utf8");
+    expect(diagnosticService).toContain('status: "ACTIVE", emailVerifiedAt: { not: null }');
+    expect(diagnosticService).toContain("ADMIN_EMAIL_DIAGNOSTIC_REQUESTED");
+    expect(diagnosticService).toContain("delivered: false");
   });
 });

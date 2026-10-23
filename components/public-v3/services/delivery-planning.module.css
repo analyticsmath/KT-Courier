@@ -1,7 +1,7 @@
 .starting,
 .parcel {
   padding: 110px clamp(22px, 5vw, 80px);
-  background: #f3f3f3;
+  background: var(--kt-palette-f3f3f3);
 }
 .starting h2,
 .parcel h2,
@@ -34,9 +34,9 @@
 }
 .paths > a {
   position: relative;
-  color: #191919;
+  color: var(--kt-editorial-ink);
   text-decoration: none;
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
   padding-top: 22px;
 }
 .paths > a > span {
@@ -79,7 +79,7 @@
 .quote {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .quoteImage {
   position: relative;
@@ -105,7 +105,7 @@
 .quoteCopy li {
   display: flex;
   gap: 25px;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid var(--kt-palette-cccccc);
   padding: 22px 0;
 }
 .quoteCopy li span {
@@ -126,7 +126,7 @@
   max-width: 400px;
 }
 .parcel {
-  background: #f3f3f3;
+  background: var(--kt-palette-f3f3f3);
 }
 .parcelLayout {
   display: grid;
@@ -142,11 +142,11 @@
   padding-top: 15px;
 }
 .accordion details {
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
   padding: 23px 0;
 }
 .accordion details:last-child {
-  border-bottom: 1px solid #bbb;
+  border-bottom: 1px solid var(--kt-palette-bbbbbb);
 }
 .accordion summary {
   list-style: none;
@@ -180,7 +180,7 @@
   display: grid;
   grid-template-columns: 1.2fr 1fr;
   gap: 8vw;
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .coverage h2 {
   font-size: clamp(40px, 4.5vw, 72px);

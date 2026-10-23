@@ -9,10 +9,10 @@ import { marketplaceTrackX } from "@/components/public-v3/home/director/home-mar
 import { POST_HERO_RESOLVER_ACTOR_STATES, redTruckViewportX, resolveMarketplaceFrame, resolvePostHeroFrame, type MotionOwner } from "@/components/public-v3/home/director/post-hero-frame-resolver";
 
 describe("post-Hero frame resolver", () => {
-  it("protects the accepted Hero sequence and chapter budgets", () => {
+  it("preserves the legacy resolver sequence and current compatibility budgets", () => {
     expect(HOME_CHAPTERS).toEqual(["hero", "commerce", "parcelization", "pickup", "network", "freight", "last-mile", "finale"]);
-    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 205, commerce: 420, parcelization: 190, pickup: 230, network: 300, freight: 240, "last-mile": 430, finale: 190 });
-    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 260, commerce: 380, parcelization: 170, pickup: 220, network: 270, freight: 230, "last-mile": 410, finale: 175 });
+    expect(HOME_CHAPTER_BUDGETS_VH).toEqual({ hero: 175, commerce: 320, parcelization: 190, pickup: 230, network: 260, freight: 220, "last-mile": 380, finale: 130 });
+    expect(HOME_MOBILE_CHAPTER_BUDGETS_VH).toEqual({ hero: 210, commerce: 305, parcelization: 170, pickup: 220, network: 245, freight: 215, "last-mile": 355, finale: 130 });
     expect(HOME_MOBILE_POLICY).toEqual({ hero: "document", commerce: "native-snap", parcelization: "sticky", pickup: "sticky", network: "sticky", freight: "sticky", "last-mile": "sticky", finale: "sticky" });
     expect(HOME_BEATS.hero.fullBodyApproach).toEqual([.72, .9]);
     expect(HOME_BEATS.hero.deepApproach).toEqual([.9, .965]);

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 760,
+    "totalRoutes": 762,
     "totalServerActions": 0,
     "publicRoutes": 96,
-    "authenticatedRoutes": 661,
-    "permissionGatedRoutes": 517,
+    "authenticatedRoutes": 663,
+    "permissionGatedRoutes": 519,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 209,
-    "generatedAt": "2026-10-17T10:28:32.759Z"
+    "rateLimitedRoutes": 210,
+    "generatedAt": "2026-10-23T12:10:36.486Z"
   },
   "serverActions": [],
   "routes": [
@@ -532,7 +532,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "catalog_moderation.read"
+      ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -676,7 +678,10 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "catalog_moderation.approve",
+        "catalog_pricing.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -12294,7 +12299,10 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "catalog_inventory.read",
+        "catalog_inventory.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -12350,7 +12358,9 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "catalog.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -12373,6 +12383,26 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/catalog/media/[publicReference]/content/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "catalog.read"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -12404,7 +12434,9 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "catalog.manage"
+      ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -13321,6 +13353,24 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/seller-identity/documents/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },

@@ -1,6 +1,6 @@
 .page {
-  background: #fff;
-  color: #191919;
+  background: var(--kt-white-000);
+  color: var(--kt-editorial-ink);
   overflow: clip;
   --gutter: clamp(22px, 5vw, 80px);
 }
@@ -69,7 +69,7 @@
   justify-content: space-between;
   gap: 45px;
   padding: 28px 0;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--kt-palette-cccccc);
 }
 .heroFoot p {
   max-width: 590px;
@@ -94,7 +94,7 @@
 }
 .statement {
   padding: 100px var(--gutter) 120px;
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
 }
 .statement h2 {
   font-size: clamp(42px, 6vw, 96px);
@@ -107,7 +107,7 @@
 }
 .essay {
   padding: 120px var(--gutter);
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .essayHeader {
   display: flex;
@@ -146,11 +146,11 @@
 }
 .actions {
   padding: 110px var(--gutter);
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
 }
 .actionLinks {
   margin-top: 60px;
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
 }
 .actionLinks a {
   display: flex;
@@ -158,7 +158,7 @@
   gap: 30px;
   align-items: center;
   text-decoration: none;
-  border-bottom: 1px solid #bbb;
+  border-bottom: 1px solid var(--kt-palette-bbbbbb);
   padding: 27px 0;
   font-size: clamp(29px, 3.3vw, 53px);
   letter-spacing: -0.04em;
@@ -183,7 +183,7 @@
 }
 .contactChoices {
   padding: 85px var(--gutter) 110px;
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
 }
 .contactChoices h2 {
   max-width: 900px;
@@ -195,7 +195,7 @@
   gap: 40px;
 }
 .topic {
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
   padding-top: 28px;
   display: flex;
   flex-direction: column;
@@ -213,7 +213,7 @@
 }
 .formSection {
   padding: 110px var(--gutter);
-  background: #fff;
+  background: var(--kt-white-000);
   scroll-margin-top: 90px;
   outline-offset: -5px;
 }
@@ -260,16 +260,16 @@
 .formBody form input,
 .formBody form textarea,
 .formBody form select {
-  background: #f4f4f4;
-  border: 1px solid #ccc;
+  background: var(--kt-editorial-surface);
+  border: 1px solid var(--kt-palette-cccccc);
   padding: 16px;
   font-family: inherit;
-  color: #191919;
+  color: var(--kt-editorial-ink);
 }
 .formBody form button {
   border-radius: 40px;
-  background: #191919;
-  color: #fff;
+  background: var(--kt-editorial-ink);
+  color: var(--kt-white-000);
   font-family: inherit;
   font-weight: 500;
   min-height: 55px;
@@ -284,17 +284,17 @@
 }
 .questions {
   padding: 100px var(--gutter) 120px;
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
   display: grid;
   grid-template-columns: 1fr 1.1fr;
   gap: 10vw;
 }
 .questions details {
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
   padding: 24px 0;
 }
 .questions details:last-child {
-  border-bottom: 1px solid #bbb;
+  border-bottom: 1px solid var(--kt-palette-bbbbbb);
 }
 .questions summary {
   cursor: pointer;
@@ -320,7 +320,7 @@
 }
 .mapChapter {
   padding: 100px var(--gutter);
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
 }
 .mapHeading {
   display: flex;
@@ -334,7 +334,7 @@
 }
 .routeGuide {
   padding: 110px var(--gutter);
-  background: #fff;
+  background: var(--kt-white-000);
 }
 .routeDetails {
   display: grid;
@@ -344,7 +344,7 @@
 }
 .routeDetails > div {
   padding-top: 25px;
-  border-top: 1px solid #bbb;
+  border-top: 1px solid var(--kt-palette-bbbbbb);
 }
 .routeDetails h3 {
   font-size: 31px;
@@ -373,7 +373,7 @@
 }
 .coverageCta {
   padding: 100px var(--gutter);
-  background: #f2f2f2;
+  background: var(--kt-palette-f2f2f2);
   display: flex;
   justify-content: space-between;
   align-items: end;
