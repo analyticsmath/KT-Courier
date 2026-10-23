@@ -688,9 +688,10 @@ export async function generateStoreOrderPickupChallenge(input: Readonly<{ storeO
   // Existing store handoff is the canonical pickup challenge. Email is an
   // additional store-owner channel, not a second code or a custody override.
   // This opt-in preserves legacy handoffs while sender email is certified.
+  const emailDetails: Record<string, unknown> = handoffResult;
   if (process.env.MARKETPLACE_PICKUP_EMAIL_ENABLED !== "true" ||
-      handoffResult.replayed !== false || typeof handoffResult.pickupCode !== "string" ||
-      typeof handoffResult.expiresAt !== "string") {
+      handoffResult.replayed !== false || typeof emailDetails.pickupCode !== "string" ||
+      typeof emailDetails.expiresAt !== "string") {
     return handoffResult;
   }
   const store = await prisma.store.findUnique({
@@ -707,8 +708,8 @@ export async function generateStoreOrderPickupChallenge(input: Readonly<{ storeO
       operationId: emailOperationId,
       subjectUserId: store.ownerUserId,
       aggregateReference: input.storeOrderReference,
-      expiresAt: new Date(handoffResult.expiresAt),
-      values: { otp: handoffResult.pickupCode, orderNumber: input.storeOrderReference, pickupOperationId: input.operationId },
+      expiresAt: new Date(emailDetails.expiresAt as string),
+      values: { otp: emailDetails.pickupCode as string, orderNumber: input.storeOrderReference, pickupOperationId: input.operationId },
     });
     const email = await dispatchIssuedDeliveryOtpEmail(emailOperationId);
     return { ...handoffResult, emailDeliveryStatus: email.status };
