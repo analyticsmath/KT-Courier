@@ -67,6 +67,19 @@ export const CreateOrderSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
+    // Direct order creation uses the same handover safeguards as public quotes.
+    // Never create a new parcel that will be undeliverable once sender and
+    // recipient pickup/delivery OTP verification is required.
+    if (data.deliveryType === DeliveryType.PARCEL_DOCUMENT) {
+      if (!data.senderEmail) ctx.addIssue({
+        code: "custom", path: ["senderEmail"],
+        message: "A sender email address is required for the pickup code.",
+      });
+      if (!data.recipientEmail) ctx.addIssue({
+        code: "custom", path: ["recipientEmail"],
+        message: "A recipient email address is required for the delivery code.",
+      });
+    }
     if (data.deliveryType === DeliveryType.SCHEDULED && !data.scheduledFor) {
       ctx.addIssue({
         code: "custom",
