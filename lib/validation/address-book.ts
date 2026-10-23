@@ -58,8 +58,16 @@ export const SavedAddressUpdateSchema = AddressInputSchema.partial()
   })
   .superRefine(validateCoordinatePair);
 
+// Checkout requires an actual collection locality and province. Do not let
+// vendor settings report success for an address the courier cannot ever quote.
 export const StorePickupAddressSchema = AddressInputSchema.extend({
   ...savedNullableFields,
+  city: z.string().trim().min(2, "Collection city is required").max(100),
+  province: z.string().trim().min(2, "Collection province is required").max(100),
+  country: z.string().trim().refine(
+    (country) => country.toLowerCase() === "south africa",
+    "Only South African collection addresses are currently supported",
+  ),
   label: labelField,
 }).superRefine(validateCoordinatePair);
 

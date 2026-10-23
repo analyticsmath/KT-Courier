@@ -5,6 +5,7 @@ import type { MarketplaceDeliveryQuoteInput, MarketplaceDeliveryQuoteResult, Pha
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { createMarketplaceMatrixQuote } from "./matrix-quote.service";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { selectStorePickupAddress } from "./store-pickup-selection";
 
 type Coordinates = Readonly<{ latitude: number; longitude: number }>;
 type Phase6Request = Readonly<{
@@ -43,9 +44,13 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
         },
       });
       const group = checkout?.storeGroups?.[0];
-      const pickup = group?.store?.defaultPickupAddress
-        ?? group?.store?.savedAddresses?.find((a: any) => a.type === "PICKUP" || a.isDefault)
-        ?? null;
+      const pickup = group?.store
+        ? selectStorePickupAddress(
+            group.store.id,
+            group.store.defaultPickupAddress,
+            group.store.savedAddresses,
+          )
+        : null;
       const destination = checkout?.addressSnapshot;
       if (!checkout || !group || group.store.status !== "ACTIVE" || !destination) return null;
       if (!pickup?.line1 || !pickup.city || !pickup.province) {
