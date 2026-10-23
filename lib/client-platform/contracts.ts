@@ -108,7 +108,7 @@ export const QuoteBookingSchema = z
     pickupContactPhone: z.string().trim().min(7).max(30),
     recipientName: z.string().trim().min(2).max(150),
     recipientPhone: z.string().trim().min(7).max(30),
-    recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254).optional(),
+    recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254),
     paymentMethod: z
       .enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"])
       .optional(),
