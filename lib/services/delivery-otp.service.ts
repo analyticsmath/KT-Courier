@@ -3,6 +3,7 @@ import { generateOtpCode, hashOtp } from "@/lib/auth/otp";
 import { DELIVERY_OTP_EXPIRY_MINUTES, DELIVERY_OTP_MAX_ATTEMPTS } from "@/lib/constants/delivery";
 import { Prisma } from "@prisma/client";
 import { isOtpLocked } from "@/lib/driver-operations/otp-policy";
+import { isIssuedOtpForStage, type HandoverOtpStage } from "@/lib/driver-operations/otp-stage-authority";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
 import { resolveDeliveryOtpRecipient, resolvePickupOtpSender } from "./delivery-recipient.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
@@ -119,6 +120,7 @@ export async function verifyDeliveryOtpInTx(
   orderId: string,
   plainCode: string,
   assignmentId?: string,
+  stage: HandoverOtpStage = "DELIVERY",
 ): Promise<VerifyOtpResult> {
   const now = new Date();
   const otp = await tx.deliveryOtp.findFirst({
@@ -128,6 +130,9 @@ export async function verifyDeliveryOtpInTx(
   if (!otp) {
     const expired = await tx.deliveryOtp.findFirst({ where: { orderId, ...(assignmentId ? { assignmentId } : {}), consumedAt: null }, orderBy: { createdAt: "desc" } });
     return { ok: false, error: expired ? "Delivery OTP has expired. Please request a new code." : "No active delivery OTP found. Please request a new code." };
+  }
+  if (!await isIssuedOtpForStage(orderId, otp.id, otp.assignmentId, stage, tx)) {
+    return { ok: false, error: "This code belongs to another handover stage. Request the correct six-digit code." };
   }
   if (otp.lockedAt || isOtpLocked(otp.attempts, otp.maxAttempts)) {
     return { ok: false, error: "Too many incorrect attempts. Please request a new delivery OTP." };
@@ -185,7 +190,7 @@ export async function getDeliveryOtpStatus(orderId: string): Promise<OtpStatusDt
     orderBy: { createdAt: "desc" },
   });
 
-  if (!otp) {
+  if (!otp || !await isIssuedOtpForStage(orderId, otp.id, otp.assignmentId, "DELIVERY")) {
     return {
       hasActiveOtp: false,
       sentToEmail: null,

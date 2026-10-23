@@ -352,7 +352,7 @@ export async function completePickup(
   try {
     const pickupOutcome = await prisma.$transaction(async (tx) => {
       if (senderOtpRequired) {
-        const verified = await verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId);
+        const verified = await verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId, "PICKUP");
         // Preserve invalid-attempt counters while never creating a pickup
         // receipt or custody transition on rejected codes.
         if (!verified.ok) return { otpError: verified.error ?? "Sender pickup code is invalid." };
