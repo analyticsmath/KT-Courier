@@ -8,6 +8,7 @@ import {
 } from "@/types/db";
 import type { PrismaClient } from "@prisma/client";
 import type { StartPickupInput, CompletePickupInput, FailPickupInput } from "@/lib/validation/pickup";
+import { verifyDeliveryOtpInTx } from "@/lib/services/delivery-otp.service";
 import { toWorkbenchAssignmentDto, type WorkbenchAssignmentDto } from "@/lib/dto/pickup.dto";
 import {
   isPickupEligible,
@@ -332,6 +333,14 @@ export async function completePickup(
     return { ok: false, error: "Marketplace pickups must be completed through the verified store handoff." };
   }
 
+  // This release gate allows existing in-flight work and historical API clients
+  // to remain usable until sender addresses and pickup email delivery are
+  // independently certified. When active, no parcel pickup bypasses the OTP.
+  const senderOtpRequired = process.env.PICKUP_SENDER_OTP_REQUIRED === "true";
+  if (senderOtpRequired && !/^\d{6}$/.test(input.pickupOtpCode ?? "")) {
+    return { ok: false, error: "Ask the sender for their six-digit parcel pickup confirmation code." };
+  }
+
   // Ensure we can reach PICKED_UP from current status
   // CONFIRMED → PICKUP_SCHEDULED → PICKED_UP; we may need two hops if order is still CONFIRMED
   // Preferred path: if order is CONFIRMED, transition CONFIRMED→PICKUP_SCHEDULED first
@@ -340,7 +349,13 @@ export async function completePickup(
   if (statusBefore === OrderStatus.CONFIRMED) intermediateStatus = OrderStatus.PICKUP_SCHEDULED;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    const pickupOutcome = await prisma.$transaction(async (tx) => {
+      if (senderOtpRequired) {
+        const verified = await verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId);
+        // Preserve invalid-attempt counters while never creating a pickup
+        // receipt or custody transition on rejected codes.
+        if (!verified.ok) return { otpError: verified.error ?? "Sender pickup code is invalid." };
+      }
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "PICKUP_CONFIRM" });
       if (intermediateStatus) {
         await transitionOrderStatusInTx(tx, {
@@ -407,7 +422,9 @@ export async function completePickup(
         type: "PICKUP_CONFIRM", orderId: order.id, assignmentId, driverProfileId,
         orderStatus: targetStatus, assignmentStatus: OrderAssignmentStatus.ACCEPTED, completedAt: new Date().toISOString(),
       });
+      return { otpError: null };
     });
+    if (pickupOutcome.otpError) return { ok: false, error: pickupOutcome.otpError };
   } catch (error) {
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);

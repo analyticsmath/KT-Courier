@@ -148,6 +148,9 @@ export default function DriverAssignmentDetailPage() {
   const [completePublicNote, setCompletePublicNote] = useState("");
   const [completeDriverNote, setCompleteDriverNote] = useState("");
   const [completeConfirm, setCompleteConfirm] = useState(false);
+  const [pickupOtpCode, setPickupOtpCode] = useState("");
+  const [pickupOtpSending, setPickupOtpSending] = useState(false);
+  const [pickupOtpFeedback, setPickupOtpFeedback] = useState("");
 
   // Fail pickup form
   const [failReason, setFailReason] = useState("");
@@ -280,6 +283,30 @@ export default function DriverAssignmentDetailPage() {
     }
   }
 
+  async function handleSendPickupOtp() {
+    setPickupOtpSending(true);
+    setPickupError(null);
+    setPickupOtpFeedback("");
+    try {
+      const response = await fetch(`/api/driver/assignments/${id}/delivery/otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...operationCommand("pickup-otp"), stage: "PICKUP" }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setPickupError(result.error ?? "The sender code was not accepted by the email provider.");
+        return;
+      }
+      setPickupOtpFeedback(`The email provider accepted the code for ${result.sentToEmail}. Ask the sender to check their mailbox.`);
+      clearOperation("pickup-otp");
+    } catch {
+      setPickupError("The sender code email request failed. Please retry.");
+    } finally {
+      setPickupOtpSending(false);
+    }
+  }
+
   async function handleCompletePickup(e: React.FormEvent) {
     e.preventDefault();
     if (!completeConfirm) {
@@ -293,7 +320,8 @@ export default function DriverAssignmentDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...operationCommand("pickup-complete", { parcelCount: completeParcels, parcelCondition: completeCondition, publicNote: completePublicNote, driverNote: completeDriverNote }),
+          ...operationCommand("pickup-complete", { parcelCount: completeParcels, parcelCondition: completeCondition, publicNote: completePublicNote, driverNote: completeDriverNote, pickupOtpCode }),
+          pickupOtpCode: pickupOtpCode.trim() || undefined,
           parcelCount: parseInt(completeParcels, 10) || 1,
           parcelCondition: completeCondition,
           publicNote: completePublicNote || undefined,
@@ -371,7 +399,14 @@ export default function DriverAssignmentDetailPage() {
         setDeliveryError(data.error || "Could not send OTP.");
         return;
       }
-      setOtpStatus(data);
+      setOtpStatus({
+        hasActiveOtp: true,
+        sentToEmail: data.sentToEmail,
+        expiresAt: data.expiresAt,
+        attemptsUsed: 0,
+        maxAttempts: 5,
+        canResend: true,
+      });
       clearOperation("delivery-otp");
       setDeliveryAction("complete");
     } catch {
@@ -738,6 +773,18 @@ export default function DriverAssignmentDetailPage() {
           {/* Complete pickup form */}
           {pickupAction === "complete" && (
             <form onSubmit={handleCompletePickup} className="space-y-4">
+              <div className="rounded-lg border border-[var(--kt-soft-border)] p-3 space-y-3">
+                <p className="font-semibold text-sm">Sender handover verification</p>
+                <p className="text-xs text-[var(--kt-text-muted)]">Email a six-digit code to the booking sender. The driver must collect it from the sender, not the parcel recipient.</p>
+                <Button type="button" variant="secondary" onClick={handleSendPickupOtp} disabled={pickupOtpSending || pickupLoading}>
+                  {pickupOtpSending ? "Requesting code…" : "Email pickup code to sender"}
+                </Button>
+                {pickupOtpFeedback && <p className="text-xs" role="status">{pickupOtpFeedback}</p>}
+                <div>
+                  <Label htmlFor="pickup-sender-otp">Sender pickup code</Label>
+                  <input id="pickup-sender-otp" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" minLength={6} maxLength={6} value={pickupOtpCode} onChange={event => setPickupOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} className="w-full rounded-lg border border-[var(--kt-soft-border)] px-3 py-2" placeholder="Six digits from sender" />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="parcel-count">Parcel Count *</Label>
@@ -882,7 +929,7 @@ export default function DriverAssignmentDetailPage() {
               {/* OTP status */}
               {otpStatus?.hasActiveOtp && (
               <div className="p-3 rounded-xl bg-[var(--kt-signal-cobalt)]/8 border border-[var(--kt-signal-cobalt)]/20 text-xs" role="status" aria-live="polite">
-                  <p className="font-semibold text-[var(--kt-signal-cobalt)]">OTP sent to {otpStatus.sentToEmail}</p>
+                  <p className="font-semibold text-[var(--kt-signal-cobalt)]">Recipient code requested for {otpStatus.sentToEmail}. Successful Send OTP confirms provider acceptance, not inbox receipt.</p>
                   <p className="text-[var(--kt-text-muted)] mt-0.5">
                     {otpStatus.attemptsUsed} / {otpStatus.maxAttempts} attempts used
                   </p>

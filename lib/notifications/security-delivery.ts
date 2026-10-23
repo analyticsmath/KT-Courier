@@ -2,7 +2,7 @@ import { createHash, createHmac } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { NotificationPolicyError } from "./contracts";
-import { resolveDeliveryOtpRecipient } from "@/lib/services/delivery-recipient.service";
+import { resolveDeliveryOtpRecipient, resolvePickupOtpSender } from "@/lib/services/delivery-recipient.service";
 import {
   canonicalSecurityValues,
   openSecurityPayload,
@@ -20,7 +20,8 @@ export type SecurityNotificationInput = {
     | "EMAIL_VERIFICATION_OTP"
     | "PASSWORD_RESET"
     | "PASSWORD_CHANGED"
-    | "DELIVERY_OTP";
+    | "DELIVERY_OTP"
+    | "PICKUP_OTP";
   operationId: string;
   subjectUserId?: string;
   aggregateReference: string;
@@ -41,6 +42,8 @@ function securityEmailSubject(
       return "Your KT Couriers password was changed";
     case "DELIVERY_OTP":
       return "Your KT Couriers delivery code";
+    case "PICKUP_OTP":
+      return "Your KT Couriers parcel pickup code";
   }
 }
 
@@ -126,7 +129,11 @@ export async function queueSecurityNotification(
     // first attempts.
     await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${`security-notification:${input.operationId}`}, 0)) IS NULL) AS locked`;
 
-    const deliveryRecipient = input.eventType === "DELIVERY_OTP" ? await resolveDeliveryOtpRecipient(input.aggregateReference, tx) : null;
+    const deliveryRecipient = input.eventType === "DELIVERY_OTP"
+      ? await resolveDeliveryOtpRecipient(input.aggregateReference, tx)
+      : input.eventType === "PICKUP_OTP"
+        ? await resolvePickupOtpSender(input.aggregateReference, tx)
+        : null;
     if (deliveryRecipient && deliveryRecipient.subjectUserId !== input.subjectUserId) throw new NotificationPolicyError("VERIFIED_NOTIFICATION_DESTINATION_REQUIRED");
     const user = deliveryRecipient ? null : await tx.user.findUnique({
       where: { id: input.subjectUserId },

@@ -4,7 +4,7 @@ import { DELIVERY_OTP_EXPIRY_MINUTES, DELIVERY_OTP_MAX_ATTEMPTS } from "@/lib/co
 import { Prisma } from "@prisma/client";
 import { isOtpLocked } from "@/lib/driver-operations/otp-policy";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
-import { resolveDeliveryOtpRecipient } from "./delivery-recipient.service";
+import { resolveDeliveryOtpRecipient, resolvePickupOtpSender } from "./delivery-recipient.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
 import { DriverOperationError } from "@/lib/driver-operations/errors";
 import { completeOperationReceiptInTx, createOperationReceiptInTx, driverOperationRequestHash, type DriverOperationSnapshot } from "@/lib/driver-operations/idempotency";
@@ -42,6 +42,8 @@ export async function generateAndSendDeliveryOtp(
   driverUserId: string,
   input: RequestDeliveryOtpInput,
 ): Promise<GenerateDeliveryOtpResult> {
+  const pickup = input.stage === "PICKUP";
+  const requestType = pickup ? "PICKUP_OTP_REQUEST" : "DELIVERY_OTP_REQUEST";
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const outcome = await prisma.$transaction(async (tx) => {
@@ -54,28 +56,29 @@ export async function generateAndSendDeliveryOtp(
           if (existing.requestHash !== driverOperationRequestHash(input)) throw new DriverOperationError("This operation ID was already used with different request data.", "DRIVER_OPERATION_IDEMPOTENCY_CONFLICT");
           const receipt = existing.resultSnapshot as DriverOperationSnapshot | null;
           if (!existing.completedAt || !receipt) throw new DriverOperationError("This operation is still being processed. Retry shortly.", "DRIVER_OPERATION_STALE");
-          if (receipt.type !== "DELIVERY_OTP_REQUEST" || receipt.assignmentId !== assignmentId || receipt.driverProfileId !== driverProfileId) throw new DriverOperationError("Operation receipt belongs to another assignment.", "DRIVER_OPERATION_FORBIDDEN");
+          if (receipt.type !== requestType || receipt.assignmentId !== assignmentId || receipt.driverProfileId !== driverProfileId) throw new DriverOperationError("Operation receipt belongs to another assignment.", "DRIVER_OPERATION_FORBIDDEN");
           const owned = await tx.orderAssignment.findFirst({ where: { id: assignmentId, orderId: receipt.orderId, driverProfileId, driverProfile: { userId: driverUserId, status: "ACTIVE", user: { status: "ACTIVE", role: "DRIVER" } } }, select: { id: true } });
           if (!owned) throw new DriverOperationError("Assignment replay is unavailable for this driver.", "DRIVER_OPERATION_FORBIDDEN");
           return { result: { ok: true as const, otpId: receipt.createdOtpId ?? "", expiresAt: new Date(receipt.otpExpiresAt ?? receipt.completedAt), sentToEmailMasked: receipt.otpSentToEmailMasked ?? "recipient address", replay: true } };
         }
         const authority = await assertAcceptedCurrentDriver(assignmentId, driverProfileId, input.assignmentVersion, tx);
-        if (authority.driverUserId !== driverUserId || !["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(authority.orderStatus)) throw new DriverOperationError("Only the active assigned driver can issue a delivery OTP while delivery is in transit.", "DRIVER_OPERATION_FORBIDDEN");
+        const allowed = pickup ? ["CONFIRMED", "PICKUP_SCHEDULED"] : ["IN_TRANSIT", "DELIVERY_ATTEMPTED"];
+        if (authority.driverUserId !== driverUserId || !allowed.includes(authority.orderStatus)) throw new DriverOperationError(pickup ? "Only the assigned driver may request a sender OTP before pickup." : "Only the assigned driver may request a recipient OTP while in transit.", "DRIVER_OPERATION_FORBIDDEN");
         const order = await tx.order.findUniqueOrThrow({ where: { id: authority.orderId }, select: { id: true, orderNumber: true } });
-        const recipient = await resolveDeliveryOtpRecipient(order.id, tx);
+        const recipient = pickup ? await resolvePickupOtpSender(order.id, tx) : await resolveDeliveryOtpRecipient(order.id, tx);
         const now = new Date();
         const active = await tx.deliveryOtp.findFirst({ where: { orderId: order.id, consumedAt: null, expiresAt: { gt: now } }, orderBy: { createdAt: "desc" } });
         if (active?.lastSentAt && now.getTime() - active.lastSentAt.getTime() < DELIVERY_OTP_REISSUE_COOLDOWN_SECONDS * 1000) throw new DriverOperationError("Please wait before requesting another delivery OTP.", "DRIVER_OPERATION_INVALID_STATE");
         if (await tx.deliveryOtp.count({ where: { orderId: order.id, createdAt: { gte: new Date(now.getTime() - 60 * 60_000) } } }) >= DELIVERY_OTP_MAX_ISSUES_PER_HOUR) throw new DriverOperationError("Too many OTP requests. Please try again later.", "DRIVER_OPERATION_INVALID_STATE");
-        await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_OTP_REQUEST" });
+        await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: requestType });
         await tx.deliveryOtp.updateMany({ where: { orderId: order.id, consumedAt: null }, data: { consumedAt: now, invalidatedAt: now } });
         const plainCode = generateOtpCode();
         const expiresAt = deliveryOtpExpiresAt();
         const otp = await tx.deliveryOtp.create({ data: { orderId: order.id, assignmentId, codeHash: hashOtp(plainCode), expiresAt, maxAttempts: DELIVERY_OTP_MAX_ATTEMPTS, lastSentAt: now, sentToEmail: recipient.email, createdByUserId: driverUserId, resendCount: 1 } });
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-        await queueSecurityNotification({ eventType: "DELIVERY_OTP", operationId: input.operationId, subjectUserId: recipient.subjectUserId, aggregateReference: order.id, expiresAt, values: { name: recipient.name, otp: plainCode, expiresMinutes: DELIVERY_OTP_EXPIRY_MINUTES, orderNumber: order.orderNumber, orderUrl: `${appUrl}/track` } }, tx);
+        await queueSecurityNotification({ eventType: pickup ? "PICKUP_OTP" : "DELIVERY_OTP", operationId: input.operationId, subjectUserId: recipient.subjectUserId, aggregateReference: order.id, expiresAt, values: { name: recipient.name, otp: plainCode, expiresMinutes: DELIVERY_OTP_EXPIRY_MINUTES, orderNumber: order.orderNumber, orderUrl: `${appUrl}/track` } }, tx);
         const sentToEmailMasked = maskEmail(recipient.email);
-        await completeOperationReceiptInTx(tx, input.operationId, { type: "DELIVERY_OTP_REQUEST", orderId: order.id, assignmentId, driverProfileId, orderStatus: authority.orderStatus, assignmentStatus: authority.assignmentStatus, createdOtpId: otp.id, otpExpiresAt: expiresAt.toISOString(), otpSentToEmailMasked: sentToEmailMasked, completedAt: now.toISOString() });
+        await completeOperationReceiptInTx(tx, input.operationId, { type: requestType, orderId: order.id, assignmentId, driverProfileId, orderStatus: authority.orderStatus, assignmentStatus: authority.assignmentStatus, createdOtpId: otp.id, otpExpiresAt: expiresAt.toISOString(), otpSentToEmailMasked: sentToEmailMasked, completedAt: now.toISOString() });
         return { result: { ok: true as const, otpId: otp.id, expiresAt, sentToEmailMasked, replay: false }, testCode: process.env.NODE_ENV === "test" ? plainCode : undefined };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000 });
       if (outcome.testCode) testOtpCodes.set(outcome.result.otpId, outcome.testCode);

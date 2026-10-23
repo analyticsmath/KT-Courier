@@ -15,7 +15,7 @@ export async function dispatchIssuedDeliveryOtpEmail(operationId: string): Promi
     where: { operationId },
     select: { id: true, sourceAuthority: true, eventType: true },
   });
-  if (!intent || intent.sourceAuthority !== "AUTHENTICATION_SECURITY" || intent.eventType !== "DELIVERY_OTP") {
+  if (!intent || intent.sourceAuthority !== "AUTHENTICATION_SECURITY" || !["DELIVERY_OTP", "PICKUP_OTP"].includes(intent.eventType)) {
     return { accepted: false, status: "INTENT_MISSING" };
   }
   const delivery = await prisma.notificationDelivery.findUnique({

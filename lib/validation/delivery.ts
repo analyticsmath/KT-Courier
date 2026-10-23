@@ -13,8 +13,7 @@ export type StartDeliveryInput = z.infer<typeof StartDeliverySchema>;
 // ─── Request / generate OTP ───────────────────────────────────────────────────
 
 export const RequestDeliveryOtpSchema = DriverOperationCommandSchema.extend({
-  // Optional override email — used only if order has no customer/store email
-  // in practice not exposed to driver UI, kept for admin manual flows
+  stage: z.enum(["PICKUP", "DELIVERY"]).optional(),
 }).strict();
 
 export type RequestDeliveryOtpInput = z.infer<typeof RequestDeliveryOtpSchema>;

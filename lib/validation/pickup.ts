@@ -25,6 +25,7 @@ export const CompletePickupSchema = DriverOperationCommandSchema.extend({
   driverNote: z.string().trim().max(500).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  pickupOtpCode: z.string().regex(/^\d{6}$/, "Sender pickup code must be six digits.").optional(),
   confirmPickup: z.boolean().refine((val) => val === true, {
     message: "You must confirm the parcel has been collected.",
   }),

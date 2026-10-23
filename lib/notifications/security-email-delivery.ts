@@ -11,7 +11,7 @@ import { openSecurityPayload } from "./security-payload-vault";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
 import type { ProviderSendResult } from "./providers";
 import { guestContactSubjectKey } from "./guest-recipient";
-import { resolveDeliveryOtpRecipient } from "@/lib/services/delivery-recipient.service";
+import { resolveDeliveryOtpRecipient, resolvePickupOtpSender } from "@/lib/services/delivery-recipient.service";
 import { hashOtp } from "@/lib/auth/otp";
 
 const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
@@ -19,6 +19,7 @@ const TEMPLATE_BY_EVENT: Record<string, EmailTemplateType> = {
   PASSWORD_RESET: EmailTemplateType.PASSWORD_RESET,
   PASSWORD_CHANGED: EmailTemplateType.PASSWORD_CHANGED,
   DELIVERY_OTP: EmailTemplateType.DELIVERY_OTP,
+  PICKUP_OTP: EmailTemplateType.DELIVERY_OTP,
 };
 
 function acceptedStatus(status: string): boolean {
@@ -27,13 +28,13 @@ function acceptedStatus(status: string): boolean {
 
 /** The completed issuance receipt binds one encrypted intent to its own code
  * and assignment. A newer resend must not allow a delayed old email to send. */
-async function activeDeliveryOtp(operationId: string, orderId: string) {
+async function activeDeliveryOtp(operationId: string, orderId: string, pickup = false) {
   const command = await prisma.driverOperationCommand.findUnique({ where: { operationId }, select: { completedAt: true, resultSnapshot: true } });
   const receipt = command?.resultSnapshot;
-  if (!command?.completedAt || !receipt || typeof receipt !== "object" || Array.isArray(receipt) || receipt.type !== "DELIVERY_OTP_REQUEST" || receipt.orderId !== orderId || typeof receipt.createdOtpId !== "string" || typeof receipt.assignmentId !== "string" || typeof receipt.driverProfileId !== "string") return null;
+  if (!command?.completedAt || !receipt || typeof receipt !== "object" || Array.isArray(receipt) || receipt.type !== (pickup ? "PICKUP_OTP_REQUEST" : "DELIVERY_OTP_REQUEST") || receipt.orderId !== orderId || typeof receipt.createdOtpId !== "string" || typeof receipt.assignmentId !== "string" || typeof receipt.driverProfileId !== "string") return null;
   const otp = await prisma.deliveryOtp.findFirst({ where: { id: receipt.createdOtpId, orderId, assignmentId: receipt.assignmentId, consumedAt: null, invalidatedAt: null, verifiedAt: null, lockedAt: null, expiresAt: { gt: new Date() } }, include: { assignment: { include: { order: { select: { status: true, currentDriverProfileId: true } }, driverProfile: { include: { user: { select: { status: true, role: true } } } } } } } });
   const assignment = otp?.assignment;
-  if (!otp || otp.attempts >= otp.maxAttempts || !assignment || assignment.status !== "ACCEPTED" || assignment.driverProfileId !== receipt.driverProfileId || assignment.order.currentDriverProfileId !== receipt.driverProfileId || !["IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.order.status) || assignment.driverProfile.status !== "ACTIVE" || assignment.driverProfile.user.status !== "ACTIVE" || assignment.driverProfile.user.role !== "DRIVER" || otp.createdByUserId !== assignment.driverProfile.userId) return null;
+  if (!otp || otp.attempts >= otp.maxAttempts || !assignment || assignment.status !== "ACCEPTED" || assignment.driverProfileId !== receipt.driverProfileId || assignment.order.currentDriverProfileId !== receipt.driverProfileId || !(pickup ? ["CONFIRMED", "PICKUP_SCHEDULED"] : ["IN_TRANSIT", "DELIVERY_ATTEMPTED"]).includes(assignment.order.status) || assignment.driverProfile.status !== "ACTIVE" || assignment.driverProfile.user.status !== "ACTIVE" || assignment.driverProfile.user.role !== "DRIVER" || otp.createdByUserId !== assignment.driverProfile.userId) return null;
   return otp;
 }
 
@@ -110,9 +111,9 @@ export async function deliverSecurityEmail(deliveryId: string) {
       return { accepted: false, status: "EXPIRED", deliveryId: delivery.id };
     }
     destination = contact.email;
-  } else if (intent.eventType === "DELIVERY_OTP") {
+  } else if (intent.eventType === "DELIVERY_OTP" || intent.eventType === "PICKUP_OTP") {
     try {
-      const recipient = await resolveDeliveryOtpRecipient(intent.aggregateReference);
+      const recipient = intent.eventType === "PICKUP_OTP" ? await resolvePickupOtpSender(intent.aggregateReference) : await resolveDeliveryOtpRecipient(intent.aggregateReference);
       if (recipient.subjectUserId !== subjectUserId) throw new NotificationPolicyError("SECURITY_EMAIL_RECIPIENT_MISMATCH");
       destination = recipient.email;
     } catch (error) {
@@ -130,7 +131,7 @@ export async function deliverSecurityEmail(deliveryId: string) {
   if (!templateType && !guestVerification) {
     throw new NotificationPolicyError("SECURITY_EMAIL_TEMPLATE_NOT_SUPPORTED");
   }
-  if (intent.eventType === "DELIVERY_OTP" && !await activeDeliveryOtp(intent.operationId, intent.aggregateReference)) {
+  if (["DELIVERY_OTP", "PICKUP_OTP"].includes(intent.eventType) && !await activeDeliveryOtp(intent.operationId, intent.aggregateReference, intent.eventType === "PICKUP_OTP")) {
     await prisma.notificationDelivery.updateMany({ where: { id: delivery.id, status: { in: ["QUEUED", "FAILED_RETRYABLE"] } }, data: { status: "ELIGIBILITY_BLOCKED", eligibilityReason: "DELIVERY_OTP_NOT_ACTIVE", nextAttemptAt: null } });
     return { accepted: false, status: "ELIGIBILITY_BLOCKED", deliveryId: delivery.id };
   }
@@ -147,8 +148,8 @@ export async function deliverSecurityEmail(deliveryId: string) {
       secure.encryptedPayload,
       intent.operationId,
     );
-    if (intent.eventType === "DELIVERY_OTP") {
-      const otp = await activeDeliveryOtp(intent.operationId, intent.aggregateReference);
+    if (intent.eventType === "DELIVERY_OTP" || intent.eventType === "PICKUP_OTP") {
+      const otp = await activeDeliveryOtp(intent.operationId, intent.aggregateReference, intent.eventType === "PICKUP_OTP");
       if (!otp || typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || hashOtp(values.otp) !== otp.codeHash) throw new NotificationPolicyError("DELIVERY_OTP_NOT_ACTIVE");
     }
     if (guestVerification && (typeof values.otp !== "string" || !/^\d{6}$/.test(values.otp) || typeof values.name !== "string" || values.name.length > 120 || values.expiresMinutes !== 15)) throw new NotificationPolicyError("SECURITY_EMAIL_PAYLOAD_INVALID");
@@ -168,7 +169,17 @@ export async function deliverSecurityEmail(deliveryId: string) {
               <p style="color:#595959;font-size:14px;">Verifying your email does not confirm payment or place an order.</p>`,
           }),
         }
-      : renderTemplate(templateType, values);
+      : intent.eventType === "PICKUP_OTP"
+        ? {
+            subject: "Your KT Couriers parcel pickup code",
+            text: `Hi ${String(values.name ?? "Sender")},\n\nYour six-digit parcel pickup code is ${String(values.otp)}. Share it only with the assigned driver when they collect your parcel. It expires in ${String(values.expiresMinutes)} minutes.\n\nIf you did not request this pickup, contact KT Couriers.`,
+            html: renderEmailHtml({
+              title: "Confirm parcel collection",
+              preheader: "One-time sender handover verification",
+              body: `<p>Hi ${escapeEmailHtml(String(values.name ?? "Sender"))},</p><p>Give this code only to your assigned KT Couriers driver when your parcel is collected.</p><p style="font-size:30px;font-weight:700;letter-spacing:5px;">${escapeEmailHtml(String(values.otp))}</p><p>This code expires in ${escapeEmailHtml(String(values.expiresMinutes))} minutes.</p><p>If you did not request this collection, contact KT Couriers.</p>`,
+            }),
+          }
+        : renderTemplate(templateType, values);
     const provider = new ResendEmailProvider();
 
     result = await provider.send({

@@ -52,3 +52,27 @@ export async function resolveDeliveryOtpRecipient(orderId: string, db: Prisma.Tr
   const addressHash = createHash("sha256").update(email).digest("hex").slice(0, 24);
   return { kind: "SHIPMENT_RECIPIENT", subjectUserId: `delivery-recipient:${order.id}:${addressHash}`, email, name: order.recipientName ?? "Recipient" };
 }
+
+/** Parcel sender identity is the verified booking account, never the receiver.
+ * Marketplace has a separate store-authorized pickup challenge. */
+export async function resolvePickupOtpSender(
+  orderId: string,
+  db: Prisma.TransactionClient = prisma,
+): Promise<DeliveryOtpRecipient> {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true, status: true, customerId: true,
+      customer: { select: { id: true, email: true, name: true, status: true, emailVerifiedAt: true } },
+    },
+  });
+  if (!order || !["CONFIRMED", "PICKUP_SCHEDULED"].includes(order.status)) return unresolved();
+  const bridge = await db.marketplaceStoreOrderDeliveryBridge.findUnique({
+    where: { courierOrderId: orderId }, select: { id: true },
+  });
+  if (bridge) return unresolved();
+  const account = order.customer;
+  if (!account?.email || !order.customerId || order.customerId !== account.id ||
+    account.status !== "ACTIVE" || !account.emailVerifiedAt) return unresolved();
+  return { kind: "ACCOUNT", subjectUserId: account.id, email: account.email, name: account.name ?? "Sender" };
+}
