@@ -40,7 +40,10 @@ describe("sender-verified parcel pickup", () => {
   it("retains an explicit pickup enforcement gate for in-flight rollout", () => {
     const service = readFileSync(new URL("../../lib/services/pickup-custody.service.ts", import.meta.url), "utf8");
     const ui = readFileSync(new URL("../../app/(driver)/driver/assignments/[id]/page.tsx", import.meta.url), "utf8");
-    expect(service).toContain('PICKUP_SENDER_OTP_REQUIRED === "true"');
+    expect(service).toContain("requiresSenderPickupOtp(order.createdAt)");
+    const rollout = readFileSync(new URL("../../lib/driver-operations/pickup-otp-rollout.ts", import.meta.url), "utf8");
+    expect(rollout).toContain("PICKUP_SENDER_OTP_REQUIRED");
+    expect(rollout).toContain("PICKUP_SENDER_OTP_REQUIRED_SINCE");
     expect(service).toContain('verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId)');
     expect(ui).toContain("Email pickup code to sender");
   });
