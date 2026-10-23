@@ -10,6 +10,7 @@ import {
   StorefrontAvailability,
 } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
+import { validateProductTypeAttributeSchema } from "@/lib/catalog/product-type-schema";
 
 export default async function NewStoreCatalogProductPage() {
   await requireBusinessPage("/store/catalog/products/new");
@@ -33,6 +34,7 @@ export default async function NewStoreCatalogProductPage() {
     }),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
   ]);
+  const authoringTypes = productTypes.filter(type => validateProductTypeAttributeSchema(type.attributeSchema).length === 0);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
@@ -53,11 +55,11 @@ export default async function NewStoreCatalogProductPage() {
         }
       />
       <StoreCatalogNavigation />
-      {productTypes.length && categories.length ? (
+      {authoringTypes.length && categories.length ? (
         <StoreCatalogWizard
           key={`${user.id}:${store.id}`}
           draftOwnerKey={`${encodeURIComponent(user.id)}:${encodeURIComponent(store.id)}`}
-          productTypes={productTypes}
+          productTypes={authoringTypes}
           categories={categories}
           inventoryLocations={inventoryLocations}
         />
