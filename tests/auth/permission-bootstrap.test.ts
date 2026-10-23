@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { installSystemPermissionDefaults, installStoreCatalogPermissionDefaults, installSelfNotificationPermissionDefaults } from "@/lib/auth/permission-bootstrap";
-import { ROLE_DEFAULT_PERMISSION_KEYS, SELF_NOTIFICATION_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
+import { PERMISSIONS, ROLE_DEFAULT_PERMISSION_KEYS, SELF_NOTIFICATION_PERMISSION_KEYS } from "@/lib/auth/permission-keys";
 import type { Prisma } from "@/types/db";
 it("backfills only canonical own-inbox grants without overriding disabled grants or user denials", async () => {
   const db = {
@@ -52,7 +52,13 @@ describe("production catalog grant initialization", () => {
     expect(db.permission.upsert).toHaveBeenCalledTimes(result.permissionsUpserted);
     expect(db.rolePermission.upsert).toHaveBeenCalledTimes(result.rolePermissionsUpserted);
     for (const [command] of db.permission.upsert.mock.calls)
-      expect(command.where.key.startsWith("catalog.")).toBe(true);
+      expect(command.where.key).toMatch(/^catalog[._]/);
+    const initializedKeys = db.permission.upsert.mock.calls.map(([command]) => command.where.key);
+    expect(initializedKeys).toEqual(expect.arrayContaining([
+      PERMISSIONS.CATALOG_PRICING_READ, PERMISSIONS.CATALOG_PRICING_MANAGE,
+      PERMISSIONS.CATALOG_INVENTORY_READ, PERMISSIONS.CATALOG_INVENTORY_MANAGE,
+      PERMISSIONS.CATALOG_IMPORTS_READ, PERMISSIONS.CATALOG_IMPORTS_MANAGE,
+    ]));
     for (const [command] of db.rolePermission.upsert.mock.calls)
       expect(command).toMatchObject({ update: {}, create: { role: "STORE", enabled: true } });
   });

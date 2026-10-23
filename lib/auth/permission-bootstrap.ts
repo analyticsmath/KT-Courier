@@ -47,7 +47,7 @@ export async function installSystemPermissionDefaults(
  */
 export async function installStoreCatalogPermissionDefaults(db: PermissionRegistry) {
   const keys = (ROLE_DEFAULT_PERMISSION_KEYS[UserRole.STORE] ?? [])
-    .filter((key) => key.startsWith("catalog."));
+    .filter((key) => /^catalog[._]/.test(key));
   const definitions = new Map(SYSTEM_PERMISSION_DEFINITIONS.map((definition) => [definition.key, definition]));
   for (const key of keys) {
     const definition = definitions.get(key);
