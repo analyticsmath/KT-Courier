@@ -135,6 +135,17 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Legacy vendor entry points follow the protected store dashboard, which enforces role authorization.
+      {
+        source: "/vendor",
+        destination: "/store",
+        permanent: false,
+      },
+      {
+        source: "/vendor/login",
+        destination: "/store",
+        permanent: false,
+      },
       {
         source: "/admin/delivery-regions",
         destination: "/admin/regions",
