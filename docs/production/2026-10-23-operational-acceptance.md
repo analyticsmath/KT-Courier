@@ -95,3 +95,13 @@ At the operator's next instruction, the expired temporary sandbox was extended f
 
 
 Before committing the inbox-origin fix, the checkout fast-forwarded from `4fdf61a2` to newer main `121e1a29`, preserving the intervening delivery OTP, sender/recipient email, POD access, map-failure and login-alias changes. The resulting standard suite passes 4,601 tests in 917 files; focused lint passes and TypeScript passes with a 4 GiB compiler heap after the initial 2 GiB process exhausted memory.
+
+### Driver and vendor usability continuation — 23 October, 21:36 UTC
+
+- Railway deployment `3bc27a0c-bf57-4303-a1ac-b04e39c2a3f7` for `4f4803c1` succeeded at 21:09 UTC. The prior image-upload stall cleared. Sandbox expiry remains 24 October 00:45 UTC.
+- The operator confirmed delivery OTP emails arrive at the saved recipient mailbox. Connected booking-account Gmail contains this parcel's booking and status messages. The saved recipient differs from the booking-account mailbox; this is expected direct-parcel stage authority, not a reason to redirect all delivery OTPs to the sender. No recipient address was changed. Latest instruction supersedes the earlier proposed mailbox correction.
+- Live driver assignment `cmvl82a150044tzjf3e62qhlo` / `KT-2026-277053` remains ACCEPTED / IN_TRANSIT. Final live delivery confirmation is not complete. Do not fabricate receiver handover or destination GPS evidence.
+- Driver evidence controls now use the shared visible buttons for choosing a photo, uploading proof and recording responsibilities. Selection shows file name/size, enforces supported image types and the 10 MB limit before upload, disables duplicate uploads while pending, preserves retry on failure, and clears selection only after server acceptance. Private proof/assignment validation is unchanged. Selecting a photo does not count as upload success.
+- Vendor product category selection is one native, labelled dropdown with all available categories and full paths. Removed the two-character gate, separate filtering field and silent 50-result truncation. Canonical category IDs and owner-scoped draft persistence remain unchanged. Updated browser journeys to select directly.
+- Focused driver/catalog checks passed, including server-rejected upload retry and proof callback only after acceptance. Full standard suite: 4,602 tests in 918 files passed. Live verification of these new UI changes requires their deployment.
+- Production release remains conditional on unfinished acceptance and actual business approvals. Railway's official 21 October security notice also requires verification that stored sensitive credentials were rotated and old credentials revoked; no rotation completion is asserted here.

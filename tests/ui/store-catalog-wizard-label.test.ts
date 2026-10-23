@@ -10,11 +10,19 @@ it("the real wizard connects the punctuated ZAR price label to one visible nativ
   document.body.append(host);
   const root = createRoot(host);
   try {
-    await act(async () => root.render(React.createElement(StoreCatalogWizard, { productTypes: [], categories: [], draftOwnerKey: "label-regression" })));
-    const categoryLabel = [...host.querySelectorAll("label")].find(label => label.textContent === "Find a category")!;
+    await act(async () => root.render(React.createElement(StoreCatalogWizard, { productTypes: [], categories: Array.from({ length: 75 }, (_, index) => ({ id: `category-${index}`, name: `Category ${index}`, path: `/category-${index}` })), draftOwnerKey: "label-regression" })));
+    const categoryLabel = [...host.querySelectorAll("label")].find(label => label.textContent === "Category")!;
     expect(categoryLabel).toBeDefined();
-    expect(categoryLabel.control).toBeInstanceOf(HTMLInputElement);
-    expect((categoryLabel.control as HTMLInputElement).id).toBe(categoryLabel.htmlFor);
+    expect(categoryLabel.control).toBeInstanceOf(HTMLSelectElement);
+    expect((categoryLabel.control as HTMLSelectElement).id).toBe(categoryLabel.htmlFor);
+    const categorySelect = categoryLabel.control as HTMLSelectElement;
+    expect(categorySelect.options).toHaveLength(76);
+    expect(host.querySelector('#find-a-category')).toBeNull();
+    await act(async () => {
+      categorySelect.value = "category-74";
+      categorySelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(categorySelect.value).toBe("category-74");
     const offerStep = [...host.querySelectorAll("button")].find(button => button.textContent?.includes("Offer & stock") && button.closest("ol"))!;
     await act(async () => offerStep.click());
     const label = [...host.querySelectorAll("label")].find(label => label.textContent === "VAT-inclusive price (ZAR)")!;

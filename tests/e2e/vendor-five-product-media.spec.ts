@@ -108,7 +108,6 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
     await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
     const categoryLabel = index % 2 ? `${categoryName} · /synthetic-accessories-${tag}` : "Electronics · /electronics";
-    await page.getByLabel("Find a category", { exact: true }).fill(index % 2 ? categoryName : "Electronics");
     await page.getByLabel("Category", { exact: true }).selectOption({ label: categoryLabel });
     await page.getByLabel("Product title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("Synthetic product for disposable browser acceptance only.");

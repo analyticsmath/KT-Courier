@@ -130,7 +130,6 @@ function draftSaveFailure(status: number, attachment = false) {
 
 export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, inventoryLocations = [] }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[]; draftOwnerKey: string; inventoryLocations?: { publicReference: string; name: string }[] }) {
   const [step, setStep] = useState(0);
-  const [categorySearch, setCategorySearch] = useState("");
   // The authenticated page supplies both owner and store. Never adopt the legacy unscoped draft.
   const draftKey = `${DRAFT_STORAGE_PREFIX}${draftOwnerKey}`;
   const draftStore = useMemo(() => ({
@@ -147,15 +146,9 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
   const [duplicateSearch, setDuplicateSearch] = useState<{ pending: boolean; message: string; candidates: { publicReference: string; title: string; confidenceBand: string }[] }>({ pending: false, message: "", candidates: [] });
 
   const selectedType = productTypes.find((choice) => choice.id === draft.productTypeDefinitionId);
-  const categoryOptions = useMemo(() => {
-    const query = categorySearch.trim().toLocaleLowerCase("en-ZA");
-    const matches = query.length < 2
-      ? []
-      : categories.filter((item) => `${item.name} ${item.path}`.toLocaleLowerCase("en-ZA").includes(query)).slice(0, 50);
-    const selected = categories.find((item) => item.id === draft.primaryCategoryId);
-    const visible = selected && !matches.some((item) => item.id === selected.id) ? [selected, ...matches] : matches;
-    return visible.slice(0, 50).map((item) => ({ value: item.id, label: `${item.name} · ${item.path}` }));
-  }, [categories, categorySearch, draft.primaryCategoryId]);
+  const categoryOptions = useMemo(() => categories
+    .map((item) => ({ value: item.id, label: `${item.name} · ${item.path}` }))
+    .sort((a, b) => a.label.localeCompare(b.label, "en-ZA")), [categories]);
   const mediaReady = draft.media.length > 0 && draft.media.every((item) => item.status === "READY" && item.altText.trim()) && draft.media.filter((item) => item.primary && item.variantAssociation === "PRODUCT").length === 1;
   const detailsComplete = !!draft.productTypeDefinitionId && !!draft.primaryCategoryId && draft.title.trim().length >= 3 && draft.description.trim().length >= 20 && isJson(draft.attributes);
   const customVariants = draft.variants.trim() !== "Default";
@@ -257,12 +250,12 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
           <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--kt-signal-cobalt)]">Step {step + 1} of {STEPS.length}</p>
           <h2 className="mt-1 text-xl font-black">{STEPS[step]}</h2>
           <div className="mt-5 space-y-4">
-            {renderStep(step, draft, update, productTypes, selectedType, inventoryLocations, categorySearch, setCategorySearch, categoryOptions)}
+            {renderStep(step, draft, update, productTypes, selectedType, inventoryLocations, categoryOptions)}
             {step === 0 ? (
               <details className="rounded-xl border border-[var(--kt-soft-border)] p-4">
                 <summary className="cursor-pointer font-bold">Check for an existing product (optional)</summary>
                 <section className="mt-4 space-y-3" aria-label="Duplicate suggestions">
-                  {renderStepField(0, draft, update, productTypes, selectedType, inventoryLocations, categorySearch, setCategorySearch, categoryOptions)}
+                  {renderStepField(0, draft, update, productTypes, selectedType, inventoryLocations, categoryOptions)}
                   <Button type="button" disabled={duplicateSearch.pending} onClick={findDuplicates}>Search matching products</Button>
                   <p className="text-sm" role="status">{duplicateSearch.message}</p>
                   <ul className="space-y-2">{duplicateSearch.candidates.map((candidate) => <li className="break-words text-sm" key={candidate.publicReference}>{candidate.title} · {candidate.publicReference} · {candidate.confidenceBand}</li>)}</ul>
@@ -285,9 +278,9 @@ function isJsonArray(value: string) { try { return Array.isArray(JSON.parse(valu
 
 function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) { const id = label.toLocaleLowerCase("en-ZA").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); return <div><label htmlFor={id} className="mb-1 block text-sm font-extrabold">{label}</label>{children}<p id={`${id}-help`} className="mt-1 text-xs text-[var(--kt-text-muted)]">{help}</p></div>; }
 
-function renderStepField(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categorySearch: string, onCategorySearch: (value: string) => void, categoryOptions: { value: string; label: string }[]) {
+function renderStepField(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categoryOptions: { value: string; label: string }[]) {
   if (step === 0) return <Field label="Find an existing product" help="Search by title after choosing a product type. Suggestions include this store’s private drafts and published shared products."><Input id="find-an-existing-product" value={draft.existingSearch} onChange={(event) => update("existingSearch", event.target.value)} placeholder="Product title" /></Field>;
-  if (step === 1) return <div className="space-y-4"><Field label="Product type" help="The stored version remains attached to this product."><Select id="product-type" value={draft.productTypeDefinitionId} onChange={(event) => update("productTypeDefinitionId", event.target.value)} placeholder="Select a product type" options={productTypes.map((item) => ({ value: item.id, label: `${item.name} · v${item.versionNumber}` }))} /></Field><Field label="Find a category" help="Type at least two letters to filter the category list."><Input id="find-a-category" value={categorySearch} onChange={(event) => onCategorySearch(event.target.value)} placeholder="Search categories" /></Field><Field label="Category" help="Categories organize store navigation; product type controls product attributes."><Select id="category" value={draft.primaryCategoryId} onChange={(event) => update("primaryCategoryId", event.target.value)} placeholder={categorySearch.trim().length < 2 ? "Search to see categories" : "Select a category"} options={categoryOptions} /></Field></div>;
+  if (step === 1) return <div className="space-y-4"><Field label="Product type" help="The stored version remains attached to this product."><Select id="product-type" value={draft.productTypeDefinitionId} onChange={(event) => update("productTypeDefinitionId", event.target.value)} placeholder="Select a product type" options={productTypes.map((item) => ({ value: item.id, label: `${item.name} · v${item.versionNumber}` }))} /></Field><Field label="Category" help="Choose a category directly. Each option includes its category path so you can distinguish similar names."><Select id="category" value={draft.primaryCategoryId} onChange={(event) => update("primaryCategoryId", event.target.value)} placeholder="Select a category" options={categoryOptions} /></Field></div>;
   if (step === 2) return <><Field label="Product title" help="Describe the product identity, not price or stock."><Input id="product-title" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field><Field label="Description" help="Plain text only. Include material facts and condition disclosures."><Textarea id="description" value={draft.description} onChange={(event) => update("description", event.target.value)} rows={7} /></Field></>;
   if (step === 3) return <Field label="Attribute values" help={`Schema-driven JSON for ${selectedType?.code ?? "the selected product type"}. Unknown fields are rejected.`}><Textarea id="attribute-values" value={draft.attributes} onChange={(event) => update("attributes", event.target.value)} rows={9} className="font-mono" /></Field>;
   if (step === 4) return <CatalogVariantFields raw={draft.variants} onChange={value => update("variants", value)} mode="options" />;
@@ -301,8 +294,8 @@ function renderStepField(step: number, draft: Draft, update: <K extends keyof Dr
   return <div><h3 className="font-black">Quality checklist</h3><ul className="mt-3 space-y-2">{["Product type and category", "Core information", "Attributes", "Variant", "Compliance", "Offer SKU", "Price", "Inventory"].map((item, index) => <li key={item} className="flex gap-2"><span aria-hidden="true">{completedForSubmit(index, draft) ? "✓" : "○"}</span>{item}</li>)}</ul><p className="mt-4 text-sm text-[var(--kt-text-muted)]">Saving creates a draft only. Submission and public activation are separate reviewed actions.</p></div>;
 }
 
-function renderStep(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categorySearch: string, onCategorySearch: (value: string) => void, categoryOptions: { value: string; label: string }[]) {
-  const field = (index: number) => renderStepField(index, draft, update, productTypes, selectedType, inventoryLocations, categorySearch, onCategorySearch, categoryOptions);
+function renderStep(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categoryOptions: { value: string; label: string }[]) {
+  const field = (index: number) => renderStepField(index, draft, update, productTypes, selectedType, inventoryLocations, categoryOptions);
   if (step === 0) return <div className="space-y-6"><section className="space-y-4"><h3 className="font-black">Product details</h3>{field(1)}{field(2)}</section><details className="rounded-xl border border-[var(--kt-soft-border)] p-4"><summary className="cursor-pointer font-bold">Product attributes (optional)</summary><div className="mt-4">{field(3)}</div></details></div>;
   if (step === 1) return <div className="space-y-6"><section className="space-y-4"><h3 className="font-black">Product photos</h3>{field(5)}</section><details className="rounded-xl border border-[var(--kt-soft-border)] p-4"><summary className="cursor-pointer font-bold">Variants, compliance and modifiers (optional)</summary><div className="mt-4 space-y-5">{field(4)}{field(6)}{field(10)}</div></details></div>;
   if (step === 2) return <div className="space-y-5"><h3 className="font-black">Store offer and stock</h3>{draft.variants.trim() === "Default" ? <div className="grid gap-4 md:grid-cols-2">{field(7)}{field(8)}</div> : <CatalogVariantFields raw={draft.variants} onChange={value => update("variants", value)} mode="commerce" locations={inventoryLocations} />}{field(9)}</div>;
