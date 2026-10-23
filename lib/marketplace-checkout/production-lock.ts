@@ -40,8 +40,16 @@ export function evaluateMarketplaceCheckoutPublicGate(
     return Object.freeze({ enabled: true, blockReason: null });
   }
 
+  // A valid temporary sandbox can expose checkout without opening live money.
+  // Invalid/expired overrides remain closed even if public checkout is enabled.
+  const paystack = resolvePaystackConfiguration(source);
+  const temporaryProductionSandbox = source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true";
+  if (temporaryProductionSandbox && (!paystack.runtime || paystack.runtime.environment !== "sandbox")) {
+    return Object.freeze({ enabled: false, blockReason: "PAYSTACK_SANDBOX_EXPIRED_OR_INVALID" });
+  }
   if (
     source.CHECKOUT_PUBLIC_ENABLED !== "true" &&
+    !temporaryProductionSandbox &&
     !isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv)
   ) {
     return Object.freeze({
@@ -51,7 +59,7 @@ export function evaluateMarketplaceCheckoutPublicGate(
   }
 
   const isAllowedInPrinciple =
-    isCheckoutExposureAllowed(
+    temporaryProductionSandbox || isCheckoutExposureAllowed(
       source,
       MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED,
     ) || isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv);
@@ -63,7 +71,6 @@ export function evaluateMarketplaceCheckoutPublicGate(
     });
   }
 
-  const paystack = resolvePaystackConfiguration(source);
   if (!paystack.runtime || !paystack.state.active) {
     return Object.freeze({
       enabled: false,

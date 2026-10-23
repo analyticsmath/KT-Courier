@@ -6,7 +6,7 @@ import { PaymentError } from "@/lib/payments/errors";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { verifyPaystackSignature } from "@/lib/payments/providers/paystack/paystack-signature";
 import { PaystackClient, zarToSubunitCents } from "@/lib/payments/providers/paystack/paystack-client";
-import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
+import { resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
 import { buildPaystackReceiptPosting } from "@/lib/payments/providers/paystack/paystack-ledger-posting-policy";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "@/lib/services/cash-on-delivery.service";
@@ -236,9 +236,7 @@ async function appendVerifiedPaymentEventWithinTransaction(
 export async function ingestPaystackWebhook(
   input: IngestPaystackWebhookInput,
 ): Promise<IngestPaystackWebhookResult> {
-  const secretKey = input.secretKey
-    ?? process.env.PAYSTACK_SECRET_KEY?.trim()
-    ?? resolvePaystackConfiguration().runtime?.secretKey;
+  const secretKey = input.secretKey ?? resolvePaystackWebhookSecretKey();
   if (!secretKey) {
     throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack secret key is not configured.");
   }
@@ -354,9 +352,7 @@ export async function ingestPaystackWebhook(
 export async function applyPaystackWebhookEvent(
   input: ApplyPaystackWebhookEventInput,
 ): Promise<PaystackWebhookApplicationResult> {
-  const secretKey = input.secretKey
-    ?? process.env.PAYSTACK_SECRET_KEY?.trim()
-    ?? resolvePaystackConfiguration().runtime?.secretKey;
+  const secretKey = input.secretKey ?? resolvePaystackWebhookSecretKey();
   if (!secretKey) {
     throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack secret key is not configured.");
   }

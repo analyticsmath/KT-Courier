@@ -77,7 +77,26 @@ function resolveSafeAppOrigin(value: string | undefined, isProduction: boolean):
 export function resolvePaystackConfiguration(
   source: EnvironmentSource = process.env,
 ): PaystackConfigurationResolution {
-  const rawMode = (source.PAYSTACK_MODE?.trim().toLowerCase() || "disabled") as PaystackMode;
+  // Time-limited sandbox override for the existing live site. The original
+  // PAYSTACK_SECRET_KEY and PAYSTACK_MODE remain untouched and recoverable.
+  // Once expired, fail closed: never silently resume real-money checkout.
+  const temporarySandboxRequested = source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true";
+  const temporaryUntil = source.PAYSTACK_TEMPORARY_SANDBOX_UNTIL ?? "";
+  const temporaryUntilMs = Date.parse(temporaryUntil);
+  const nowMs = Date.now();
+  if (temporarySandboxRequested && (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(temporaryUntil) ||
+    !Number.isFinite(temporaryUntilMs) ||
+    temporaryUntilMs <= nowMs ||
+    temporaryUntilMs - nowMs > 6 * 60 * 60 * 1000 ||
+    !source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY?.startsWith("sk_test_") ||
+    !source.PAYSTACK_TEMPORARY_SANDBOX_PUBLIC_KEY?.startsWith("pk_test_") ||
+    !hasUsableValue(source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY) ||
+    !hasUsableValue(source.PAYSTACK_TEMPORARY_SANDBOX_PUBLIC_KEY)
+  )) {
+    return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
+  }
+  const rawMode = (temporarySandboxRequested ? "test" : (source.PAYSTACK_MODE?.trim().toLowerCase() || "disabled")) as PaystackMode;
   if (rawMode === "disabled") {
     return Object.freeze({
       state: state({
@@ -108,8 +127,12 @@ export function resolvePaystackConfiguration(
   const isStagingDemo = classification.runtime === "staging-demo";
   const environment: PaystackEnvironment = rawMode === "live" ? "production" : "sandbox";
 
-  // In production, live mode is strictly required (test mode rejected)
-  if (isProductionRuntime && rawMode !== "live") {
+  // Temporary sandbox is only valid in the real production runtime, and only
+  // with the explicit, unexpired control above. Do not change DB classification.
+  if (temporarySandboxRequested && !isProductionRuntime) {
+    return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
+  }
+  if (isProductionRuntime && rawMode !== "live" && !temporarySandboxRequested) {
     return Object.freeze({ state: invalidState("production", "CONFIGURATION_INVALID"), runtime: null });
   }
 
@@ -123,7 +146,9 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState("production", "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  const secretKey = source.PAYSTACK_SECRET_KEY?.trim() ?? "";
+  const secretKey = (temporarySandboxRequested
+    ? source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY
+    : source.PAYSTACK_SECRET_KEY)?.trim() ?? "";
   if (!hasUsableValue(secretKey)) {
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
@@ -138,7 +163,9 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  const credentialVersion = source.PAYSTACK_CREDENTIAL_VERSION?.trim() || "v1";
+  const credentialVersion = temporarySandboxRequested
+    ? "temporary-production-sandbox"
+    : (source.PAYSTACK_CREDENTIAL_VERSION?.trim() || "v1");
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(credentialVersion)) {
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
@@ -149,8 +176,10 @@ export function resolvePaystackConfiguration(
   }
 
   const checkoutPublicEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
-  const productionValidationApproved = isProductionRuntime ? checkoutPublicEnabled : true;
-  const active = rawMode === "test" || (rawMode === "live" && checkoutPublicEnabled);
+  const productionValidationApproved = isProductionRuntime ? (checkoutPublicEnabled || temporarySandboxRequested) : true;
+  const active = rawMode === "test"
+    ? (!isProductionRuntime || temporarySandboxRequested)
+    : (rawMode === "live" && checkoutPublicEnabled);
 
   const blockReason = !active
     ? (isProductionRuntime && !checkoutPublicEnabled ? "CONSOLIDATED_VALIDATION_NOT_APPROVED" : "PAYSTACK_DISABLED")
@@ -181,6 +210,19 @@ export function resolvePaystackConfiguration(
     }),
     runtime,
   });
+}
+
+/**
+ * Webhook signatures and payment verification must use the same provider
+ * environment as checkout. An expired sandbox window must not use live keys.
+ */
+export function resolvePaystackWebhookSecretKey(
+  source: EnvironmentSource = process.env,
+): string | null {
+  const resolved = resolvePaystackConfiguration(source);
+  if (resolved.runtime) return resolved.runtime.secretKey;
+  if (source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true") return null;
+  return source.PAYSTACK_SECRET_KEY?.trim() || null;
 }
 
 export function requireActivePaystackConfiguration(

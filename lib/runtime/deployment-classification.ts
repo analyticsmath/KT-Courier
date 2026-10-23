@@ -321,7 +321,9 @@ export function isLiveMoneyAllowed(
   productionApproved = false,
 ): boolean {
   const classification = classifyRuntimeEnvironment(source);
-  if (!classification.isValid || classification.runtime !== "production") {
+  // A temporary on-site Paystack sandbox must never authorize real payouts.
+  if (!classification.isValid || classification.runtime !== "production" ||
+      source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true") {
     return false;
   }
   return productionApproved;
