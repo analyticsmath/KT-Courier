@@ -5,6 +5,7 @@ import { saveParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan } from "@/lib/services/commission-plan.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
+import { createStoreOrderOperationalPolicy, submitStoreOrderOperationalPolicy, approveStoreOrderOperationalPolicy, activateStoreOrderOperationalPolicy } from "@/lib/store-orders/operational-policy.service";
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
 
 async function createSyntheticStoreCommission(storeId: string, slug: string, makerId: string, checkerId: string, residual = false) {
@@ -31,6 +32,13 @@ export async function createDisposableCheckoutAuthorities() {
   if (process.env.KT_RUNTIME_ENV !== "e2e" || process.env.NODE_ENV === "production" || !["localhost", "127.0.0.1", "db"].includes(url.hostname) || url.pathname !== "/kt_phase75_e2e") throw new Error("Checkout fixtures require the isolated browser database.");
   const maker = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
   const checker = await prisma.user.create({ data: { email: "disposable-checkout-reviewer@example.test", name: "Disposable checkout reviewer", role: "SUPER_ADMIN", status: "ACTIVE" } });
+  // Payment preparation requires an effective vendor policy before any charge.
+  // Establish it during guarded fixture bootstrap, using the normal independent
+  // approval/activation authority rather than after a paid order is created.
+  const fulfilment = await createStoreOrderOperationalPolicy({ name: "Disposable store-order operational policy", versionNumber: 1, acceptanceWindowSeconds: 3600, customerDecisionWindowSeconds: 3600, maximumPrepMinutes: 120, maximumPrepExtensionMinutes: 60, maximumIssueCount: 10, maximumSubstitutionProposalsPerLine: 3, substitutionMode: "CUSTOMER_APPROVAL_REQUIRED", effectiveFrom: new Date("2026-01-01") });
+  await submitStoreOrderOperationalPolicy(fulfilment.publicReference);
+  await approveStoreOrderOperationalPolicy({ publicReference: fulfilment.publicReference, approvedByUserId: checker.id });
+  await activateStoreOrderOperationalPolicy({ publicReference: fulfilment.publicReference, activatedByUserId: maker.id });
   const region = await prisma.deliveryRegion.findUniqueOrThrow({ where: { slug: "johannesburg-metro" } });
   const initial = INITIAL_DELIVERY[0];
   const priorService = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: initial.stableKey }, orderBy: { versionNumber: "desc" } });

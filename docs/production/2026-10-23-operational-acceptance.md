@@ -4,14 +4,16 @@ Status: **INCOMPLETE — not a production launch sign-off.** Work remains on `ma
 
 ## Automated evidence
 
-- Standard Vitest suite: **896 files passed, 4,483 tests passed**. This suite excludes database integration and browser tests; these counts must not be presented as end-to-end coverage.
+- Standard Vitest suite: **897 files passed, 4,485 tests passed**. This suite excludes database integration and browser tests; these counts must not be presented as end-to-end coverage.
 - TypeScript: passed after the changes.
 - Targeted ESLint: passed; the inventory generator is ignored by ESLint and separately passed `node --check`.
 - Route authorization inventory: **762 API routes**, including the new store media-content and seller-document endpoints. Generation now also records direct catalog guard permission keys.
 - Public color audit: passed. Replaced 375 component CSS literals with shared palette references across 20 stylesheets. A PostCSS declaration comparison verified identical resolved color values before and after replacement.
 - The initial standard suite had 13 failures: four missing rating-aggregate mocks, an unindexed pair of new routes, the former disabled-email stub assertion, and seven checks affected by later public/operations redesign work. Corrected the mocks and inventory; updated design expectations against repository history and `DESIGN.md`. The retired eight-chapter homepage's former handoff travel threshold does not define the replacement homepage. The static operations illustration has a narrow two-gradient exception; other SVG/data and interface-gradient restrictions remain checked.
 
-The integration suite requires a named disposable PostgreSQL environment with network isolation. This executor has no Docker or PostgreSQL executable; creating a network namespace returned `Operation not permitted`. The isolation requirements were retained, and integration tests were not pointed at production.
+The integration suite requires a named disposable PostgreSQL environment with network isolation. This executor has no Docker or PostgreSQL executable; creating a network namespace returned `Operation not permitted`. The isolation requirements were retained, and integration tests were not pointed at production. Repository GitHub Actions supplies the isolated environment instead.
+
+CI investigation found that all 20 PostgreSQL matrix jobs, Redis/recovery and recovery jobs passed for commit `a49955718eaaffe0b27b131474fe2ef0086927cd` (Production Certification run `39949086614`). Its quality job had the standard-suite failures addressed here. Its canonical browser stage failed with `PAYMENT_PREPARATION_BLOCKED`: the disposable fulfilment policy was previously activated only after payment, but the correct production precondition requires an active policy before any charge. The fixture bootstrap now creates, submits, independently approves and activates that policy through the normal service authority before test checkout. The production gate is unchanged. Fresh CI certification on the resulting commit remains required; success on an older commit is not head certification.
 
 ## Live observations accumulated during this acceptance session
 
