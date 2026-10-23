@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 
 export type AdminHandoverEmailEvidence = Readonly<{
   reference: string;
-  stage: "PICKUP" | "DELIVERY";
+  stage: "PICKUP" | "DELIVERY" | "STORE_PICKUP";
   requestedAt: Date;
   deliveryStatus: string;
   provider: string | null;
@@ -17,12 +17,28 @@ export type AdminHandoverEmailEvidence = Readonly<{
  * The caller is an ORDERS_READ-authorized administrative order page.
  */
 export async function listAdminHandoverEmailEvidence(orderId: string): Promise<AdminHandoverEmailEvidence[]> {
+  // A marketplace pickup challenge belongs to its verified store order, not
+  // the courier order. Resolve the exact order bridge before including it.
+  // Never search all store pickup codes or expose unlinked vendor details.
+  const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findUnique({
+    where: { courierOrderId: orderId },
+    select: { storeOrder: { select: { publicReference: true } } },
+  });
+  const storeOrderReference = bridge?.storeOrder.publicReference;
   const intents = await prisma.notificationEventIntent.findMany({
-    where: {
-      aggregateReference: orderId,
-      sourceAuthority: "AUTHENTICATION_SECURITY",
-      eventType: { in: ["PICKUP_OTP", "DELIVERY_OTP"] },
-    },
+    where: storeOrderReference
+      ? {
+          sourceAuthority: "AUTHENTICATION_SECURITY",
+          OR: [
+            { aggregateReference: orderId, eventType: { in: ["PICKUP_OTP", "DELIVERY_OTP"] } },
+            { aggregateReference: storeOrderReference, eventType: "STORE_PICKUP_CODE" },
+          ],
+        }
+      : {
+          aggregateReference: orderId,
+          sourceAuthority: "AUTHENTICATION_SECURITY",
+          eventType: { in: ["PICKUP_OTP", "DELIVERY_OTP"] },
+        },
     orderBy: { createdAt: "desc" },
     take: 12,
     select: { id: true, eventType: true, createdAt: true },
@@ -47,7 +63,7 @@ export async function listAdminHandoverEmailEvidence(orderId: string): Promise<A
     const attempt = delivery ? lastAttemptByDelivery.get(delivery.id) : null;
     return {
       reference: intent.id,
-      stage: intent.eventType === "PICKUP_OTP" ? "PICKUP" : "DELIVERY",
+      stage: intent.eventType === "STORE_PICKUP_CODE" ? "STORE_PICKUP" : intent.eventType === "PICKUP_OTP" ? "PICKUP" : "DELIVERY",
       requestedAt: intent.createdAt,
       deliveryStatus: String(delivery?.status ?? "NOT_QUEUED"),
       provider: delivery?.provider ?? null,

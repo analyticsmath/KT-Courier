@@ -117,7 +117,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div className="space-y-3" aria-label="Sender and recipient email delivery audit">
               {handoverEmails.map(item => (
                 <dl key={item.reference} className="eo-detail-grid border-b border-[var(--kt-soft-border)] pb-3 last:border-0">
-                  <div><dt>Handover</dt><dd>{item.stage === "PICKUP" ? "Sender pickup" : "Recipient delivery"}</dd></div>
+                  <div><dt>Handover</dt><dd>{item.stage === "STORE_PICKUP" ? "Vendor pickup" : item.stage === "PICKUP" ? "Sender pickup" : "Recipient delivery"}</dd></div>
                   <div><dt>Requested</dt><dd>{formatDateTime(item.requestedAt)}</dd></div>
                   <div><dt>Email status</dt><dd>{item.deliveryStatus.replaceAll("_", " ")}</dd></div>
                   <div><dt>Provider</dt><dd>{item.provider ?? "Not attempted"}</dd></div>
