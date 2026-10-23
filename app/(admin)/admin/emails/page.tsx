@@ -72,7 +72,7 @@ export default async function AdminEmailsPage({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
           <p className="text-sm font-medium text-[var(--kt-ink-navy)]">
-            Email provider: <strong>{providerName}</strong> — real delivery is active.
+            Email authority: <strong>{providerName}</strong>. Provider acceptance and delivery must be verified separately.
           </p>
         </div>
       )}
@@ -148,7 +148,7 @@ export default async function AdminEmailsPage({
       <AdministrationPanel>
         <h2 className="text-sm font-bold text-[var(--kt-ink-navy)] font-extrabold mb-1">Send test email</h2>
         <p className="text-xs text-[var(--kt-text-muted)] mb-4">
-          Sends a test Welcome email to verify your provider configuration. The send will be logged.
+          Sends a connection-test email to an active verified account. Requests and provider results are recorded in the notification audit; provider acceptance does not confirm inbox delivery.
         </p>
         <TestEmailForm defaultRecipient={user.email} />
       </AdministrationPanel>

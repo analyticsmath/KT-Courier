@@ -164,7 +164,7 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
         name: pt.name,
         status: "ACTIVE",
         searchFacetSchema: { facets: [{ code: "brand", public: true }] },
-        attributeSchema: {},
+        attributeSchema: { attributes: [] },
         variantSchema: {},
         complianceSchema: {},
         createdByUserId: bootstrap.superAdminId,

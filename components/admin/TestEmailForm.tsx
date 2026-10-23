@@ -10,6 +10,7 @@ interface TestEmailFormProps {
 }
 
 interface TestResult {
+  accepted?: boolean;
   delivered: boolean;
   logId?: string | null;
   providerMessageId?: string | null;
@@ -71,8 +72,8 @@ export function TestEmailForm({ defaultRecipient }: TestEmailFormProps) {
       )}
 
       {result && (
-        <div className={`rounded-xl px-4 py-3 ${result.delivered ? "bg-[--kt-green-soft] border border-green-200" : "bg-red-50 border border-red-200"}`}>
-          <p className={`text-sm font-medium ${result.delivered ? "text-green-700" : "text-red-700"}`}>
+        <div className={`rounded-xl px-4 py-3 ${result.accepted || result.delivered ? "bg-[--kt-green-soft] border border-green-200" : "bg-red-50 border border-red-200"}`}>
+          <p className={`text-sm font-medium ${result.accepted || result.delivered ? "text-green-700" : "text-red-700"}`}>
             {result.message}
           </p>
           {result.logId && (

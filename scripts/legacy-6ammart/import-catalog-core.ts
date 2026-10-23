@@ -435,7 +435,7 @@ async function main() {
             name,
             versionNumber: 1,
             status: "ACTIVE",
-            attributeSchema: {},
+            attributeSchema: { attributes: [] },
             variantSchema: {},
             complianceSchema: {},
             searchFacetSchema: { facets: [{ code: "brand", public: true }] },

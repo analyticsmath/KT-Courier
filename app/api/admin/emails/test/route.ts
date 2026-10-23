@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/response";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
+import { sendAdminEmailDiagnostic } from "@/lib/notifications/admin-email-diagnostic";
 
 const TestEmailSchema = z.object({
   recipient: z.string().email({ message: "A valid recipient email is required." }),
@@ -40,6 +41,5 @@ export async function POST(req: NextRequest) {
     return unprocessable("Validation failed.", formatZodErrors(parsed.error.issues));
   }
 
-  void parsed.data.recipient;
-  return ok({ delivered: false, providerReady: false, message: "Manual sending is not available. Phase 27 exposes provider readiness only." });
+  return ok(await sendAdminEmailDiagnostic(user.id, parsed.data.recipient));
 }
