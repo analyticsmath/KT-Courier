@@ -36,3 +36,16 @@ export function selectStorePickupAddress<T extends StorePickupCandidate>(
   const candidates = (savedAddresses ?? []).filter(acceptable);
   return candidates.find((candidate) => candidate.isDefault === true) ?? candidates[0] ?? null;
 }
+
+/** A legacy business address is only a suggestion for the merchant's form.
+ * It must not appear as a configured courier pickup until explicitly saved. */
+export function storePickupSetupState(
+  savedPickup: unknown | null | undefined,
+  legacyBusiness: { line1?: string | null } | null | undefined,
+) {
+  return {
+    setupRequired: !savedPickup,
+    legacyConfirmationRequired: !savedPickup && Boolean(legacyBusiness?.line1?.trim()),
+    savedPickupConfigured: Boolean(savedPickup),
+  };
+}

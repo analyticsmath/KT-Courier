@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { SavedAddressDto } from "@/lib/services/customer-addresses.service";
+import { storePickupSetupState } from "@/lib/marketplace-checkout/store-pickup-selection";
 
 interface LegacyPickupAddress {
   storeName?: string | null;
@@ -93,13 +94,13 @@ export function StorePickupAddressManager({
   legacyAddress,
 }: StorePickupAddressManagerProps) {
   const [current, setCurrent] = useState(pickupAddress);
-  const [formOpen, setFormOpen] = useState(!pickupAddress && !legacyAddress?.line1);
+  const [formOpen, setFormOpen] = useState(() => storePickupSetupState(pickupAddress, legacyAddress).setupRequired);
   const [form, setForm] = useState<FormState>(() => initialForm(pickupAddress, legacyAddress));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const hasDisplayAddress = !!current || !!legacyAddress?.line1;
+  const hasDisplayAddress = !!current;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";
 
   function openForm() {
@@ -116,6 +117,12 @@ export function StorePickupAddressManager({
 
     if (!form.address?.line1 || form.address.line1.trim().length < 3) {
       setFieldErrors({ line1: "Pickup address is required." });
+      setSaving(false);
+      return;
+    }
+
+    if (!form.address?.city?.trim() || !form.address?.province?.trim()) {
+      setError("A complete collection city and province are required for customer delivery quotes. Please select a precise pickup address.");
       setSaving(false);
       return;
     }
@@ -171,7 +178,7 @@ export function StorePickupAddressManager({
         <div>
           <h2 className="text-sm font-extrabold text-[var(--kt-ink-navy)]">Default pickup address</h2>
           <p className="text-sm text-[var(--kt-text-muted)] mt-1">
-            Used to prefill new store delivery requests.
+            Used for customer courier quotes and collection by KT Couriers drivers.
           </p>
         </div>
         {!formOpen && (
@@ -180,6 +187,12 @@ export function StorePickupAddressManager({
           </Button>
         )}
       </div>
+
+      {!current && legacyAddress?.line1 && (
+        <p role="status" className="text-sm text-[var(--kt-text-muted)]">
+          Your earlier business address is not yet a confirmed courier collection point. Review the real pickup location below and save it before accepting customer delivery orders.
+        </p>
+      )}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { completeStorePickupAddress, selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { completeStorePickupAddress, selectStorePickupAddress, storePickupSetupState } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { StorePickupAddressSchema } from "@/lib/validation/address-book";
 
 const depot = {
@@ -33,6 +33,19 @@ describe("production marketplace collection address readiness", () => {
   });
   it("allows text-only genuine addresses for independent provider verification", () => {
     expect(selectStorePickupAddress("store-1", { ...depot }, [])).toEqual(depot);
+  });
+  it("does not display an imported business address as courier pickup-ready", () => {
+    expect(storePickupSetupState(null, { line1: "45 Main Road" })).toEqual({
+      setupRequired: true,
+      legacyConfirmationRequired: true,
+      savedPickupConfigured: false,
+    });
+    expect(storePickupSetupState(null, null).setupRequired).toBe(true);
+    expect(storePickupSetupState(depot, { line1: "45 Main Road" })).toEqual({
+      setupRequired: false,
+      legacyConfirmationRequired: false,
+      savedPickupConfigured: true,
+    });
   });
   it("prevents saving pickup records that checkout cannot use", () => {
     const valid = { line1: depot.line1, city: depot.city, province: depot.province, country: depot.country };
