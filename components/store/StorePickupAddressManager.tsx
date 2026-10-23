@@ -100,7 +100,7 @@ export function StorePickupAddressManager({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const hasDisplayAddress = !!current;
+  const hasDisplayAddress = !storePickupSetupState(current, legacyAddress).setupRequired;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";
 
   function openForm() {
@@ -188,6 +188,11 @@ export function StorePickupAddressManager({
         )}
       </div>
 
+      {current && !hasDisplayAddress && (
+        <p role="status" className="text-sm text-[var(--kt-text-muted)]">
+          This saved collection address is incomplete. Please confirm its city and province and save it again before customers can request courier delivery.
+        </p>
+      )}
       {!current && legacyAddress?.line1 && (
         <p role="status" className="text-sm text-[var(--kt-text-muted)]">
           Your earlier business address is not yet a confirmed courier collection point. Review the real pickup location below and save it before accepting customer delivery orders.

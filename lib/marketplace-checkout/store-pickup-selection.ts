@@ -43,9 +43,10 @@ export function storePickupSetupState(
   savedPickup: unknown | null | undefined,
   legacyBusiness: { line1?: string | null } | null | undefined,
 ) {
+  const configured = completeStorePickupAddress(savedPickup as StorePickupCandidate | null | undefined);
   return {
-    setupRequired: !savedPickup,
-    legacyConfirmationRequired: !savedPickup && Boolean(legacyBusiness?.line1?.trim()),
-    savedPickupConfigured: Boolean(savedPickup),
+    setupRequired: !configured,
+    legacyConfirmationRequired: !configured && Boolean(legacyBusiness?.line1?.trim()),
+    savedPickupConfigured: configured,
   };
 }

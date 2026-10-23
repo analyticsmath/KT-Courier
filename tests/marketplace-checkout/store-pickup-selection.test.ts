@@ -41,6 +41,11 @@ describe("production marketplace collection address readiness", () => {
       savedPickupConfigured: false,
     });
     expect(storePickupSetupState(null, null).setupRequired).toBe(true);
+    expect(storePickupSetupState({ ...depot, city: null }, null)).toEqual({
+      setupRequired: true,
+      legacyConfirmationRequired: false,
+      savedPickupConfigured: false,
+    });
     expect(storePickupSetupState(depot, { line1: "45 Main Road" })).toEqual({
       setupRequired: false,
       legacyConfirmationRequired: false,
