@@ -8,7 +8,7 @@ describe("marketplace pickup vendor-email authority", () => {
   it("reuses the single store-owned challenge rather than creating a second OTP", () => {
     const store = read("lib/store-orders/store-order.service.ts");
     expect(store).toContain('eventType: "STORE_PICKUP_CODE"');
-    expect(store).toContain("handoffResult.pickupCode");
+    expect(store).toContain("emailDetails.pickupCode");
     expect(store).toContain("MARKETPLACE_PICKUP_EMAIL_ENABLED");
     expect(store).toContain("emailDeliveryStatus");
     expect(store).toContain('status: "CHALLENGE_ACTIVE"');

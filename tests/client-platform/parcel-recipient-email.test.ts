@@ -13,7 +13,7 @@ describe("parcel recipient email capture", () => {
       expect(CreateOrderSchema.shape.recipientEmail.safeParse(recipientEmail).success).toBe(false);
     }
   });
-  it("preserves legacy API bookings that use another proof method", () => {
-    expect(QuoteBookingSchema.safeParse(booking).success).toBe(true);
+  it("requires an email for every new parcel booking; historical orders remain stored unchanged", () => {
+    expect(QuoteBookingSchema.safeParse(booking).success).toBe(false);
   });
 });
