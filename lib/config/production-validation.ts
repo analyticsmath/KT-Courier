@@ -91,11 +91,15 @@ export function evaluateProductionConfiguration(
 
   const checkoutEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
   const paystack = resolvePaystackConfiguration(source);
-  if (checkoutEnabled && (!paystack.state.active || !paystack.runtime || paystack.state.environment !== "production")) {
+  const validTemporarySandbox = source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true" &&
+    paystack.state.active && paystack.runtime?.environment === "sandbox";
+  if (checkoutEnabled && (!paystack.state.active || !paystack.runtime ||
+    (paystack.state.environment !== "production" && !validTemporarySandbox))) {
     issues.push(issue("checkout", "PAYMENT_AUTHORITY_UNAVAILABLE", "APPROVED_LIVE_PAYMENT_CONFIGURATION", "READINESS"));
   }
 
-  if (checkoutEnabled && (!hasUsableValue(source.PAYSTACK_SECRET_KEY) || !source.PAYSTACK_SECRET_KEY!.startsWith("sk_live_"))) {
+  if (checkoutEnabled && !validTemporarySandbox &&
+      (!hasUsableValue(source.PAYSTACK_SECRET_KEY) || !source.PAYSTACK_SECRET_KEY!.startsWith("sk_live_"))) {
     issues.push(issue("checkout", "PAYMENT_CREDENTIAL_UNSAFE", "PAYMENT_CREDENTIAL_LIVE_SECRET", "READINESS"));
   }
 

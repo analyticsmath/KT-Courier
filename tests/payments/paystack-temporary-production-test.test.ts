@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolvePaystackConfiguration, resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
 import { isLiveMoneyAllowed } from "@/lib/runtime/deployment-classification";
+import { evaluateProductionConfiguration } from "@/lib/config/production-validation";
 import { evaluateMarketplaceCheckoutPublicGate } from "@/lib/marketplace-checkout/production-lock";
 
 const source = {
@@ -47,6 +48,10 @@ describe("temporary sandbox on the existing production site", () => {
     expect(isLiveMoneyAllowed(env, true)).toBe(false);
     const expired = { ...env, PAYSTACK_TEMPORARY_SANDBOX_UNTIL: "2020-01-01T00:00:00Z" };
     expect(resolvePaystackWebhookSecretKey(expired)).toBeNull();
+  });
+  it("does not wrongly reject a valid sandbox as missing live credentials in readiness", () => {
+    const env = { ...source, CHECKOUT_PUBLIC_ENABLED: "true", PAYSTACK_TEMPORARY_SANDBOX_UNTIL: future() };
+    expect(evaluateProductionConfiguration(env).issues.filter(issue => issue.capability === "checkout")).toEqual([]);
   });
   it("keeps normal live mode untouched when override is off", () => {
     const r = resolvePaystackConfiguration({ ...source, PAYSTACK_TEMPORARY_SANDBOX_ENABLED: "false", CHECKOUT_PUBLIC_ENABLED: "true" });
