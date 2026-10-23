@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db/prisma";
+import { assertNewMarketplacePaymentPolicyReady } from "@/lib/marketplace-checkout/marketplace-fulfilment-readiness";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
@@ -47,7 +49,7 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
 }
 export type MarketplacePaymentPreparationRepository = Readonly<{
   transaction<T>(work: () => Promise<T>): Promise<T>;
-  lockCheckout(reference: string): Promise<{ id: string; publicReference: string; customerUserId: string | null; guestAccessTokenHash: string | null; status: string; grandTotal: string; digitalRequired?: string; cashRequired?: string; currency: string; acceptedFingerprint: string | null; reservationActive?: boolean; payment?: { id: string; publicReference: string; amount: string; currency: string; fingerprint?: string | null } | null } | null>;
+  lockCheckout(reference: string): Promise<{ id: string; publicReference: string; customerUserId: string | null; guestAccessTokenHash: string | null; status: string; grandTotal: string; digitalRequired?: string; cashRequired?: string; currency: string; acceptedFingerprint: string | null; reservationActive?: boolean; payment?: { id: string; publicReference: string; amount: string; currency: string; fingerprint?: string | null; providerAction?: Readonly<{ type: "REDIRECT_GET"; endpoint: string }> | null } | null } | null>;
   linkPayment(checkoutId: string, paymentId: string): Promise<void>;
   transitionCheckout(checkoutId: string, status: "PAYMENT_PENDING"): Promise<void>;
 }>;
@@ -59,11 +61,27 @@ export async function prepareMarketplaceCheckoutPayment(repository: MarketplaceP
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.payerEmail) || input.payerEmail.length > 254) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A valid payer email is required.");
     if (checkout.payment) {
       if (checkout.payment.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || checkout.payment.currency !== "ZAR" || (checkout.payment.fingerprint && checkout.payment.fingerprint !== checkout.acceptedFingerprint)) throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Existing payment belongs to different checkout evidence.");
-      return Object.freeze({ paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id, amount: (checkout.digitalRequired ?? checkout.grandTotal), currency: "ZAR", providerAction: null, replayed: true });
+      return Object.freeze({ paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id, amount: (checkout.digitalRequired ?? checkout.grandTotal), currency: "ZAR", providerAction: checkout.payment.providerAction ?? null, replayed: true });
     }
     // The real checkout, reservation, payer binding, and replay surfaces have
     // been resolved before the source validation gate blocks external execution.
     assertMarketplaceCheckoutProductionReady("PAYMENT", input.testApproval);
+    // A successful customer capture must never create an unfulfillable store
+    // order. Existing payment replays are handled above without another charge.
+    // Local isolated fixtures may bypass this real production policy lookup.
+    if (!input.testApproval?.approved && !isLocalFullFlowAllowed()) {
+      await assertNewMarketplacePaymentPolicyReady(async () => {
+        const now = new Date();
+        return prisma.storeOrderOperationalPolicy.findFirst({
+          where: {
+            status: "ACTIVE",
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+          },
+          select: { id: true },
+        });
+      });
+    }
     const prepared = await orchestrator.prepareMarketplacePayment({ checkoutId: checkout.id, checkoutReference: checkout.publicReference, customerUserId: checkout.customerUserId, guestAccessTokenHash: checkout.guestAccessTokenHash, payerEmail: input.payerEmail, amount: (checkout.digitalRequired ?? checkout.grandTotal), currency: "ZAR", commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId });
     if (prepared.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || prepared.currency !== "ZAR") throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Payment provider preparation returned mismatched commercial evidence.");
     await repository.linkPayment(checkout.id, prepared.paymentId); await repository.transitionCheckout(checkout.id, "PAYMENT_PENDING");
