@@ -47,7 +47,7 @@ it("submits explicit per-variant price and stock from the real wizard and links 
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const click = async (text: string) => { const button = [...host.querySelectorAll("button")].find(item => item.textContent?.includes(text))!; expect(button).toBeDefined(); await act(async () => button.click()); };
   try {
-    await act(async () => root.render(createElement(StoreCatalogWizard, { productTypes: [], categories: [], draftOwnerKey: owner })));
+    await act(async () => root.render(createElement(StoreCatalogWizard, { productTypes: [], categories: [{ id: "ccategory000000000000001", name: "Clothing", path: "/clothing", parentId: null }], draftOwnerKey: owner })));
     await click("Photos & options"); await click("Attach shared product image"); await click("Review & save"); await click("Save product draft");
     expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toBe("/api/store/catalog/listing-drafts");
     const body = JSON.parse(fetcher.mock.calls[0][1].body);

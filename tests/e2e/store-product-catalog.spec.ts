@@ -18,7 +18,7 @@ for (const width of [1440, 390]) {
     await step(page, "Review & save"); await page.getByRole("button", { name: "Save product draft", exact: true }).click();
     await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("Select a product type.");
     await step(page, "Product details"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
-    await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics · /electronics" });
+    await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
     await page.getByLabel("Product title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("Synthetic catalog listing for transaction validation only.");
     await step(page, "Photos & options"); await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();

@@ -105,3 +105,13 @@ Before committing the inbox-origin fix, the checkout fast-forwarded from `4fdf61
 - Vendor product category selection is one native, labelled dropdown with all available categories and full paths. Removed the two-character gate, separate filtering field and silent 50-result truncation. Canonical category IDs and owner-scoped draft persistence remain unchanged. Updated browser journeys to select directly.
 - Focused driver/catalog checks passed, including server-rejected upload retry and proof callback only after acceptance. Full standard suite: 4,602 tests in 918 files passed. Live verification of these new UI changes requires their deployment.
 - Production release remains conditional on unfinished acceptance and actual business approvals. Railway's official 21 October security notice also requires verification that stored sensitive credentials were rotated and old credentials revoked; no rotation completion is asserted here.
+
+### Hierarchical vendor category correction — 23 October, 22:07 UTC
+
+The operator clarified that a flat list of all categories was not the intended workflow. The product wizard now uses stored parent IDs and display order: root category first, then only that parent's subcategories, with further levels as needed. Selecting a different ancestor removes the old descendant selection. Restoring a draft reconstructs its full branch from the selected canonical category ID. Missing ancestors, deleted categories and cycles cannot be promoted into selectable roots; invalid saved selections block draft submission until corrected. No taxonomy records are rewritten by this form change.
+
+The review step shows the selected human-readable category path. Product-authoring copy now describes details, photos, price, stock, draft saving and review directly. Existing media validation, per-variant pricing/stock, private draft ownership, atomic save/retry, moderation and publication authority remain in place.
+
+Regression coverage includes three-level restoration, branch reset, sibling isolation and invalid ancestry. The catalog browser acceptance adds desktop/phone cases for category selection, reload and switching branches; existing product-creation journeys use the new root labels. Full standard suite: 4,604 tests in 919 files passed; TypeScript and focused lint passed. Browser execution and live deployed hierarchy verification are still required at this checkpoint. Local Docker is unavailable, so disposable browser execution remains in GitHub Actions.
+
+Browser-plan discovery checks also pass (9 checks). The required catalog stage counts increased from 2/4 to 3/6 to include the added desktop/phone hierarchy cases; no prior selections or zero-skip requirements were removed.

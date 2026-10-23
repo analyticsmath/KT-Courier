@@ -29,7 +29,7 @@ export default async function NewStoreCatalogProductPage() {
     }),
     prisma.catalogCategory.findMany({
       where: { status: { in: ["ACTIVE", "DRAFT"] } },
-      select: { id: true, name: true, path: true },
+      select: { id: true, name: true, path: true, parentId: true, displayOrder: true },
       orderBy: { path: "asc" },
     }),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
@@ -44,7 +44,7 @@ export default async function NewStoreCatalogProductPage() {
           { label: "New product" },
         ]}
         title="New product"
-        description="Create a saved canonical product draft. Validation, review, and publication retain their existing separate authorities."
+        description="Add product details, photos, price and stock. Save a draft, then submit it for review."
         actions={
           <Link
             className="inline-flex min-h-11 items-center rounded-[var(--eo-radius-control)] border border-[var(--eo-line-strong)] px-3 text-sm font-semibold"

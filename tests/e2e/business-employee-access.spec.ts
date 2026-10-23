@@ -67,7 +67,7 @@ for (const width of [1440, 390]) {
       await expect(employee.getByRole("heading", { name: "New product", exact: true })).toBeVisible();
       await employee.getByRole("button", { name: /Product details/ }).click();
       const definition = await employee.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
-      const category = await employee.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics · /electronics" });
+      const category = await employee.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
       const title = "Disposable employee product " + randomUUID();
       const command = { operationId: randomUUID(), scope: "STORE_PRIVATE", productTypeDefinitionId: definition[0], primaryCategoryId: category[0], title, description: "Synthetic employee access validation only.", condition: "NEW", attributeValues: {}, complianceValues: {} };
       const created = await employee.request.post("/api/store/catalog/products", { headers: { Origin: origin }, data: command });

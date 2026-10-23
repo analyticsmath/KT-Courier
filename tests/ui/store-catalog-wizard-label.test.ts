@@ -10,7 +10,7 @@ it("the real wizard connects the punctuated ZAR price label to one visible nativ
   document.body.append(host);
   const root = createRoot(host);
   try {
-    await act(async () => root.render(React.createElement(StoreCatalogWizard, { productTypes: [], categories: Array.from({ length: 75 }, (_, index) => ({ id: `category-${index}`, name: `Category ${index}`, path: `/category-${index}` })), draftOwnerKey: "label-regression" })));
+    await act(async () => root.render(React.createElement(StoreCatalogWizard, { productTypes: [], categories: Array.from({ length: 75 }, (_, index) => ({ id: `category-${index}`, name: `Category ${index}`, path: `/category-${index}`, parentId: null })), draftOwnerKey: "label-regression" })));
     const categoryLabel = [...host.querySelectorAll("label")].find(label => label.textContent === "Category")!;
     expect(categoryLabel).toBeDefined();
     expect(categoryLabel.control).toBeInstanceOf(HTMLSelectElement);

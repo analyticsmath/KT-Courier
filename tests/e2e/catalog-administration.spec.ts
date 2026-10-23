@@ -3,6 +3,42 @@ import { randomBytes, randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { login } from "./fixtures/auth";
 
+for (const width of [1440, 390]) test(`vendor category branches restore and reset at ${width}px`, async ({ page }) => {
+  const tag = randomUUID();
+  await login(page, "superadmin@ktcouriers.local");
+  async function category(name: string, parentId?: string) {
+    const response = await post(page, "/api/admin/catalog/categories", { name, slug: `${name.toLowerCase().replaceAll(" ", "-")}-${tag}`, parentId, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() });
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()).category as { id: string; name: string };
+  }
+  const first = await category(`First branch ${width}`);
+  const child = await category(`Child ${width}`, first.id);
+  const leaf = await category(`Leaf ${width}`, child.id);
+  const second = await category(`Second branch ${width}`);
+  const otherChild = await category(`Other child ${width}`, second.id);
+  await login(page, "e2e-store@ktcouriers.local");
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto("/store/catalog/products/new");
+  const root = page.getByLabel("Category", { exact: true });
+  await expect(root.locator(`option[value="${child.id}"]`)).toHaveCount(0);
+  await root.selectOption(first.id);
+  const subcategory = page.getByLabel("Subcategory", { exact: true });
+  await expect(subcategory.locator(`option[value="${otherChild.id}"]`)).toHaveCount(0);
+  await subcategory.selectOption(child.id);
+  await page.getByLabel("Subcategory level 2", { exact: true }).selectOption(leaf.id);
+  await page.reload();
+  await expect(root).toHaveValue(first.id);
+  await expect(subcategory).toHaveValue(child.id);
+  await expect(page.getByLabel("Subcategory level 2", { exact: true })).toHaveValue(leaf.id);
+  await root.selectOption(second.id);
+  await expect(subcategory).toHaveValue("");
+  await expect(page.getByLabel("Subcategory level 2", { exact: true })).toHaveCount(0);
+  await expect(subcategory.locator(`option[value="${child.id}"]`)).toHaveCount(0);
+  await subcategory.selectOption(otherChild.id);
+  await expect(page.getByText(`Selected category: ${second.name} / ${otherChild.name}`, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+});
+
 async function post(page: Page, path: string, data: unknown) {
   return page.request.post(path, { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL! }, data });
 }
@@ -17,7 +53,7 @@ async function submittedProduct(page: Page) {
   await login(page, "e2e-store@ktcouriers.local"); await page.goto("/store/catalog/products/new");
   await page.getByRole("button", { name: /Product details/ }).click();
   const definition = await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
-  const category = await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics · /electronics" });
+  const category = await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
   const png = await sharp(randomBytes(400 * 400 * 3), { raw: { width: 400, height: 400, channels: 3 } }).png().toBuffer();
   const upload = await page.request.post("/api/store/catalog/media/normalized", { headers: { Origin: process.env.PLAYWRIGHT_BASE_URL!, "x-catalog-operation-id": randomUUID() }, multipart: { purpose: "PRODUCT_IMAGE", file: { name: "disposable-review.png", mimeType: "image/png", buffer: png } } });
   expect(upload.status()).toBe(201); const asset = (await upload.json()).asset;
