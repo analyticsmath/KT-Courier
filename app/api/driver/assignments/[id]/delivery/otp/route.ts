@@ -8,6 +8,7 @@ import { getDriverProfileIdForUser } from "@/lib/services/driver-assignments.ser
 import { getDeliveryAssignmentForDriver } from "@/lib/services/delivery-execution.service";
 import { generateAndSendDeliveryOtp, getDeliveryOtpStatus } from "@/lib/services/delivery-otp.service";
 import { RequestDeliveryOtpSchema } from "@/lib/validation/delivery";
+import { dispatchIssuedDeliveryOtpEmail } from "@/lib/services/delivery-otp-email-dispatch.service";
 
 export async function GET(
   _req: NextRequest,
@@ -62,7 +63,11 @@ export async function POST(
   try {
     const result = await generateAndSendDeliveryOtp(assignmentId, driverProfileId, user.id, parsed.data);
     if (!result.ok) return conflict(result.error);
-    return ok({ sent: true, replay: result.replay, sentToEmail: result.sentToEmailMasked, expiresAt: result.expiresAt });
+    const delivery = await dispatchIssuedDeliveryOtpEmail(parsed.data.operationId);
+    if (!delivery.accepted) {
+      return conflict("The six-digit code was created but email delivery has not been accepted. Check the recipient address and retry the request after the resend cooldown.");
+    }
+    return ok({ sent: true, replay: result.replay, sentToEmail: result.sentToEmailMasked, expiresAt: result.expiresAt, emailDeliveryStatus: "PROVIDER_ACCEPTED" });
   } catch (err) {
     console.error("[driver/assignments/[id]/delivery/otp POST]", err);
     return serverError();
