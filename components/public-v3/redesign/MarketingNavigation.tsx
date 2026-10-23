@@ -97,6 +97,26 @@ export function MarketingNavigation() {
         id="kt-editorial-menu"
         className="kt-new-menu"
         aria-label="Explore KT Couriers"
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          // Modal dialogs should wrap keyboard focus from either endpoint.
+          // Chromium may otherwise focus the dialog itself on Shift+Tab.
+          const elements = Array.from(
+            dialog.current?.querySelectorAll<HTMLElement>(
+              'a[href], button:not(:disabled), [tabindex]:not([tabindex="-1"])',
+            ) ?? [],
+          ).filter((element) => element.getClientRects().length > 0);
+          const first = elements[0];
+          const last = elements.at(-1);
+          if (!first || !last) return;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
         onCancel={() => setOpen(false)}
         onClose={() => setOpen(false)}
         data-lenis-prevent

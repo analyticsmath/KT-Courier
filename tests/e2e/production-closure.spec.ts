@@ -49,6 +49,8 @@ test("public navigation drawer stays inert while closed and contains keyboard fo
   const finalMenuLink = drawer.getByRole("link", { name: "Terms", exact: true });
   await page.keyboard.press("Shift+Tab");
   await expect(finalMenuLink).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(firstMenuControl).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(drawer).not.toBeVisible();
   await expect(openButton).toHaveAttribute("aria-expanded", "false");
