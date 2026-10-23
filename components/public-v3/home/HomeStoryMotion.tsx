@@ -21,16 +21,17 @@ export function HomeStoryMotion() {
         if (hero)
           gsap.fromTo(
             hero.querySelector("img"),
-            { scale: 1.14 },
+            { scale: 1.02, yPercent: 0 },
             {
-              scale: 1.08,
-              yPercent: 3,
+              scale: 1.22,
+              yPercent: 1,
+              transformOrigin: "50% 48%",
               ease: "none",
               scrollTrigger: {
                 trigger: hero,
-                start: "top 65%",
-                end: "bottom top",
-                scrub: 0.8,
+                start: "top 80%",
+                end: "bottom 15%",
+                scrub: 1.1,
               },
             },
           );

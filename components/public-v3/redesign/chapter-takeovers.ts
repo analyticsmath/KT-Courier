@@ -31,9 +31,10 @@ export function createChapterTakeovers(root: HTMLElement) {
         anticipatePin: 1,
         invalidateOnRefresh: true,
       });
+      const corner = incoming.dataset.sectionTransition === "soft" ? 18 : 38;
       const edge = gsap.fromTo(
         incoming,
-        { borderTopLeftRadius: 38, borderTopRightRadius: 38 },
+        { borderTopLeftRadius: corner, borderTopRightRadius: corner },
         {
           borderTopLeftRadius: 0,
           borderTopRightRadius: 0,

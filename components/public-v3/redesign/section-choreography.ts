@@ -9,11 +9,13 @@ export function createSectionChoreography(root: HTMLElement) {
     .forEach((section) => {
       const direction = section.dataset.sectionTransition;
       const from =
-        direction === "sweep"
-          ? "polygon(0% 100px, 100% 0px, 100% 100%, 0% 100%)"
-          : direction === "open"
-            ? "inset(65px 5% 0px 5% round 32px)"
-            : "inset(85px 0% 0px 0% round 0px)";
+        direction === "soft"
+          ? "inset(18px 0% 0px 0% round 18px)"
+          : direction === "sweep"
+            ? "polygon(0% 100px, 100% 0px, 100% 100%, 0% 100%)"
+            : direction === "open"
+              ? "inset(65px 5% 0px 5% round 32px)"
+              : "inset(85px 0% 0px 0% round 0px)";
       const to =
         direction === "sweep"
           ? "polygon(0% 0px, 100% 0px, 100% 100%, 0% 100%)"
@@ -27,8 +29,8 @@ export function createSectionChoreography(root: HTMLElement) {
           scrollTrigger: {
             trigger: section,
             start: "top 96%",
-            end: "top 42%",
-            scrub: 0.65,
+            end: direction === "soft" ? "top 68%" : "top 42%",
+            scrub: direction === "soft" ? 1 : 0.65,
             invalidateOnRefresh: true,
           },
           onComplete: () => {

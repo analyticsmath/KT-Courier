@@ -142,12 +142,7 @@ export function PublicHomeExperience() {
         </nav>
       </section>
 
-      <section
-        className={styles.manifesto}
-        data-chapter-takeover
-        data-home-chapter="connection"
-        data-section-transition="rise"
-      >
+      <section className={styles.manifesto} data-home-chapter="connection">
         <h2 data-text-scrub>
           It’s never just a box.
           <br />
@@ -198,7 +193,6 @@ export function PublicHomeExperience() {
       <section
         className={styles.journey}
         data-home-chapter="delivery"
-        data-section-transition="open"
         aria-labelledby="journey-heading"
       >
         <div className={styles.chapterHeader}>
@@ -245,8 +239,9 @@ export function PublicHomeExperience() {
       <section
         className={styles.vanChapter}
         data-home-chapter="movement"
+        data-chapter-takeover
+        data-section-transition="soft"
         data-vehicle-scene
-        data-section-transition="sweep"
       >
         <h2 data-split-heading>
           A little care.
@@ -275,9 +270,9 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.local}
-        data-chapter-takeover
         data-home-chapter="local"
-        data-section-transition="open"
+        data-chapter-takeover
+        data-section-transition="soft"
         aria-labelledby="local-heading"
       >
         <div className={styles.chapterHeader}>
@@ -313,9 +308,9 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.business}
-        data-chapter-takeover
         data-home-chapter="business"
-        data-section-transition="rise"
+        data-chapter-takeover
+        data-section-transition="soft"
       >
         <div className={styles.businessTitle}>
           <h2 data-split-heading>
@@ -361,7 +356,8 @@ export function PublicHomeExperience() {
       <section
         className={styles.coverage}
         data-home-chapter="coverage"
-        data-section-transition="sweep"
+        data-chapter-takeover
+        data-section-transition="soft"
       >
         <div className={styles.coveragePhoto}>
           <Image
@@ -400,9 +396,7 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.choices}
-        data-chapter-takeover
         data-home-chapter="services"
-        data-section-transition="open"
         aria-labelledby="choices-heading"
       >
         <div className={styles.chapterHeader}>
@@ -441,10 +435,10 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.freight}
-        data-chapter-takeover
         data-home-chapter="larger-loads"
+        data-chapter-takeover
+        data-section-transition="soft"
         data-vehicle-scene
-        data-section-transition="rise"
       >
         <h2 data-split-heading>
           When life
@@ -481,9 +475,9 @@ export function PublicHomeExperience() {
 
       <section
         className={styles.packing}
-        data-chapter-takeover
         data-home-chapter="packing"
-        data-section-transition="open"
+        data-chapter-takeover
+        data-section-transition="soft"
       >
         <div className={styles.packingIntro}>
           <h2 data-split-heading>
@@ -543,12 +537,7 @@ export function PublicHomeExperience() {
         </ol>
       </section>
 
-      <section
-        className={styles.closing}
-        data-chapter-takeover
-        data-home-chapter="keep-connected"
-        data-section-transition="sweep"
-      >
+      <section className={styles.closing} data-home-chapter="keep-connected">
         <div>
           <h2 data-split-heading>
             Already on
