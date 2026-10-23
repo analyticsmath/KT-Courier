@@ -214,6 +214,21 @@ describe("anonymous client delivery quotations", () => {
     });
     expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
   });
+  it("identifies the unsuccessful address without asking customers to reenter a verified destination", async () => {
+    mocks.geocode.mockResolvedValueOnce(null).mockResolvedValueOnce({ latitude: -25.73, longitude: 28.28 });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({
+      code: "ADDRESS_UNRESOLVED",
+      message: expect.stringContaining("Collection"),
+    });
+    expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
+  it("identifies an unverified delivery address while preserving the verified collection", async () => {
+    mocks.geocode.mockResolvedValueOnce({ latitude: -26.2, longitude: 28.03 }).mockResolvedValueOnce(null);
+    await expect(createPublicQuote(input)).rejects.toMatchObject({
+      code: "ADDRESS_UNRESOLVED",
+      message: expect.stringContaining("Delivery"),
+    });
+  });
   it("requires geocodable street addresses", async () => {
     mocks.geocode.mockResolvedValue(null);
     await expect(createPublicQuote(input)).rejects.toMatchObject({

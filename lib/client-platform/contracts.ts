@@ -80,8 +80,15 @@ export const QuoteAddressSchema = z
     city: z.string().trim().min(2).max(100),
     province: z.enum(PROVINCES),
     postalCode: z.string().trim().max(10).optional(),
+    // Coordinates are never authoritative. A selected Place ID must be
+    // reverified through the server-side Google Geocoding API.
+    placeId: z.string().regex(/^[A-Za-z0-9_.:-]{5,240}$/).optional(),
+    latitude: z.number().finite().min(-90).max(90).optional(),
+    longitude: z.number().finite().min(-180).max(180).optional(),
   })
-  .strict();
+  .strict()
+  .refine(a => a.placeId ? a.latitude !== undefined && a.longitude !== undefined : a.latitude === undefined && a.longitude === undefined,
+    "Selected locations require a Google Place ID and both coordinates.");
 export const PublicQuoteSchema = z
   .object({
     serviceKey: z.string().regex(/^CLIENT_[A-Z0-9_]{2,40}$/),

@@ -27,6 +27,9 @@ export type GeocodableSouthAfricanAddress = Readonly<{
   city: string;
   province: string;
   postalCode?: string;
+  placeId?: string;
+  latitude?: number;
+  longitude?: number;
 }>;
 
 export type TrustedCoordinates = Readonly<{
@@ -89,6 +92,20 @@ export async function reverseGeocodeSouthAfricanProvince(
   }
 }
 
+/** Confirm the provider's exact selected location agrees with the displayed
+ * browser marker. Client coordinates never replace Google-provided geometry. */
+function placeMarkerMatches(address: GeocodableSouthAfricanAddress, latitude: number, longitude: number): boolean {
+  if (!Number.isFinite(address.latitude) || !Number.isFinite(address.longitude) ||
+      !Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+      Math.abs(address.latitude!) > 90 || Math.abs(address.longitude!) > 180) return false;
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const latDelta = radians(latitude - address.latitude!);
+  const lngDelta = radians(longitude - address.longitude!);
+  const h = Math.sin(latDelta / 2) ** 2 +
+    Math.cos(radians(address.latitude!)) * Math.cos(radians(latitude)) * Math.sin(lngDelta / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h))) <= 300;
+}
+
 function normalizedCity(value: string): string {
   return value.normalize("NFKD").replace(/\p{M}/gu, "").toLocaleLowerCase("en-ZA").replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\b(city|of|metropolitan|municipality|local|district)\b/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -104,10 +121,15 @@ export async function geocodeSouthAfricanAddress(
   const config = configurationOverride ?? getMapsServerConfig();
   if (!config) return rejectForwardGeocode("GEOCODE_SERVER_KEY_MISSING");
 
-  const query = southAfricanAddressQuery(address);
-
   const url = new URL(config.geocodeApiUrl);
-  url.searchParams.set("address", query);
+  if (address.placeId) {
+    // Google Places' selected ID is far less ambiguous than a second search
+    // constructed from inconsistent locality/suburb/business-address fields.
+    if (!/^[A-Za-z0-9_.:-]{5,240}$/.test(address.placeId)) return rejectForwardGeocode("GEOCODE_PLACE_ID_INVALID");
+    url.searchParams.set("place_id", address.placeId);
+  } else {
+    url.searchParams.set("address", southAfricanAddressQuery(address));
+  }
   url.searchParams.set("region", config.regionBias || "za");
   url.searchParams.set("components", "country:ZA");
   url.searchParams.set("key", config.serverKey);
@@ -143,9 +165,14 @@ export async function geocodeSouthAfricanAddress(
     if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return rejectForwardGeocode("GEOCODE_PROVINCE_MISMATCH");
     const city = normalizedCity(address.city);
     const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
-    if (!cityMatches) return rejectForwardGeocode("GEOCODE_CITY_MISMATCH");
+    if (!address.placeId && !cityMatches) return rejectForwardGeocode("GEOCODE_CITY_MISMATCH");
+    // A Google Place ID identifies the exact selected building or POI; some
+    // SA places identify suburbs and metropolitan municipalities differently
+    // from the forward geocoder. The verified province and marker replace
+    // that unreliable string equality check, not provider verification.
     const location = result.geometry?.location;
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return rejectForwardGeocode("GEOCODE_INVALID_COORDINATES");
+    if (address.placeId && !placeMarkerMatches(address, location.lat!, location.lng!)) return rejectForwardGeocode("GEOCODE_PLACE_MARKER_MISMATCH");
 
     return Object.freeze({
       latitude: location.lat as number,

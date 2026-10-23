@@ -145,12 +145,17 @@ export function PublicDeliveryQuoteForm({
         });
     return () => { live = false; };
   }, [reference, catalogRevision]);
-  const address = (f: FormData, p: string) => ({
+  const address = (f: FormData, p: string, selected: Address) => ({
     line1: String(f.get(`${p}-line1`)),
     city: String(f.get(`${p}-city`)),
     province: String(f.get(`${p}-province`)),
     ...(f.get(`${p}-postalCode`)
       ? { postalCode: String(f.get(`${p}-postalCode`)) }
+      : {}),
+    // Google Places confirms this selection on the client; the server
+    // resolves the Place ID independently. Never price from browser lat/lng.
+    ...(selected.placeId && typeof selected.latitude === "number" && typeof selected.longitude === "number"
+      ? { placeId: selected.placeId, latitude: selected.latitude, longitude: selected.longitude }
       : {}),
   });
   async function estimate(e: React.FormEvent<HTMLFormElement>) {
@@ -168,8 +173,8 @@ export function PublicDeliveryQuoteForm({
           serviceKey: f.get("service"),
           parcelSize: f.get("size"),
           weightKg: f.get("weight"),
-          pickupAddress: address(f, "pickup"),
-          dropoffAddress: address(f, "dropoff"),
+          pickupAddress: address(f, "pickup", pickup),
+          dropoffAddress: address(f, "dropoff", dropoff),
         }),
       });
       const v = await r.json().catch(() => ({}));

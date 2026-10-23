@@ -152,7 +152,11 @@ export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerTy
   if (!coordinates[0] || !coordinates[1])
     throw new PlatformError(
       "ADDRESS_UNRESOLVED",
-      "Check both street addresses and try again.",
+      !coordinates[0] && !coordinates[1]
+        ? "Neither address could be verified. Re-select both locations from the map suggestions."
+        : !coordinates[0]
+          ? "Collection address could not be verified. Re-select the collection location from the map suggestions."
+          : "Delivery address could not be verified. Re-select the delivery location from the map suggestions.",
       422,
     );
   const zones = await Promise.all(
