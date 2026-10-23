@@ -3641,6 +3641,14 @@
     /* Keep native keyboard scrolling clear of the panel edge and focus outline. */
     scroll-padding-block: 12px;
   }
+
+  /* On short desktop screens the purchase rail starts below the breadcrumb,
+     not at the sticky offset. Reserve that initial offset as well, so native
+     focus scrolling can reveal the entire Add to cart / Buy now row without
+     leaving the focused action below the viewport. */
+  .pdpPurchasePlaneTall {
+    max-height: calc(100svh - var(--shop-header-offset, 66px) - 96px);
+  }
 }
 
 @media (max-width: 767px) {
