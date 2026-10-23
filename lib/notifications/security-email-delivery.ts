@@ -6,6 +6,7 @@ import {
   NotificationPolicyError,
 } from "./contracts";
 import { assertNotificationProductionReady } from "./production-readiness";
+import { isDisposableSecurityEmailRuntime, sendDisposableSecurityEmail } from "@/lib/testing/disposable-security-email-policy";
 import { ResendEmailProvider } from "./providers";
 import { openSecurityPayload } from "./security-payload-vault";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
@@ -49,7 +50,11 @@ async function activeDeliveryOtp(operationId: string, orderId: string, pickup = 
  * evidence.
  */
 export async function deliverSecurityEmail(deliveryId: string) {
-  assertNotificationProductionReady();
+  // The production release lock always applies outside the isolated, named
+  // offline browser fixture. No live provider secrets or mailboxes are accepted
+  // by that fixture, and real deliveries remain fail-closed.
+  const disposable = isDisposableSecurityEmailRuntime();
+  if (!disposable) assertNotificationProductionReady();
 
   let delivery = await prisma.notificationDelivery.findUnique({
     where: { id: deliveryId },
@@ -225,9 +230,7 @@ export async function deliverSecurityEmail(deliveryId: string) {
             }),
           }
         : renderTemplate(templateType, values);
-    const provider = new ResendEmailProvider();
-
-    result = await provider.send({
+    const message = {
       destination,
       subject: rendered.subject,
       body: rendered.text,
@@ -236,7 +239,10 @@ export async function deliverSecurityEmail(deliveryId: string) {
       // Stable across uncertain network retries so provider idempotency prevents
       // duplicate security messages for the same immutable delivery.
       idempotencyKey: delivery.publicReference,
-    });
+    };
+    result = disposable
+      ? sendDisposableSecurityEmail(message)
+      : await new ResendEmailProvider().send(message);
   } catch (error) {
     const inactiveOtp = error instanceof NotificationPolicyError && error.code === "DELIVERY_OTP_NOT_ACTIVE";
     result = {
