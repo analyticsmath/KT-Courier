@@ -17,6 +17,7 @@ import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getAdminOrderDetail } from "@/lib/services/admin-orders.service";
 import { listAdminDeliveryEvidence } from "@/lib/services/admin-delivery-evidence.service";
+import { listAdminHandoverEmailEvidence } from "@/lib/services/admin-handover-email-evidence.service";
 import { getOrderActiveAssignment, getOrderAssignmentHistory } from "@/lib/services/admin-dispatch.service";
 import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
 import { getOrderOperationalEvents } from "@/lib/services/admin-pickup-operations.service";
@@ -41,7 +42,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   // This page already requires ORDERS_READ. Restrict gallery reads to
   // order-owned delivery-proof objects at the private-media boundary.
-  const deliveryEvidence = await listAdminDeliveryEvidence(id);
+  const [deliveryEvidence, handoverEmails] = await Promise.all([listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id)]);
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
@@ -110,6 +111,24 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             ) : <p className="eo-panel-copy">No driver delivery photographs have been uploaded for this order yet.</p>}
           </OperationalPanel>
         )}
+
+        <OperationalPanel title="Pickup and delivery email status" description="Read-only notification evidence for this courier order. Provider acceptance confirms submission to the email provider, not arrival in the customer or vendor inbox. No security codes are visible.">
+          {handoverEmails.length ? (
+            <div className="space-y-3" aria-label="Sender and recipient email delivery audit">
+              {handoverEmails.map(item => (
+                <dl key={item.reference} className="eo-detail-grid border-b border-[var(--kt-soft-border)] pb-3 last:border-0">
+                  <div><dt>Handover</dt><dd>{item.stage === "PICKUP" ? "Sender pickup" : "Recipient delivery"}</dd></div>
+                  <div><dt>Requested</dt><dd>{formatDateTime(item.requestedAt)}</dd></div>
+                  <div><dt>Email status</dt><dd>{item.deliveryStatus.replaceAll("_", " ")}</dd></div>
+                  <div><dt>Provider</dt><dd>{item.provider ?? "Not attempted"}</dd></div>
+                  {item.lastAttemptStatus && <div><dt>Last attempt</dt><dd>{item.lastAttemptStatus.replaceAll("_", " ")}</dd></div>}
+                  {item.failureClass && <div><dt>Failure category</dt><dd>{item.failureClass.replaceAll("_", " ")}</dd></div>}
+                  {item.safeProviderCode && <div><dt>Diagnostic code</dt><dd>{item.safeProviderCode}</dd></div>}
+                </dl>
+              ))}
+            </div>
+          ) : <p className="eo-panel-copy">No pickup or delivery email requests are recorded for this order.</p>}
+        </OperationalPanel>
 
         <OperationalPanel title="Administrative action" description="Only permissions resolved on the server are shown. State changes wait for canonical server confirmation.">
           {canManageStatus ? <AdminOrderStatusUpdate orderId={id} currentStatus={order.status} /> : <ProtectedState kind="restricted" title="Read-only operational access" description="This administrator can review the order but does not have the state-transition permission." />}
