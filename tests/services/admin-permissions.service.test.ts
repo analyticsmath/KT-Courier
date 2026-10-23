@@ -6,6 +6,7 @@ const prismaMock = vi.hoisted(() => ({
   },
   permission: {
     findMany: vi.fn(),
+    upsert: vi.fn(),
   },
   rolePermission: {
     findMany: vi.fn(),
@@ -66,6 +67,7 @@ describe("admin permission service", () => {
   beforeEach(() => {
     prismaMock.user.findUnique.mockReset();
     prismaMock.permission.findMany.mockReset();
+    prismaMock.permission.upsert.mockReset();
     prismaMock.rolePermission.findMany.mockReset();
     prismaMock.userPermission.findMany.mockReset();
     prismaMock.$transaction.mockReset();
@@ -183,6 +185,29 @@ describe("admin permission service", () => {
     expect(tx.userPermission.deleteMany).not.toHaveBeenCalled();
     expect(tx.userPermission.upsert).toHaveBeenCalledTimes(1);
     expect(recordSecurityEventMock).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ mode: "MERGE" }) }));
+  });
+
+  it("repairs only requested canonical keys in an upgraded registry before granting", async () => {
+    const key = PERMISSIONS.NOTIFICATION_TEMPLATE_PUBLISH;
+    prismaMock.user.findUnique.mockResolvedValue(targetUser());
+    prismaMock.permission.findMany.mockResolvedValue([]);
+    prismaMock.permission.upsert.mockResolvedValue({ id: "publish", key });
+    prismaMock.rolePermission.findMany.mockResolvedValue([]);
+    prismaMock.userPermission.findMany.mockResolvedValue([]);
+    const tx = { userPermission: { deleteMany: vi.fn(), upsert: vi.fn().mockResolvedValue({}) } };
+    prismaMock.$transaction.mockImplementation(async callback => callback(tx));
+    await updateUserPermissionOverrides({ userId: "target-admin", mode: "MERGE", overrides: [{ permissionKey: key, effect: PermissionEffect.ALLOW }], actor: { id: "super-admin", role: UserRole.SUPER_ADMIN } });
+    expect(prismaMock.permission.upsert).toHaveBeenCalledExactlyOnceWith({ where: { key }, update: {}, create: expect.objectContaining({ key, isSystem: true }) });
+    expect(tx.userPermission.deleteMany).not.toHaveBeenCalled();
+    expect(tx.userPermission.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ permissionId: "publish" }) }));
+  });
+
+  it("rejects unknown override keys without creating registry entries", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(targetUser());
+    prismaMock.permission.findMany.mockResolvedValue([]);
+    await expect(updateUserPermissionOverrides({ userId: "target-admin", mode: "MERGE", overrides: [{ permissionKey: "unknown.key", effect: PermissionEffect.ALLOW }], actor: { id: "super-admin", role: UserRole.SUPER_ADMIN } })).rejects.toMatchObject({ code: "VALIDATION" });
+    expect(prismaMock.permission.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
   it.each(["REPLACE", "MERGE"] as const)("rejects self-permission override updates in %s mode", async mode => {

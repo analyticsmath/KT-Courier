@@ -67,7 +67,7 @@ async function getTargetAdminUser(userId: string) {
   return user;
 }
 
-async function loadPermissionsByKey(keys: string[]): Promise<Map<string, Permission>> {
+async function loadPermissionsByKey(keys: string[], repairCanonical = false): Promise<Map<string, Permission>> {
   const uniqueKeys = Array.from(new Set(keys));
   const permissions = await prisma.permission.findMany({
     where: { key: { in: uniqueKeys } },
@@ -75,6 +75,19 @@ async function loadPermissionsByKey(keys: string[]): Promise<Map<string, Permiss
   const byKey = new Map(permissions.map((permission) => [permission.key, permission]));
 
   const missing = uniqueKeys.filter((key) => !byKey.has(key));
+  const definitions = new Map(SYSTEM_PERMISSION_DEFINITIONS.map(definition => [definition.key, definition]));
+  if (repairCanonical && missing.every(key => definitions.has(key as PermissionKey))) {
+    // An upgraded registry may lag code. Materialize only the explicitly requested
+    // canonical keys after actor authorization; never install role defaults here.
+    for (const key of missing) {
+      const definition = definitions.get(key as PermissionKey)!;
+      const permission = await prisma.permission.upsert({
+        where: { key }, update: {}, create: { ...definition, isSystem: true },
+      });
+      byKey.set(key, permission);
+    }
+    return byKey;
+  }
   if (missing.length > 0) {
     throw new PermissionServiceError(
       "VALIDATION",
@@ -342,7 +355,7 @@ export async function updateUserPermissionOverrides(args: {
   });
 
   const permissionsByKey = await loadPermissionsByKey(
-    args.overrides.map((override) => override.permissionKey)
+    args.overrides.map((override) => override.permissionKey), true
   );
 
   const seen = new Set<string>();
