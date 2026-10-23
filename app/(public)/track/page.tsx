@@ -6,7 +6,10 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { storeAccess } from "@/lib/client-platform/store-access";
-import { normalizeParcelTrackingReference } from "@/lib/tracking/parcel-tracking-reference";
+import { parseDeliveryTrackingReference, trackingLoginReturnUrl } from "@/lib/tracking/parcel-tracking-reference";
+import { cookies } from "next/headers";
+import { MARKETPLACE_ORDER_COOKIE } from "@/lib/marketplace-checkout/tokens";
+import { getMarketplaceDeliveryTracking, MarketplaceDeliveryTrackingError } from "@/lib/services/marketplace-delivery-tracking.service";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -22,7 +25,7 @@ export default async function ParcelTrackingLookupPage({
 }) {
   const params = await searchParams;
   const raw = typeof params.reference === "string" ? params.reference : "";
-  const reference = normalizeParcelTrackingReference(raw);
+  const lookup = parseDeliveryTrackingReference(raw);
   const entered = raw.trim().length > 0;
   const storeWorkspace = params.workspace === "store";
   const user = await getCurrentUser();
@@ -31,7 +34,26 @@ export default async function ParcelTrackingLookupPage({
     (user.role === "CUSTOMER" || user.role === "STORE");
   let notOwned = false;
 
-  if (reference && signedIn && user) {
+  if (lookup?.kind === "MARKETPLACE") {
+    // The order reference alone does not grant access to a customer's delivery.
+    const ownerId = user?.status === "ACTIVE" && user.role === "CUSTOMER" ? user.id : undefined;
+    const guestSecret = (await cookies()).get(MARKETPLACE_ORDER_COOKIE)?.value;
+    if (ownerId || guestSecret) {
+      try {
+        await getMarketplaceDeliveryTracking({
+          marketplaceOrderReference: lookup.reference,
+          customerUserId: ownerId,
+          guestSecret,
+        });
+      } catch (error) {
+        if (!(error instanceof MarketplaceDeliveryTrackingError)) throw error;
+        notOwned = true;
+      }
+      if (!notOwned) redirect("/order-confirmation/" + encodeURIComponent(lookup.reference));
+    }
+  }
+  if (lookup?.kind === "PARCEL" && signedIn && user) {
+    const reference = lookup.reference;
     const business = storeWorkspace || user.role === "STORE";
     if (business) {
       const access = await storeAccess(user.id, "deliveries").catch(() => null);
@@ -93,9 +115,9 @@ export default async function ParcelTrackingLookupPage({
                   className="font-mono uppercase tracking-wider"
                 />
                 <p className="mt-2 text-xs text-[var(--kt-public-text-secondary)]">
-                  New parcel references are short and start with KT. A tracking
-                  number by itself does not give strangers access to customer
-                  addresses or live driver location.
+                  Parcel references start with KT. Marketplace receipts use
+                  an order reference. A tracking number alone never exposes
+                  private customer addresses or live driver locations.
                 </p>
               </div>
               {storeWorkspace && (
@@ -103,20 +125,20 @@ export default async function ParcelTrackingLookupPage({
               )}
               <button type="submit">View delivery</button>
             </form>
-            {entered && !reference && (
+            {entered && !lookup && (
               <p className={styles.result} role="alert">
                 Check your tracking number and try again. You can also open the
                 delivery from your account order history.
               </p>
             )}
-            {entered && reference && !signedIn && (
+            {entered && lookup && !signedIn && !notOwned && (
               <div className={styles.result} role="status">
                 <p className="text-sm">
                   Sign in to the account that booked this delivery to see its
                   location and proof of delivery.
                 </p>
                 <Link
-                  href="/login"
+                  href={"/login?returnUrl=" + encodeURIComponent(trackingLoginReturnUrl(lookup, storeWorkspace))}
                   className="mt-3 inline-flex underline underline-offset-4"
                 >
                   Sign in securely
@@ -125,8 +147,8 @@ export default async function ParcelTrackingLookupPage({
             )}
             {notOwned && (
               <p className={styles.result} role="status">
-                No parcel with that reference was found in this account. Confirm
-                your tracking number or switch to the correct account/workspace.
+                No delivery with that reference was found for this account
+                or browser. Check the reference or use the original receipt.
               </p>
             )}
             {signedIn && (

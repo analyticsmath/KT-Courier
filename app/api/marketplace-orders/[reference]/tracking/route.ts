@@ -7,7 +7,7 @@ import { getMarketplaceDeliveryTracking, MarketplaceDeliveryTrackingError } from
 export async function GET(request: NextRequest, context: { params: Promise<{ reference: string }> }) {
   const user = await getCurrentUser();
   const customerUserId = user?.role === "CUSTOMER" ? user.id : undefined;
-  const guestSecret = customerUserId ? undefined : request.cookies.get(MARKETPLACE_ORDER_COOKIE)?.value;
+  const guestSecret = request.cookies.get(MARKETPLACE_ORDER_COOKIE)?.value;
   if (!customerUserId && !guestSecret) return unauthorized("Customer order ownership is required.");
   const { reference } = await context.params;
   try {

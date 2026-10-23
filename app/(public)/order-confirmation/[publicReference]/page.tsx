@@ -32,7 +32,7 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
   const { publicReference } = await params;
   const user = await getCurrentUser();
   const customerUserId = user?.role === "CUSTOMER" ? user.id : undefined;
-  const guestSecret = customerUserId ? undefined : (await cookies()).get(MARKETPLACE_ORDER_COOKIE)?.value;
+  const guestSecret = (await cookies()).get(MARKETPLACE_ORDER_COOKIE)?.value;
   if (!customerUserId && !guestSecret) return <MarketplaceUnavailable routeContext="confirmation" />;
   const tracking = await loadTracking({ marketplaceOrderReference: publicReference, customerUserId, guestSecret });
   if (!tracking) return <MarketplaceUnavailable routeContext="confirmation" />;
