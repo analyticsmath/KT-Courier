@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { MarketplaceDeliveryQuoteInput, MarketplaceDeliveryQuoteResult, Phase6MarketplaceQuoteAuthority, Phase6MarketplaceQuoteEvidence } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { createMarketplaceMatrixQuote } from "./matrix-quote.service";
+import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 
 type Coordinates = Readonly<{ latitude: number; longitude: number }>;
 type Phase6Request = Readonly<{
@@ -46,12 +47,22 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
         ?? group?.store?.savedAddresses?.find((a: any) => a.type === "PICKUP" || a.isDefault)
         ?? null;
       const destination = checkout?.addressSnapshot;
+      if (!checkout || !group || group.store.status !== "ACTIVE" || !destination) return null;
+      if (!pickup?.line1 || !pickup.city || !pickup.province) {
+        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "This store has not configured a complete collection address. Please contact support or choose another store.");
+      }
+      // Imported store addresses may predate coordinate capture. Resolve their
+      // persisted address through the same server authority as customer addresses.
+      // Never substitute a default pin or accept client-supplied store coordinates.
       const pickupCoordinates = pickup?.latitude !== null && pickup?.latitude !== undefined && pickup?.longitude !== null && pickup?.longitude !== undefined
         ? coordinates({ latitude: Number(pickup.latitude), longitude: Number(pickup.longitude) })
-        : null;
+        : await geocodeSouthAfricanAddress({ line1: pickup.line1, line2: pickup.line2 ?? undefined, city: pickup.city, province: pickup.province, postalCode: pickup.postalCode ?? undefined });
       const destinationCoordinates = coordinates(destination?.protectedCoordinates);
       const serviceAreaReference = input.serviceAreaReference ?? destination?.serviceAreaReference;
-      if (!checkout || !group || group.store.status !== "ACTIVE" || !pickup || !destination || !pickupCoordinates || !destinationCoordinates || !serviceAreaReference) return null;
+      if (!pickupCoordinates) {
+        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "This store's collection address could not be verified. Please contact support or choose another store.");
+      }
+      if (!destinationCoordinates || !serviceAreaReference) return null;
       if (destination.serviceAreaReference && input.serviceAreaReference && destination.serviceAreaReference !== input.serviceAreaReference) return null;
       const priorQuote = !input.courierServiceKey && group.deliveryQuoteReference ? await database.pricingQuote.findUnique({ where: { id: group.deliveryQuoteReference }, select: { storeId: true, calculationVersion: true, ruleSnapshot: true } }) : null;
       const priorRules = priorQuote?.ruleSnapshot as { serviceKey?: string; checkoutReference?: string } | null;

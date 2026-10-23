@@ -51,7 +51,7 @@ export default async function PaystackReturnPage({
             Back to payment details
           </Link>
           <Link
-            href={`/checkout/${encodeURIComponent(payment.orderReference)}/status`}
+            href={`/track?reference=${encodeURIComponent(payment.orderReference)}`}
             className="eo-text-link text-sm font-semibold"
           >
             View order status
