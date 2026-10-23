@@ -44,7 +44,7 @@ describe("sender-verified parcel pickup", () => {
     const rollout = readFileSync(new URL("../../lib/driver-operations/pickup-otp-rollout.ts", import.meta.url), "utf8");
     expect(rollout).toContain("PICKUP_SENDER_OTP_REQUIRED");
     expect(rollout).toContain("PICKUP_SENDER_OTP_REQUIRED_SINCE");
-    expect(service).toContain('verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId)');
+    expect(service).toContain('verifyDeliveryOtpInTx(tx, order.id, input.pickupOtpCode!, assignmentId, "PICKUP")');
     expect(ui).toContain("Email pickup code to sender");
   });
 });

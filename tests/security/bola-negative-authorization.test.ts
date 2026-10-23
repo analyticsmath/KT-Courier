@@ -415,6 +415,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       const fakeOtpRecord = {
         id: "otp-1",
         orderId: orderBId,
+        assignmentId: assignmentBId,
         codeHash: realHash,
         attempts: 1,
         maxAttempts: 5,
@@ -424,6 +425,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       };
 
       const txMock = {
+        driverOperationCommand: { findFirst: vi.fn().mockResolvedValue({ id: "trusted-delivery-otp-receipt" }) },
         deliveryOtp: {
           findFirst: vi.fn().mockResolvedValue(fakeOtpRecord),
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -458,6 +460,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       const fakeOtpRecord = {
         id: "otp-lock-target",
         orderId: orderBId,
+        assignmentId: assignmentBId,
         codeHash: realHash,
         attempts: 4,
         maxAttempts: 5,
@@ -467,6 +470,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       };
 
       const txMock = {
+        driverOperationCommand: { findFirst: vi.fn().mockResolvedValue({ id: "trusted-delivery-otp-receipt" }) },
         deliveryOtp: {
           findFirst: vi.fn().mockResolvedValue(fakeOtpRecord),
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -503,6 +507,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       const expiredRecord = {
         id: "otp-expired",
         orderId: orderBId,
+        assignmentId: assignmentBId,
         codeHash: hashOtp("123456"),
         attempts: 0,
         maxAttempts: 5,
@@ -512,6 +517,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       };
 
       const txMock = {
+        driverOperationCommand: { findFirst: vi.fn().mockResolvedValue({ id: "trusted-delivery-otp-receipt" }) },
         deliveryOtp: {
           findFirst: vi
             .fn()
@@ -539,6 +545,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       const fakeOtpRecord = {
         id: "otp-valid",
         orderId: orderBId,
+        assignmentId: assignmentBId,
         codeHash: validHash,
         attempts: 0,
         maxAttempts: 5,
@@ -548,6 +555,7 @@ describe("Workstream H / Amendment 13: BOLA / BOPLA / BFLA Negative Authorizatio
       };
 
       const txMock = {
+        driverOperationCommand: { findFirst: vi.fn().mockResolvedValue({ id: "trusted-delivery-otp-receipt" }) },
         deliveryOtp: {
           findFirst: vi.fn().mockResolvedValue(fakeOtpRecord),
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),
