@@ -79,6 +79,26 @@ export function proxy(request: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
+  // Legacy role-specific login aliases are not real pages. Normalize them
+  // before coarse session gating so successful login returns to a real,
+  // role-protected dashboard instead of /driver/login or /store/login (404).
+  const loginLanding: Record<string, string> = {
+    "/admin/login": "/admin",
+    "/store/login": "/store",
+    "/driver/login": "/driver",
+    "/account/login": "/account",
+    "/applicant/login": "/applicant",
+  };
+  const canonicalDashboard = loginLanding[pathname];
+  if (canonicalDashboard) {
+    const sessionCookie =
+      request.cookies.get(HOST_SESSION_COOKIE_NAME)?.value ||
+      request.cookies.get(SESSION_COOKIE_NAME)?.value;
+    const destination = new URL(sessionCookie ? canonicalDashboard : "/login", request.url);
+    if (!sessionCookie) destination.searchParams.set("returnUrl", canonicalDashboard);
+    return NextResponse.redirect(destination);
+  }
+
   // Check if requested path belongs to a protected browser surface
   const isProtectedBrowserPath = PROTECTED_BROWSER_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
