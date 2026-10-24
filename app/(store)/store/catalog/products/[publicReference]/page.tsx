@@ -29,10 +29,10 @@ export default async function StoreCatalogProductDetailPage({
   const product = await getStoreCatalogProduct(store.id, publicReference);
   const [packaging, packageLimits] = await Promise.all([listCatalogPackaging(store.id), publicParcelProfiles()]);
   const editable = product.scope === "STORE_PRIVATE" && product.sourceStoreId === store.id && ["DRAFT", "NEEDS_CHANGES"].includes(product.status);
-  const [manageAccess, submitAccess] = editable ? await Promise.all([
+  const [manageAccess, submitAccess] = await Promise.all([
     requireStoreCatalogPermission(PERMISSIONS.CATALOG_MANAGE),
-    requireStoreCatalogPermission(PERMISSIONS.CATALOG_SUBMIT),
-  ]) : [null, null];
+    editable ? requireStoreCatalogPermission(PERMISSIONS.CATALOG_SUBMIT) : Promise.resolve(null),
+  ]);
   const canManage = manageAccess !== null && !("response" in manageAccess);
   const canSubmit = submitAccess !== null && !("response" in submitAccess);
   return (
