@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Preserve historical rows and all financial records. New orders remain LIVE.
 ALTER TABLE "MarketplaceStoreOrder"
   ADD COLUMN "operationalScope" TEXT NOT NULL DEFAULT 'LIVE',
@@ -19,8 +21,8 @@ WHERE so."marketplaceOrderId" = mo.id
   AND co."commercialFingerprint" = 'fp-' || mo."publicReference"
   AND mo."commercialFingerprint" = co."commercialFingerprint"
   AND p."provider" = 'PAYFAST' AND pa."provider" = 'PAYFAST'
-  AND p."publicReference" = 'PAY-' || mo."publicReference"
-  AND p."creationIdempotencyKey" = 'idem_pay_mkt_' || mo."publicReference"
+  AND p."paymentNumber" = 'PAY-' || mo."publicReference"
+  AND p."idempotencyKey" = 'idem_pay_mkt_' || mo."publicReference"
   AND p."creationRequestHash" = encode(sha256(convert_to('pay_mkt_' || mo."publicReference", 'UTF8')), 'hex')
   AND pa."providerReference" = 'pf_mkt_' || mo."publicReference"
   AND pa."idempotencyKey" = 'att_idem_mkt_' || mo."publicReference"
@@ -57,3 +59,5 @@ EXECUTE FUNCTION protect_marketplace_order_history_scope();
 
 CREATE INDEX "MarketplaceStoreOrder_operationalScope_operationalPolicyId_idx"
   ON "MarketplaceStoreOrder"("operationalScope", "operationalPolicyId");
+
+COMMIT;

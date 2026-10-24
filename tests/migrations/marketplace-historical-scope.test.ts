@@ -9,7 +9,7 @@ await db.exec(`
 CREATE TABLE "MarketplaceStoreOrder" (id text primary key,"publicReference" text,"marketplaceOrderId" text,"createdAt" timestamptz,"operationalPolicyId" text,"deliveryBridgeStatus" text DEFAULT 'NOT_REQUESTED',status text DEFAULT 'SETTLED',"resolutionStatus" text DEFAULT 'RECONCILIATION_REQUIRED');
 CREATE TABLE "MarketplaceOrder" (id text primary key,"publicReference" text,"checkoutId" text,"paymentId" text,"commercialFingerprint" text);
 CREATE TABLE "MarketplaceCheckout" (id text primary key,"publicReference" text,"commercialFingerprint" text);
-CREATE TABLE "Payment" (id text primary key,"successfulAttemptId" text,provider text,"publicReference" text,"creationIdempotencyKey" text,"creationRequestHash" text,amount numeric DEFAULT 123.45);
+CREATE TABLE "Payment" (id text primary key,"successfulAttemptId" text,provider text,"paymentNumber" text,"idempotencyKey" text,"creationRequestHash" text,amount numeric DEFAULT 123.45);
 CREATE TABLE "PaymentAttempt" (id text primary key,"paymentId" text,provider text,"providerReference" text,"idempotencyKey" text);
 CREATE TABLE "LegacyMigrationRun" (id text primary key,status text);
 CREATE TABLE "LegacyMigrationMap" (id text primary key,"runId" text,"targetModel" text,"targetId" text,"sourceTable" text,disposition text);
@@ -19,10 +19,10 @@ const ref='MKT-2026-'+String(i).padStart(6,'0');
 await db.query(`INSERT INTO "MarketplaceCheckout" VALUES ($1,$2,$3)`,['c'+i,ref.replace('MKT-','CHK-'),'fp-'+ref]);
 await db.query(`INSERT INTO "MarketplaceOrder" VALUES ($1,$2,$3,$4,$5)`,['m'+i,ref,'c'+i,'p'+i,'fp-'+ref]);
 await db.query(`INSERT INTO "PaymentAttempt" VALUES ($1,$2,'PAYFAST',$3,$4)`,['a'+i,'p'+i,'pf_mkt_'+ref,'att_idem_mkt_'+ref]);
-await db.query(`INSERT INTO "Payment" (id,"successfulAttemptId",provider,"publicReference","creationIdempotencyKey","creationRequestHash") VALUES ($1,$2,'PAYFAST',$3,$4,encode(sha256(convert_to($5,'UTF8')),'hex'))`,['p'+i,'a'+i,'PAY-'+ref,'idem_pay_mkt_'+ref,'pay_mkt_'+ref]);
+await db.query(`INSERT INTO "Payment" (id,"successfulAttemptId",provider,"paymentNumber","idempotencyKey","creationRequestHash") VALUES ($1,$2,'PAYFAST',$3,$4,encode(sha256(convert_to($5,'UTF8')),'hex'))`,['p'+i,'a'+i,'PAY-'+ref,'idem_pay_mkt_'+ref,'pay_mkt_'+ref]);
 await db.query(`INSERT INTO "MarketplaceStoreOrder" (id,"publicReference","marketplaceOrderId","createdAt") VALUES ($1,$2,$3,'2026-06-01')`,['s'+i,ref.replace('MKT-','MSO-'),'m'+i]);
 }
-await db.exec(`UPDATE "Payment" SET "creationIdempotencyKey"='native-payment' WHERE id IN ('p2','p4','p5','p6','p7');
+await db.exec(`UPDATE "Payment" SET "idempotencyKey"='native-payment' WHERE id IN ('p2','p4','p5','p6','p7');
 UPDATE "Payment" SET provider='PAYSTACK' WHERE id='p3';
 UPDATE "MarketplaceStoreOrder" SET "operationalPolicyId"='real-policy' WHERE id='s8';
 INSERT INTO "LegacyMigrationRun" VALUES ('applied','APPLIED'),('draft','PLANNED');
