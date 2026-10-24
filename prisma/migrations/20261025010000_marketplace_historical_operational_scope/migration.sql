@@ -2,8 +2,8 @@ BEGIN;
 
 -- Preserve historical rows and all financial records. New orders remain LIVE.
 ALTER TABLE "MarketplaceStoreOrder"
-  ADD COLUMN "operationalScope" TEXT NOT NULL DEFAULT 'LIVE',
-  ADD COLUMN "historySourceReference" TEXT;
+  ADD COLUMN IF NOT EXISTS "operationalScope" TEXT NOT NULL DEFAULT 'LIVE',
+  ADD COLUMN IF NOT EXISTS "historySourceReference" TEXT;
 
 -- This exact signature is authored by scripts/seed-full-demo.ts. A date,
 -- missing snapshot, reference prefix, or payment provider alone is insufficient.
