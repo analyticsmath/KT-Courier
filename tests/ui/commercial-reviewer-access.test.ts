@@ -47,3 +47,21 @@ it("isolates temporary commission approval access from commercial packaging gran
     expect(localStorage.getItem("kt-temporary-commercial-review:reviewer")).toBe("null");
   } finally { await act(async () => root.unmount()); host.remove(); localStorage.clear(); vi.unstubAllGlobals(); }
 });
+
+it("grants only production evidence review and restores the baseline without altering commercial access", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); localStorage.clear();
+  localStorage.setItem("kt-temporary-commercial-review:reviewer", "null");
+  const reply = (overrides: unknown[]) => ({ ok: true, json: async () => ({ data: { overrides } }) });
+  const original = [{ permissionKey: "notification_route.approve", effect: "ALLOW", reason: "existing" }];
+  const fetcher = vi.fn().mockResolvedValueOnce(reply(original)).mockResolvedValueOnce(reply([])).mockResolvedValueOnce(reply([...original, { permissionKey: "system_readiness.manage", effect: "ALLOW" }, { permissionKey: "other.read", effect: "DENY", reason: "new independent change" }])).mockResolvedValueOnce(reply([]));
+  vi.stubGlobal("fetch", fetcher); const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(createElement(CommercialReviewerAccessForm, { kind: "readiness", employees: [{ id: "reviewer", label: "Reviewer" }] })));
+    await act(async () => [...host.querySelectorAll("button")].find(item => item.textContent === "Grant reviewer access")!.click());
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toMatchObject({ mode: "MERGE", overrides: [{ permissionKey: "system_readiness.manage", effect: "ALLOW" }] });
+    await act(async () => [...host.querySelectorAll("button")].find(item => item.textContent === "Restore original reviewer access")!.click());
+    expect(JSON.parse(fetcher.mock.calls[3][1].body)).toEqual({ mode: "REPLACE", overrides: [...original, { permissionKey: "other.read", effect: "DENY", reason: "new independent change" }] });
+    expect(localStorage.getItem("kt-temporary-readiness-review:reviewer")).toBeNull();
+    expect(localStorage.getItem("kt-temporary-commercial-review:reviewer")).toBe("null");
+  } finally { await act(async () => root.unmount()); host.remove(); localStorage.clear(); vi.unstubAllGlobals(); }
+});
