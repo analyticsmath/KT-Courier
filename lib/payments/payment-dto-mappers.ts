@@ -12,7 +12,6 @@ import type {
   PaymentState,
 } from "./types";
 import type { PaymentProviderFailureCategory } from "./providers/provider-errors";
-import { PaymentError } from "./errors";
 
 export function toPaymentSummaryDto(payment: {
   id: string;
@@ -35,20 +34,33 @@ export function toPaymentSummaryDto(payment: {
   createdAt: Date;
   updatedAt: Date;
   order: { id: string; orderNumber: string } | null;
+  marketplaceCheckout?: { id: string; publicReference: string } | null;
+  subscriptionInvoice?: { id: string; publicReference: string } | null;
+  managedMarketingRequest?: { id: string; publicReference: string } | null;
+  successfulAttempt?: { providerEnvironment: string | null } | null;
+  attempts?: readonly { providerEnvironment: string | null }[];
   user: { id: string; name: string | null } | null;
 }): PaymentSummaryDto {
-  if (!payment.order || !payment.user) {
-    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Payment subject relationships are incomplete.");
-  }
+  // A marketplace guest payment legitimately has no parcel order or user.
+  // Do not make every finance page fail when one payable subject is different.
+  const subject = payment.order
+    ? { id: payment.order.id, reference: payment.order.orderNumber }
+    : payment.marketplaceCheckout ?? payment.subscriptionInvoice ??
+      payment.managedMarketingRequest ?? { id: payment.id, publicReference: payment.publicReference };
+  const subjectReference = "reference" in subject ? subject.reference : subject.publicReference;
   return Object.freeze({
     id: payment.id,
     publicReference: payment.publicReference,
-    order: Object.freeze({ id: payment.order.id, reference: payment.order.orderNumber }),
+    order: Object.freeze({ id: subject.id, reference: subjectReference }),
     payer: Object.freeze({
-      id: payment.user.id,
-      label: payment.user.name?.trim() || `Payer ${payment.user.id.slice(0, 8)}`,
+      id: payment.user?.id ?? "guest",
+      label: payment.user
+        ? payment.user.name?.trim() || `Payer ${payment.user.id.slice(0, 8)}`
+        : "Guest checkout",
     }),
     provider: payment.provider as PaymentProviderCode | null,
+    providerEnvironment: (payment.successfulAttempt?.providerEnvironment ??
+      payment.attempts?.[0]?.providerEnvironment ?? null) as PaymentProviderEnvironment | null,
     status: payment.status as PaymentState,
     amount: payment.amount.toFixed(2),
     currency: "ZAR",

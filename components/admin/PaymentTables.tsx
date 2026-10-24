@@ -22,7 +22,9 @@ export function PaymentsTable({ payments }: { payments: readonly PaymentSummaryD
           <td className={cell}>{payment.order.reference}</td>
           <td className={cell}>{payment.payer.label}</td>
           <td className={cell}>{statusLabel(payment.status)}</td>
-          <td className={cell}>{payment.provider ?? "Not selected"}</td>
+          <td className={cell}>{payment.provider ?? "Not selected"}
+            {payment.providerEnvironment === "SANDBOX" ? " · Test mode" : payment.providerEnvironment === "PRODUCTION" ? " · Live" : ""}
+          </td>
           <td className={`${cell} font-mono`}>{formatZarLedgerAmount(payment.amount)} {payment.currency}</td>
           <td className={cell}>{timeLabel(payment.createdAt)}</td>
         </tr>)}

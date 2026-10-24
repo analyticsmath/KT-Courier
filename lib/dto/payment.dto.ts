@@ -27,6 +27,7 @@ export type PaymentSummaryDto = Readonly<{
   order: Readonly<{ id: string; reference: string }>;
   payer: SafePayerSummaryDto;
   provider: PaymentProviderCode | null;
+  providerEnvironment?: PaymentProviderEnvironment | null;
   status: PaymentState;
   amount: string;
   currency: PaymentCurrency;

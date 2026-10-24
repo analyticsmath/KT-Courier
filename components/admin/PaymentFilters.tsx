@@ -29,6 +29,7 @@ export function PaymentFilters({ values }: { values: Record<string, string | und
         <select id="payment-provider" name="provider" className={inputClass} defaultValue={values.provider ?? ""}>
           <option value="">All providers</option>
           <option value="PAYFAST">PAYFAST</option>
+          <option value="PAYSTACK">PAYSTACK</option>
         </select>
       </div>
       <div className="space-y-1">

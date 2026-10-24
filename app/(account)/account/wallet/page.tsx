@@ -1,3 +1,4 @@
+import { listCustomerRecentPayments } from "@/lib/services/customer-recent-payments.service";
 import { EditorialTable, MetricTile, OperationalPanel, ProtectedState } from "@/components/protected-v2";
 import { CustomerAction, CustomerPage } from "@/components/protected-v2/customer/CustomerPresentation";
 import { formatCustomerDateTime, formatCustomerMoney } from "@/lib/customer-presentation/customer-order-presentation";
@@ -6,9 +7,10 @@ import { getCustomerWalletSummary, listCustomerWalletTransactions } from "@/lib/
 
 export default async function CustomerWalletPage() {
   const user = await requireAuth();
-  const [wallet, transactions] = await Promise.all([
+  const [wallet, transactions, recentPayments] = await Promise.all([
     getCustomerWalletSummary(user.id),
     listCustomerWalletTransactions(user.id, { page: 1, pageSize: 5 }),
+    listCustomerRecentPayments(user.id),
   ]);
 
   return (
@@ -32,6 +34,22 @@ export default async function CustomerWalletPage() {
           />
         </OperationalPanel>
       </>}
+      <OperationalPanel title="Recent payments" description="Actual parcel and marketplace payment records, separate from your refund-credit wallet. Test transactions are identified as sandbox payments.">
+        <EditorialTable
+          caption="Recent payments"
+          mobileMode="stack"
+          rows={recentPayments.map((payment) => ({ ...payment, id: payment.reference }))}
+          emptyState={<p className="eo-table-empty" role="status">No payments recorded for this account yet.</p>}
+          columns={[
+            { id: "date", header: "Date", cell: (payment) => formatCustomerDateTime(payment.createdAt) ?? "—" },
+            { id: "reference", header: "Payment", cell: (payment) => payment.reference },
+            { id: "purpose", header: "For", cell: (payment) => payment.description },
+            { id: "status", header: "Status", cell: (payment) => payment.status.replaceAll("_", " ") },
+            { id: "mode", header: "Mode", cell: (payment) => payment.environment === "SANDBOX" ? "Test mode" : payment.environment === "PRODUCTION" ? "Live" : "Not started" },
+            { id: "amount", header: "Amount", align: "end", cell: (payment) => formatCustomerMoney(payment.amount, payment.currency) },
+          ]}
+        />
+      </OperationalPanel>
       <OperationalPanel title="Wallet boundary"><p className="text-sm leading-6 text-[var(--eo-text-secondary)]">This wallet is read-only. It cannot be topped up, transferred, withdrawn, or used at checkout in the current product state.</p></OperationalPanel>
     </CustomerPage>
   );

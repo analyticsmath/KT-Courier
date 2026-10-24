@@ -20,6 +20,11 @@ import type { PaymentListQuery } from "@/lib/validation/payments";
 const PAYMENT_SUMMARY_INCLUDE = {
   order: { select: { id: true, orderNumber: true } },
   user: { select: { id: true, name: true } },
+  marketplaceCheckout: { select: { id: true, publicReference: true } },
+  subscriptionInvoice: { select: { id: true, publicReference: true } },
+  managedMarketingRequest: { select: { id: true, publicReference: true } },
+  successfulAttempt: { select: { providerEnvironment: true } },
+  attempts: { orderBy: { attemptNumber: "desc" as const }, take: 1, select: { providerEnvironment: true } },
 } as const;
 
 function pagination(page: number, pageSize: number, total: number) {
