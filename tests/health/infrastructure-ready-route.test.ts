@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const probe = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/health/infrastructure-readiness", () => ({ checkInfrastructureReadiness: probe }));
-import { GET } from "@/app/api/infrastructure-ready/route";
+import { GET } from "@/app/api/infrastructure/ready/route";
 describe("Railway infrastructure probe", () => {
   beforeEach(() => probe.mockReset());
   it("accepts available database and redis, without claiming financial activation", async () => {
