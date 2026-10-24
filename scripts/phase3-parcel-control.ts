@@ -1,4 +1,5 @@
 import { prisma } from "../lib/db/prisma";
+import { makeDisposableParcelPickupAddress } from "./phase3-owned-pickup-fixture";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail } from "../lib/testing/disposable-paystack-policy";
 import { saveParcelProfile, listParcelProfileVersions } from "../lib/commercial/parcel-profiles";
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "../lib/marketplace-checkout/delivery-policy-configuration";
@@ -29,7 +30,12 @@ async function main() {
     const customer = await prisma.user.create({ data: { email, name: "Disposable packaging customer", role: "CUSTOMER", status: "ACTIVE", passwordHash: password, emailVerifiedAt: new Date() } });
     await prisma.customerProfile.create({ data: { userId: customer.id, displayName: "Disposable packaging customer" } });
     const existing = await prisma.store.findMany({ select: { id: true } });
-    const store = await prisma.store.create({ data: { slug: `e2e-${tag}`, name: "Disposable measured packaging store", ownerUserId: maker.id, status: "ACTIVE", defaultPickupAddressId: base.defaultPickupAddressId } });
+    const store = await prisma.store.create({ data: { slug: `e2e-${tag}`, name: "Disposable measured packaging store", ownerUserId: maker.id, status: "ACTIVE" } });
+    if (!base.defaultPickupAddress) throw new Error("Disposable acceptance seed is missing its own verified pickup address.");
+    const ownedPickup = await prisma.address.create({
+      data: makeDisposableParcelPickupAddress(store.id, base.defaultPickupAddress),
+    });
+    await prisma.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: ownedPickup.id } });
     await prisma.storeSellerLegalIdentity.create({ data: { storeId: store.id, publicReference: `DISPOSABLE-SELLER-${tag}`, identityVersion: "disposable-measurements-v1", legalName: "Disposable packaging fixture; not a real legal entity", vatRegistrationStatus: "NOT_REGISTERED", status: "APPROVED", effectiveFrom: new Date("2026-01-01") } });
     const plan = await createCommissionPlan({ subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${store.id}`, basisType: "ORDER_SUBTOTAL", effectiveFrom: "2026-01-01T00:00:00.000Z", calculationVersion: `disposable-${tag}`, rules: [{ ruleCode: "DISPOSABLE_PLATFORM", allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "FIXED_AMOUNT", fixedAmount: "1.00", priority: 1 }], actorUserId: maker.id, operationId: `${tag}:commission-create` });
     await submitCommissionPlan(plan.id, maker.id, `${tag}:commission-submit`); await approveCommissionPlan(plan.id, reviewer.id, `${tag}:commission-approve`); await activateCommissionPlan(plan.id, reviewer.id, `${tag}:commission-activate`, { allowTestOnlyBypass: true });
