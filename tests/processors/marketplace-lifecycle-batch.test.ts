@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ orders: vi.fn(), reservations: vi.fn(), initialize: vi.fn(), expire: vi.fn(), findActive: vi.fn() }));
+const mocks = vi.hoisted(() => ({ orders: vi.fn(), reservations: vi.fn(), initialize: vi.fn(), reconcile: vi.fn(), expire: vi.fn(), findActive: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { marketplaceStoreOrder: { findMany: mocks.orders }, marketplaceInventoryReservation: { findMany: mocks.reservations } } }));
-vi.mock("@/lib/store-orders/store-order.service", () => ({ initializeMarketplaceStoreOrderOperations: mocks.initialize }));
+vi.mock("@/lib/store-orders/store-order.service", () => ({ initializeMarketplaceStoreOrderOperations: mocks.initialize, createStoreOrderReconciliationCase: mocks.reconcile }));
 vi.mock("@/lib/marketplace-checkout/inventory-reservation.service", () => ({ expireMarketplaceCheckoutReservation: mocks.expire }));
 vi.mock("@/lib/marketplace-checkout/prisma-marketplace-reservation.repository", () => ({ createPrismaMarketplaceReservationRepository: () => ({ findActiveReservation: mocks.findActive }) }));
 import { initializeMarketplaceOrdersBatch, expireMarketplaceReservationsBatch, uninitializedMarketplaceOrdersWhere } from "@/lib/marketplace-checkout/lifecycle-batch.service";
@@ -16,6 +16,7 @@ describe("automatic marketplace operational lifecycle", () => {
   it("keeps the original operation identity on retries, isolates failures, and never writes during dry run", async () => {
     await initializeMarketplaceOrdersBatch({ mode: "DRY_RUN", batchSize: 5 });
     expect(mocks.initialize).not.toHaveBeenCalled();
+    expect(mocks.reconcile).not.toHaveBeenCalled();
     mocks.orders.mockResolvedValue([{ publicReference: "bad" }, { publicReference: "good" }]);
     mocks.initialize.mockRejectedValueOnce(new Error("private error"));
     expect(await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 5 })).toMatchObject({ itemsRetried: 1, itemsCompleted: 1 });
@@ -49,3 +50,22 @@ it("reports safe initialization reason codes without copying private exception m
   expect(result.safeSummary).toContain("INITIALIZATION_RETRY_REQUIRED:1");
   expect(result.safeSummary).not.toMatch(/private|PRIVATE_ACCOUNT|SQL connection/);
 });
+
+ it("escalates invalid immutable evidence idempotently without initializing it or starving valid orders", async () => {
+  mocks.orders.mockResolvedValue([{ publicReference: "legacy" }, { publicReference: "valid" }]);
+  mocks.initialize.mockRejectedValueOnce(Object.assign(new Error("private original address"), { code: "STORE_ORDER_SNAPSHOT_INVALID" }));
+  const result = await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 2 });
+  expect(result).toMatchObject({ itemsCompleted: 1, itemsRetried: 1, itemsReconciled: 1 });
+  expect(mocks.reconcile).toHaveBeenCalledWith(expect.objectContaining({ storeOrderReference: "legacy", operationId: "marketplace-initialize-reconcile:legacy", reasonCode: "STORE_ORDER_SNAPSHOT_INVALID" }));
+  expect(JSON.stringify(mocks.reconcile.mock.calls)).not.toContain("private original address");
+  expect(uninitializedMarketplaceOrdersWhere().resolutionStatus).toEqual({ not: "RECONCILIATION_REQUIRED" });
+  expect(uninitializedMarketplaceOrdersWhere(true).resolutionStatus).toBe("RECONCILIATION_REQUIRED");
+ });
+ it("keeps failed reconciliation recording visible and retryable", async () => {
+  mocks.initialize.mockRejectedValue(Object.assign(new Error("missing frozen quote"), { code: "STORE_ORDER_SNAPSHOT_INVALID" }));
+  mocks.reconcile.mockRejectedValue(new Error("private database failure"));
+  const result = await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 1 });
+  expect(result).toMatchObject({ itemsCompleted: 0, itemsRetried: 1, itemsReconciled: 0 });
+  expect(result.safeSummary).toContain("RECONCILIATION_RECORD_FAILED:1");
+  expect(result.safeSummary).not.toContain("private database");
+ });

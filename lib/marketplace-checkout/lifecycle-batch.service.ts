@@ -1,15 +1,15 @@
 import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { initializeMarketplaceStoreOrderOperations } from "@/lib/store-orders/store-order.service";
+import { createStoreOrderReconciliationCase, initializeMarketplaceStoreOrderOperations } from "@/lib/store-orders/store-order.service";
 import { createPrismaMarketplaceReservationRepository } from "./prisma-marketplace-reservation.repository";
 import { expireMarketplaceCheckoutReservation } from "./inventory-reservation.service";
 import type { ProcessorHandlerContext, ProcessorHandlerOutcome } from "@/lib/processors/processor-service";
 
 type Batch = Pick<ProcessorHandlerContext, "mode" | "batchSize">;
 const outcome = (itemsExamined: number): ProcessorHandlerOutcome => ({ itemsExamined, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: 0, itemsRetried: 0, itemsReconciled: 0, safeSummary: "" });
-export function uninitializedMarketplaceOrdersWhere(): Prisma.MarketplaceStoreOrderWhereInput {
-  return { operationalPolicyId: null, status: { in: ["SETTLED", "PENDING_SETTLEMENT"] },
+export function uninitializedMarketplaceOrdersWhere(reconciliationRequired = false): Prisma.MarketplaceStoreOrderWhereInput {
+  return { operationalPolicyId: null, resolutionStatus: reconciliationRequired ? "RECONCILIATION_REQUIRED" : { not: "RECONCILIATION_REQUIRED" }, status: { in: ["SETTLED", "PENDING_SETTLEMENT"] },
     marketplaceOrder: { payment: { status: "SUCCEEDED" } },
     OR: [{ status: "SETTLED" }, { marketplaceOrder: { cashRequired: { gt: 0 } } }],
   };
@@ -36,9 +36,28 @@ export async function initializeMarketplaceOrdersBatch({ mode, batchSize }: Batc
       const candidate = error instanceof Error && "code" in error ? error.code : null;
       const code = typeof candidate === "string" && (knownCodes.has(candidate) || /^P[0-9]{4}$/.test(candidate)) ? candidate : "INITIALIZATION_RETRY_REQUIRED";
       failureCounts.set(code, (failureCounts.get(code) ?? 0) + 1);
+      if (code === "STORE_ORDER_SNAPSHOT_INVALID") {
+        // Missing immutable checkout evidence cannot be repaired by retrying or
+        // by substituting today's pickup/quote. Escalate through the canonical
+        // audited workflow so this order cannot starve later valid orders.
+        try {
+          await createStoreOrderReconciliationCase({
+            storeOrderReference: order.publicReference,
+            operationId: `marketplace-initialize-reconcile:${order.publicReference}`,
+            reasonCode: code,
+            safeSummary: "Paid checkout lacks frozen pickup or courier quote evidence. Review the original checkout source before fulfilment; no replacement evidence was generated.",
+            evidence: { processor: "initialize-marketplace-store-orders", sourceOperationId: operationId },
+          });
+          result.itemsReconciled++;
+        } catch {
+          // Keep this order eligible if recording the case fails. Its retry
+          // count remains a readiness failure in either case.
+          failureCounts.set("RECONCILIATION_RECORD_FAILED", (failureCounts.get("RECONCILIATION_RECORD_FAILED") ?? 0) + 1);
+        }
+      }
     }
   }
-  result.safeSummary = `${mode}: marketplace operations initialized ${result.itemsCompleted}; ${result.itemsRetried} remain pending; ${result.itemsSkipped} unchanged.`;
+  result.safeSummary = `${mode}: marketplace operations initialized ${result.itemsCompleted}; ${result.itemsRetried} remain pending; ${result.itemsSkipped} unchanged; ${result.itemsReconciled} escalated for reconciliation.`;
   if (failureCounts.size) result.safeSummary += ` Reasons: ${[...failureCounts].sort(([a], [b]) => a.localeCompare(b)).map(([code, count]) => `${code}:${count}`).join(", ")}.`;
   return result;
 }

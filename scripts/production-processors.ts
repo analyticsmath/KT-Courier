@@ -38,6 +38,7 @@ async function main() {
     if (name === "initialize-marketplace-store-orders") {
       const now = new Date();
       const readiness = await checkMarketplaceStoreOrderInitializationReadiness({
+        hasReconciliationOrder: async () => !!await prisma.marketplaceStoreOrder.findFirst({ where: uninitializedMarketplaceOrdersWhere(true), select: { id: true } }),
         hasPendingOrder: async () => !!await prisma.marketplaceStoreOrder.findFirst({ where: uninitializedMarketplaceOrdersWhere(), select: { id: true } }),
         hasActivePolicy: async () => !!await prisma.storeOrderOperationalPolicy.findFirst({
           where: { status: "ACTIVE", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] },

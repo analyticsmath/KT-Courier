@@ -31,7 +31,7 @@ describe("production processor orchestration", () => {
   it("holds pending store orders without retrying when the active operations policy is missing", async () => {
     const hasPendingOrder = vi.fn().mockResolvedValue(true);
     const hasActivePolicy = vi.fn().mockResolvedValue(false);
-    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy });
+    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy, hasReconciliationOrder: async () => false });
 
     expect(readiness).toEqual({ hasWork: false, blocker: "STORE_ORDER_OPERATIONAL_POLICY_REQUIRED" });
     expect(hasPendingOrder).toHaveBeenCalledOnce();
@@ -40,13 +40,14 @@ describe("production processor orchestration", () => {
   it("does not report a policy blocker when no store orders are waiting", async () => {
     const hasPendingOrder = vi.fn().mockResolvedValue(false);
     const hasActivePolicy = vi.fn();
-    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy });
+    const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder, hasActivePolicy, hasReconciliationOrder: async () => false });
 
     expect(readiness).toEqual({ hasWork: false, blocker: null });
     expect(hasActivePolicy).not.toHaveBeenCalled();
   });
   it("allows store-order initialization once an active policy is available", async () => {
     const readiness = await checkMarketplaceStoreOrderInitializationReadiness({
+      hasReconciliationOrder: async () => false,
       hasPendingOrder: async () => true,
       hasActivePolicy: async () => true,
     });
@@ -159,3 +160,10 @@ describe("production processor orchestration", () => {
     expect(hasWork).toHaveBeenCalledTimes(2);
   });
 });
+
+ it.each([false, true])("keeps unresolved snapshot cases a readiness blocker while allowing valid work: %s", async (pending) => {
+  const readiness = await checkMarketplaceStoreOrderInitializationReadiness({ hasPendingOrder: async () => pending, hasActivePolicy: async () => true, hasReconciliationOrder: async () => true });
+  expect(readiness).toEqual({ hasWork: pending, blocker: "STORE_ORDER_SNAPSHOT_RECONCILIATION_REQUIRED" });
+  const idle = productionProcessors.map(name => ({ name, status: "IDLE" as const, itemsCompleted: 0, itemsRetried: 0 }));
+  expect(summarizeProductionCycleReadiness(idle, [readiness.blocker!]).healthy).toBe(false);
+ });
