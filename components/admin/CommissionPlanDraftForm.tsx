@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-export function CommissionPlanDraftForm({ stores = [] }: { stores?: readonly { id: string; name: string }[] }) {
+export function CommissionPlanDraftForm({ stores = [], selectedStoreId }: { stores?: readonly { id: string; name: string }[]; selectedStoreId?: string }) {
   const [message, setMessage] = useState<string | null>(null);
-  const [subjectType, setSubjectType] = useState("COURIER_ORDER");
+  const [subjectType, setSubjectType] = useState(selectedStoreId ? "MARKETPLACE_STORE_ORDER" : "COURIER_ORDER");
   async function submit(formData: FormData) {
     setMessage(null);
     const body = { subjectType, scopeKey: subjectType === "MARKETPLACE_STORE_ORDER" ? `STORE:${formData.get("storeId")}` : "GLOBAL:COURIER_ORDER", basisType: formData.get("basisType"), effectiveFrom: new Date(String(formData.get("effectiveFrom"))).toISOString(), effectiveUntil: formData.get("effectiveUntil") ? new Date(String(formData.get("effectiveUntil"))).toISOString() : null, calculationVersion: String(formData.get("calculationVersion")), rules: [{ ruleCode: String(formData.get("ruleCode")).toUpperCase(), allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: Number(formData.get("rateBasisPoints")), priority: 10, isRequired: true }], operationId: crypto.randomUUID() };
@@ -17,7 +17,7 @@ export function CommissionPlanDraftForm({ stores = [] }: { stores?: readonly { i
     <p className="text-sm text-[--kt-text-muted]">Supply the agreed commercial rate. Independent approval is required before activation.</p>
     <div><label htmlFor="commission-subject">Policy subject</label><select id="commission-subject" value={subjectType} onChange={(event) => setSubjectType(event.target.value)}><option value="COURIER_ORDER">Courier orders</option><option value="MARKETPLACE_STORE_ORDER" disabled={!stores.length}>Marketplace store settlement</option></select></div>
     {subjectType === "MARKETPLACE_STORE_ORDER" && <>
-      <div><label htmlFor="commission-store">Store</label><select id="commission-store" name="storeId" required defaultValue=""><option value="" disabled>Choose an active store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></div>
+      <div><label htmlFor="commission-store">Store</label><select id="commission-store" name="storeId" required defaultValue={selectedStoreId ?? ""}><option value="" disabled>Choose an active store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></div>
       <p>Commission applies to the seller subtotal. Delivery fees remain separate.</p>
     </>}
     <div><label htmlFor="commission-basis">Basis</label><select key={subjectType} id="commission-basis" name="basisType" defaultValue="ORDER_SUBTOTAL"><option value="ORDER_SUBTOTAL">Order subtotal</option>{subjectType === "COURIER_ORDER" && <option value="ORDER_TOTAL">Order total</option>}</select></div>

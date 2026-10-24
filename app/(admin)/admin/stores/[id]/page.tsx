@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreDetail } from "@/lib/services/admin-stores.service";
 import { vendorReviewChecklist } from "@/lib/admin/vendor-review-checklist";
+import { getStoreCommissionReadiness } from "@/lib/admin/store-commission-readiness";
 import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
@@ -25,20 +26,22 @@ function date(value: Date | null | undefined) {
 export default async function AdminStoreDossier({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const { id } = await params;
-  const [store, canApprove, canReviewSeller, canManagePricing] = await Promise.all([
+  const [store, canApprove, canReviewSeller, canManagePricing, canReadCommission] = await Promise.all([
     getStoreDetail(id),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
+    hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.COMMISSION_PLANS_READ }),
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
     canReviewSeller ? prisma.storeSellerLegalIdentity.findFirst({ where: { storeId: id, status: "APPROVED", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] }, orderBy: { effectiveFrom: "desc" }, select: { legalName: true, tradingName: true, registrationReference: true, vatRegistrationStatus: true, identityVersion: true } }) : Promise.resolve(null),
     canManagePricing ? prisma.personalizedDeliveryRate.count({ where: { ownerType: "STORE", ownerId: id, status: "ACTIVE" } }) : Promise.resolve(0),
+    canReadCommission ? getStoreCommissionReadiness(id, prisma, now) : Promise.resolve(null),
   ]);
   const owner = store.ownerUser;
   const summary = vendorReviewChecklist({
@@ -63,6 +66,30 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       </div>
       {canApprove && store.status === "PENDING" ? <div className="mt-5 border-t pt-5"><StoreAccountApproval storeId={store.id} /></div> : null}
       {canApprove && store.status !== "PENDING" ? <div className="mt-5 border-t pt-5"><StoreAccountStatusActions storeId={store.id} status={store.status} /></div> : null}
+    </OperationalPanel>
+    <OperationalPanel title="Marketplace settlement readiness" description="Before customers can complete marketplace checkout, this store must have an active approved commission policy. Catalog publication and vendor account approval do not authorise seller deductions.">
+      {!canReadCommission ? <p className="text-sm">Finance permission is required to review marketplace commission plans.</p> :
+        <div className="space-y-3">
+          <p role="status" className="text-sm font-semibold">
+            {commissionReadiness?.status === "READY" ? "Approved commission plan active — checkout settlement gate satisfied"
+              : commissionReadiness?.status === "MISSING" ? "No commission plan exists for this store"
+              : commissionReadiness?.status === "APPROVED_NOT_ACTIVE" ? "Commission plan approved but not activated"
+              : commissionReadiness?.status === "OUTSIDE_EFFECTIVE_PERIOD" ? "Plan exists but is not currently effective"
+              : commissionReadiness?.status === "ENTITLEMENT_MISMATCH" ? "Subscription entitlement does not match an effective approved plan"
+              : "Commission plan pending independent review or activation"}
+          </p>
+          {commissionReadiness?.planReference ? <p className="text-sm">Policy reference: {commissionReadiness.planReference}</p> : null}
+          {!commissionReadiness?.ready && publishedOfferCount > 0
+            ? <p className="text-sm">This store has {publishedOfferCount} published offer(s), but checkout settlement is blocked until the policy is ready.</p>
+            : null}
+          <div className="flex flex-wrap gap-4 text-sm font-semibold">
+            {commissionReadiness?.planId
+              ? <Link className="underline underline-offset-4" href={`/admin/commission-plans/${encodeURIComponent(commissionReadiness.planId)}`}>Review this commission plan</Link>
+              : <Link className="underline underline-offset-4" href={`/admin/commission-plans?storeId=${encodeURIComponent(id)}`}>Prepare commission plan for this store</Link>}
+            <Link className="underline underline-offset-4" href="/admin/commission-plans">View commission policies</Link>
+          </div>
+          <p className="text-xs text-[var(--kt-text-muted)]">Draft creation, independent approval, activation, and any subscription restrictions remain server-authoritative.</p>
+        </div>}
     </OperationalPanel>
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
       <dl className="grid gap-4 sm:grid-cols-2">
