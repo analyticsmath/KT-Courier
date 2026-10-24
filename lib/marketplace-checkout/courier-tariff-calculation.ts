@@ -19,7 +19,7 @@ export function calculateMarketplaceCourierTariff(input: {
 }) {
   const { service, parcel } = input;
   if (!service.active || parcel.status !== "CLASSIFIED" || !parcel.sizeClass || !Number.isFinite(parcel.weightKg) || Number(parcel.weightKg) <= 0) {
-    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The vendor's packed dimensions and weight must be verified before courier delivery can be priced. Contact the store to arrange packaging verification.");
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The vendor's packed dimensions and weight must be verified before courier delivery can be priced. Contact the store to arrange packaging verification.", "PACKAGING_REVIEW_REQUIRED");
   }
   const tariff = service.tariffs[parcel.sizeClass];
   const d = (value: string | number) => new Prisma.Decimal(value);

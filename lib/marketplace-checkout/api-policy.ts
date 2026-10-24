@@ -66,7 +66,7 @@ export function marketplaceError(error: unknown): NextResponse {
   }
   if (error instanceof MarketplaceCheckoutError) {
     const status = error.code.includes("ACCESS") ? 404 : error.code.includes("CONFLICT") ? 409 : error.code.includes("LOCKED") || error.code.includes("BLOCKED") ? 503 : 422;
-    return marketplaceJson({ error: error.message, code: error.code }, status);
+    return marketplaceJson({ error: error.message, code: error.code, ...(error.reason ? { reason: error.reason } : {}) }, status);
   }
   if (process.env.NODE_ENV !== "production") {
     console.error("[marketplaceError]", error);

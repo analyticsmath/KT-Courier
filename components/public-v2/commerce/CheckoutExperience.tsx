@@ -261,6 +261,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(mappedAddress?.placeId && mappedAddress.latitude != null && mappedAddress.longitude != null ? { placeId: mappedAddress.placeId, latitude: mappedAddress.latitude, longitude: mappedAddress.longitude } : {}),
           recipientName: contactName.trim() || "Recipient",
           line1: addrLine1.trim(),
           line2: addrLine2.trim() || undefined,
@@ -278,7 +279,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED" && err.reason !== "PACKAGING_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to save delivery address.");
       }
 
@@ -328,7 +329,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        if (err.code === "CHECKOUT_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
+        if (err.code === "CHECKOUT_REVIEW_REQUIRED" && err.reason !== "PACKAGING_REVIEW_REQUIRED") setDeliveryReviewRequired(true);
         throw new Error(err.error || err.message || "Failed to calculate delivery quotes.");
       }
 

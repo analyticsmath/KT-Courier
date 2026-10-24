@@ -96,6 +96,14 @@ describe("checkout address safety", () => {
     expect(maps.geocode).not.toHaveBeenCalled();
   });
 
+  it("uses selected place evidence only for provider verification and persists server coordinates", async () => {
+    const db = fixture(); const address = { ...input.address, placeId: "ChIJ-building", latitude: -26.1, longitude: 28.1 };
+    await updateMarketplaceCheckoutAddress({ ...input, address }, db as never);
+    expect(maps.geocode).toHaveBeenCalledWith(address);
+    const stored = db.marketplaceCheckoutAddressSnapshot.create.mock.calls[0][0].data;
+    expect(stored.protectedCoordinates).toEqual({ latitude: -26.2, longitude: 28.04 });
+    expect(stored).not.toHaveProperty("placeId"); expect(stored).not.toHaveProperty("latitude"); expect(stored).not.toHaveProperty("longitude");
+  });
   it("takes coverage from active server regions and commits snapshot and version together", async () => {
     const db = fixture();
     await expect(

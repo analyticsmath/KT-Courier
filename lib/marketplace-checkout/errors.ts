@@ -12,7 +12,7 @@ export type MarketplaceCheckoutErrorCode =
   | "CHECKOUT_VERIFICATION_BLOCKED" | "CHECKOUT_VERIFICATION_INVALID" | "CHECKOUT_LEGAL_BLOCKED";
 
 export class MarketplaceCheckoutError extends Error {
-  constructor(readonly code: MarketplaceCheckoutErrorCode, message: string) {
+  constructor(readonly code: MarketplaceCheckoutErrorCode, message: string, readonly reason?: "PACKAGING_REVIEW_REQUIRED") {
     super(message);
     this.name = "MarketplaceCheckoutError";
   }

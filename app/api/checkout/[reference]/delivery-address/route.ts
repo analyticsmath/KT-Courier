@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { type NextRequest } from "next/server";
 import { updateMarketplaceCheckoutAddress } from "@/lib/marketplace-checkout/checkout.service";
 import { assertExactKeys, enforceMarketplaceMutation, integerField, marketplaceError, marketplaceJson, marketplaceOwner, readMarketplaceJson, stringField } from "@/lib/marketplace-checkout/api-policy";
@@ -8,8 +10,11 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ref
     const owner = await marketplaceOwner(request, "checkout");
     if (!owner) return marketplaceJson({ error: "Checkout access is required." }, 401);
     const body = await readMarketplaceJson(request);
-    assertExactKeys(body, ["recipientName", "line1", "line2", "suburb", "city", "province", "postalCode", "deliveryInstructions", "serviceAreaReference", "operationId", "requestHash", "checkoutVersion"]);
+    assertExactKeys(body, ["recipientName", "line1", "line2", "suburb", "city", "province", "postalCode", "deliveryInstructions", "serviceAreaReference", "operationId", "requestHash", "checkoutVersion", "placeId", "latitude", "longitude"]);
     const optional = (key: string, max: number) => body[key] === undefined || (typeof body[key] === "string" && !body[key].trim()) ? undefined : stringField(body, key, max);
+    const evidence = z.object({ placeId: z.string().regex(/^[A-Za-z0-9_.:-]{5,240}$/), latitude: z.number().finite().min(-90).max(90), longitude: z.number().finite().min(-180).max(180) }).safeParse({ placeId: body.placeId, latitude: body.latitude, longitude: body.longitude });
+    const hasEvidence = [body.placeId, body.latitude, body.longitude].some(value => value !== undefined);
+    if (hasEvidence && !evidence.success) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Select the delivery address again to confirm its map location.");
     const { reference } = await context.params;
     const checkout = await updateMarketplaceCheckoutAddress({
       reference,
@@ -20,6 +25,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ ref
         expectedVersion: integerField(body, "checkoutVersion"),
       },
       address: {
+        ...(hasEvidence && evidence.success ? evidence.data : {}),
         recipientName: stringField(body, "recipientName", 120),
         line1: stringField(body, "line1", 180),
         line2: optional("line2", 180),

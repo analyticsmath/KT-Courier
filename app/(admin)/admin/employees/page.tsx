@@ -1,3 +1,4 @@
+import { CommercialReviewerAccessForm } from "@/components/admin/CommercialReviewerAccessForm";
 import { NotificationReviewerAccessForm } from "@/components/admin/NotificationReviewerAccessForm";
 import type { Metadata } from "next";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
@@ -28,6 +29,7 @@ export default async function AdminEmployeesPage() {
         { id: "last-login", header: "Last login", priority: "optional", cell: (employee) => employee.lastLoginAt ? new Date(employee.lastLoginAt).toLocaleDateString("en-ZA") : "Never" },
       ]} />
     </OperationalPanel>
+    {actor.role === "SUPER_ADMIN" && <OperationalPanel title="Commercial reviewer access"><CommercialReviewerAccessForm employees={employees.filter(employee => employee.role === "ADMIN" && employee.status === "ACTIVE").map(employee => ({ id: employee.id, label: `${employee.name ?? "Administrator"} · ${employee.email}` }))} /></OperationalPanel>}
     {actor.role === "SUPER_ADMIN" && <OperationalPanel title="Notification reviewer access" description="Grant an existing active administrator permission to publish approved notification templates and approve delivery routes. Independent approval and activation rules still apply."><NotificationReviewerAccessForm employees={employees.filter(employee => employee.role === "ADMIN" && employee.status === "ACTIVE").map(employee => ({ id: employee.id, label: `${employee.name ?? "Administrator"} · ${employee.email}` }))} /></OperationalPanel>}
   </ProtectedPageFrame>;
 }

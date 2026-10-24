@@ -16,6 +16,14 @@ describe("checkout optional address fields", () => {
     expect((await send({ line2: "", suburb: "  ", deliveryInstructions: "", postalCode: "2001" })).status).toBe(200);
     expect(update.mock.calls[0][0].address).toMatchObject({ line2: undefined, suburb: undefined, deliveryInstructions: undefined, postalCode: "2001" });
   });
+  it("forwards complete map selection evidence for server provider verification", async () => {
+    const evidence = { placeId: "ChIJ-test-building", latitude: -26.1196, longitude: 28.0358 };
+    expect((await send(evidence)).status).toBe(200); expect(update.mock.calls[0][0].address).toMatchObject(evidence);
+  });
+  it("rejects partial and invalid marker evidence before mutation", async () => {
+    for (const input of [{ placeId: "ChIJ-test" }, { placeId: "ChIJ-test", latitude: 91, longitude: 28 }, { latitude: -26, longitude: 28 }]) expect((await send(input)).status).toBe(422);
+    expect(update).not.toHaveBeenCalled();
+  });
   it("continues to reject wrong types and client-authored fees without a mutation", async () => {
     expect((await send({ line2: 12 })).status).toBe(422);
     expect((await send({ deliveryFee: "0.01" })).status).toBe(422);

@@ -366,6 +366,9 @@ export async function updateMarketplaceCheckoutAddress(
     owner: CheckoutOwner;
     operation: CheckoutOperation;
     address: {
+      placeId?: string;
+      latitude?: number;
+      longitude?: number;
       recipientName: string;
       line1: string;
       line2?: string;
@@ -407,7 +410,14 @@ export async function updateMarketplaceCheckoutAddress(
     {
       ...input,
       address: {
-        ...input.address,
+        recipientName: input.address.recipientName,
+        line1: input.address.line1,
+        line2: input.address.line2,
+        suburb: input.address.suburb,
+        city: input.address.city,
+        province: input.address.province,
+        postalCode: input.address.postalCode,
+        deliveryInstructions: input.address.deliveryInstructions,
         protectedCoordinates,
         serviceAreaReference: coverage.regionId,
       },
