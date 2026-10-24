@@ -21,6 +21,7 @@ type StoreOrderOperationalCase = Readonly<{
   updatedAt: Date;
   storeOrder?: Readonly<{
     publicReference: string;
+    operationalScope: string;
     status: string;
     acceptanceStatus: string;
     preparationStatus: string;
@@ -36,15 +37,17 @@ export default async function StoreOrderReconciliationPage() {
     take: 100,
     select: {
       id: true, publicReference: true, reasonCode: true, status: true, priority: true, safeSummary: true, createdAt: true, updatedAt: true,
-      storeOrder: { select: { publicReference: true, status: true, acceptanceStatus: true, preparationStatus: true, deliveryBridgeStatus: true, store: { select: { name: true } } } },
+      storeOrder: { select: { publicReference: true, operationalScope: true, status: true, acceptanceStatus: true, preparationStatus: true, deliveryBridgeStatus: true, store: { select: { name: true } } } },
     },
   });
   return <ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Marketplace operations" title="Store-order reconciliation" description="Review fulfilment discrepancies for marketplace store orders. Financial issues are reviewed in the finance reconciliation desks." />
+    <p>Historical records remain available for reference. They do not enter new fulfilment or settlement queues; their original case status is preserved.</p>
     <OperationalPanel title="Operational reconciliation cases" description="This read-only queue shows order references, fulfilment status, discrepancy summaries and timestamps. Use the authorised order workflow for any action.">
       <EditorialTable caption="Marketplace store-order operational reconciliation cases" mobileMode="stack" rows={cases} emptyState={<ProtectedState kind="empty" title="No store-order reconciliation cases" description="No canonical operational reconciliation case is available." />} columns={[
         { id: "reference", header: "Case", priority: "primary", cell: (item) => <span className="font-mono text-xs">{item.publicReference}</span> },
         { id: "storeOrder", header: "Marketplace store order", priority: "primary", cell: (item) => <div><span className="block break-all font-mono text-xs">{item.storeOrder?.publicReference ?? "Store order unavailable"}</span><small className="block mt-1">{item.storeOrder?.store?.name ?? "Store unavailable"}</small></div> },
+        { id: "scope", header: "Order scope", priority: "secondary", cell: (item) => item.storeOrder?.operationalScope === "HISTORICAL" ? "Historical record · read only" : "Live operations" },
         { id: "fulfilment", header: "Operational state", priority: "secondary", cell: (item) => item.storeOrder ? <div><ProtectedStatus label={presentCommerceStatus(item.storeOrder.status).label} tone={presentCommerceStatus(item.storeOrder.status).tone} /><small>{item.storeOrder.acceptanceStatus} · {item.storeOrder.preparationStatus} · {item.storeOrder.deliveryBridgeStatus}</small></div> : "Unavailable" },
         { id: "reason", header: "Discrepancy", priority: "secondary", cell: (item) => item.reasonCode },
         { id: "summary", header: "Safe summary", priority: "optional", cell: (item) => item.safeSummary },

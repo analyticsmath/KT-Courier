@@ -1327,6 +1327,8 @@ export async function seedFullDemo(options: SeedFullDemoOptions = {}) {
     const storeOrder = await prisma.marketplaceStoreOrder.create({
       data: {
         publicReference: storeOrderRef,
+        operationalScope: "HISTORICAL",
+        historySourceReference: "DEMO_SIMULATION_20260912:" + orderRef,
         marketplaceOrderId: mktOrder.id,
         checkoutStoreGroupId: storeGroup.id,
         storeId: storeObj.id,

@@ -10,6 +10,7 @@ export function dueMarketplaceSettlementJobsWhere(now = new Date()): Prisma.Mark
   return {
     status: { in: ["PENDING", "RETRYABLE"] }, nextAttemptAt: { lte: now },
     marketplaceStoreOrder: {
+      operationalScope: "LIVE",
       acceptanceStatus: { notIn: ["REJECTED", "TIMED_OUT"] },
       preparationStatus: { not: "ABORTED" },
       OR: [

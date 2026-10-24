@@ -67,6 +67,7 @@ async function lockOrder(tx: Phase21Database, publicReference: string, storeId?:
     }
     throw new StoreOrderError("STORE_ORDER_NOT_FOUND", "Store order was not found.");
   }
+  assertStoreOrder(order.operationalScope !== "HISTORICAL", "STORE_ORDER_HISTORICAL_READ_ONLY", "This historical order is retained for reference and cannot start new operational actions.");
   return order;
 }
 
@@ -824,7 +825,7 @@ export function projectMarketplaceParentStatus(storeOrders: readonly Readonly<{ 
 }
 
 export async function listStoreOrderQueue(storeId: string) {
-  const rows = await model(db, "marketplaceStoreOrder").findMany({ where: { storeId }, select: { publicReference: true, acceptanceStatus: true, preparationStatus: true, resolutionStatus: true, deliveryBridgeStatus: true, reviewDeadlineAt: true, scheduledFulfilmentAt: true, createdAt: true, acceptedPreparationMinutes: true }, orderBy: [{ reviewDeadlineAt: "asc" }, { scheduledFulfilmentAt: "asc" }, { createdAt: "asc" }, { publicReference: "asc" }] });
+  const rows = await model(db, "marketplaceStoreOrder").findMany({ where: { storeId, operationalScope: "LIVE" }, select: { publicReference: true, acceptanceStatus: true, preparationStatus: true, resolutionStatus: true, deliveryBridgeStatus: true, reviewDeadlineAt: true, scheduledFulfilmentAt: true, createdAt: true, acceptedPreparationMinutes: true }, orderBy: [{ reviewDeadlineAt: "asc" }, { scheduledFulfilmentAt: "asc" }, { createdAt: "asc" }, { publicReference: "asc" }] });
   const sections: Record<string, any[]> = { needsReview: [], customerActionRequired: [], accepted: [], preparing: [], readyForPickup: [], handoffInProgress: [], completedHandoff: [], rejectedOrCancelled: [], reconciliationRequired: [] };
   for (const row of rows) {
     const section = row.resolutionStatus === "RECONCILIATION_REQUIRED" ? "reconciliationRequired"

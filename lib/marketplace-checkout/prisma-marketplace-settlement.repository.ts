@@ -38,6 +38,7 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
     resolveOperationReceipt: async ({ marketplaceStoreOrderReference, operationId, requestHash }): Promise<SettlementOperationReceipt> => {
       const client = current();
       const storeOrder = await client.marketplaceStoreOrder.findUnique({ where: { publicReference: marketplaceStoreOrderReference }, include: { marketplaceOrder: { select: { checkoutId: true } } } });
+      if (storeOrder?.operationalScope === "HISTORICAL") throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Historical orders cannot create new settlement movements.");
       if (!storeOrder) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The marketplace store order does not exist.");
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${storeOrder.marketplaceOrder.checkoutId} FOR UPDATE`);
       const existing = await client.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId: storeOrder.marketplaceOrder.checkoutId, operationId } } });
@@ -53,6 +54,7 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
       const client = current();
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceStoreOrder" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
       const row = await client.marketplaceStoreOrder.findUnique({ where: { publicReference }, include: { checkoutStoreGroup: true, deliveryBridge: { include: { courierOrder: { include: { cashOnDelivery: true } } } }, marketplaceOrder: { include: { checkout: { include: { storeGroups: true } }, payment: { include: marketplaceDigitalReceiptInclude } } }, store: true, settlementSnapshots: { include: { sourceSettlementEvidence: true }, orderBy: { createdAt: "desc" }, take: 1 }, lines: { include: { financialAllocations: true } } } });
+      if (row?.operationalScope === "HISTORICAL") throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Historical orders cannot create new settlement movements.");
       const snapshot = row?.settlementSnapshots[0]; if (!row || !snapshot) return null;
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceSettlementSnapshot" WHERE "id" = ${snapshot.id} FOR UPDATE`);
       await client.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${row.marketplaceOrder.paymentId} FOR UPDATE`);
@@ -105,6 +107,7 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
     recordReconciliationRequired: async ({ marketplaceStoreOrderReference, operationId, safeError }) => {
       const client = database;
       const row = await client.marketplaceStoreOrder.findUnique({ where: { publicReference: marketplaceStoreOrderReference }, include: { marketplaceOrder: true, settlementSnapshots: { orderBy: { createdAt: "desc" }, take: 1 } } });
+      if (row?.operationalScope === "HISTORICAL") throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Historical orders cannot create new settlement movements.");
       const snapshot = row?.settlementSnapshots[0]; if (!row || !snapshot) return;
       const job = await client.marketplaceStoreSettlementJob.findUnique({ where: { marketplaceStoreOrderId_settlementVersion: { marketplaceStoreOrderId: row.id, settlementVersion: snapshot.settlementVersion } }, select: { id: true, attemptCount: true } });
       const attemptCount = (job?.attemptCount ?? 0) + 1;

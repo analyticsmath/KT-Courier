@@ -9,7 +9,7 @@ import type { ProcessorHandlerContext, ProcessorHandlerOutcome } from "@/lib/pro
 type Batch = Pick<ProcessorHandlerContext, "mode" | "batchSize">;
 const outcome = (itemsExamined: number): ProcessorHandlerOutcome => ({ itemsExamined, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: 0, itemsRetried: 0, itemsReconciled: 0, safeSummary: "" });
 export function uninitializedMarketplaceOrdersWhere(reconciliationRequired = false): Prisma.MarketplaceStoreOrderWhereInput {
-  return { operationalPolicyId: null, resolutionStatus: reconciliationRequired ? "RECONCILIATION_REQUIRED" : { not: "RECONCILIATION_REQUIRED" }, status: { in: ["SETTLED", "PENDING_SETTLEMENT"] },
+  return { operationalScope: "LIVE", operationalPolicyId: null, resolutionStatus: reconciliationRequired ? "RECONCILIATION_REQUIRED" : { not: "RECONCILIATION_REQUIRED" }, status: { in: ["SETTLED", "PENDING_SETTLEMENT"] },
     marketplaceOrder: { payment: { status: "SUCCEEDED" } },
     OR: [{ status: "SETTLED" }, { marketplaceOrder: { cashRequired: { gt: 0 } } }],
   };

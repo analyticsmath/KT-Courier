@@ -14,6 +14,7 @@ describe("automatic marketplace settlements", () => {
   });
   it("keeps unfunded or canceled cash orders out of the automatic settlement queue", () => {
     expect(dueMarketplaceSettlementJobsWhere().marketplaceStoreOrder).toEqual({
+      operationalScope: "LIVE",
       acceptanceStatus: { notIn: ["REJECTED", "TIMED_OUT"] }, preparationStatus: { not: "ABORTED" },
       OR: [{ marketplaceOrder: { cashRequired: 0 } }, { deliveryBridge: { courierOrder: { cashOnDelivery: { status: "RECONCILED", remittanceDiscrepancy: 0 } } } }],
     });

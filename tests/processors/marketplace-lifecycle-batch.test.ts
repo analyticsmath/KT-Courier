@@ -58,6 +58,8 @@ it("reports safe initialization reason codes without copying private exception m
   expect(result).toMatchObject({ itemsCompleted: 1, itemsRetried: 1, itemsReconciled: 1 });
   expect(mocks.reconcile).toHaveBeenCalledWith(expect.objectContaining({ storeOrderReference: "legacy", operationId: "marketplace-initialize-reconcile:legacy", reasonCode: "STORE_ORDER_SNAPSHOT_INVALID" }));
   expect(JSON.stringify(mocks.reconcile.mock.calls)).not.toContain("private original address");
+  expect(uninitializedMarketplaceOrdersWhere().operationalScope).toBe("LIVE");
+  expect(uninitializedMarketplaceOrdersWhere(true).operationalScope).toBe("LIVE");
   expect(uninitializedMarketplaceOrdersWhere().resolutionStatus).toEqual({ not: "RECONCILIATION_REQUIRED" });
   expect(uninitializedMarketplaceOrdersWhere(true).resolutionStatus).toBe("RECONCILIATION_REQUIRED");
  });

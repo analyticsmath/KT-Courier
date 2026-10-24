@@ -9768,6 +9768,9 @@ model MarketplaceStoreOrder {
   refundPolicyReference      String?
   // Phase 21 keeps Phase 20 commercial/settlement status intact. These
   // orthogonal operational dimensions are the only mutable fulfilment state.
+  /// Historical imports/simulations are retained for reference, never replayed as new work.
+  operationalScope           String                              @default("LIVE")
+  historySourceReference     String?
   operationalPolicyId        String?
   operationalPolicyReference String?
   operationalPolicyVersion   Int?
@@ -9812,6 +9815,7 @@ model MarketplaceStoreOrder {
   dispatchCandidateEvaluations DispatchCandidateEvaluation[]
 
   @@unique([marketplaceOrderId, storeId], map: "MarketplaceStoreOrder_order_store_key")
+  @@index([operationalScope, operationalPolicyId])
   @@index([storeId, status])
   @@index([storeId, acceptanceStatus, reviewDeadlineAt], map: "MarketplaceStoreOrder_store_review_deadline_idx")
   @@index([storeId, reviewDeadlineAt, scheduledFulfilmentAt, createdAt, publicReference], map: "MarketplaceStoreOrder_store_queue_idx")
