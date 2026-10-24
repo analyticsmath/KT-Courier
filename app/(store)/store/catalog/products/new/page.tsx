@@ -30,7 +30,7 @@ export default async function NewStoreCatalogProductPage() {
     }),
     prisma.catalogCategory.findMany({
       where: { status: { in: ["ACTIVE", "DRAFT"] } },
-      select: { id: true, name: true, path: true, parentId: true, displayOrder: true, productTypeMappings: { select: { productTypeDefinitionId: true, isPrimary: true } } },
+      select: { id: true, name: true, path: true, parentId: true, displayOrder: true, productTypeMappings: { select: { productTypeDefinitionId: true, isPrimary: true, productTypeDefinition: { select: { code: true } } } } },
       orderBy: { path: "asc" },
     }),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
@@ -63,7 +63,7 @@ export default async function NewStoreCatalogProductPage() {
           draftOwnerKey={`${encodeURIComponent(user.id)}:${encodeURIComponent(store.id)}`}
           packageLimits={packageLimits}
           productTypes={authoringTypes}
-          categories={categories.map(category => ({ ...category, productTypeIds: (category.productTypeMappings.some(mapping => mapping.isPrimary) ? category.productTypeMappings.filter(mapping => mapping.isPrimary) : category.productTypeMappings).map(mapping => mapping.productTypeDefinitionId) }))}
+          categories={categories.map(category => ({ ...category, productTypeCodes: (category.productTypeMappings.some(mapping => mapping.isPrimary) ? category.productTypeMappings.filter(mapping => mapping.isPrimary) : category.productTypeMappings).map(mapping => mapping.productTypeDefinition.code) }))}
           inventoryLocations={inventoryLocations}
         />
       ) : (
