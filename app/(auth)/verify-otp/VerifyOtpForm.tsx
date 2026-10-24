@@ -15,7 +15,6 @@ export function VerifyOtpForm({
   email,
   maskedEmail,
   returnUrl,
-  deliveryPending = false,
 }: {
   email: string;
   maskedEmail: string;
@@ -26,11 +25,9 @@ export function VerifyOtpForm({
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [codeError, setCodeError] = useState("");
-  const [rootError, setRootError] = useState(
-    deliveryPending
-      ? "Your account was created, but the verification email was not accepted by the mail provider. Request another code below."
-      : "",
-  );
+  // The public deliveryPending flag protects account enumeration; it does
+  // not imply the provider rejected the email. Only display actual failures.
+  const [rootError, setRootError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

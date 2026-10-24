@@ -44,10 +44,15 @@ describe.skipIf(!enabled)("dashboard address persistence in isolated PostgreSQL"
   });
   it("persists the store pickup point and clears it when changed to an unmapped address", async () => {
     const owner = await user("STORE"); await prisma.store.create({ data: { ownerUserId: owner.id, name: "Isolated pin store", slug: `pin-store-${randomUUID()}`, status: "ACTIVE" } });
-    const saved = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse(pin));
+    const saved = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse({
+      ...pin, city: "Johannesburg", province: "Gauteng",
+    }));
     expect(saved).toMatchObject({ latitude: pin.latitude, longitude: pin.longitude });
     expect((await getStorePickupAddress(owner.id))?.pickupAddress).toMatchObject({ id: saved!.id, latitude: pin.latitude });
-    const updated = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse({ line1: "New manual pickup", latitude: null, longitude: null, placeId: null }));
+    const updated = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse({
+      line1: "New manual pickup", city: "Johannesburg", province: "Gauteng",
+      latitude: null, longitude: null, placeId: null,
+    }));
     expect(updated).toMatchObject({ id: saved!.id, latitude: null, longitude: null, placeId: null });
   });
 });
