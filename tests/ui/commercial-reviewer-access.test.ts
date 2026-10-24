@@ -17,3 +17,16 @@ it("restores the original commercial override while preserving unrelated permiss
     expect(localStorage.getItem("kt-temporary-commercial-review:reviewer")).toBeNull();
   } finally { await act(async () => root.unmount()); host.remove(); localStorage.clear(); vi.unstubAllGlobals(); }
 });
+it("requires a reviewed baseline for receipt-free recovery and preserves unrelated overrides", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); localStorage.clear();
+  const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ data: { overrides: [{ permissionKey: "other.read", effect: "DENY", reason: "retain" }, { permissionKey: "commercial_configuration.manage", effect: "ALLOW", reason: "temporary" }] } }) }).mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+  vi.stubGlobal("fetch", fetcher); const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  try {
+    await act(async () => root.render(createElement(CommercialReviewerAccessForm, { employees: [{ id: "reviewer", label: "Reviewer" }] })));
+    const remove = [...host.querySelectorAll("button")].find(item => item.textContent === "Remove reviewed commercial override")!;
+    expect(remove.disabled).toBe(true);
+    await act(async () => host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());
+    await act(async () => remove.click());
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({ mode: "REPLACE", overrides: [{ permissionKey: "other.read", effect: "DENY", reason: "retain" }] });
+  } finally { await act(async () => root.unmount()); host.remove(); localStorage.clear(); vi.unstubAllGlobals(); }
+});
