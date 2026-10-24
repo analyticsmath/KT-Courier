@@ -13,6 +13,7 @@ import {
   OrderTransitionError,
 } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { getCourierPaymentReadiness, requirePaymentBeforeCourierProgress } from "@/lib/services/courier-payment-readiness.service";
 import { describeManualDispatchReason, isManualDispatchBlockerResolved } from "@/lib/dispatch/automation-policy";
 
 const ORDER_FULL_INCLUDE = {
@@ -164,6 +165,8 @@ export async function updateAdminOrderStatus(
   let updated: AdminOrderStatusUpdateOrder;
   try {
     updated = await prisma.$transaction(async (tx) => {
+      const paymentReadiness = await getCourierPaymentReadiness(orderId, tx);
+      requirePaymentBeforeCourierProgress(input.status, paymentReadiness);
       await transitionOrderStatusInTx(tx, {
         orderId,
         fromStatus: existing.status,

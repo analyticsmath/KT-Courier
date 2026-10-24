@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { OrderAssignmentStatus, OrderAssignmentEventType, DriverStatus } from "@/types/db";
 import type { PrismaClient } from "@prisma/client";
 import {
@@ -74,6 +75,13 @@ export async function assertOrderAssignable(orderId: string): Promise<
     };
   }
 
+  const readiness = await getCourierPaymentReadiness(orderId);
+  if (!readiness.dispatchEligible) {
+    return { ok: false, error: readiness.status === "RECONCILIATION_REQUIRED"
+      ? "Payment requires financial reconciliation before dispatch. Review the payment ledger."
+      : "Payment has not been verified in the ledger. Complete digital payment before dispatch." };
+  }
+
   return { ok: true, order };
 }
 
@@ -130,6 +138,12 @@ export async function createAssignmentInTx(
     reassignedFromId?: string;
   }
 ) {
+  // Repeat inside the write transaction: no direct call may bypass the
+  // payment gate even when it skipped the admin eligibility preflight.
+  const readiness = await getCourierPaymentReadiness(params.orderId, tx);
+  if (!readiness.dispatchEligible) {
+    throw new Error("Payment is not ledger-confirmed for this courier order. Dispatch is blocked.");
+  }
   const assignment = await tx.orderAssignment.create({
     data: {
       orderId: params.orderId,

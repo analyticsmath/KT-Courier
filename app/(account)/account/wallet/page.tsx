@@ -1,3 +1,4 @@
+import { customerRefundWalletDisplayState } from "@/lib/services/customer-wallet-presentation";
 import { listCustomerRecentPayments } from "@/lib/services/customer-recent-payments.service";
 import { EditorialTable, MetricTile, OperationalPanel, ProtectedState } from "@/components/protected-v2";
 import { CustomerAction, CustomerPage } from "@/components/protected-v2/customer/CustomerPresentation";
@@ -13,9 +14,18 @@ export default async function CustomerWalletPage() {
     listCustomerRecentPayments(user.id),
   ]);
 
+  const walletState = customerRefundWalletDisplayState(wallet);
   return (
     <CustomerPage eyebrow="Customer funds" title="Wallet" description="Source-backed refund credits held for your account in ZAR.">
-      {!wallet.readable ? <ProtectedState kind="unavailable" title="Wallet records are unavailable" description="A readable customer wallet is not available for this account right now." /> : <>
+      {walletState !== "AVAILABLE" ? (
+        <ProtectedState
+          kind={walletState === "EMPTY" ? "empty" : "unavailable"}
+          title={walletState === "EMPTY" ? "No refund credits yet" : "Wallet records are unavailable"}
+          description={walletState === "EMPTY"
+            ? "Your refund-credit wallet is created when a qualifying refund needs to be recorded. Payments are listed below separately."
+            : "Your provisioned refund-credit wallet cannot be read right now. Please contact support."}
+        />
+      ) : <>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <MetricTile label="Available balance" value={formatCustomerMoney(wallet.availableBalance, wallet.currency)} description="Refund credits available in this read-only wallet" />
           <MetricTile label="Refunds being held" value={formatCustomerMoney(wallet.refundHeldBalance, wallet.currency)} description="Reserved refunds are not spendable" />

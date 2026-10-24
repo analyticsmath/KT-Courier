@@ -13,6 +13,7 @@ import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { ADMIN_STATUS_FILTER_OPTIONS } from "@/lib/constants/order-status";
 import { listOrdersWithAssignmentState } from "@/lib/services/admin-dispatch.service";
+import { listCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { formatDateTime } from "@/lib/utils/formatters";
 import { OrderStatus } from "@/types/db";
 
@@ -52,6 +53,8 @@ export default async function AdminOrdersPage({
     page,
     pageSize: PAGE_SIZE,
   });
+  const paymentReadiness = await listCourierPaymentReadiness(orders.map((order) => order.id));
+  const rows = orders.map((order) => ({ ...order, financialStatus: paymentReadiness.get(order.id) }));
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeFilters = Number(Boolean(filters.status)) + Number(Boolean(assignmentFilter)) + Number(Boolean(search));
 
@@ -69,11 +72,18 @@ export default async function AdminOrdersPage({
       <EditorialTable
         caption="Courier order queue"
         mobileMode="stack"
-        rows={orders}
+        rows={rows}
         emptyState={<ProtectedState kind="empty" title="No courier orders match this view" description="Try a different reference, status, or assignment filter." illustration={<RouteQueueIllustration />} />}
         columns={[
           { id: "reference", header: "Order", priority: "primary", cell: (order) => <div className="eo-order-reference"><Link className="eo-table-link" href={`/admin/orders/${order.id}`}>{order.orderNumber}</Link><small>{order.pickupCity ?? "Pickup unavailable"} → {order.dropoffCity ?? "Destination unavailable"}</small></div> },
           { id: "status", header: "Operational status", priority: "primary", cell: (order) => { const state = presentOrderStatus(order.status); return <ProtectedStatus label={state.label} tone={state.tone} />; } },
+          { id: "payment", header: "Payment", priority: "secondary", cell: (order) => {
+            const state = order.financialStatus;
+            return state ? <ProtectedStatus
+              label={state.status === "PAID" ? "Paid" : state.status === "CASH_DUE_ON_DELIVERY" ? "Cash on delivery" : state.status === "RECONCILIATION_REQUIRED" ? "Reconcile payment" : state.status === "PAYMENT_REQUIRED" ? "Payment required" : "Unknown"}
+              tone={state.status === "PAID" ? "success" : state.status === "CASH_DUE_ON_DELIVERY" ? "information" : "warning"}
+            /> : <ProtectedStatus label="Unknown" tone="warning" />;
+          } },
           { id: "assignment", header: "Assignment", priority: "secondary", cell: (order) => { const state = order.activeAssignment ? presentAssignmentStatus(order.activeAssignment.status) : { label: "Unassigned", tone: "warning" as const }; return <div><ProtectedStatus label={state.label} tone={state.tone} />{order.activeAssignment ? <small>{order.activeAssignment.driverDisplayName ?? order.activeAssignment.driverCode}</small> : null}</div>; } },
           { id: "account", header: "Account context", priority: "secondary", cell: (order) => order.storeName ?? order.customerName ?? "Account unavailable" },
           { id: "region", header: "Service region", priority: "optional", cell: (order) => order.deliveryRegionName ?? "Not matched" },

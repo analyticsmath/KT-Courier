@@ -16,6 +16,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getAdminOrderDetail } from "@/lib/services/admin-orders.service";
+import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { listAdminDeliveryEvidence } from "@/lib/services/admin-delivery-evidence.service";
 import { listAdminHandoverEmailEvidence } from "@/lib/services/admin-handover-email-evidence.service";
 import { getOrderActiveAssignment, getOrderAssignmentHistory } from "@/lib/services/admin-dispatch.service";
@@ -42,7 +43,9 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   // This page already requires ORDERS_READ. Restrict gallery reads to
   // order-owned delivery-proof objects at the private-media boundary.
-  const [deliveryEvidence, handoverEmails] = await Promise.all([listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id)]);
+  const [deliveryEvidence, handoverEmails, paymentReadiness] = await Promise.all([
+    listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id), getCourierPaymentReadiness(id),
+  ]);
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
@@ -52,6 +55,22 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     <ProtectedContentGrid
       contextRail={<>
         <OperationalPanel title="Current status"><ProtectedStatus label={orderState.label} tone={orderState.tone} /><p className="eo-panel-copy">{orderState.description}</p></OperationalPanel>
+        <OperationalPanel title="Payment verification" description="Source-backed payment authorization; a payment link, browser return or provider response alone does not prove settlement.">
+          <ProtectedStatus
+            label={paymentReadiness.status === "PAID" ? "Paid · ledger confirmed"
+              : paymentReadiness.status === "CASH_DUE_ON_DELIVERY" ? "Cash due on delivery · unpaid"
+              : paymentReadiness.status === "RECONCILIATION_REQUIRED" ? "Payment requires reconciliation"
+              : paymentReadiness.status === "PAYMENT_REQUIRED" ? "Digital payment required"
+              : "Payment evidence unavailable"}
+            tone={paymentReadiness.status === "PAID" ? "success" : paymentReadiness.status === "CASH_DUE_ON_DELIVERY" ? "information" : "warning"}
+          />
+          <dl className="eo-definition-list mt-3">
+            {paymentReadiness.amount && <div><dt>Digital amount</dt><dd>ZAR {paymentReadiness.amount}</dd></div>}
+            {paymentReadiness.cashDue && <div><dt>Cash due on delivery</dt><dd>ZAR {paymentReadiness.cashDue}</dd></div>}
+            {paymentReadiness.paymentReference && <div><dt>Payment reference</dt><dd><Link href={`/admin/payments?publicReference=${encodeURIComponent(paymentReadiness.paymentReference)}`} className="eo-inline-action">{paymentReadiness.paymentReference}</Link></dd></div>}
+            <div><dt>Dispatch eligibility</dt><dd>{paymentReadiness.dispatchEligible ? "Payment requirement satisfied" : "Blocked until verified"}</dd></div>
+          </dl>
+        </OperationalPanel>
         <OperationalPanel title="Administrative state" tone="subtle"><dl className="eo-definition-list"><div><dt>Source</dt><dd>{order.source}</dd></div><div><dt>Region</dt><dd>{order.deliveryRegionName ?? "Not matched"}</dd></div><div><dt>Scheduled</dt><dd>{order.scheduledFor ? formatDateTime(order.scheduledFor) : "Not scheduled"}</dd></div></dl></OperationalPanel>
       </>}
     >
@@ -78,7 +97,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           ) : null}
           {activeAssignment ? <div className="eo-assignment-summary"><div><strong>{activeAssignment.driverDisplayName ?? activeAssignment.driverCode}</strong><p>{activeAssignment.driverCode} · {activeAssignment.vehicleType ?? "Vehicle not recorded"}</p></div><ProtectedStatus {...(() => { const state = presentAssignmentStatus(activeAssignment.status); return { label: state.label, tone: state.tone }; })()} /></div> : <ProtectedState kind="unavailable" title="No active assignment" description="The order has no active assignment in the canonical dispatch projection." />}
-          <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign} canReassign={canReassign} /></div>
+          {!paymentReadiness.dispatchEligible && <p role="status" className="mt-4 text-sm font-medium text-[var(--eo-text-secondary)]">Dispatch is unavailable until the required digital payment is confirmed in the ledger. Approved full cash-on-delivery orders remain eligible.</p>}
+          <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign && paymentReadiness.dispatchEligible} canReassign={canReassign && paymentReadiness.dispatchEligible} /></div>
           {!order.deliveryRegionId ? <p role="status" className="mt-3">This order has no matched delivery region. Resolve its coverage before assigning a driver.</p> : null}
           {eligible ? <div className="mt-4"><DispatchDriverReadiness drivers={eligible} /></div> : null}
           {assignmentHistory.length ? <ActivityTimeline ariaLabel="Assignment history" items={assignmentHistory.map((assignment) => { const state = presentAssignmentStatus(assignment.status); return { id: assignment.id, title: `${assignment.driverDisplayName ?? assignment.driverCode} — ${state.label}`, description: assignment.cancellationReason ?? assignment.rejectionReason ?? undefined, timestamp: formatDateTime(assignment.assignedAt), tone: state.tone }; })} /> : null}
