@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { assertSandboxPaymentAcceptance, AcceptanceEvidenceSchema, evidenceIsCurrent, type AcceptanceRecord } from "@/lib/production-readiness/evidence";
+import { parseEvidenceUtcInput } from "@/lib/production-readiness/evidence-time";
+import { acceptanceStorageKey, parseAcceptanceRecord, assertSandboxPaymentAcceptance, AcceptanceEvidenceSchema, evidenceIsCurrent, type AcceptanceRecord } from "@/lib/production-readiness/evidence";
 const now = new Date("2026-10-07T00:00:00Z");
 const releaseSha = "a".repeat(40);
 const evidence = { kind: "CI" as const, key: "current_ci_certification" as const, releaseSha, observedAt: "2026-10-06T23:00:00Z", expiresAt: "2026-10-07T01:00:00Z", evidenceReference: "disposable:successful-ci", reason: "Disposable certification evidence", runUrl: "https://github.com/analyticsmath/KT-Courier/actions/runs/1", conclusion: "SUCCESS" as const, skippedCriticalTests: 0 as const, testsPassed: 10 };
@@ -27,7 +28,7 @@ describe("release evidence cannot substitute fixtures, stale releases or self-re
 });
 
 describe("verified provider sandbox payment integration acceptance", () => {
-  const sandbox = { kind: "SANDBOX" as const, key: "live_paid_order_acceptance" as const, releaseSha, observedAt: evidence.observedAt, expiresAt: evidence.expiresAt, evidenceReference: "admin:verified-sandbox-payment", reason: "Provider-hosted test payment and ledger confirmation reviewed", genuineOperatorAcceptance: true as const, provider: "PAYSTACK" as const, paymentReference: "pay_verified_test123", amount: "148.35", currency: "ZAR" as const };
+  const sandbox = { kind: "SANDBOX" as const, key: "payment_integration_acceptance" as const, releaseSha, observedAt: evidence.observedAt, expiresAt: evidence.expiresAt, evidenceReference: "admin:verified-sandbox-payment", reason: "Provider-hosted test payment and ledger confirmation reviewed", genuineOperatorAcceptance: true as const, provider: "PAYSTACK" as const, paymentReference: "pay_verified_test123", amount: "148.35", currency: "ZAR" as const };
   const payment: NonNullable<Parameters<typeof assertSandboxPaymentAcceptance>[0]> = { provider: "PAYSTACK", status: "SUCCEEDED", amount: new Prisma.Decimal("148.35"), currency: "ZAR", successLedgerJournalId: "journal1", providerConfirmedAt: now, reconciliationStatus: "CLEAR", successfulAttempt: { provider: "PAYSTACK", status: "SUCCEEDED", providerEnvironment: "SANDBOX", amount: new Prisma.Decimal("148.35"), currency: "ZAR", providerReference: "provider-reference", providerConfirmedAt: now } };
   it("accepts a real provider-hosted test transaction without requiring a real charge or financial authorization", () => {
     expect(AcceptanceEvidenceSchema.safeParse(sandbox).success).toBe(true);
@@ -42,4 +43,18 @@ describe("verified provider sandbox payment integration acceptance", () => {
     const invalid = [null, { ...payment, status: "REQUIRES_ACTION" as const }, { ...payment, provider: "PAYFAST" as const }, { ...payment, amount: new Prisma.Decimal("148.34") }, { ...payment, successLedgerJournalId: null }, { ...payment, providerConfirmedAt: null }, { ...payment, reconciliationStatus: "REQUIRED" as const }, { ...payment, successfulAttempt: null }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerEnvironment: "PRODUCTION" as const } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, amount: new Prisma.Decimal("205.85") } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerReference: null } }];
     for (const candidate of invalid) expect(() => assertSandboxPaymentAcceptance(candidate, sandbox)).toThrow(/verified Paystack sandbox/);
   });
+});
+
+it("preserves the legacy sandbox draft's mode, author and version without asserting live-money acceptance", () => {
+  const legacy = { evidence: { kind: "SANDBOX", key: "live_paid_order_acceptance", releaseSha, observedAt: evidence.observedAt, expiresAt: evidence.expiresAt, evidenceReference: "admin:verified-sandbox-payment", reason: "Verified provider-hosted sandbox receipt", genuineOperatorAcceptance: true, provider: "PAYSTACK", paymentReference: "pay_verified_test123", amount: "148.35", currency: "ZAR" }, version: 1, status: "DRAFT", authorId: "author", approverId: null, approvedAt: null };
+  const record = parseAcceptanceRecord(legacy);
+  expect(record).toMatchObject({ evidence: { kind: "SANDBOX", key: "payment_integration_acceptance" }, version: 1, status: "DRAFT", authorId: "author", approverId: null });
+  expect(evidenceIsCurrent(record, releaseSha, now)).toBe(false);
+  expect(acceptanceStorageKey(record.evidence.key)).toBe("production_acceptance_live_paid_order_acceptance");
+  expect(AcceptanceEvidenceSchema.safeParse(legacy.evidence).success).toBe(false);
+});
+it("parses explicit UTC observations consistently and rejects rollover or ambiguous date input", () => {
+  expect(parseEvidenceUtcInput("2026-10-24T19:02")).toBe("2026-10-24T19:02:00.000Z");
+  expect(parseEvidenceUtcInput("2026-10-24T19:02:15")).toBe("2026-10-24T19:02:15.000Z");
+  for (const value of ["2026-02-30T12:00", "2026-10-24T25:00", "2026-10-24T19:02+05:00", "invalid"]) expect(() => parseEvidenceUtcInput(value)).toThrow(/valid UTC/);
 });
