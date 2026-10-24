@@ -155,7 +155,10 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         }
         if (!plan) {
           const exists = await db.commissionPlan.findFirst({ where: { subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${store.id}`, currency: "ZAR" }, select: { id: true } });
-          throw new MarketplaceCheckoutError(exists ? "COMMISSION_PLAN_NOT_APPROVED" : "COMMISSION_PLAN_MISSING", "The reviewed store has no approved applicable commission plan.");
+          throw new MarketplaceCheckoutError(
+            exists ? "COMMISSION_PLAN_NOT_APPROVED" : "COMMISSION_PLAN_MISSING",
+            "This store is not yet approved to accept marketplace checkout payments. KT Couriers must activate its commission agreement. No payment was taken.",
+          );
         }
         return { group, stored, store, identity, plan };
       }));
