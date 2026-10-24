@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
-  deliveryServiceDefinition: { count: vi.fn() },
+  deliveryServiceDefinition: { count: vi.fn(), findFirst: vi.fn() },
   deliveryRegion: { findMany: vi.fn() },
   parcelProfile: { findMany: vi.fn() },
   commissionPlan: { count: vi.fn() },
@@ -43,11 +43,14 @@ vi.mock("@/lib/production-readiness/evidence", () => ({
   evidenceIsCurrent: vi.fn().mockReturnValue(false),
 }));
 
+vi.mock("@/lib/marketplace-checkout/courier-tariff-policy", () => ({ marketplaceCourierTariffPolicy: vi.fn().mockResolvedValue(null) }));
+import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
 import { getProductionReadiness } from "@/lib/production-readiness/service";
 
 describe("Commercial Program Readiness Scoping", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(marketplaceCourierTariffPolicy).mockResolvedValue(null);
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
     db.deliveryRegion.findMany.mockResolvedValue([]);
     db.parcelProfile.findMany.mockResolvedValue([]);
@@ -102,5 +105,21 @@ describe("Commercial Program Readiness Scoping", () => {
     const adv = report.capabilities.find((c) => c.key === "advertising_package_configuration");
     expect(adv?.status).toBe("BLOCKED_CONFIGURATION");
     expect(adv?.reasonCode).toBe("COMMERCIAL_SCOPE_CONFLICT");
+  });
+});
+
+describe("Marketplace delivery pricing readiness", () => {
+  it("accepts the configured courier pricing model without requiring a separate matrix", async () => {
+    vi.mocked(marketplaceCourierTariffPolicy).mockResolvedValue({ enabled: true, defaultServiceKey: "CLIENT_ECONOMY", approvalReference: "reviewed-owner-approval" });
+    db.deliveryServiceDefinition.findFirst.mockResolvedValue({ id: "active-service" });
+    const result = (await getProductionReadiness()).capabilities.find(item => item.key === "marketplace_delivery_fee_matrix");
+    expect(result).toMatchObject({ status: "READY", reasonCode: "APPROVED_MARKETPLACE_COURIER_TARIFFS" });
+    expect(db.deliveryServiceDefinition.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ stableKey: "CLIENT_ECONOMY", status: "ACTIVE" }) }));
+  });
+  it("blocks a configured courier pricing model whose service is no longer active", async () => {
+    vi.mocked(marketplaceCourierTariffPolicy).mockResolvedValue({ enabled: true, defaultServiceKey: "CLIENT_ECONOMY", approvalReference: "reviewed-owner-approval" });
+    db.deliveryServiceDefinition.findFirst.mockResolvedValue(null);
+    const result = (await getProductionReadiness()).capabilities.find(item => item.key === "marketplace_delivery_fee_matrix");
+    expect(result).toMatchObject({ status: "BLOCKED_CONFIGURATION", reasonCode: "MARKETPLACE_COURIER_SERVICE_UNAVAILABLE" });
   });
 });

@@ -8,6 +8,7 @@ import { usableParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import { readBankInstructions } from "@/lib/client-platform/driver-cash.service";
 import { capability, configurationCapability, type Capability } from "./contracts";
+import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
@@ -181,6 +182,11 @@ export async function getProductionReadiness() {
     );
   });
   await probe("marketplace_delivery_fee_matrix", async () => {
+    const courierPolicy = await marketplaceCourierTariffPolicy();
+    if (courierPolicy) {
+      const service = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: courierPolicy.defaultServiceKey, status: "ACTIVE", effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }] }, select: { id: true } });
+      return capability("marketplace_delivery_fee_matrix", service ? "READY" : "BLOCKED_CONFIGURATION", service ? "APPROVED_MARKETPLACE_COURIER_TARIFFS" : "MARKETPLACE_COURIER_SERVICE_UNAVAILABLE", "Marketplace uses the configured existing courier tariffs; a separate fee matrix is not required for this pricing model.", "OPERATIONS", { pricingModel: "COURIER_TARIFFS", serviceKey: courierPolicy.defaultServiceKey });
+    }
     const matrices = await listDeliveryMatrices();
     const current = matrices.find((m) => m.status === "ACTIVE" && m.approvedByUserId && m.approvedByUserId !== m.createdByUserId && m.approvedAt && new Date(m.effectiveFrom) <= now && (!m.effectiveTo || new Date(m.effectiveTo) > now));
     return capability("marketplace_delivery_fee_matrix", current ? "READY" : "BLOCKED_EXTERNAL_INPUT", current ? "APPROVED_MARKETPLACE_MATRIX" : "APPROVED_MARKETPLACE_MATRIX_REQUIRED", "Marketplace delivery uses explicit approved tariff bands. Missing parcel classification permits only an explicitly authored ANY-size rule.", "CLIENT", { activeVersion: current?.version ?? null });

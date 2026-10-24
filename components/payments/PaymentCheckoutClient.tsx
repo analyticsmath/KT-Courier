@@ -106,7 +106,7 @@ export function PaymentCheckoutClient({
         aria-busy={busy}
         className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--kt-brand-blue)] px-5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {busy ? "Preparing payment…" : terminal ? "Payment unavailable" : "Pay with Paystack"}
+        {busy ? "Preparing payment…" : terminal ? `Payment ${getCustomerPaymentStatusPresentation(payment!.status).label.toLowerCase()}` : "Pay with Paystack"}
       </button>
       {payment ? <p className="text-sm text-[var(--kt-text-muted)]" role="status">Current payment state: {getCustomerPaymentStatusPresentation(payment.status).label}.</p> : null}
     </div>
