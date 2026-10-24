@@ -11,7 +11,7 @@ type Policy = Data["policies"][number];
 export function PaymentPolicyConfiguration({ data }: { data: Data }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Policy | null>(null),
-    [mode, setMode] = useState("DEPOSIT_PLUS_COD"),
+    [mode, setMode] = useState("FULL_COD"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -78,7 +78,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
         className="grid gap-4 sm:grid-cols-2"
       >
         <div>
-          <Label htmlFor="policy-store">Approved business</Label>
+          <Label htmlFor="policy-store">Who can pay cash?</Label>
           <select
             id="policy-store"
             name="storeId"
@@ -87,7 +87,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
             disabled={busy || !!editing}
             className="w-full min-h-12 border-b"
           >
-            <option value="">Individual parcel customers (100% COD) / all businesses (online)</option>
+            <option value="">Individual parcel customers (full COD) / online-only policy</option>
             {data.stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -259,7 +259,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
               variant="secondary"
               onClick={() => {
                 setEditing(null);
-                setMode("DEPOSIT_PLUS_COD");
+                setMode("FULL_COD");
               }}
             >
               New policy

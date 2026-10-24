@@ -172,6 +172,13 @@ describe("Phase 1: Cash On Delivery Reconciliation & Suspense Accounting", () =>
       expect(result.id).toBe("cod_001");
     });
 
+    it("cannot represent a 100% cash obligation with an online deposit", async () => {
+      await expect(createCashOnDeliveryObligation({
+        orderId: "ord-invalid-full-cod", policyMode: "FULL_COD",
+        authoritativePayable: "205.85", digitalRequired: "20.00",
+      })).rejects.toMatchObject({ code: "COD_AMOUNT_MISMATCH" });
+      expect(prisma.cashOnDelivery.create).not.toHaveBeenCalled();
+    });
     it("rejects overpaid digital requirement or negative cash obligation", async () => {
       await expect(
         createCashOnDeliveryObligation({

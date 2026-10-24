@@ -53,7 +53,13 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
     const collected = new Prisma.Decimal(cod.cashCollected?.toFixed(2) ?? "0.00");
     const obligation = new Prisma.Decimal(cod.cashObligation.toFixed(2));
     const outstanding = obligation.sub(collected);
-    if (outstanding.isNegative()) return empty("RECONCILIATION_REQUIRED");
+    // Only a committed, collectible obligation may authorize dispatch.
+    // A failed collection or a pending/malformed cash obligation is never a
+    // reason to release a parcel for delivery again.
+    if (obligation.lessThanOrEqualTo(0) || collected.isNegative() || outstanding.isNegative()) return empty("RECONCILIATION_REQUIRED");
+    if (cod.status === "READY_FOR_COLLECTION" && collected.isZero()) {
+      return Object.freeze({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true, paymentReference: null, amount: null, cashDue: outstanding.toFixed(2) });
+    }
     if (outstanding.isZero() && ["COLLECTED", "RECONCILED", "UNDER_RECONCILIATION"].includes(cod.status ?? "")) {
       return Object.freeze({
         status: cod.status === "RECONCILED" ? "CASH_RECONCILED" : "CASH_COLLECTED",
@@ -61,7 +67,7 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
         amount: collected.toFixed(2), cashDue: "0.00",
       });
     }
-    return Object.freeze({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true, paymentReference: null, amount: collected.isZero() ? null : collected.toFixed(2), cashDue: outstanding.toFixed(2) });
+    return empty("RECONCILIATION_REQUIRED");
   }
   if (payment?.status === "SUCCEEDED" && payment.successLedgerJournalId) {
     const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD" && Number(cashDue) > 0;

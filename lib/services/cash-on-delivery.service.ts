@@ -38,13 +38,17 @@ export async function createCashOnDeliveryObligation(input: {
 }) {
   const payable = money(input.authoritativePayable); const digitalRequired = money(input.digitalRequired); const digitalPaid = money(input.digitalPaid ?? "0");
   const cashObligation = payable.sub(digitalRequired);
-  if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired)) throw new CashOnDeliveryError("COD_AMOUNT_MISMATCH", "COD payment split is invalid.");
+  if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired) ||
+      (input.policyMode === "FULL_COD" && (!digitalRequired.isZero() || !digitalPaid.isZero())))
+    throw new CashOnDeliveryError("COD_AMOUNT_MISMATCH", "COD payment split is invalid.");
   return createCashOnDeliveryObligationWithinTransaction(prisma, { ...input, authoritativePayable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2), digitalPaid: digitalPaid.toFixed(2) });
 }
 
 export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma.TransactionClient, input: { orderId: string; paymentId?: string; policyMode: "FULL_COD" | "DEPOSIT_PLUS_COD"; authoritativePayable: string; digitalRequired: string; digitalPaid?: string; policyEvidence?: unknown }) {
   const payable = money(input.authoritativePayable); const digitalRequired = money(input.digitalRequired); const digitalPaid = money(input.digitalPaid ?? "0"); const cashObligation = payable.sub(digitalRequired);
-  if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired)) throw new CashOnDeliveryError("COD_AMOUNT_MISMATCH", "COD payment split is invalid.");
+  if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired) ||
+      (input.policyMode === "FULL_COD" && (!digitalRequired.isZero() || !digitalPaid.isZero())))
+    throw new CashOnDeliveryError("COD_AMOUNT_MISMATCH", "COD payment split is invalid.");
   return tx.cashOnDelivery.create({ data: { publicReference: `COD-${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`, orderId: input.orderId, paymentId: input.paymentId, policyMode: input.policyMode, authoritativePayable: payable, digitalRequired, digitalPaid, cashObligation, status: input.policyMode === "FULL_COD" ? "READY_FOR_COLLECTION" : "PENDING", events: { create: { operationId: `commit:${input.orderId}`, requestHash: hash({ orderId: input.orderId, policyMode: input.policyMode, payable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2) }), eventType: "COMMITTED", safeEvidence: input.policyEvidence as Prisma.InputJsonValue | undefined } } } });
 }
 

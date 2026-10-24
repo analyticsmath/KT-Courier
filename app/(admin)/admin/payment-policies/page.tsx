@@ -13,7 +13,7 @@ export default async function Page() {
       <ProtectedPageHeader
         eyebrow="Cash operations"
         title="Payment policies"
-        description="Configure approved-business cash eligibility and online deposits."
+        description="Set up 100% parcel cash on delivery, eligible areas, limits and independent cash collection approval."
       />
       <OperationalPanel title="Payment configuration">
         <PaymentPolicyConfiguration data={data} />

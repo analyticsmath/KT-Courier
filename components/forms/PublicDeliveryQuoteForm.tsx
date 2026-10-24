@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability } from "@/components/forms/ParcelPaymentChoice";
 import {
   PROVINCES,
   type DeliveryConfiguration,
@@ -58,24 +59,34 @@ export function PublicDeliveryQuoteForm({
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [parcelCatalogError, setParcelCatalogError] = useState("");
   const [serviceCatalogError, setServiceCatalogError] = useState("");
-  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quote, rawSetQuote] = useState<Quote | null>(null);
   const [methods, setMethods] = useState<{
     quoteId: string;
     items: { mode: string; digitalRequired: string; cashRequired: string }[];
+    cod: ParcelCodAvailability;
   } | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<ParcelPaymentMethod>("DIGITAL_ONLY");
   const [methodError, setMethodError] = useState("");
+  const [methodRevision, setMethodRevision] = useState(0);
+  const setQuote = (next: Quote | null) => {
+    rawSetQuote(next);
+    setSelectedPaymentMethod("DIGITAL_ONLY");
+    setMethods(null);
+    setMethodError("");
+  };
   useEffect(() => {
     if (!quote || !signedIn) return;
     const controller = new AbortController();
     fetch(`/api/public/delivery-quotes/${quote.id}/payment-methods`, {
       headers: business ? { "X-KT-Workspace": "STORE" } : {},
+      cache: "no-store",
       signal: controller.signal,
     })
       .then(async (r) => {
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
         if (!controller.signal.aborted) {
-          setMethods({ quoteId: quote.id, items: b.methods });
+          setMethods({ quoteId: quote.id, items: b.methods, cod: b.cod });
           setMethodError("");
         }
       })
@@ -86,7 +97,7 @@ export function PublicDeliveryQuoteForm({
           );
       });
     return () => controller.abort();
-  }, [quote, signedIn, business]);
+  }, [quote, signedIn, business, methodRevision]);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -411,6 +422,11 @@ export function PublicDeliveryQuoteForm({
               onSubmit={async (e) => {
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
+                // Server revalidates the COD policy at booking; guard against stale client options too.
+                if (selectedPaymentMethod === "FULL_COD" && !(methods?.quoteId === quote?.id && methods.cod.eligible)) {
+                  setError("Cash on delivery is not currently available. Choose online payment or refresh availability.");
+                  return;
+                }
                 setBusy(true);
                 setError("");
                 try {
@@ -431,7 +447,7 @@ export function PublicDeliveryQuoteForm({
                         recipientPhone: f.get("recipientPhone"),
                         recipientEmail: f.get("recipientEmail"),
                         parcelDescription: f.get("parcelDescription"),
-                        paymentMethod: f.get("paymentMethod") || "DIGITAL_ONLY",
+                        paymentMethod: selectedPaymentMethod,
                         ...(scheduled
                           ? {
                               scheduledFor: new Date(
@@ -505,34 +521,20 @@ export function PublicDeliveryQuoteForm({
                   Scheduling keeps this service&apos;s quoted tariff.
                 </p>
               </div>
-              <div className="sm:col-span-2">
-                <Label htmlFor="booking-payment-method">Payment method</Label>
-                <select
-                  id="booking-payment-method"
-                  name="paymentMethod"
-                  className="w-full min-h-12 border-b"
-                  defaultValue="DIGITAL_ONLY"
-                >
-                  <option value="DIGITAL_ONLY">
-                    Full online payment · R {quote.total}
-                  </option>
-                  {(methods?.quoteId === quote.id ? methods.items : [])
-                    .filter((m) => m.mode !== "DIGITAL_ONLY")
-                    .map((m) => (
-                      <option key={m.mode} value={m.mode}>
-                        {m.mode === "FULL_COD"
-                          ? `100% cash on delivery · R ${m.cashRequired} (R0 upfront)`
-                          : `Online R ${m.digitalRequired} + cash R ${m.cashRequired}`}
-                      </option>
-                    ))}
-                </select>
-                {methodError && (
-                  <p role="alert" className="text-sm">
-                    {methodError}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" loading={busy}>
+              <ParcelPaymentChoice
+                total={quote.total}
+                value={selectedPaymentMethod}
+                onChange={setSelectedPaymentMethod}
+                cod={methods?.quoteId === quote.id ? methods.cod : null}
+                loading={methods?.quoteId !== quote.id && !methodError}
+                error={methodError}
+              />
+              {methodError && <div className="sm:col-span-2">
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => { setMethodError(""); setMethodRevision((n) => n + 1); }}>
+                  Retry cash availability
+                </Button>
+              </div>}
+              <Button type="submit" loading={busy} className="sm:col-span-2 sm:justify-self-start sm:min-w-64">
                 Book this delivery
               </Button>
             </form>

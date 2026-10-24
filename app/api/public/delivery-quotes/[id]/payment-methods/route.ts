@@ -23,6 +23,12 @@ export async function GET(
         cashRequired: "0.00",
       },
     ];
+    let cod: { eligible: boolean; amountDueAtDelivery: string; reasonCode?: string; message?: string } = {
+      eligible: false,
+      amountDueAtDelivery: q.total.toFixed(2),
+      reasonCode: "NOT_ENABLED",
+      message: "Cash on delivery is not currently enabled for this delivery and area.",
+    };
     if (["CUSTOMER", "STORE"].includes(u.role)) {
       const business = u.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
       const store = business ? (await storeAccess(u.id, "deliveries")).store : null;
@@ -51,28 +57,26 @@ export async function GET(
           regionId: q.destinationRegionId,
           authoritativeTotal: q.total.toFixed(2),
         });
-        if (b.mode === "FULL_COD")
+        if (b.mode === "FULL_COD") {
           methods.push({
             mode: b.mode,
             digitalRequired: b.digitalRequired,
             cashRequired: b.cashRequired,
           });
+          cod = { eligible: true, amountDueAtDelivery: b.cashRequired };
+        }
       } catch (e) {
-        if (
-          !(e instanceof PaymentPolicyError) ||
-          ![
-            "PAYMENT_POLICY_NOT_CONFIGURED",
-            "COD_BUSINESS_NOT_APPROVED",
-            "COD_LIMIT_EXCEEDED",
-            "PAYMENT_METHOD_NOT_ALLOWED",
-            "COD_PRODUCTION_APPROVAL_REQUIRED",
-            "COD_REMITTANCE_NOT_CONFIGURED",
-          ].includes(e.code)
-        )
+        if (!(e instanceof PaymentPolicyError)) throw e;
+        if (e.code === "COD_LIMIT_EXCEEDED") {
+          cod = { ...cod, reasonCode: "LIMIT_EXCEEDED", message: "This delivery exceeds the current cash payment limit." };
+        } else if (["COD_PRODUCTION_APPROVAL_REQUIRED", "COD_REMITTANCE_NOT_CONFIGURED"].includes(e.code)) {
+          cod = { ...cod, reasonCode: "APPROVAL_PENDING", message: "Cash on delivery is awaiting the required operational approval." };
+        } else if (!["PAYMENT_POLICY_NOT_CONFIGURED", "COD_BUSINESS_NOT_APPROVED", "PAYMENT_METHOD_NOT_ALLOWED"].includes(e.code)) {
           throw e;
+        }
       }
     }
-    return json({ methods });
+    return json({ methods, cod });
   } catch (e) {
     return failure(e);
   }
