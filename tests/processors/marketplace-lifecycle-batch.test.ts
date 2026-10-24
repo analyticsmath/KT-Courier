@@ -38,3 +38,14 @@ describe("automatic marketplace operational lifecycle", () => {
     expect(mocks.expire).not.toHaveBeenCalled();
   });
 });
+
+it("reports safe initialization reason codes without copying private exception messages", async () => {
+  mocks.orders.mockResolvedValue([{ publicReference: "bad-snapshot" }, { publicReference: "database-error" }, { publicReference: "unknown-error" }]);
+  mocks.initialize.mockRejectedValueOnce(Object.assign(new Error("private address and account details"), { code: "STORE_ORDER_SNAPSHOT_INVALID" })).mockRejectedValueOnce(Object.assign(new Error("private SQL connection"), { code: "P2003" })).mockRejectedValueOnce(Object.assign(new Error("private provider response"), { code: "PRIVATE_ACCOUNT_123" }));
+  const result = await initializeMarketplaceOrdersBatch({ mode: "APPLY", batchSize: 3 });
+  expect(result).toMatchObject({ itemsCompleted: 0, itemsRetried: 3 });
+  expect(result.safeSummary).toContain("STORE_ORDER_SNAPSHOT_INVALID:1");
+  expect(result.safeSummary).toContain("P2003:1");
+  expect(result.safeSummary).toContain("INITIALIZATION_RETRY_REQUIRED:1");
+  expect(result.safeSummary).not.toMatch(/private|PRIVATE_ACCOUNT|SQL connection/);
+});

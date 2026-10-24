@@ -20,6 +20,7 @@ export function expiredMarketplaceReservationsWhere(now = new Date()): Prisma.Ma
 export async function initializeMarketplaceOrdersBatch({ mode, batchSize }: Batch): Promise<ProcessorHandlerOutcome> {
   const orders = await prisma.marketplaceStoreOrder.findMany({ where: uninitializedMarketplaceOrdersWhere(), select: { publicReference: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: batchSize });
   const result = outcome(orders.length);
+  const failureCounts = new Map<string, number>();
   for (const order of orders) {
     if (mode === "DRY_RUN") { result.itemsSkipped++; continue; }
     const operationId = `marketplace-initialize:${order.publicReference}`;
@@ -27,9 +28,18 @@ export async function initializeMarketplaceOrdersBatch({ mode, batchSize }: Batc
       result.itemsClaimed++;
       await initializeMarketplaceStoreOrderOperations({ storeOrderReference: order.publicReference, operationId, requestHash: createHash("sha256").update(operationId).digest("hex") });
       result.itemsCompleted++;
-    } catch { result.itemsRetried++; }
+    } catch (error) {
+      result.itemsRetried++;
+      // Keep retries truthful while exposing safe, bounded diagnosis. Never
+      // persist exception messages, query text, credentials or customer details.
+      const knownCodes = new Set(["STORE_ORDER_POLICY_MISSING", "STORE_ORDER_SNAPSHOT_INVALID", "STORE_ORDER_SETTLEMENT_PENDING", "STORE_ORDER_ALREADY_INITIALIZED", "STORE_ORDER_PRODUCTION_NOT_READY"]);
+      const candidate = error instanceof Error && "code" in error ? error.code : null;
+      const code = typeof candidate === "string" && (knownCodes.has(candidate) || /^P[0-9]{4}$/.test(candidate)) ? candidate : "INITIALIZATION_RETRY_REQUIRED";
+      failureCounts.set(code, (failureCounts.get(code) ?? 0) + 1);
+    }
   }
   result.safeSummary = `${mode}: marketplace operations initialized ${result.itemsCompleted}; ${result.itemsRetried} remain pending; ${result.itemsSkipped} unchanged.`;
+  if (failureCounts.size) result.safeSummary += ` Reasons: ${[...failureCounts].sort(([a], [b]) => a.localeCompare(b)).map(([code, count]) => `${code}:${count}`).join(", ")}.`;
   return result;
 }
 export async function expireMarketplaceReservationsBatch({ mode, batchSize }: Batch): Promise<ProcessorHandlerOutcome> {
