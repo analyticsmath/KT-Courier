@@ -1,4 +1,4 @@
-export type CategoryChoice = { id: string; name: string; path: string; parentId: string | null; displayOrder?: number };
+export type CategoryChoice = { id: string; name: string; path: string; parentId: string | null; displayOrder?: number; productTypeIds?: string[] };
 
 /** Follow stored parent IDs; never promote a child whose parent is unavailable. */
 export function categorySelection(categories: CategoryChoice[], selectedId: string) {
@@ -25,4 +25,17 @@ export function categorySelection(categories: CategoryChoice[], selectedId: stri
     levels.push({ parentId: path[index].id, options: children, selectedId: path[index + 1]?.id ?? "" });
   }
   return { levels, path, valid };
+}
+
+/** The nearest mapped ancestor defines the form; choose the latest approved revision per code. */
+export function categoryProductType<T extends { id: string; code: string; versionNumber: number }>(categories: CategoryChoice[], selectedId: string, types: T[]): T | undefined {
+  const selection = categorySelection(categories, selectedId);
+  for (const category of [...selection.path].reverse()) {
+    if (!category.productTypeIds?.length) continue;
+    const choices = types.filter(type => category.productTypeIds!.includes(type.id));
+    const codes = new Set(choices.map(type => type.code));
+    if (codes.size !== 1) return undefined;
+    return choices.sort((a, b) => b.versionNumber - a.versionNumber)[0];
+  }
+  return undefined;
 }

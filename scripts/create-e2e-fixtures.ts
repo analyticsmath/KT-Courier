@@ -102,6 +102,8 @@ async function seedPhase2Fixtures(passwordHash: string) {
     create: { publicReference: "ptd_smartphone", code: "smartphone", name: "Smartphone", description: "Smartphones and mobile devices", versionNumber: 1, attributeSchema: { attributes: [] }, variantSchema: {}, complianceSchema: {}, searchFacetSchema: {}, status: "ACTIVE", createdByUserId: storeUser.id },
   });
 
+  await prisma.catalogCategoryProductType.upsert({ where: { categoryId_productTypeDefinitionId: { categoryId: category.id, productTypeDefinitionId: productType.id } }, create: { categoryId: category.id, productTypeDefinitionId: productType.id, isPrimary: true }, update: { isPrimary: true } });
+
   // Product 1: Smartphone
   const smartphone = await prisma.catalogProduct.upsert({
     where: { publicReference: "CP-E2ESMARTPHONE" },

@@ -56,6 +56,9 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } }); expect(approval.status(), await approval.text()).toBe(200);
   const categoryName = `Synthetic accessories ${tag}`;
   const category = await page.request.post("/api/admin/catalog/categories", { headers, data: { name: categoryName, slug: `synthetic-accessories-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() } }); expect(category.status(), await category.text()).toBe(201);
+  const createdCategory = (await category.json()).category;
+  const mappedType = await prisma.productTypeDefinition.findFirstOrThrow({ where: { name: "Smartphone", status: "ACTIVE" } });
+  await prisma.catalogCategoryProductType.create({ data: { categoryId: createdCategory.id, productTypeDefinitionId: mappedType.id, isPrimary: true } });
   await login(page, email);
   await page.goto("/store/profile");
   const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
@@ -106,7 +109,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     const title = `Synthetic product ${index + 1} ${tag}`;
     await page.goto("/store/catalog/products/new");
     await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
-    await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    await expect(page.getByLabel("Product type", { exact: true })).toHaveCount(0);
     const categoryLabel = index % 2 ? categoryName : "Electronics";
     await page.getByLabel("Category", { exact: true }).selectOption({ label: categoryLabel });
     await page.getByLabel("Product title", { exact: true }).fill(title);
@@ -127,7 +130,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
       const uploaded = await upload; expect(uploaded.status(), await uploaded.text()).toBe(201);
       await page.getByLabel("Alt text", { exact: true }).nth(image).fill(`${title} image ${image + 1}`);
     }
-    await step("Offer & stock");
+    await step("Offer & stock"); await page.getByLabel("Packaged length (cm)", { exact: true }).fill("20"); await page.getByLabel("Packaged width (cm)", { exact: true }).fill("15"); await page.getByLabel("Packaged height (cm)", { exact: true }).fill("5"); await page.getByLabel("Packaged weight (kg)", { exact: true }).fill("0.4"); await page.getByLabel("How is this product packed?", { exact: true }).fill("Disposable test unit in a protective box.");
     if (index === 1) {
       await page.getByLabel("Variant SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
       await page.getByLabel("Variant price including VAT (ZAR)", { exact: true }).fill(`${20 + index}.25`);

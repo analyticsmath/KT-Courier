@@ -33,6 +33,7 @@ it("submits explicit per-variant price and stock from the real wizard and links 
   const reference = (prefix: string, char: string) => `${prefix}-${char.repeat(32)}`;
   const owner = "variants-regression";
   window.localStorage.setItem(`kt_store_catalog_wizard_draft:v2:${owner}`, JSON.stringify({
+    packaging: { lengthCm: "20", widthCm: "15", heightCm: "5", weightKg: "0.3", description: "One shirt in a sealed protective mailer." },
     existingSearch: "", productTypeDefinitionId: "ctype000000000000000001", primaryCategoryId: "ccategory000000000000001", title: "Cotton shirt", description: "Cotton shirt in selectable colours and sizes.", attributes: "{}", compliance: "{}", modifiers: "",
     storeSku: "", price: "", stock: "", inventoryLocation: reference("IL", "B"),
     variants: JSON.stringify([
@@ -47,7 +48,7 @@ it("submits explicit per-variant price and stock from the real wizard and links 
   const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
   const click = async (text: string) => { const button = [...host.querySelectorAll("button")].find(item => item.textContent?.includes(text))!; expect(button).toBeDefined(); await act(async () => button.click()); };
   try {
-    await act(async () => root.render(createElement(StoreCatalogWizard, { productTypes: [], categories: [{ id: "ccategory000000000000001", name: "Clothing", path: "/clothing", parentId: null }], draftOwnerKey: owner })));
+    await act(async () => root.render(createElement(StoreCatalogWizard, { productTypes: [{ id: "ctype000000000000000001", name: "Clothing", code: "clothing", versionNumber: 2, attributeSchema: {} }], categories: [{ id: "ccategory000000000000001", name: "Clothing", path: "/clothing", parentId: null, productTypeIds: ["ctype000000000000000001"] }], draftOwnerKey: owner })));
     await click("Photos & options"); await click("Attach shared product image"); await click("Review & save"); await click("Save product draft");
     expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toBe("/api/store/catalog/listing-drafts");
     const body = JSON.parse(fetcher.mock.calls[0][1].body);

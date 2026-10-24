@@ -1,5 +1,6 @@
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import Link from "next/link";
+import { publicParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { prisma } from "@/lib/db/prisma";
 import { StoreCatalogWizard } from "@/components/catalog/StoreCatalogWizard";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
@@ -15,7 +16,7 @@ import { validateProductTypeAttributeSchema } from "@/lib/catalog/product-type-s
 export default async function NewStoreCatalogProductPage() {
   await requireBusinessPage("/store/catalog/products/new");
   const { user, store } = await getCurrentStoreForCatalogPage();
-  const [productTypes, categories, inventoryLocations] = await Promise.all([
+  const [productTypes, categories, inventoryLocations, packageLimits] = await Promise.all([
     prisma.productTypeDefinition.findMany({
       where: { status: { in: ["APPROVED", "ACTIVE"] } },
       select: {
@@ -29,10 +30,11 @@ export default async function NewStoreCatalogProductPage() {
     }),
     prisma.catalogCategory.findMany({
       where: { status: { in: ["ACTIVE", "DRAFT"] } },
-      select: { id: true, name: true, path: true, parentId: true, displayOrder: true },
+      select: { id: true, name: true, path: true, parentId: true, displayOrder: true, productTypeMappings: { select: { productTypeDefinitionId: true, isPrimary: true } } },
       orderBy: { path: "asc" },
     }),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
+    publicParcelProfiles(),
   ]);
   const authoringTypes = productTypes.filter(type => validateProductTypeAttributeSchema(type.attributeSchema).length === 0);
   return (
@@ -59,8 +61,9 @@ export default async function NewStoreCatalogProductPage() {
         <StoreCatalogWizard
           key={`${user.id}:${store.id}`}
           draftOwnerKey={`${encodeURIComponent(user.id)}:${encodeURIComponent(store.id)}`}
+          packageLimits={packageLimits}
           productTypes={authoringTypes}
-          categories={categories}
+          categories={categories.map(category => ({ ...category, productTypeIds: (category.productTypeMappings.some(mapping => mapping.isPrimary) ? category.productTypeMappings.filter(mapping => mapping.isPrimary) : category.productTypeMappings).map(mapping => mapping.productTypeDefinitionId) }))}
           inventoryLocations={inventoryLocations}
         />
       ) : (

@@ -5,6 +5,8 @@ import { PlatformError } from "@/lib/client-platform/contracts";
 import { publicParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { classifyTrustedMarketplaceParcel, TrustedPackageVersionSchema, type TrustedPackageVersion } from "./parcel-classification";
 
+import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
+
 const prefix = "production_marketplace_trusted_packages_v";
 export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVersionSchema.shape.packages, effectiveFrom: TrustedPackageVersionSchema.shape.effectiveFrom, effectiveTo: TrustedPackageVersionSchema.shape.effectiveTo, expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict().refine(value => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.");
 export const TrustedPackageActionSchema = z.object({ version: z.number().int().positive(), expectedUpdatedAt: z.iso.datetime(), action: z.enum(["APPROVE", "ACTIVATE", "RETIRE"]), reason: z.string().trim().min(10).max(500) }).strict();
@@ -66,5 +68,14 @@ export async function classifyPersistedCheckoutParcel(checkoutReference: string 
       return { sizeClass: null, status: "UNKNOWN" as const, reason: "PACKAGE_SOURCE_REVISION_STALE", packageVersion: null, profileId: null, profileVersion: null };
     }
   }
-  return classifyTrustedMarketplaceParcel({ storeId, lines, versions: await listTrustedPackageVersions(), profiles: await publicParcelProfiles() });
+  const versions = await listTrustedPackageVersions();
+  // Changed vendor evidence invalidates its old review; declarations never authorize a tariff.
+  for (const version of versions) for (const entry of version.packages) {
+    if (entry.storeId !== storeId || !lines.some(line => line.offerReference === entry.offerReference) || !entry.authorityReference.startsWith(PACKAGING_PREFIX)) continue;
+    const row = await prisma.systemSetting.findUnique({ where: { key: PACKAGING_PREFIX + entry.offerReference } });
+    const revision = (row?.value as { revision?: string } | null)?.revision;
+    if (!revision || entry.authorityReference !== `${PACKAGING_PREFIX}${entry.offerReference}:${revision}`) entry.authorityReference = "STALE_VENDOR_MEASUREMENTS";
+  }
+  const currentVersions = versions.map(version => ({ ...version, packages: version.packages.filter(entry => entry.authorityReference !== "STALE_VENDOR_MEASUREMENTS") }));
+  return classifyTrustedMarketplaceParcel({ storeId, lines, versions: currentVersions, profiles: await publicParcelProfiles() });
 }

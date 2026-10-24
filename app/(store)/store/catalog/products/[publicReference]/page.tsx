@@ -11,6 +11,9 @@ import {
 } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { getStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { listCatalogPackaging } from "@/lib/services/catalog-packaging.service";
+import { publicParcelProfiles } from "@/lib/commercial/parcel-profiles";
+import { StorePackagingManager } from "@/components/catalog/StorePackagingManager";
 import { StoreCatalogProductActions } from "@/components/catalog/StoreCatalogProductActions";
 import { requireStoreCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
@@ -24,6 +27,7 @@ export default async function StoreCatalogProductDetailPage({
   const { store } = await getCurrentStoreForCatalogPage();
   const { publicReference } = await params;
   const product = await getStoreCatalogProduct(store.id, publicReference);
+  const [packaging, packageLimits] = await Promise.all([listCatalogPackaging(store.id), publicParcelProfiles()]);
   const editable = product.scope === "STORE_PRIVATE" && product.sourceStoreId === store.id && ["DRAFT", "NEEDS_CHANGES"].includes(product.status);
   const [manageAccess, submitAccess] = editable ? await Promise.all([
     requireStoreCatalogPermission(PERMISSIONS.CATALOG_MANAGE),
@@ -58,15 +62,6 @@ export default async function StoreCatalogProductDetailPage({
           padding="compact"
         >
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="font-semibold text-[var(--eo-text-muted)]">
-                Product type
-              </dt>
-              <dd className="mt-1">
-                {product.productTypeDefinition.name} v
-                {product.productTypeVersionNumber}
-              </dd>
-            </div>
             <div>
               <dt className="font-semibold text-[var(--eo-text-muted)]">
                 Category
@@ -138,6 +133,7 @@ export default async function StoreCatalogProductDetailPage({
           ]}
         />
       </OperationalPanel>
+      {canManage && product.offers.length ? <OperationalPanel title="Delivery packaging" description="Supply measured package details for each sellable offer. KT Couriers reviews them before enabling delivery quotes."><StorePackagingManager initial={packaging} limits={packageLimits} offers={product.offers.map(offer => ({ publicReference: offer.publicReference, storeSku: offer.storeSku }))} /></OperationalPanel> : null}
       <StorefrontAvailability />
     </ProtectedPageFrame>
   );

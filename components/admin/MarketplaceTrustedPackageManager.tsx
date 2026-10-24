@@ -5,8 +5,11 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { TrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-classification";
 
+import type { PackagingDeclaration } from "@/lib/services/catalog-packaging.service";
+
 type Version = TrustedPackageVersion & { updatedAt: string };
 export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }: { initial: Version[]; actorId: string; canManage: boolean }) {
+  const [declarations, setDeclarations] = useState<PackagingDeclaration[]>([]);
   const [versions, setVersions] = useState(initial); const [busy, setBusy] = useState(false); const [message, setMessage] = useState("");
   async function request(method: string, body: unknown) {
     setBusy(true); setMessage("");
@@ -17,6 +20,16 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
       setVersions(await current.json()); setMessage("Trusted package version and audit history saved.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Packaging could not be saved."); }
     finally { setBusy(false); }
+  }
+  async function loadDeclarations() {
+    setBusy(true); try { const response = await fetch("/api/admin/catalog-packaging-declarations"); const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Could not load vendor packages."); setDeclarations(body.declarations); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load vendor packages."); } finally { setBusy(false); }
+  }
+  async function prepareDeclaration(declaration: PackagingDeclaration) {
+    setBusy(true); try {
+      const response = await fetch("/api/admin/catalog-packaging-declarations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ offerReference: declaration.offerReference, revision: declaration.revision, expectedVersion: Math.max(0, ...versions.map(version => version.version)), reason: "Prepare vendor measured package for independent operational approval." }) });
+      const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Could not prepare review.");
+      const current = await fetch("/api/admin/marketplace-trusted-packages"); if (!current.ok) throw new Error("Draft saved. Reload to continue its review."); setVersions(await current.json()); setMessage("Packaging draft prepared. A different authorized administrator must review and approve it before activation.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not prepare review."); } finally { setBusy(false); }
   }
   function draft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); const data = new FormData(event.currentTarget); const text = (key: string) => String(data.get(key) ?? "");
@@ -29,6 +42,7 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
     } catch { setMessage("Enter valid effective dates and a JSON array of modifier selections."); }
   }
   return <div className="space-y-4"><p>Supply measured packaged dimensions and weight, with the source authority reference. Only a single complete packaged unit can be classified. Multiple units require an approved aggregate packing rule or an explicit all-size tariff.</p><p role="status" aria-live="polite">{message}</p>
+    <section className="space-y-3"><h3>Vendor package submissions</h3><Button type="button" disabled={busy} onClick={loadDeclarations}>Load vendor package submissions</Button>{declarations.map(declaration => <article key={declaration.offerReference} className="rounded border p-3 space-y-2"><p className="break-all">Offer: {declaration.offerReference}</p><p>{declaration.lengthCm} × {declaration.widthCm} × {declaration.heightCm} cm · {declaration.weightKg} kg</p><p>{declaration.description}</p><p>Submitted {declaration.submittedAt}</p>{canManage ? <Button type="button" disabled={busy} onClick={() => prepareDeclaration(declaration)}>Prepare packaging review</Button> : null}</article>)}</section>
     {canManage ? <form onSubmit={draft} className="grid gap-3 sm:grid-cols-2"><h3 className="sm:col-span-2">Create measured packaging draft</h3>
       {([['storeId', 'Packaging store ID'], ['offerReference', 'Packaging offer reference'], ['variantReference', 'Packaging variant reference'], ['publicationVersion', 'Packaging publication version'], ['authorityReference', 'Measurement authority reference'], ['reason', 'Packaging audit reason']] as const).map(([key, label]) => <div key={key}><Label htmlFor={`package-${key}`}>{label}</Label><Input id={`package-${key}`} name={key} required minLength={key === "reason" || key === "authorityReference" ? 10 : 1} /></div>)}
       {([['lengthCm', 'Packaged length (cm)'], ['widthCm', 'Packaged width (cm)'], ['heightCm', 'Packaged height (cm)'], ['weightKg', 'Packaged weight (kg)']] as const).map(([key, label]) => <div key={key}><Label htmlFor={`package-${key}`}>{label}</Label><Input id={`package-${key}`} name={key} type="number" min="0.0001" max={key === "weightKg" ? "10000" : "1000"} step="0.0001" required /></div>)}
@@ -36,6 +50,7 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
       <div><Label htmlFor="package-from">Packaging effective from</Label><Input id="package-from" name="effectiveFrom" type="datetime-local" required /></div><div><Label htmlFor="package-to">Packaging effective until (optional)</Label><Input id="package-to" name="effectiveTo" type="datetime-local" /></div><div className="sm:col-span-2"><Button type="submit" disabled={busy}>Save packaging draft</Button></div>
     </form> : null}
     {versions.length ? versions.map((version) => <section className="space-y-3 rounded border p-4" key={version.version}><h3>Packaging version {version.version} · {version.status}</h3><p>{version.packages.length} measured packages · {version.effectiveFrom} to {version.effectiveTo ?? "open ended"}</p>
+      <ul className="space-y-2 text-sm">{version.packages.map(entry => <li key={`${entry.storeId}:${entry.offerReference}:${entry.variantReference}:${JSON.stringify(entry.modifiers)}`} className="break-words"><p>{entry.offerReference} · {entry.variantReference} · offer revision {entry.publicationVersion}</p><p>{entry.lengthCm} × {entry.widthCm} × {entry.heightCm} cm · {entry.weightKg} kg</p><p>Evidence: {entry.authorityReference}</p></li>)}</ul>
       {canManage && version.status !== "RETIRED" ? <form className="flex flex-wrap gap-3" onSubmit={(event) => { event.preventDefault(); const data = new FormData(event.currentTarget); void request("PATCH", { version: version.version, expectedUpdatedAt: version.updatedAt, action: data.get("action"), reason: data.get("reason") }); }}><div><Label htmlFor={`package-review-${version.version}`}>Packaging review reason</Label><Input id={`package-review-${version.version}`} name="reason" minLength={10} maxLength={500} required /></div><select name="action" aria-label={`Packaging action for version ${version.version}`} className="border p-3">{version.status === "DRAFT" && version.createdByUserId !== actorId ? <option value="APPROVE">Approve independently</option> : null}{version.status === "APPROVED" ? <option value="ACTIVATE">Activate reviewed packaging</option> : null}<option value="RETIRE">Retire packaging version</option></select><Button type="submit" disabled={busy}>Apply packaging action</Button></form> : null}</section>) : <p>No trusted packaging exists. Size-specific tariffs remain unavailable.</p>}
   </div>;
 }

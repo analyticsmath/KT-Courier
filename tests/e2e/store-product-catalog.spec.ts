@@ -16,8 +16,8 @@ for (const width of [1440, 390]) {
     const tag = randomUUID(); const title = "Disposable catalog product " + tag; const sku = "DISPOSABLE-" + tag.toUpperCase(); const modifierName = "Gift wrap " + tag;
     await page.goto("/store/catalog/products/new"); await expect(page.getByRole("heading", { name: "New product", exact: true })).toBeVisible();
     await step(page, "Review & save"); await page.getByRole("button", { name: "Save product draft", exact: true }).click();
-    await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("Select a product type.");
-    await step(page, "Product details"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    await expect(page.locator("#catalog-error-summary").getByRole("alert")).toContainText("Choose a category with an available product form.");
+    await step(page, "Product details"); await expect(page.getByLabel("Product type", { exact: true })).toHaveCount(0);
     await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
     await page.getByLabel("Product title", { exact: true }).fill(title);
     await page.getByLabel("Description", { exact: true }).fill("Synthetic catalog listing for transaction validation only.");
@@ -40,7 +40,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("radio", { name: "Primary image", exact: true })).toBeChecked();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
-    await step(page, "Offer & stock"); await page.getByLabel("Variant SKU", { exact: true }).fill(sku);
+    await step(page, "Offer & stock"); await page.getByLabel("Packaged length (cm)", { exact: true }).fill("20"); await page.getByLabel("Packaged width (cm)", { exact: true }).fill("15"); await page.getByLabel("Packaged height (cm)", { exact: true }).fill("5"); await page.getByLabel("Packaged weight (kg)", { exact: true }).fill("0.4"); await page.getByLabel("How is this product packed?", { exact: true }).fill("Disposable test unit in a protective box."); await page.getByLabel("Variant SKU", { exact: true }).fill(sku);
     const price = page.getByLabel("Variant price including VAT (ZAR)", { exact: true });
     await expect(price).toHaveCount(1); await expect(price).toBeVisible();
     expect(await price.evaluate(input => (input as HTMLInputElement).labels?.length)).toBe(1);
@@ -60,6 +60,8 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Listing draft saved", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
+    const packages = (await read(page, "/api/store/catalog/packaging")).declarations;
+    expect(packages.find((entry: { offerReference: string }) => entry.offerReference === confirmed.offers[0].publicReference)).toMatchObject({ lengthCm: 20, widthCm: 15, heightCm: 5, weightKg: 0.4 });
     const canonical = (await read(page, "/api/store/catalog/products/" + confirmed.publicReference)).product;
     expect(JSON.stringify(canonical)).not.toContain('"storageKey"'); expect(JSON.stringify(canonical)).not.toContain('"storageProvider"');
     expect(canonical).toMatchObject({ title, status: "DRAFT", publicationStatus: "DRAFT", media: [{ altText: "Disposable synthetic product image", role: "PRIMARY" }] });
@@ -112,7 +114,7 @@ for (const width of [1440, 390]) {
     await step(page, "Product details"); await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
     await step(page, "Photos & options"); await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
     await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
-    await step(page, "Product details"); await page.getByLabel("Product type", { exact: true }).selectOption({ label: "Smartphone · v1" });
+    await step(page, "Product details"); await expect(page.getByLabel("Product type", { exact: true })).toHaveCount(0);
     await page.getByText("Check for an existing product (optional)", { exact: true }).click();
     await page.getByLabel("Find an existing product", { exact: true }).fill(editedTitle);
     await page.getByRole("button", { name: "Search matching products", exact: true }).click();

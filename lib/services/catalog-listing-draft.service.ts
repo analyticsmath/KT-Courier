@@ -12,6 +12,8 @@ import { createStoreModifierGroup, attachModifierGroup } from "./catalog-modifie
 import { attachStoreCatalogMedia } from "./catalog-media-attachment.service";
 import { recordCatalogEvidence } from "./catalog-service-support";
 
+import { saveCatalogPackaging } from "./catalog-packaging.service";
+
 const ACTION = "PRODUCT:LISTING_DRAFT_CREATED";
 async function confirmation(tx: Prisma.TransactionClient, storeId: string, publicReference: string) {
   return tx.catalogProduct.findFirstOrThrow({
@@ -79,6 +81,7 @@ export async function createStoreCatalogListingDraft(storeId: string, actorUserI
         quantityStep: "1", minimumQuantity: "1", primaryInventoryLocationId: location?.id, operationId: `${operationPrefix}:offer`,
       }, tx);
       offers.push(offer);
+      if (input.packaging) await saveCatalogPackaging(storeId, actorUserId, offer.publicReference, input.packaging, tx);
       await createStoreOfferPriceVersion(storeId, actorUserId, { ...item.price, offerPublicReference: offer.publicReference, offerVersion: offer.version, operationId: `${operationPrefix}:price` }, tx);
       if (item.openingStock > 0 && location && offer.inventoryItem) await postCatalogInventoryMovement(storeId, actorUserId, offer.inventoryItem.publicReference, {
         type: "INITIAL_STOCK", quantityDelta: item.openingStock, locationPublicReference: location.publicReference,

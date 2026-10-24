@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 762,
+    "totalRoutes": 764,
     "totalServerActions": 0,
     "publicRoutes": 96,
-    "authenticatedRoutes": 663,
-    "permissionGatedRoutes": 519,
+    "authenticatedRoutes": 665,
+    "permissionGatedRoutes": 521,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 210,
-    "generatedAt": "2026-10-23T12:10:36.486Z"
+    "rateLimitedRoutes": 212,
+    "generatedAt": "2026-10-24T01:45:51.066Z"
   },
   "serverActions": [],
   "routes": [
@@ -427,6 +427,28 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/catalog-packaging-declarations/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "commercial_configuration.read",
+        "commercial_configuration.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -9831,7 +9853,7 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
-      "idempotencyEnforced": false,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
@@ -12621,6 +12643,28 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/catalog/packaging/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "catalog.read",
+        "catalog.manage"
+      ],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",

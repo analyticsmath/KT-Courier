@@ -1,3 +1,4 @@
+import { CatalogPackagingSchema } from "@/lib/validation/catalog-packaging";
 import { z } from "zod";
 import { CatalogProductCreateSchema, ModifierGroupCreateSchema, StorePriceVersionCreateSchema } from "@/lib/validation/catalog";
 import { CatalogMediaAttachmentSchema } from "@/lib/validation/catalog-media";
@@ -19,6 +20,7 @@ export const CatalogListingVariantSchema = z.object({
 }).strict();
 
 export const CatalogListingDraftSchema = z.object({
+  packaging: CatalogPackagingSchema.optional(),
   operationId: z.string().trim().min(8).max(100).regex(/^[A-Za-z0-9:_-]+$/),
   product: CatalogProductCreateSchema.omit({ operationId: true }).extend({ scope: z.literal("STORE_PRIVATE") }).strict(),
   variants: z.array(CatalogListingVariantSchema).max(50).default([]),

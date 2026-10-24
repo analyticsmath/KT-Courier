@@ -11,11 +11,16 @@ import { Textarea } from "@/components/ui/Textarea";
 import { CatalogMediaUploader, type CatalogMediaDraft } from "@/components/catalog/CatalogMediaUploader";
 import { CatalogVariantFields, readCatalogVariantDrafts } from "@/components/catalog/CatalogVariantFields";
 import { CategoryCascade } from "@/components/catalog/CategoryCascade";
-import { categorySelection, type CategoryChoice } from "@/lib/catalog/category-selection";
+import { categoryProductType, categorySelection, type CategoryChoice } from "@/lib/catalog/category-selection";
+
+import { CatalogPackagingFields, EMPTY_PACKAGING, packagingInput, type PackagingFields, type PackageLimit } from "./CatalogPackagingFields";
+import { packageFitsLimits } from "@/lib/catalog/package-fit";
+import { CatalogPackagingSchema } from "@/lib/validation/catalog-packaging";
 
 type ProductTypeChoice = { id: string; name: string; code: string; versionNumber: number; attributeSchema: unknown };
 
 type Draft = {
+  packaging: PackagingFields;
   existingSearch: string;
   productTypeDefinitionId: string;
   primaryCategoryId: string;
@@ -32,13 +37,13 @@ type Draft = {
   modifiers: string;
 };
 
-const EMPTY: Draft = { existingSearch: "", productTypeDefinitionId: "", primaryCategoryId: "", title: "", description: "", attributes: "{}", variants: "Default", media: [], compliance: "{}", storeSku: "", price: "", stock: "0", inventoryLocation: "", modifiers: "" };
+const EMPTY: Draft = { packaging: EMPTY_PACKAGING, existingSearch: "", productTypeDefinitionId: "", primaryCategoryId: "", title: "", description: "", attributes: "{}", variants: "Default", media: [], compliance: "{}", storeSku: "", price: "", stock: "0", inventoryLocation: "", modifiers: "" };
 const STEPS = ["Product details", "Photos & options", "Offer & stock", "Review & save"];
 const DRAFT_STORAGE_PREFIX = "kt_store_catalog_wizard_draft:v2:";
 const DRAFT_STORAGE_EVENT = "kt-store-catalog-wizard-draft-change";
 const PERSISTED_DRAFT_KEYS = ["existingSearch", "productTypeDefinitionId", "primaryCategoryId", "title", "description", "attributes", "variants", "compliance", "storeSku", "price", "stock", "modifiers"] as const;
 
-type PersistedDraft = Omit<Draft, "media" | "inventoryLocation"> & { inventoryLocation?: string };
+type PersistedDraft = Omit<Draft, "media" | "inventoryLocation" | "packaging"> & { packaging?: PackagingFields } & { inventoryLocation?: string };
 
 type DraftCache = { inMemoryDraft: Draft | null; lastStoredDraft: string | null | undefined; lastSnapshot: Draft };
 const draftCaches = new Map<string, DraftCache>();
@@ -69,7 +74,7 @@ function readStoredDraft(draftKey: string): Draft {
     cache.lastStoredDraft = stored;
     if (!stored) return cache.lastSnapshot = EMPTY;
     const parsed: unknown = JSON.parse(stored);
-    return cache.lastSnapshot = isPersistedDraft(parsed) ? { ...EMPTY, ...parsed, media: [] } : EMPTY;
+    return cache.lastSnapshot = isPersistedDraft(parsed) ? { ...EMPTY, ...parsed, packaging: parsed.packaging && Object.keys(EMPTY_PACKAGING).every(key => typeof parsed.packaging?.[key as keyof PackagingFields] === "string") ? parsed.packaging : EMPTY_PACKAGING, media: [] } : EMPTY;
   } catch {
     return cache.lastSnapshot = EMPTY;
   }
@@ -100,6 +105,7 @@ function persistDraft(draftKey: string, draft: Draft): void {
   cache.lastSnapshot = draft;
   try {
     const persisted: PersistedDraft = {
+      packaging: draft.packaging,
       existingSearch: draft.existingSearch,
       productTypeDefinitionId: draft.productTypeDefinitionId,
       primaryCategoryId: draft.primaryCategoryId,
@@ -130,7 +136,7 @@ function draftSaveFailure(status: number, attachment = false) {
   return attachment ? "The product was saved, but an image could not be attached. Review the canonical draft before trying again." : "The product draft could not be saved. Review the highlighted fields and try again.";
 }
 
-export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, inventoryLocations = [] }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[]; draftOwnerKey: string; inventoryLocations?: { publicReference: string; name: string }[] }) {
+export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, inventoryLocations = [], packageLimits = [] }: { productTypes: ProductTypeChoice[]; categories: CategoryChoice[]; draftOwnerKey: string; inventoryLocations?: { publicReference: string; name: string }[]; packageLimits?: PackageLimit[] }) {
   const [step, setStep] = useState(0);
   // The authenticated page supplies both owner and store. Never adopt the legacy unscoped draft.
   const draftKey = `${DRAFT_STORAGE_PREFIX}${draftOwnerKey}`;
@@ -138,7 +144,7 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
     subscribe: (callback: () => void) => subscribeToDraft(draftKey, callback),
     getSnapshot: () => readStoredDraft(draftKey),
   }), [draftKey]);
-  const draft = useSyncExternalStore(draftStore.subscribe, draftStore.getSnapshot, () => EMPTY);
+  const storedDraft = useSyncExternalStore(draftStore.subscribe, draftStore.getSnapshot, () => EMPTY);
   const [status, setStatus] = useState("Draft is held only in this browser view until it is submitted.");
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -147,22 +153,24 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
   const [saved, setSaved] = useState<{ productReference: string; offers: { publicReference: string; storeSku?: string; variant?: { title: string } }[] } | null>(null);
   const [duplicateSearch, setDuplicateSearch] = useState<{ pending: boolean; message: string; candidates: { publicReference: string; title: string; confidenceBand: string }[] }>({ pending: false, message: "", candidates: [] });
 
-  const selectedType = productTypes.find((choice) => choice.id === draft.productTypeDefinitionId);
+  const selectedType = categoryProductType(categories, storedDraft.primaryCategoryId, productTypes);
+  const draft = { ...storedDraft, productTypeDefinitionId: selectedType?.id ?? "" };
   const selectedCategory = categorySelection(categories, draft.primaryCategoryId);
   const mediaReady = draft.media.length > 0 && draft.media.every((item) => item.status === "READY" && item.altText.trim()) && draft.media.filter((item) => item.primary && item.variantAssociation === "PRODUCT").length === 1;
   const detailsComplete = !!draft.productTypeDefinitionId && !!draft.primaryCategoryId && selectedCategory.valid && draft.title.trim().length >= 3 && draft.description.trim().length >= 20 && isJson(draft.attributes);
   const customVariants = draft.variants.trim() !== "Default";
   const variantDrafts = readCatalogVariantDrafts(draft.variants);
   const optionsComplete = mediaReady && (!customVariants || Boolean(variantDrafts?.length && variantDrafts.every(variant => variant.title.trim() && variant.options.length && variant.options.every(option => option.code && option.value.trim())))) && isJson(draft.compliance) && (!draft.modifiers.trim() || isJsonArray(draft.modifiers));
-  const offerComplete = customVariants
+  const packagingComplete = CatalogPackagingSchema.safeParse(packagingInput(draft.packaging)).success;
+  const offerComplete = packagingComplete && (customVariants
     ? Boolean(variantDrafts?.length && variantDrafts.every(variant => variant.storeSku.trim() && /^(?:0|[1-9]\d{0,15})\.\d{2}$/.test(variant.price) && /^\d+$/.test(variant.openingStock) && Number.isSafeInteger(Number(variant.openingStock)) && Number(variant.openingStock) <= 2_147_483_647 && (Number(variant.openingStock) === 0 || variant.inventoryLocationPublicReference || draft.inventoryLocation)))
-    : !!draft.storeSku.trim() && /^\d+\.\d{2}$/.test(draft.price) && /^\d+$/.test(draft.stock) && Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0 && (Number(draft.stock) === 0 || !!draft.inventoryLocation);
+    : !!draft.storeSku.trim() && /^\d+\.\d{2}$/.test(draft.price) && /^\d+$/.test(draft.stock) && Number.isSafeInteger(Number(draft.stock)) && Number(draft.stock) >= 0 && (Number(draft.stock) === 0 || !!draft.inventoryLocation));
   const completed = [detailsComplete, optionsComplete, offerComplete, detailsComplete && optionsComplete && offerComplete];
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) { persistDraft(draftKey, { ...draft, [key]: value }); setErrors([]); setStatus("Draft changed in this browser view."); }
 
   async function findDuplicates() {
-    if (!selectedType || draft.existingSearch.trim().length < 3) { setDuplicateSearch({ pending: false, message: "Choose a product type, then enter at least three title characters.", candidates: [] }); return; }
+    if (!selectedType || draft.existingSearch.trim().length < 3) { setDuplicateSearch({ pending: false, message: "Choose a supported category, then enter at least three title characters.", candidates: [] }); return; }
     setDuplicateSearch({ pending: true, message: "Searching available catalog identities…", candidates: [] });
     try {
       const response = await fetch(`/api/store/catalog/products/duplicate-search?${new URLSearchParams({ title: draft.existingSearch.trim(), productTypeCode: selectedType.code })}`, { cache: "no-store" });
@@ -175,7 +183,9 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
   async function submitDraft() {
     if (inFlight.current || saved) return;
     const nextErrors: string[] = [];
-    if (!draft.productTypeDefinitionId) nextErrors.push("Select a product type.");
+    if (!draft.productTypeDefinitionId) nextErrors.push("Choose a category with an available product form.");
+    if (packagingComplete && packageLimits.length && !packageFitsLimits(packagingInput(draft.packaging), packageLimits)) nextErrors.push("This packed unit exceeds the courier limits shown under Offer & stock. Repack it before saving.");
+    if (!packagingComplete) nextErrors.push("Enter packaged length, width, height, weight and a packing description for delivery review.");
     if (!draft.primaryCategoryId || !selectedCategory.valid) nextErrors.push("Select a category.");
     if (draft.title.trim().length < 3) nextErrors.push("Enter a product title.");
     if (!isJson(draft.attributes)) nextErrors.push("Attributes must be valid JSON.");
@@ -202,6 +212,7 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
       if (operation.current?.identity !== identity) operation.current = { identity, id: crypto.randomUUID(), effectiveFrom: new Date().toISOString() };
       const price = (amount: string) => ({ amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom: operation.current!.effectiveFrom });
       const facts = {
+        packaging: packagingInput(draft.packaging),
         product: { scope: "STORE_PRIVATE", productTypeDefinitionId: draft.productTypeDefinitionId, primaryCategoryId: draft.primaryCategoryId, title: draft.title, description: draft.description || undefined, condition: "NEW", attributeValues: JSON.parse(draft.attributes), complianceValues: JSON.parse(draft.compliance) },
         variants: !customVariants ? [] : (variantDrafts ?? []).map(variant => ({ title: variant.title, options: variant.options, attributeValues: variant.attributeValues, storeSku: variant.storeSku, price: price(variant.price), openingStock: Number(variant.openingStock), inventoryLocationPublicReference: variant.inventoryLocationPublicReference || undefined })),
         ...(!customVariants ? { storeSku: draft.storeSku, price: price(draft.price), openingStock: Number(draft.stock) } : {}),
@@ -250,6 +261,7 @@ export function StoreCatalogWizard({ productTypes, categories, draftOwnerKey, in
           <p className="text-xs font-extrabold uppercase tracking-widest text-[var(--kt-signal-cobalt)]">Step {step + 1} of {STEPS.length}</p>
           <h2 className="mt-1 text-xl font-black">{STEPS[step]}</h2>
           <div className="mt-5 space-y-4">
+            {step === 2 ? <CatalogPackagingFields limits={packageLimits} value={draft.packaging} onChange={value => update("packaging", value)} /> : null}
             {renderStep(step, draft, update, productTypes, selectedType, inventoryLocations, categories)}
             {step === 0 ? (
               <details className="rounded-xl border border-[var(--kt-soft-border)] p-4">
@@ -279,8 +291,8 @@ function isJsonArray(value: string) { try { return Array.isArray(JSON.parse(valu
 function Field({ label, help, children }: { label: string; help?: string; children: React.ReactNode }) { const id = label.toLocaleLowerCase("en-ZA").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); return <div><label htmlFor={id} className="mb-1 block text-sm font-extrabold">{label}</label>{children}<p id={`${id}-help`} className="mt-1 text-xs text-[var(--kt-text-muted)]">{help}</p></div>; }
 
 function renderStepField(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categories: CategoryChoice[]) {
-  if (step === 0) return <Field label="Find an existing product" help="Search by title after choosing a product type. Suggestions include this store’s private drafts and published shared products."><Input id="find-an-existing-product" value={draft.existingSearch} onChange={(event) => update("existingSearch", event.target.value)} placeholder="Product title" /></Field>;
-  if (step === 1) return <div className="space-y-4"><Field label="Product type" help="The stored version remains attached to this product."><Select id="product-type" value={draft.productTypeDefinitionId} onChange={(event) => update("productTypeDefinitionId", event.target.value)} placeholder="Select a product type" options={productTypes.map((item) => ({ value: item.id, label: `${item.name} · v${item.versionNumber}` }))} /></Field><CategoryCascade categories={categories} value={draft.primaryCategoryId} onChange={id => update("primaryCategoryId", id)} /></div>;
+  if (step === 0) return <Field label="Find an existing product" help="Search by title after choosing a category. Suggestions include this store’s private drafts and published shared products."><Input id="find-an-existing-product" value={draft.existingSearch} onChange={(event) => update("existingSearch", event.target.value)} placeholder="Product title" /></Field>;
+  if (step === 1) return <div className="space-y-4"><input type="hidden" name="productTypeDefinitionId" value={draft.productTypeDefinitionId} /><CategoryCascade categories={categories} value={draft.primaryCategoryId} onChange={id => update("primaryCategoryId", id)} />{draft.primaryCategoryId && !selectedType ? <p role="alert">This category does not have an available product form yet. Choose another category or contact KT Couriers.</p> : null}</div>;
   if (step === 2) return <><Field label="Product title" help="Describe the product identity, not price or stock."><Input id="product-title" value={draft.title} onChange={(event) => update("title", event.target.value)} /></Field><Field label="Description" help="Plain text only. Include material facts and condition disclosures."><Textarea id="description" value={draft.description} onChange={(event) => update("description", event.target.value)} rows={7} /></Field></>;
   if (step === 3) return <Field label="Attribute values" help={`Schema-driven JSON for ${selectedType?.code ?? "the selected product type"}. Unknown fields are rejected.`}><Textarea id="attribute-values" value={draft.attributes} onChange={(event) => update("attributes", event.target.value)} rows={9} className="font-mono" /></Field>;
   if (step === 4) return <CatalogVariantFields raw={draft.variants} onChange={value => update("variants", value)} mode="options" />;
@@ -290,8 +302,8 @@ function renderStepField(step: number, draft: Draft, update: <K extends keyof Dr
   if (step === 8) return <Field label="VAT-inclusive price (ZAR)" help="Enter an exact amount such as 24999.00. Price versions are immutable after activation."><Input id="vat-inclusive-price-zar" inputMode="decimal" value={draft.price} onChange={(event) => update("price", event.target.value)} /></Field>;
   if (step === 9) return <>{draft.variants.trim() === "Default" ? <Field label="Opening stock" help="Enter a whole count. Saving records an opening stock movement."><Input id="opening-stock" inputMode="numeric" value={draft.stock} onChange={(event) => update("stock", event.target.value)} /></Field> : null}<Field label="Inventory location" help="Choose an active shared location. Each variant may select its own location above."><Select id="inventory-location" value={draft.inventoryLocation} onChange={(event) => update("inventoryLocation", event.target.value)} placeholder="Select an inventory location" options={inventoryLocations.map(item => ({ value: item.publicReference, label: item.name }))} /></Field>{inventoryLocations.length === 0 ? <p role="status">No active stock location is available. <Link href="/store/catalog/inventory" className="underline">Create a stock location</Link> before adding opening stock, or save with zero stock.</p> : null}</>;
   if (step === 10) return <Field label="Modifier groups" help={'Optional JSON array of groups. Each group needs name, minimumSelections, maximumSelections, isRequired and options. Each option needs name, priceDelta (for example "1.00"), currency "ZAR" and displayOrder. Leave blank for none.'}><Textarea id="modifier-groups" value={draft.modifiers} onChange={(event) => update("modifiers", event.target.value)} rows={6} /></Field>;
-  if (step === 11) return <div role="region" aria-label="Exact draft preview" className="space-y-3 rounded-xl border border-[var(--kt-soft-border)] p-4"><h3 className="text-lg font-black">{draft.title || "Untitled product"}</h3><p>{draft.description || "No description"}</p><p className="text-sm"><strong>Category:</strong> {categorySelection(categories, draft.primaryCategoryId).path.map(category => category.name).join(" / ") || "Not selected"}</p>{draft.variants.trim() !== "Default" ? <table className="w-full text-left text-sm"><caption className="sr-only">Each sellable product variant</caption><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Stock</th></tr></thead><tbody>{(readCatalogVariantDrafts(draft.variants) ?? []).map((variant, index) => <tr key={index}><td>{variant.title || "Not ready"}<span className="block text-xs">{variant.options.map(option => `${option.code}: ${option.value}`).join(" · ")}</span></td><td>{variant.storeSku || "Not ready"}</td><td>{variant.price ? `R ${variant.price}` : "Not ready"}</td><td>{variant.openingStock || "Not ready"}</td></tr>)}</tbody></table> : <dl className="grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-bold">SKU</dt><dd>{draft.storeSku || "Not ready"}</dd></div><div><dt className="font-bold">Price</dt><dd>{draft.price ? `R ${draft.price}` : "Not ready"}</dd></div><div><dt className="font-bold">Stock</dt><dd>{draft.stock}</dd></div></dl>}<p className="text-sm">Draft only; review and publication are separate.</p></div>;
-  return <div><h3 className="font-black">Quality checklist</h3><ul className="mt-3 space-y-2">{["Product type and category", "Core information", "Attributes", "Variant", "Compliance", "Offer SKU", "Price", "Inventory"].map((item, index) => <li key={item} className="flex gap-2"><span aria-hidden="true">{completedForSubmit(index, draft) ? "✓" : "○"}</span>{item}</li>)}</ul><p className="mt-4 text-sm text-[var(--kt-text-muted)]">Saving creates a draft only. Submission and public activation are separate reviewed actions.</p></div>;
+  if (step === 11) return <div role="region" aria-label="Exact draft preview" className="space-y-3 rounded-xl border border-[var(--kt-soft-border)] p-4"><h3 className="text-lg font-black">{draft.title || "Untitled product"}</h3><p>{draft.description || "No description"}</p><p className="text-sm"><strong>Category:</strong> {categorySelection(categories, draft.primaryCategoryId).path.map(category => category.name).join(" / ") || "Not selected"}</p>{draft.variants.trim() !== "Default" ? <table className="w-full text-left text-sm"><caption className="sr-only">Each sellable product variant</caption><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Stock</th></tr></thead><tbody>{(readCatalogVariantDrafts(draft.variants) ?? []).map((variant, index) => <tr key={index}><td>{variant.title || "Not ready"}<span className="block text-xs">{variant.options.map(option => `${option.code}: ${option.value}`).join(" · ")}</span></td><td>{variant.storeSku || "Not ready"}</td><td>{variant.price ? `R ${variant.price}` : "Not ready"}</td><td>{variant.openingStock || "Not ready"}</td></tr>)}</tbody></table> : <dl className="grid gap-2 text-sm sm:grid-cols-2"><div><dt className="font-bold">SKU</dt><dd>{draft.storeSku || "Not ready"}</dd></div><div><dt className="font-bold">Price</dt><dd>{draft.price ? `R ${draft.price}` : "Not ready"}</dd></div><div><dt className="font-bold">Stock</dt><dd>{draft.stock}</dd></div></dl>}<p className="text-sm"><strong>Delivery package:</strong> {draft.packaging.lengthCm || "—"} × {draft.packaging.widthCm || "—"} × {draft.packaging.heightCm || "—"} cm · {draft.packaging.weightKg || "—"} kg</p><p className="text-sm">{draft.packaging.description}</p><p className="text-sm">Draft only; product publication and delivery packaging approval are reviewed separately.</p></div>;
+  return <div><h3 className="font-black">Quality checklist</h3><ul className="mt-3 space-y-2">{["Category", "Core information", "Attributes", "Variant", "Compliance", "Offer SKU", "Price", "Inventory"].map((item, index) => <li key={item} className="flex gap-2"><span aria-hidden="true">{completedForSubmit(index, draft) ? "✓" : "○"}</span>{item}</li>)}</ul><p className="mt-4 text-sm text-[var(--kt-text-muted)]">Saving creates a draft only. Submission and public activation are separate reviewed actions.</p></div>;
 }
 
 function renderStep(step: number, draft: Draft, update: <K extends keyof Draft>(key: K, value: Draft[K]) => void, productTypes: ProductTypeChoice[], selectedType: ProductTypeChoice | undefined, inventoryLocations: { publicReference: string; name: string }[], categories: CategoryChoice[]) {
