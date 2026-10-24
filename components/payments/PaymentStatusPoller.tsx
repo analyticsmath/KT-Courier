@@ -6,7 +6,7 @@ import { getCustomerPaymentStatusPresentation } from "@/lib/payment-presentation
 
 const TERMINAL = new Set(["SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED"]);
 
-export function PaymentStatusPoller({ initialPayment }: { initialPayment: CustomerPaymentStatusDto }) {
+export function useCustomerPaymentPolling(initialPayment: CustomerPaymentStatusDto) {
   const [payment, setPayment] = useState(initialPayment);
 
   useEffect(() => {
@@ -32,5 +32,10 @@ export function PaymentStatusPoller({ initialPayment }: { initialPayment: Custom
     return () => window.clearInterval(timer);
   }, [payment.publicReference, payment.status]);
 
+  return payment;
+}
+
+export function PaymentStatusPoller({ initialPayment }: { initialPayment: CustomerPaymentStatusDto }) {
+  const payment = useCustomerPaymentPolling(initialPayment);
   return <p role="status" aria-live="polite" className="text-sm text-[var(--kt-text-muted)]">Current payment state: <strong>{getCustomerPaymentStatusPresentation(payment.status).label}</strong></p>;
 }

@@ -80,8 +80,8 @@ export default async function AdminOrdersPage({
           { id: "payment", header: "Payment", priority: "secondary", cell: (order) => {
             const state = order.financialStatus;
             return state ? <ProtectedStatus
-              label={state.status === "PAID" ? "Paid" : state.status === "CASH_DUE_ON_DELIVERY" ? "Cash on delivery" : state.status === "RECONCILIATION_REQUIRED" ? "Reconcile payment" : state.status === "PAYMENT_REQUIRED" ? "Payment required" : "Unknown"}
-              tone={state.status === "PAID" ? "success" : state.status === "CASH_DUE_ON_DELIVERY" ? "information" : "warning"}
+              label={state.status === "PAID" ? "Paid" : state.status === "DEPOSIT_PAID_CASH_DUE" ? "Deposit paid · cash due" : state.status === "CASH_DUE_ON_DELIVERY" ? "Cash on delivery" : state.status === "RECONCILIATION_REQUIRED" ? "Reconcile payment" : state.status === "PAYMENT_REQUIRED" ? "Payment required" : "Unknown"}
+              tone={state.status === "PAID" ? "success" : ["DEPOSIT_PAID_CASH_DUE", "CASH_DUE_ON_DELIVERY"].includes(state.status) ? "information" : "warning"}
             /> : <ProtectedStatus label="Unknown" tone="warning" />;
           } },
           { id: "assignment", header: "Assignment", priority: "secondary", cell: (order) => { const state = order.activeAssignment ? presentAssignmentStatus(order.activeAssignment.status) : { label: "Unassigned", tone: "warning" as const }; return <div><ProtectedStatus label={state.label} tone={state.tone} />{order.activeAssignment ? <small>{order.activeAssignment.driverDisplayName ?? order.activeAssignment.driverCode}</small> : null}</div>; } },

@@ -8,6 +8,15 @@ describe("courier payment readiness", () => {
   it("blocks a successful provider status without financial ledger posting", async () => { const db = query({ ...base, payments: [{ ...payment, successLedgerJournalId: null }] }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "RECONCILIATION_REQUIRED", dispatchEligible: false }); });
   it("blocks not-yet-paid online parcel payments", async () => { const db = query({ ...base, payments: [{...payment, status:"REQUIRES_ACTION",successLedgerJournalId:null}] }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "PAYMENT_REQUIRED", dispatchEligible: false }); });
   it("does not misrepresent authorised full COD as paid, but permits dispatch", async () => { const db = query({ ...base, cashOnDelivery:{ policyMode:"FULL_COD", digitalRequired:{toNumber:()=>0}, cashObligation:{toFixed:()=>"170.00"}} }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible:true }); });
+  it("does not call a paid deposit a fully paid delivery when cash is still outstanding", async () => {
+    const db=query({...base,payments:[payment],cashOnDelivery:{
+      policyMode:"DEPOSIT_PLUS_COD",
+      digitalRequired:{toNumber:()=>85},cashObligation:{toFixed:()=>"120.85"},
+    }});
+    expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({
+      status:"DEPOSIT_PAID_CASH_DUE",dispatchEligible:true,cashDue:"120.85",paymentReference:"pay_123",
+    });
+  });
   it("requires verified digital deposit for mixed COD", async () => { const db=query({...base,cashOnDelivery:{policyMode:"DEPOSIT_PLUS_COD",digitalRequired:{toNumber:()=>85},cashObligation:{toFixed:()=>"85.00"}}}); expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({status:"PAYMENT_REQUIRED",dispatchEligible:false}); });
   it("uses parent checkout payment for bridged marketplace courier orders", async () => { const db=query({...base,marketplaceStoreOrderBridge:{storeOrder:{marketplaceOrder:{payment}}}}); expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({status:"PAID",dispatchEligible:true,paymentReference:"pay_123"}); });
   it("missing orders cannot be cleared for dispatch", async () => { const db = { order: { findMany: vi.fn().mockResolvedValue([]) } }; expect(await getCourierPaymentReadiness("missing", db as never)).toMatchObject({status:"UNKNOWN",dispatchEligible:false}); });

@@ -4,6 +4,7 @@ import { OrderTransitionError } from "@/lib/orders/order-state-machine";
 
 export type CourierPaymentState =
   | "PAID"
+  | "DEPOSIT_PAID_CASH_DUE"
   | "CASH_DUE_ON_DELIVERY"
   | "PAYMENT_REQUIRED"
   | "RECONCILIATION_REQUIRED"
@@ -48,7 +49,8 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
     return Object.freeze({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true, paymentReference: null, amount: null, cashDue });
   }
   if (payment?.status === "SUCCEEDED" && payment.successLedgerJournalId) {
-    return Object.freeze({ status: "PAID", dispatchEligible: true, paymentReference: payment.publicReference, amount: payment.amount.toFixed(2), cashDue });
+    const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD" && Number(cashDue) > 0;
+    return Object.freeze({ status: depositOnly ? "DEPOSIT_PAID_CASH_DUE" : "PAID", dispatchEligible: true, paymentReference: payment.publicReference, amount: payment.amount.toFixed(2), cashDue });
   }
   if (payment?.status === "SUCCEEDED" && !payment.successLedgerJournalId) {
     return Object.freeze({ ...empty("RECONCILIATION_REQUIRED"), paymentReference: payment.publicReference, amount: payment.amount.toFixed(2), cashDue });

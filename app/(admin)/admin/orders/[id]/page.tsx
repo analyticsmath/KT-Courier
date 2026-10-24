@@ -58,11 +58,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         <OperationalPanel title="Payment verification" description="Source-backed payment authorization; a payment link, browser return or provider response alone does not prove settlement.">
           <ProtectedStatus
             label={paymentReadiness.status === "PAID" ? "Paid · ledger confirmed"
+              : paymentReadiness.status === "DEPOSIT_PAID_CASH_DUE" ? "Digital deposit paid · cash still due"
               : paymentReadiness.status === "CASH_DUE_ON_DELIVERY" ? "Cash due on delivery · unpaid"
               : paymentReadiness.status === "RECONCILIATION_REQUIRED" ? "Payment requires reconciliation"
               : paymentReadiness.status === "PAYMENT_REQUIRED" ? "Digital payment required"
               : "Payment evidence unavailable"}
-            tone={paymentReadiness.status === "PAID" ? "success" : paymentReadiness.status === "CASH_DUE_ON_DELIVERY" ? "information" : "warning"}
+            tone={paymentReadiness.status === "PAID" ? "success" : ["CASH_DUE_ON_DELIVERY", "DEPOSIT_PAID_CASH_DUE"].includes(paymentReadiness.status) ? "information" : "warning"}
           />
           <dl className="eo-definition-list mt-3">
             {paymentReadiness.amount && <div><dt>Digital amount</dt><dd>ZAR {paymentReadiness.amount}</dd></div>}
