@@ -35,7 +35,7 @@ describe("verified provider sandbox payment integration acceptance", () => {
   });
   it("does not let a payment receipt certify refunds, payouts or unrelated acceptance", () => {
     for (const key of ["refund_acceptance", "payout_acceptance", "settlement_acceptance", "driver_gps_acceptance"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, key }).success).toBe(false);
-    for (const amount of ["0.00", "-1.00", "148.351", "NaN"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, amount }).success).toBe(false);
+    for (const amount of ["0.00", "-1.00", "148.351", "NaN", "invalid", "9".repeat(100) + ".00"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, amount }).success).toBe(false);
   });
   it("rejects absent, unverified, mismatched or unreconciled canonical receipts", () => {
     const invalid = [null, { ...payment, status: "REQUIRES_ACTION" as const }, { ...payment, provider: "PAYFAST" as const }, { ...payment, amount: new Prisma.Decimal("148.34") }, { ...payment, successLedgerJournalId: null }, { ...payment, providerConfirmedAt: null }, { ...payment, reconciliationStatus: "REQUIRED" as const }, { ...payment, successfulAttempt: null }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerEnvironment: "PRODUCTION" as const } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, amount: new Prisma.Decimal("205.85") } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerReference: null } }];
