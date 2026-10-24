@@ -6,13 +6,15 @@ const db = vi.hoisted(() => ({
     findMany: vi.fn(),
     updateMany: vi.fn(),
     create: vi.fn(),
+    findUnique: vi.fn(),
   },
+  systemSetting: { findUnique: vi.fn() },
   store: { findUnique: vi.fn() },
   deliveryServiceDefinition: { findFirst: vi.fn() },
   deliveryRegion: { findFirst: vi.fn() },
   order: { findUnique: vi.fn(), update: vi.fn() },
   cashOnDelivery: { delete: vi.fn(), update: vi.fn() },
-  adminActivityLog: { create: vi.fn() },
+  adminActivityLog: { create: vi.fn(), findFirst: vi.fn() },
   $transaction: vi.fn(),
   $executeRaw: vi.fn(),
   $queryRaw: vi.fn(),
@@ -27,6 +29,7 @@ import {
 import {
   PaymentConfigurationSchema,
   savePaymentConfiguration,
+  approvePaymentConfiguration,
 } from "@/lib/client-platform/payment-configuration.service";
 const base = {
   id: "policy",
@@ -270,4 +273,119 @@ describe("scoped cash payment policies", () => {
     });
     expect(db.paymentMethodPolicy.findMany).not.toHaveBeenCalled();
   });
+  it("accepts an explicitly scoped 100% cash parcel policy for individual customers", () => {
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "FULL_COD", depositPercent: null,
+    }).success).toBe(true);
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD",
+    }).success).toBe(false);
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "FULL_COD", deliveryServiceId: null,
+    }).success).toBe(false);
+  });
+
+  it("creates a review-required parcel-only full COD policy without approving it", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([]);
+    await savePaymentConfiguration(actor, {
+      ...input, storeId: null, mode: "FULL_COD", depositPercent: null,
+      maximumCodAmount: "300.00", expectedVersion: 0,
+      reason: "Offer full COD for eligible parcel customers",
+    });
+    expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({
+      storeId: null, orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+      depositPercent: null, status: "INACTIVE",
+    });
+    expect(db.store.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("requires zero upfront payment for eligible full cash parcel delivery", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{
+      ...base, storeId: null, orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+      deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
+      depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
+    }]);
+    const full = await resolvePaymentBreakdown({
+      orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
+      provinces: ["Gauteng"], authoritativeTotal: "249.00",
+    });
+    expect(full).toMatchObject({
+      mode: "FULL_COD", digitalRequired: "0.00",
+      cashRequired: "249.00", cashOutstanding: "249.00",
+    });
+    expect(db.store.findUnique).not.toHaveBeenCalled();
+    await expect(resolvePaymentBreakdown({
+      orderType: "GROCERY", deliveryServiceKey: "CLIENT_STANDARD",
+      provinces: ["Gauteng"], authoritativeTotal: "249.00",
+    })).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+  });
+
+  it("requires documented independent approval before production 100% cash checkout", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KT_RUNTIME_ENV", "production");
+    try {
+      db.paymentMethodPolicy.findMany.mockResolvedValue([{
+        ...base, createdByUserId: "author", storeId: null,
+        orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+        deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
+        depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
+        policyEvidence: {},
+      }]);
+      await expect(resolvePaymentBreakdown({
+        orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
+        provinces: ["Gauteng"], authoritativeTotal: "179.00",
+      })).rejects.toMatchObject({ code: "COD_PRODUCTION_APPROVAL_REQUIRED" });
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it("permits production zero-deposit COD only with approved cash remittance instructions", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("KT_RUNTIME_ENV", "production");
+    try {
+      const date = new Date("2026-10-15T10:00:00.000Z");
+      db.paymentMethodPolicy.findMany.mockResolvedValue([{
+        ...base, createdByUserId: "author", storeId: null,
+        orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+        deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
+        depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
+        policyEvidence: { approvedByUserId: "reviewer", approvedAt: date.toISOString(),
+          remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Bank receipt within 24 hours" },
+      }]);
+      const args = { orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
+        provinces: ["Gauteng"], authoritativeTotal: "179.00" };
+      await expect(resolvePaymentBreakdown(args)).rejects.toMatchObject({ code: "COD_REMITTANCE_NOT_CONFIGURED" });
+      db.systemSetting.findUnique.mockResolvedValue({
+        value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
+        updatedAt: date,
+      });
+      expect(await resolvePaymentBreakdown(args)).toMatchObject({
+        mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "179.00",
+      });
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it("activates reviewed full parcel COD without mutating older 50/50 scopes", async () => {
+    const draft = { ...base, id: "cm00000000000000000000001", status: "INACTIVE",
+      createdByUserId: "different-author", storeId: null, mode: "FULL_COD",
+      orderType: "PARCEL_DOCUMENT", deliveryServiceId: "CLIENT_STANDARD",
+      provinceScope: ["Gauteng"], depositPercent: null,
+      maximumCodAmount: new Prisma.Decimal("300.00") };
+    db.paymentMethodPolicy.findUnique.mockResolvedValue(draft);
+    db.paymentMethodPolicy.findMany.mockResolvedValue([draft]);
+    db.systemSetting.findUnique.mockResolvedValue({
+      value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
+      updatedAt: new Date("2026-10-15T10:00:00.000Z"),
+    });
+    db.adminActivityLog.findFirst.mockResolvedValue({ actorUserId: "bank-author" });
+    await approvePaymentConfiguration(actor, {
+      policyId: draft.id, expectedVersion: 1, remittanceVerified: true,
+      settlementTiming: "Bank receipt within 24 hours", reason: "Verified parcel full cash operations",
+    });
+    expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({
+      mode: "FULL_COD", orderType: "PARCEL_DOCUMENT", status: "ACTIVE",
+      storeId: null, createdByUserId: "different-author",
+      policyEvidence: { approvedByUserId: "admin", remittanceApproved: true },
+    });
+  });
+
 });

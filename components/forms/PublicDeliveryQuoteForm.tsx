@@ -403,7 +403,7 @@ export function PublicDeliveryQuoteForm({
           </dl>
           <p className="text-sm">
             Quote valid until {new Date(quote.expiresAt).toLocaleString()}.
-            Final payment is completed after sign-in.
+            Choose online payment or approved 100% cash on delivery after sign-in.
           </p>
           {signedIn ? (
             <form
@@ -520,7 +520,9 @@ export function PublicDeliveryQuoteForm({
                     .filter((m) => m.mode !== "DIGITAL_ONLY")
                     .map((m) => (
                       <option key={m.mode} value={m.mode}>
-                        Online R {m.digitalRequired} + cash R {m.cashRequired}
+                        {m.mode === "FULL_COD"
+                          ? `100% cash on delivery · R ${m.cashRequired} (R0 upfront)`
+                          : `Online R ${m.digitalRequired} + cash R ${m.cashRequired}`}
                       </option>
                     ))}
                 </select>

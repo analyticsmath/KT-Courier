@@ -32,6 +32,7 @@ export const PaymentConfigurationSchema = z
       .nullable(),
     regionId: z.string().cuid().nullable(),
     orderId: z.string().cuid().nullable(),
+    orderType: z.literal("PARCEL_DOCUMENT").nullable().optional(),
     mode: z.enum(["DIGITAL", "FULL_COD", "DEPOSIT_PLUS_COD"]),
     depositPercent: z
       .string()
@@ -49,11 +50,12 @@ export const PaymentConfigurationSchema = z
   .superRefine((v, c) => {
     if (v.effectiveFrom && v.effectiveTo && new Date(v.effectiveTo) <= new Date(v.effectiveFrom))
       c.addIssue({ code: "custom", path: ["effectiveTo"], message: "The end must be later than the start." });
-    if (v.mode !== "DIGITAL" && (!v.storeId || !v.maximumCodAmount))
-      c.addIssue({
-        code: "custom",
-        message: "Cash requires an approved business and positive cash limit.",
-      });
+    if (v.mode !== "DIGITAL" && !v.maximumCodAmount)
+      c.addIssue({ code: "custom", message: "Cash requires a positive cash limit." });
+    if (v.mode !== "DIGITAL" && !v.storeId && v.mode !== "FULL_COD")
+      c.addIssue({ code: "custom", message: "Only 100% parcel COD can be approved without a store." });
+    if (v.mode === "FULL_COD" && v.orderType != null && v.orderType !== "PARCEL_DOCUMENT")
+      c.addIssue({ code: "custom", message: "Full COD is limited to courier parcel deliveries." });
     if (v.mode === "DEPOSIT_PLUS_COD" && !v.depositPercent)
       c.addIssue({
         code: "custom",
@@ -125,6 +127,7 @@ export async function listPaymentConfigurations(u: AuthenticatedUser) {
     policies: policies.map((p) => ({
       id: p.id,
       storeId: p.storeId,
+      orderType: p.orderType,
       deliveryServiceId: p.deliveryServiceId,
       provinces: Array.isArray(p.provinceScope)
         ? (p.provinceScope as string[])
@@ -167,7 +170,9 @@ async function saveReviewedPaymentConfiguration(
     businessModuleId: null,
     storeId: input.storeId,
     deliveryServiceId: input.deliveryServiceId,
-    orderType: null,
+    // Store-less FULL_COD applies to personal parcel delivery, never checkout
+    // for unrelated orders. Keep the scope stable across edits/disable actions.
+    orderType: input.orderType ?? (input.mode === "FULL_COD" ? "PARCEL_DOCUMENT" : null),
     provinceScope: input.provinces,
     regionId: input.regionId,
     orderId: input.orderId,
@@ -244,7 +249,10 @@ async function saveReviewedPaymentConfiguration(
         throw new PlatformError("PAYMENT_ORDER_PERIOD_INVALID", "An immediate order override must already be effective.", 422);
       let approvalEvidence: Prisma.InputJsonObject = {};
       if (review) {
-        if (review.authorId === u.id || input.mode !== "DEPOSIT_PLUS_COD" || input.depositPercent !== "0.5" && input.depositPercent !== "0.5000" || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires the initial 50/50 split and explicit service/region scope.", 422);
+        const validCash = input.mode === "FULL_COD"
+          ? scope.orderType === "PARCEL_DOCUMENT" && !input.depositPercent
+          : input.mode === "DEPOSIT_PLUS_COD" && (input.depositPercent === "0.5" || input.depositPercent === "0.5000");
+        if (review.authorId === u.id || !validCash || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires parcel-only 100% COD (or the approved 50/50 scheme), an explicit service, area and remittance controls.", 422);
         const source = existing.find((p) => p.id === review.policyId && p.versionNumber === input.expectedVersion && p.status === "INACTIVE");
         if (!source || source.createdByUserId !== review.authorId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft for this scope.", 409);
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'client_cash_deposit_bank'}))`;
@@ -436,7 +444,7 @@ export async function approvePaymentConfiguration(u: AuthenticatedUser, input: z
   if (draft.createdByUserId === u.id) throw new PlatformError("COD_INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must approve this policy.", 403);
   return saveReviewedPaymentConfiguration(u, {
     storeId: draft.storeId, deliveryServiceId: draft.deliveryServiceId, provinces: Array.isArray(draft.provinceScope) ? draft.provinceScope as z.infer<typeof PaymentConfigurationSchema>["provinces"] : null,
-    regionId: draft.regionId, orderId: draft.orderId, mode: draft.mode,
+    regionId: draft.regionId, orderId: draft.orderId, orderType: draft.orderType === "PARCEL_DOCUMENT" ? "PARCEL_DOCUMENT" : null, mode: draft.mode,
     depositPercent: draft.depositPercent?.toString() ?? null, maximumCodAmount: draft.maximumCodAmount?.toFixed(2) ?? null,
     active: true, expectedVersion: data.expectedVersion, reason: data.reason,
     effectiveFrom: draft.effectiveFrom.toISOString(), effectiveTo: draft.effectiveTo?.toISOString() ?? null,

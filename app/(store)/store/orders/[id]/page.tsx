@@ -15,6 +15,7 @@ import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/Protected
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getOrder } from "@/lib/services/orders.service";
+import { prisma } from "@/lib/db/prisma";
 import { getDeliveryTypeConfig } from "@/lib/constants/statuses";
 import { CUSTOMER_CANCELLABLE_STATUSES } from "@/lib/constants/order-status";
 import { formatDate, formatDateTime } from "@/lib/utils/formatters";
@@ -32,6 +33,10 @@ export default async function StoreOrderDetailPage({
   if (!user) redirect("/auth/login");
   const order = await getOrder(user, id, true);
   if (!order) notFound();
+  const cod = await prisma.cashOnDelivery.findUnique({
+    where: { orderId: order.id },
+    select: { policyMode: true, cashObligation: true, cashCollected: true },
+  });
   const access = await storeAccess(user.id);
   const canPay =
     access.owner || membershipAllows(access.permissions, "finance");
@@ -137,12 +142,20 @@ export default async function StoreOrderDetailPage({
       </OperationalPanel>
       {canPay && (
         <OperationalPanel title="Payment">
-          <Link
-            className="inline-flex min-h-11 items-center border rounded-[var(--eo-radius-control)] px-4"
-            href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`}
-          >
-            Review payment
-          </Link>
+          {cod?.policyMode === "FULL_COD" ? (
+            <p role="status" className="text-sm font-medium">
+              {cod.cashObligation.sub(cod.cashCollected).isZero()
+                ? `Cash collected · R ${cod.cashCollected.toFixed(2)}`
+                : `Pay R ${cod.cashObligation.sub(cod.cashCollected).toFixed(2)} cash to the assigned driver at delivery`}
+            </p>
+          ) : (
+            <Link
+              className="inline-flex min-h-11 items-center border rounded-[var(--eo-radius-control)] px-4"
+              href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`}
+            >
+              Review payment
+            </Link>
+          )}
         </OperationalPanel>
       )}
       {canTrackDelivery && ["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(order.status) && (

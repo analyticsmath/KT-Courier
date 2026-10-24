@@ -88,6 +88,8 @@ export async function createOrder(
       serviceKey?: string;
       configurationId?: string;
     };
+    if (input.deliveryType === "PARCEL_DOCUMENT" && input.paymentMethod === "DEPOSIT_PLUS_COD")
+      throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
     const committedPayment =
       input.paymentMethod && input.paymentMethod !== "DIGITAL_ONLY"
         ? await resolvePaymentBreakdown(

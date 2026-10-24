@@ -17,3 +17,12 @@ describe("parcel recipient email capture", () => {
     expect(QuoteBookingSchema.safeParse(booking).success).toBe(false);
   });
 });
+
+describe("parcel booking payment modes", () => {
+  it("accepts full cash and full online but never a 50/50 deposit", () => {
+    const details = { ...booking, recipientEmail: "receiver@example.com", pickupContactEmail: "sender@example.com" };
+    expect(QuoteBookingSchema.safeParse({ ...details, paymentMethod: "FULL_COD" }).success).toBe(true);
+    expect(QuoteBookingSchema.safeParse({ ...details, paymentMethod: "DIGITAL_ONLY" }).success).toBe(true);
+    expect(QuoteBookingSchema.safeParse({ ...details, paymentMethod: "DEPOSIT_PLUS_COD" }).success).toBe(false);
+  });
+});

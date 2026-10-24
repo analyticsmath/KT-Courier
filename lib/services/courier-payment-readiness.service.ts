@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { OrderTransitionError } from "@/lib/orders/order-state-machine";
 
 export type CourierPaymentState =
   | "PAID"
   | "DEPOSIT_PAID_CASH_DUE"
   | "CASH_DUE_ON_DELIVERY"
+  | "CASH_COLLECTED"
+  | "CASH_RECONCILED"
   | "PAYMENT_REQUIRED"
   | "RECONCILIATION_REQUIRED"
   | "UNKNOWN";
@@ -28,6 +30,8 @@ type CodEvidence = {
   policyMode: string;
   digitalRequired: { toNumber(): number };
   cashObligation: { toFixed(n: number): string };
+  cashCollected?: { toFixed(n: number): string };
+  status?: string;
 };
 type CourierOrderPaymentEvidence = {
   payments: readonly PaymentEvidence[];
@@ -46,7 +50,18 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
   const cashDue = cod ? cod.cashObligation.toFixed(2) : null;
   const payment = evidence.payments[0] ?? evidence.marketplaceStoreOrderBridge?.storeOrder.marketplaceOrder.payment ?? null;
   if (cod?.policyMode === "FULL_COD" && cod.digitalRequired.toNumber() === 0) {
-    return Object.freeze({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true, paymentReference: null, amount: null, cashDue });
+    const collected = new Prisma.Decimal(cod.cashCollected?.toFixed(2) ?? "0.00");
+    const obligation = new Prisma.Decimal(cod.cashObligation.toFixed(2));
+    const outstanding = obligation.sub(collected);
+    if (outstanding.isNegative()) return empty("RECONCILIATION_REQUIRED");
+    if (outstanding.isZero() && ["COLLECTED", "RECONCILED", "UNDER_RECONCILIATION"].includes(cod.status ?? "")) {
+      return Object.freeze({
+        status: cod.status === "RECONCILED" ? "CASH_RECONCILED" : "CASH_COLLECTED",
+        dispatchEligible: true, paymentReference: null,
+        amount: collected.toFixed(2), cashDue: "0.00",
+      });
+    }
+    return Object.freeze({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true, paymentReference: null, amount: collected.isZero() ? null : collected.toFixed(2), cashDue: outstanding.toFixed(2) });
   }
   if (payment?.status === "SUCCEEDED" && payment.successLedgerJournalId) {
     const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD" && Number(cashDue) > 0;
@@ -76,7 +91,7 @@ export async function listCourierPaymentReadiness(
     select: {
       id: true,
       cashOnDelivery: {
-        select: { policyMode: true, digitalRequired: true, cashObligation: true },
+        select: { policyMode: true, digitalRequired: true, cashObligation: true, cashCollected: true, status: true },
       },
       payments: {
         where: { subjectType: "COURIER_ORDER" },

@@ -110,9 +110,8 @@ export const QuoteBookingSchema = z
     recipientName: z.string().trim().min(2).max(150),
     recipientPhone: z.string().trim().min(7).max(30),
     recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254),
-    paymentMethod: z
-      .enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"])
-      .optional(),
+    // The public parcel service offers 100% cash or 100% online, never 50/50.
+    paymentMethod: z.enum(["DIGITAL_ONLY", "FULL_COD"]).optional(),
     parcelDescription: z.string().trim().max(500).optional(),
     scheduledFor: z.iso
       .datetime()

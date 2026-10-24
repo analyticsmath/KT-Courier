@@ -30,6 +30,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           provinces: f.getAll("province").length ? f.getAll("province") : null,
           regionId: f.get("region") || null,
           orderId: f.get("orderId") || null,
+          orderType: f.get("orderType") || null,
           mode,
           depositPercent:
             mode === "DEPOSIT_PLUS_COD"
@@ -65,8 +66,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
   return (
     <div className="space-y-8">
       <p className="text-sm">
-        Cash drafts require a different authorized administrator to approve the initial 50/50 split and secure remittance instructions. Cash is enabled only for the approved business and matching scopes.
-        Existing bookings keep their committed split. An order override can
+        Full COD collects 100% of the parcel delivery charge at handover (R0 upfront). Cash policies require an independent administrator to approve the service, area, maximum amount and verified remittance instructions. For personal parcels, leave the business field empty. Existing bookings retain their committed terms. An order override can
         change an unpaid order before payment is prepared or pickup begins.
       </p>
       <form
@@ -82,12 +82,12 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           <select
             id="policy-store"
             name="storeId"
-            required={mode !== "DIGITAL"}
+            required={mode === "DEPOSIT_PLUS_COD"}
             defaultValue={editing?.storeId ?? ""}
             disabled={busy || !!editing}
             className="w-full min-h-12 border-b"
           >
-            <option value="">All businesses (digital only)</option>
+            <option value="">Individual parcel customers (100% COD) / all businesses (online)</option>
             {data.stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -107,11 +107,13 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
             className="w-full min-h-12 border-b"
           >
             <option value="DIGITAL">Full online payment</option>
+            <option value="FULL_COD">100% cash on delivery · no online deposit</option>
             <option value="DEPOSIT_PLUS_COD">
               Online deposit + cash on delivery
             </option>
           </select>
         </div>
+        <input type="hidden" name="orderType" value={mode === "FULL_COD" ? "PARCEL_DOCUMENT" : (editing?.orderType ?? "")} />
         <div>
           <Label htmlFor="policy-service">Service</Label>
           <select
@@ -279,7 +281,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                 <p className="font-medium">
                   {data.stores.find((s) => s.id === p.storeId)?.name ??
                     p.storeId ??
-                    "All businesses"}{" "}
+                    (p.orderType === "PARCEL_DOCUMENT" ? "Individual parcel customers" : "All businesses")}{" "}
                   · v{p.expectedVersion}
                 </p>
                 <p className="text-sm">
@@ -309,7 +311,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                 <Label htmlFor={`settlement-${p.id}`}>Approved settlement timing</Label><Input id={`settlement-${p.id}`} name="settlementTiming" required minLength={5} maxLength={150} />
                 <label className="flex gap-3"><input name="remittanceVerified" type="checkbox" required />I reviewed the secure remittance instructions and operating procedure.</label>
                 <Label htmlFor={`approval-${p.id}`}>Approval reason</Label><Input id={`approval-${p.id}`} name="reason" required minLength={10} maxLength={500} />
-                <Button type="submit" loading={busy}>Approve and activate 50/50 COD</Button>
+                <Button type="submit" loading={busy}>Approve and activate {p.mode === "FULL_COD" ? "100% parcel COD" : "deposit + COD"}</Button>
               </form>}
             </article>
           ))

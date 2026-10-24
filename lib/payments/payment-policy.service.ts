@@ -143,36 +143,42 @@ export async function resolvePaymentBreakdown(
   const p = await resolvePaymentPolicy(input, input.now, db),
     mode = p.mode === "DIGITAL" ? "DIGITAL_ONLY" : p.mode;
   if (mode !== "DIGITAL_ONLY") {
+    // A personal courier booking has no store. The only store-less cash policy
+    // is an explicitly scoped, approved FULL_COD parcel policy. Never treat a
+    // global marketplace policy as permission to collect physical cash.
+    const personalParcelCod =
+      mode === "FULL_COD" && input.orderType === "PARCEL_DOCUMENT" &&
+      p.orderType === "PARCEL_DOCUMENT" && !input.storeId && !p.storeId &&
+      !!p.deliveryServiceId &&
+      (!!p.regionId || (Array.isArray(p.provinceScope) && p.provinceScope.length > 0));
     const production = process.env.NODE_ENV === "production" && process.env.KT_RUNTIME_ENV !== "e2e";
     if (production) {
       const evidence = p.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
-      if (!p.deliveryServiceId || (!p.regionId && (!Array.isArray(p.provinceScope) || !p.provinceScope.length)) || mode !== "DEPOSIT_PLUS_COD" || !p.depositPercent?.equals("0.5") || !evidence?.approvedByUserId || evidence.approvedByUserId === p.createdByUserId || !evidence.approvedAt || !evidence.remittanceApproved) {
-        throw new PaymentPolicyError("COD_PRODUCTION_APPROVAL_REQUIRED", "Production cash requires independent approval of the 50/50 split, service/region scope, and remittance operations.");
+      const approvedCashMode = mode === "DEPOSIT_PLUS_COD"
+        ? p.depositPercent?.equals("0.5")
+        : mode === "FULL_COD" && input.orderType === "PARCEL_DOCUMENT" && p.orderType === "PARCEL_DOCUMENT" && !p.depositPercent && !p.depositAmount;
+      if (!p.deliveryServiceId || (!p.regionId && (!Array.isArray(p.provinceScope) || !p.provinceScope.length)) || !approvedCashMode || !evidence?.approvedByUserId || evidence.approvedByUserId === p.createdByUserId || !evidence.approvedAt || !evidence.remittanceApproved) {
+        throw new PaymentPolicyError("COD_PRODUCTION_APPROVAL_REQUIRED", "Cash requires an independently approved full parcel COD or approved deposit policy with specific service, area and remittance controls.");
       }
       const bank = await db.systemSetting?.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true, updatedAt: true } });
       if (!bank || !BankInstructionsSchema.safeParse(bank.value).success || bank.updatedAt.toISOString() !== evidence.remittanceUpdatedAt || !evidence.settlementTiming) throw new PaymentPolicyError("COD_REMITTANCE_NOT_CONFIGURED", "Approved secure remittance instructions are required before cash checkout. Changed instructions require renewed policy approval.");
     }
-    if (!input.storeId || p.storeId !== input.storeId)
-      throw new PaymentPolicyError(
-        "COD_BUSINESS_NOT_APPROVED",
-        "Cash requires an explicitly approved business.",
-      );
-    const s = await db.store.findUnique({
-      where: { id: input.storeId },
-      select: {
-        status: true,
-        ownerUser: { select: { status: true, emailVerifiedAt: true } },
-      },
-    });
-    if (
-      s?.status !== "ACTIVE" ||
-      s.ownerUser?.status !== "ACTIVE" ||
-      !s.ownerUser.emailVerifiedAt
-    )
-      throw new PaymentPolicyError(
-        "COD_BUSINESS_NOT_APPROVED",
-        "Cash requires an active approved business with a verified owner.",
-      );
+    if (!personalParcelCod) {
+      if (!input.storeId || p.storeId !== input.storeId)
+        throw new PaymentPolicyError(
+          "COD_BUSINESS_NOT_APPROVED",
+          "Cash requires an explicitly approved business or a scoped parcel-customer policy.",
+        );
+      const s = await db.store.findUnique({
+        where: { id: input.storeId },
+        select: {
+          status: true,
+          ownerUser: { select: { status: true, emailVerifiedAt: true } },
+        },
+      });
+      if (s?.status !== "ACTIVE" || s.ownerUser?.status !== "ACTIVE" || !s.ownerUser.emailVerifiedAt)
+        throw new PaymentPolicyError("COD_BUSINESS_NOT_APPROVED", "Cash requires an active approved business with a verified owner.");
+    }
   }
   let required = total;
   if (mode === "FULL_COD") required = new Prisma.Decimal(0);

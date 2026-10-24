@@ -33,6 +33,10 @@ export default async function AccountOrderDetailPage({
   const pod =
     ["DELIVERED", "COMPLETED"].includes(order.status) ? await getPublicPodForOrder(order.id) : null;
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(order.status);
+  const cod = await prisma.cashOnDelivery.findUnique({
+    where: { orderId: order.id },
+    select: { policyMode: true, cashObligation: true, cashCollected: true, status: true },
+  });
 
   const review = await prisma.deliveryReview.findFirst({
     where: { orderId: order.id, authorUserId: user.id },
@@ -51,14 +55,20 @@ export default async function AccountOrderDetailPage({
           ) : undefined
         }
         order={order}
-        paymentAction={
+        paymentAction={cod?.policyMode === "FULL_COD" ? (
+          <span role="status" className="inline-flex items-center text-sm font-semibold">
+            {cod.cashObligation.sub(cod.cashCollected).isZero()
+              ? `Cash collected · R ${cod.cashCollected.toFixed(2)}`
+              : `Pay R ${cod.cashObligation.sub(cod.cashCollected).toFixed(2)} cash at delivery`}
+          </span>
+        ) : (
           <CustomerAction
             href={`/orders/${encodeURIComponent(order.orderNumber)}/payment`}
             tone="primary"
           >
             Payment
           </CustomerAction>
-        }
+        )}
         proof={pod}
       />
       <OperationalPanel title="Delivery map"><CourierTrackingMap scope="PARCEL" reference={order.id} /></OperationalPanel>

@@ -60,10 +60,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             label={paymentReadiness.status === "PAID" ? "Paid · ledger confirmed"
               : paymentReadiness.status === "DEPOSIT_PAID_CASH_DUE" ? "Digital deposit paid · cash still due"
               : paymentReadiness.status === "CASH_DUE_ON_DELIVERY" ? "Cash due on delivery · unpaid"
+              : paymentReadiness.status === "CASH_COLLECTED" ? "Cash collected · driver remittance pending"
+              : paymentReadiness.status === "CASH_RECONCILED" ? "Cash collected and reconciled"
               : paymentReadiness.status === "RECONCILIATION_REQUIRED" ? "Payment requires reconciliation"
               : paymentReadiness.status === "PAYMENT_REQUIRED" ? "Digital payment required"
               : "Payment evidence unavailable"}
-            tone={paymentReadiness.status === "PAID" ? "success" : ["CASH_DUE_ON_DELIVERY", "DEPOSIT_PAID_CASH_DUE"].includes(paymentReadiness.status) ? "information" : "warning"}
+            tone={["PAID", "CASH_RECONCILED"].includes(paymentReadiness.status) ? "success" : ["CASH_DUE_ON_DELIVERY", "DEPOSIT_PAID_CASH_DUE", "CASH_COLLECTED"].includes(paymentReadiness.status) ? "information" : "warning"}
           />
           <dl className="eo-definition-list mt-3">
             {paymentReadiness.amount && <div><dt>Digital amount</dt><dd>ZAR {paymentReadiness.amount}</dd></div>}

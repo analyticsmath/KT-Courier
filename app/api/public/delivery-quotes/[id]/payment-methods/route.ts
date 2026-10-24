@@ -23,9 +23,10 @@ export async function GET(
         cashRequired: "0.00",
       },
     ];
-    if (u.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE") {
-      const a = await storeAccess(u.id, "deliveries"),
-        rule = q.ruleSnapshot as {
+    if (["CUSTOMER", "STORE"].includes(u.role)) {
+      const business = u.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
+      const store = business ? (await storeAccess(u.id, "deliveries")).store : null;
+      const rule = q.ruleSnapshot as {
           serviceKey?: string;
           configurationId?: string;
         },
@@ -39,7 +40,7 @@ export async function GET(
         )?.bookingInput;
       try {
         const b = await resolvePaymentBreakdown({
-          storeId: a.store.id,
+          storeId: store?.id ?? null,
           orderType: q.deliveryType,
           deliveryServiceId: rule.configurationId,
           deliveryServiceKey: rule.serviceKey,
@@ -50,7 +51,7 @@ export async function GET(
           regionId: q.destinationRegionId,
           authoritativeTotal: q.total.toFixed(2),
         });
-        if (b.mode !== "DIGITAL_ONLY")
+        if (b.mode === "FULL_COD")
           methods.push({
             mode: b.mode,
             digitalRequired: b.digitalRequired,
@@ -64,6 +65,8 @@ export async function GET(
             "COD_BUSINESS_NOT_APPROVED",
             "COD_LIMIT_EXCEEDED",
             "PAYMENT_METHOD_NOT_ALLOWED",
+            "COD_PRODUCTION_APPROVAL_REQUIRED",
+            "COD_REMITTANCE_NOT_CONFIGURED",
           ].includes(e.code)
         )
           throw e;

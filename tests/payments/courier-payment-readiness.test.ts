@@ -8,6 +8,17 @@ describe("courier payment readiness", () => {
   it("blocks a successful provider status without financial ledger posting", async () => { const db = query({ ...base, payments: [{ ...payment, successLedgerJournalId: null }] }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "RECONCILIATION_REQUIRED", dispatchEligible: false }); });
   it("blocks not-yet-paid online parcel payments", async () => { const db = query({ ...base, payments: [{...payment, status:"REQUIRES_ACTION",successLedgerJournalId:null}] }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "PAYMENT_REQUIRED", dispatchEligible: false }); });
   it("does not misrepresent authorised full COD as paid, but permits dispatch", async () => { const db = query({ ...base, cashOnDelivery:{ policyMode:"FULL_COD", digitalRequired:{toNumber:()=>0}, cashObligation:{toFixed:()=>"170.00"}} }); expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({ status: "CASH_DUE_ON_DELIVERY", dispatchEligible:true }); });
+  it("shows no cash outstanding once the driver records the entire full COD fee", async () => {
+    const db = query({ ...base, cashOnDelivery: {
+      policyMode: "FULL_COD", digitalRequired: { toNumber: () => 0 },
+      cashObligation: { toFixed: () => "179.00" },
+      cashCollected: { toFixed: () => "179.00" }, status: "COLLECTED",
+    } });
+    expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+      status: "CASH_COLLECTED", dispatchEligible: true, cashDue: "0.00",
+      amount: "179.00",
+    });
+  });
   it("does not call a paid deposit a fully paid delivery when cash is still outstanding", async () => {
     const db=query({...base,payments:[payment],cashOnDelivery:{
       policyMode:"DEPOSIT_PLUS_COD",
