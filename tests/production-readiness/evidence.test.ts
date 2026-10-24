@@ -32,6 +32,7 @@ describe("verified provider sandbox payment integration acceptance", () => {
   it("accepts a real provider-hosted test transaction without requiring a real charge or financial authorization", () => {
     expect(AcceptanceEvidenceSchema.safeParse(sandbox).success).toBe(true);
     expect(() => assertSandboxPaymentAcceptance(payment, sandbox)).not.toThrow();
+    expect(() => assertSandboxPaymentAcceptance({ ...payment, reconciliationStatus: "RESOLVED" }, sandbox)).not.toThrow();
   });
   it("does not let a payment receipt certify refunds, payouts or unrelated acceptance", () => {
     for (const key of ["refund_acceptance", "payout_acceptance", "settlement_acceptance", "driver_gps_acceptance"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, key }).success).toBe(false);

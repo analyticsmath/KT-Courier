@@ -38,7 +38,7 @@ const sandboxPaymentSelection = {
 } as const;
 export function assertSandboxPaymentAcceptance(payment: Prisma.PaymentGetPayload<{ select: typeof sandboxPaymentSelection }> | null, evidence: SandboxEvidence) {
   const attempt = payment?.successfulAttempt;
-  if (!payment || payment.provider !== "PAYSTACK" || payment.status !== "SUCCEEDED" || payment.currency !== evidence.currency || !payment.amount.equals(evidence.amount) || !payment.successLedgerJournalId || !payment.providerConfirmedAt || payment.reconciliationStatus !== "CLEAR" || !attempt || attempt.provider !== "PAYSTACK" || attempt.status !== "SUCCEEDED" || attempt.providerEnvironment !== "SANDBOX" || !attempt.providerReference || !attempt.providerConfirmedAt || attempt.currency !== evidence.currency || !attempt.amount.equals(evidence.amount)) {
+  if (!payment || payment.provider !== "PAYSTACK" || payment.status !== "SUCCEEDED" || payment.currency !== evidence.currency || !payment.amount.equals(evidence.amount) || !payment.successLedgerJournalId || !payment.providerConfirmedAt || payment.reconciliationStatus === "REQUIRED" || !attempt || attempt.provider !== "PAYSTACK" || attempt.status !== "SUCCEEDED" || attempt.providerEnvironment !== "SANDBOX" || !attempt.providerReference || !attempt.providerConfirmedAt || attempt.currency !== evidence.currency || !attempt.amount.equals(evidence.amount)) {
     throw new PlatformError("SANDBOX_PAYMENT_EVIDENCE_INVALID", "Select a verified Paystack sandbox payment with matching amount, currency and canonical ledger confirmation.", 409);
   }
 }
