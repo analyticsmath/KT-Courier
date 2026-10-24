@@ -8,6 +8,9 @@ const sha = z.string().regex(/^[a-f0-9]{40}$/);
 const common = { releaseSha: sha, observedAt: z.iso.datetime(), expiresAt: z.iso.datetime(), evidenceReference: z.string().regex(/^[A-Za-z0-9:/._-]{8,250}$/), reason: z.string().trim().min(10).max(500) };
 export const AcceptanceEvidenceSchema = z.discriminatedUnion("kind", [
   z.object({ ...common, kind: z.literal("LIVE"), key: z.enum(["vendor_onboarding_acceptance", "driver_onboarding_acceptance", "driver_gps_acceptance", "pod_otp_acceptance", "live_paid_order_acceptance", "settlement_acceptance", "refund_acceptance", "payout_acceptance"]), genuineOperatorAcceptance: z.literal(true), financialAuthorizationReference: z.string().regex(/^[A-Za-z0-9:/._-]{8,150}$/).nullable() }).strict(),
+  // A provider-hosted sandbox transaction is valid integration acceptance.
+  // Keep its mode explicit; it never asserts that real funds moved.
+  z.object({ ...common, kind: z.literal("SANDBOX"), key: z.literal("live_paid_order_acceptance"), genuineOperatorAcceptance: z.literal(true), provider: z.literal("PAYSTACK"), paymentReference: z.string().regex(/^pay_[A-Za-z0-9_-]{8,100}$/), amount: z.string().regex(/^[0-9]+\.[0-9]{2}$/).refine(v => new Prisma.Decimal(v).gt(0)), currency: z.literal("ZAR") }).strict(),
   z.object({ ...common, kind: z.literal("CI"), key: z.literal("current_ci_certification"), runUrl: z.string().regex(/^https:\/\/github\.com\/analyticsmath\/KT-Courier\/actions\/runs\/\d+$/), conclusion: z.literal("SUCCESS"), skippedCriticalTests: z.literal(0), testsPassed: z.number().int().positive() }).strict(),
   z.object({ ...common, kind: z.literal("PARITY"), key: z.literal("production_deployment_sha_parity"), vercelSha: sha, webSha: sha, operationsSha: sha, vercelDeploymentId: z.string().regex(/^dpl_[A-Za-z0-9]+$/), webDeploymentId: z.uuid(), operationsDeploymentId: z.uuid(), protectedDataAuditReference: z.string().regex(/^[A-Za-z0-9:/._-]{8,250}$/), protectedDataUnchanged: z.literal(true) }).strict(),
 ]).superRefine((v, context) => {
@@ -27,10 +30,28 @@ export async function listAcceptanceEvidence() {
   const rows = await prisma.systemSetting.findMany({ where: { key: { startsWith: prefix } } });
   return rows.map((row) => StoredSchema.parse(row.value));
 }
+type SandboxEvidence = Extract<z.infer<typeof AcceptanceEvidenceSchema>, { kind: "SANDBOX" }>;
+const sandboxPaymentSelection = {
+  provider: true, status: true, amount: true, currency: true,
+  successLedgerJournalId: true, providerConfirmedAt: true, reconciliationStatus: true,
+  successfulAttempt: { select: { provider: true, status: true, providerEnvironment: true, amount: true, currency: true, providerReference: true, providerConfirmedAt: true } },
+} as const;
+export function assertSandboxPaymentAcceptance(payment: Prisma.PaymentGetPayload<{ select: typeof sandboxPaymentSelection }> | null, evidence: SandboxEvidence) {
+  const attempt = payment?.successfulAttempt;
+  if (!payment || payment.provider !== "PAYSTACK" || payment.status !== "SUCCEEDED" || payment.currency !== evidence.currency || !payment.amount.equals(evidence.amount) || !payment.successLedgerJournalId || !payment.providerConfirmedAt || payment.reconciliationStatus !== "CLEAR" || !attempt || attempt.provider !== "PAYSTACK" || attempt.status !== "SUCCEEDED" || attempt.providerEnvironment !== "SANDBOX" || !attempt.providerReference || !attempt.providerConfirmedAt || attempt.currency !== evidence.currency || !attempt.amount.equals(evidence.amount)) {
+    throw new PlatformError("SANDBOX_PAYMENT_EVIDENCE_INVALID", "Select a verified Paystack sandbox payment with matching amount, currency and canonical ledger confirmation.", 409);
+  }
+}
+async function validateSandboxEvidence(tx: Prisma.TransactionClient, evidence: z.infer<typeof AcceptanceEvidenceSchema>) {
+  if (evidence.kind !== "SANDBOX") return;
+  const payment = await tx.payment.findUnique({ where: { publicReference: evidence.paymentReference }, select: sandboxPaymentSelection });
+  assertSandboxPaymentAcceptance(payment, evidence);
+}
 export async function recordAcceptanceEvidence(actorId: string, input: z.infer<typeof AcceptanceDraftSchema>) {
   const data = AcceptanceDraftSchema.parse(input); const key = prefix + data.evidence.key;
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+    await validateSandboxEvidence(tx, data.evidence);
     const prior = await tx.systemSetting.findUnique({ where: { key } });
     const version = prior ? StoredSchema.parse(prior.value).version : 0;
     if (version !== data.expectedVersion) throw new PlatformError("EVIDENCE_CONFLICT", "Refresh the acceptance evidence before saving.", 409);
@@ -47,6 +68,7 @@ export async function reviewAcceptanceEvidence(actorId: string, input: z.infer<t
     const row = await tx.systemSetting.findUnique({ where: { key } }); const prior = row ? StoredSchema.parse(row.value) : null;
     if (!row || !prior || prior.version !== data.expectedVersion) throw new PlatformError("EVIDENCE_CONFLICT", "Refresh before reviewing.", 409);
     if (data.action === "APPROVE" && (prior.authorId === actorId || prior.status !== "DRAFT")) throw new PlatformError("INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must review the draft and its linked evidence.", 403);
+    if (data.action === "APPROVE") await validateSandboxEvidence(tx, prior.evidence);
     const next: AcceptanceRecord = { ...prior, version: prior.version + 1, status: data.action === "APPROVE" ? "APPROVED" : "REVOKED", approverId: actorId, approvedAt: new Date().toISOString() };
     await tx.systemSetting.update({ where: { id: row.id, updatedAt: row.updatedAt }, data: { value: next as unknown as Prisma.InputJsonValue } });
     await tx.adminActivityLog.create({ data: { actorUserId: actorId, action: "UPDATE", entityType: "ProductionAcceptance", entityId: key, message: data.reason, metadata: { before: row.value, after: next as unknown as Prisma.InputJsonValue } } });
