@@ -1,4 +1,4 @@
-import { StorePickupAddressSchema } from "./address-book";
+import { StoreSignupLocationSchema } from "./address-book";
 import { z } from "zod";
 
 // ─── Shared ───────────────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ export const StoreSignupSchema = z
     email: emailField,
     phone: z.string().min(1, "Phone number is required").trim(),
     businessAddress: z.string().trim().max(500).optional(),
-    businessLocation: StorePickupAddressSchema.optional(),
+    businessLocation: StoreSignupLocationSchema.optional(),
     password: passwordField,
     confirmPassword: z.string().min(1, "Please confirm your password"),
     accountType: z.literal("STORE"),

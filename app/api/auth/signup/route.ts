@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
             featured: false,
           },
         });
-        if (d.businessLocation) {
+        if (d.businessLocation && completeStorePickupAddress(d.businessLocation)) {
           const pickup = await tx.address.create({ data: {
             ...d.businessLocation, storeId: store.id, type: "PICKUP", isDefault: true,
             label: "Default pickup", contactName: d.contactPerson, contactPhone: data.phone ?? null,

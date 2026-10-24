@@ -60,6 +60,12 @@ export const SavedAddressUpdateSchema = AddressInputSchema.partial()
 
 // Checkout requires an actual collection locality and province. Do not let
 // vendor settings report success for an address the courier cannot ever quote.
+// Signup may record an incomplete business address, but this is not a courier pickup.
+export const StoreSignupLocationSchema = AddressInputSchema.extend({
+  ...savedNullableFields,
+  label: labelField,
+}).superRefine(validateCoordinatePair);
+
 export const StorePickupAddressSchema = AddressInputSchema.extend({
   ...savedNullableFields,
   city: z.string().trim().min(2, "Collection city is required").max(100),
