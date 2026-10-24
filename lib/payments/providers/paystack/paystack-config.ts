@@ -225,6 +225,22 @@ export function resolvePaystackWebhookSecretKey(
   return source.PAYSTACK_SECRET_KEY?.trim() || null;
 }
 
+/** Replay an already signature-verified inbox event using its original mode.
+ * This does not enable new sandbox checkouts or accept sandbox webhooks after
+ * cutover. Never verify a stored test transaction with a live secret. */
+export function resolvePaystackStoredEventSecretKey(
+  environment: "SANDBOX" | "PRODUCTION",
+  signatureVerified: boolean,
+  source: EnvironmentSource = process.env,
+): string | null {
+  if (!signatureVerified) return null;
+  const candidates = environment === "SANDBOX"
+    ? [source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY, source.PAYSTACK_SECRET_KEY]
+    : [source.PAYSTACK_SECRET_KEY];
+  const prefix = environment === "SANDBOX" ? "sk_test_" : "sk_live_";
+  return candidates.map(value => value?.trim()).find(value => value?.startsWith(prefix) && hasUsableValue(value)) ?? null;
+}
+
 export function requireActivePaystackConfiguration(
   resolution: PaystackConfigurationResolution = resolvePaystackConfiguration(),
 ): PaystackRuntimeConfiguration {

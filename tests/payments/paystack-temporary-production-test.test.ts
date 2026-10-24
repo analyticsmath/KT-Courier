@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePaystackConfiguration, resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
+import { resolvePaystackConfiguration, resolvePaystackWebhookSecretKey, resolvePaystackStoredEventSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
 import { isLiveMoneyAllowed } from "@/lib/runtime/deployment-classification";
 import { evaluateProductionConfiguration } from "@/lib/config/production-validation";
 import { evaluateMarketplaceCheckoutPublicGate } from "@/lib/marketplace-checkout/production-lock";
@@ -56,5 +56,20 @@ describe("temporary sandbox on the existing production site", () => {
   it("keeps normal live mode untouched when override is off", () => {
     const r = resolvePaystackConfiguration({ ...source, PAYSTACK_TEMPORARY_SANDBOX_ENABLED: "false", CHECKOUT_PUBLIC_ENABLED: "true" });
     expect(r.runtime).toMatchObject({ mode: "live", environment: "production", secretKey: source.PAYSTACK_SECRET_KEY });
+  });
+});
+
+describe("stored Paystack event verification across sandbox-to-live cutover", () => {
+  const live = { ...source, PAYSTACK_TEMPORARY_SANDBOX_ENABLED: "false", PAYSTACK_TEMPORARY_SANDBOX_UNTIL: "2020-01-01T00:00:00Z", CHECKOUT_PUBLIC_ENABLED: "true" };
+  it("retains test verification for already signed durable events without reopening sandbox intake", () => {
+    expect(resolvePaystackWebhookSecretKey(live)).toBe(source.PAYSTACK_SECRET_KEY);
+    expect(resolvePaystackStoredEventSecretKey("SANDBOX", true, live)).toBe(source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY);
+    expect(resolvePaystackConfiguration(live).runtime?.environment).toBe("production");
+  });
+  it("never selects a key from the other payment environment or trusts an unsigned event", () => {
+    expect(resolvePaystackStoredEventSecretKey("SANDBOX", false, live)).toBeNull();
+    expect(resolvePaystackStoredEventSecretKey("PRODUCTION", true, live)).toBe(source.PAYSTACK_SECRET_KEY);
+    expect(resolvePaystackStoredEventSecretKey("SANDBOX", true, { ...live, PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY: undefined })).toBeNull();
+    expect(resolvePaystackStoredEventSecretKey("PRODUCTION", true, { ...live, PAYSTACK_SECRET_KEY: "sk_test_not_live" })).toBeNull();
   });
 });

@@ -6,7 +6,7 @@ import { PaymentError } from "@/lib/payments/errors";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { verifyPaystackSignature } from "@/lib/payments/providers/paystack/paystack-signature";
 import { PaystackClient, zarToSubunitCents } from "@/lib/payments/providers/paystack/paystack-client";
-import { resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
+import { resolvePaystackStoredEventSecretKey, resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
 import { buildPaystackReceiptPosting } from "@/lib/payments/providers/paystack/paystack-ledger-posting-policy";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "@/lib/services/cash-on-delivery.service";
@@ -352,11 +352,6 @@ export async function ingestPaystackWebhook(
 export async function applyPaystackWebhookEvent(
   input: ApplyPaystackWebhookEventInput,
 ): Promise<PaystackWebhookApplicationResult> {
-  const secretKey = input.secretKey ?? resolvePaystackWebhookSecretKey();
-  if (!secretKey) {
-    throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack secret key is not configured.");
-  }
-
   let event: Partial<PaymentWebhookEvent> | null = input.eventRecord ?? null;
   if (!event) {
     event = input.webhookEventId
@@ -365,6 +360,11 @@ export async function applyPaystackWebhookEvent(
         ? await prisma.paymentWebhookEvent.findUnique({ where: { publicReference: input.webhookEventReference } })
         : null;
   }
+
+  const secretKey = input.secretKey ?? (event?.environment
+    ? resolvePaystackStoredEventSecretKey(event.environment, event.signatureVerified === true)
+    : resolvePaystackWebhookSecretKey());
+  if (!secretKey) throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack credentials for this verified event environment are unavailable.");
 
   const payload = (input.rawPayload ?? (event?.safePayloadSnapshot as unknown as PaystackWebhookPayload)) as PaystackWebhookPayload | undefined;
   if (!payload || payload.event !== "charge.success" || !payload.data) {
