@@ -38,7 +38,7 @@ vi.mock("@/lib/client-platform/driver-cash.service", () => ({
   readBankInstructions: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/production-readiness/evidence", () => ({
-  acceptanceKeys: [],
+  acceptanceKeys: ["payment_integration_acceptance"],
   listAcceptanceEvidence: vi.fn().mockResolvedValue([]),
   evidenceIsCurrent: vi.fn().mockReturnValue(false),
 }));
@@ -66,6 +66,14 @@ describe("Commercial Program Readiness Scoping", () => {
     db.notificationTemplateVersion.findMany.mockResolvedValue([]);
     db.notificationRecipientPolicyVersion.findMany.mockResolvedValue([]);
     db.productionAcceptanceRecord.findMany.mockResolvedValue([]);
+  });
+
+  it("does not label missing evidence as belonging to the deployed release", async () => {
+    vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "a".repeat(40));
+    try {
+      const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "payment_integration_acceptance");
+      expect(entry).toMatchObject({ status: "BLOCKED_LIVE_ACCEPTANCE", evidence: { evidenceStatus: "MISSING", currentRelease: false } });
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("reports DISABLED_BY_POLICY when excluded commercial program count is 0", async () => {
