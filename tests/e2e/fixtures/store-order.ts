@@ -35,7 +35,9 @@ export async function prepareCheckout(page: Page, suffix: string, width: number,
   const email = `e2e-paystack-${suffix}@ktcouriers.local`;
   if (guest) await page.context().clearCookies();
   else await login(page, email);
-  const cartResponse = await page.request.get("/api/cart"); expect(cartResponse.status()).toBe(200);
+  // Authenticated cart resolution is idempotent: retry connection resets only.
+  // Guest creation has no stable cookie yet; never replay that first request.
+  const cartResponse = await page.request.get("/api/cart", { maxRetries: guest ? 0 : 2 }); expect(cartResponse.status()).toBe(200);
   const cart = (await cartResponse.json()).cart;
   let cartReference = cart.reference;
   if (!options.existingCart) {
