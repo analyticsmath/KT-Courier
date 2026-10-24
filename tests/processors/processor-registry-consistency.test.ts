@@ -6,9 +6,10 @@ import {
 } from "@/lib/processors/processor-registry";
 import {
   PROCESSOR_HANDLERS,
+  getProcessorInventory,
   executeRegisteredProcessor,
 } from "@/lib/processors/processor-service";
-import { completeProcessorRun } from "@/lib/processors/lease-authority";
+import { completeProcessorRun, listProcessorRuns } from "@/lib/processors/lease-authority";
 
 const dryRunDb = vi.hoisted(() => ({
   storeEarning: { findMany: vi.fn(async () => []), update: vi.fn() },
@@ -122,5 +123,23 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
     expect(dryRunDb.storeEarning.update).not.toHaveBeenCalled();
     expect(dryRunDb.paymentVerifiedEventIntent.update).not.toHaveBeenCalled();
     expect(dryRunDb.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("Processor inventory history", () => {
+  it("retains an older payment processor run independently of busy jobs", async () => {
+    const run = { jobName: "apply-paystack-webhook-events", status: "APPLY_COMPLETED", startedAt: new Date("2026-10-23T01:00:00Z") };
+    vi.mocked(listProcessorRuns).mockImplementation(async name => (name === run.jobName ? [run] : []) as Awaited<ReturnType<typeof listProcessorRuns>>);
+    try {
+      const inventory = await getProcessorInventory();
+      expect(inventory.find(item => item.name === run.jobName)?.lastRun).toMatchObject(run);
+      expect(listProcessorRuns).toHaveBeenCalledWith(run.jobName, 1);
+      expect(inventory.find(item => item.name === "scan-payment-reconciliation")?.lastRun).toBeNull();
+    } finally { vi.mocked(listProcessorRuns).mockReset().mockResolvedValue([]); }
+  });
+  it("does not turn a database failure into never-run evidence", async () => {
+    vi.mocked(listProcessorRuns).mockRejectedValue(new Error("DATABASE_UNAVAILABLE"));
+    try { await expect(getProcessorInventory()).rejects.toThrow("DATABASE_UNAVAILABLE"); }
+    finally { vi.mocked(listProcessorRuns).mockReset().mockResolvedValue([]); }
   });
 });

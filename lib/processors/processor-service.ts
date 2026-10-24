@@ -551,15 +551,13 @@ export async function getProcessorInventory(): Promise<
   Array<RegisteredProcessor & { lastRun?: Record<string, unknown> | null }>
 > {
   const processors = Object.values(PROCESSOR_REGISTRY) as RegisteredProcessor[];
-  const runs = await listProcessorRuns(undefined, 100).catch(() => []);
-
-  return processors.map((p) => {
-    const lastRun = runs.find((r) => String(r.jobName) === p.name) ?? null;
-    return {
-      ...p,
-      lastRun: lastRun ? (lastRun as Record<string, unknown>) : null,
-    };
-  });
+  // A busy job must not push another job's last run out of a global window.
+  // These bounded lookups use the (jobName, startedAt) index. A database error
+  // must surface as unavailable inventory, rather than a false "Never run".
+  return Promise.all(processors.map(async (processor) => {
+    const [lastRun] = await listProcessorRuns(processor.name, 1);
+    return { ...processor, lastRun: lastRun ? (lastRun as Record<string, unknown>) : null };
+  }));
 }
 
 export async function executeRegisteredProcessor(
