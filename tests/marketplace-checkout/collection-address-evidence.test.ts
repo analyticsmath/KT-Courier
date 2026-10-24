@@ -8,7 +8,17 @@ import { createPhase6MarketplaceQuoteAuthority } from "@/lib/marketplace-checkou
 
 const input = { checkoutReference: "checkout_test", storeReference: "store", pickupLocationReference: "loc_store", serviceAreaReference: "gauteng", fulfilmentMode: "COURIER_DELIVERY", lineCount: 1 };
 const point = { latitude: -26.1, longitude: 28.05 };
-const address = { line1: "83 Rivonia Road", city: "Sandton", province: "Gauteng", postalCode: "2196", latitude: null, longitude: null };
+const address = {
+  storeId: "store",
+  type: "PICKUP",
+  country: "South Africa",
+  line1: "83 Rivonia Road",
+  city: "Sandton",
+  province: "Gauteng",
+  postalCode: "2196",
+  latitude: null,
+  longitude: null,
+};
 function authority(pickup: unknown = address, status = "ACTIVE") {
   return createPhase6MarketplaceQuoteAuthority({ marketplaceCheckout: { findUnique: vi.fn().mockResolvedValue({ addressSnapshot: { line1: "Magwa Crescent", city: "Midrand", province: "Gauteng", protectedCoordinates: point, serviceAreaReference: "gauteng" }, storeGroups: [{ storeId: "store", store: { id: "store", status, defaultPickupAddress: pickup, savedAddresses: [] } }] }) } });
 }
