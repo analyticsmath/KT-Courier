@@ -112,6 +112,9 @@ for (const width of [1440, 390]) {
 
     await page.goto("/store/catalog/products/new");
     await step(page, "Product details"); await expect(page.getByLabel("Product title", { exact: true })).toHaveValue("");
+    // Duplicate searching requires a product type from the chosen category.
+    // This is a new draft, so the prior product's category must not leak into it.
+    await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
     await step(page, "Photos & options"); await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
     await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
     await step(page, "Product details"); await expect(page.getByLabel("Product type", { exact: true })).toHaveCount(0);

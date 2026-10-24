@@ -1,8 +1,8 @@
 {
   "summary": {
-    "totalRoutes": 764,
+    "totalRoutes": 766,
     "totalServerActions": 0,
-    "publicRoutes": 96,
+    "publicRoutes": 98,
     "authenticatedRoutes": 665,
     "permissionGatedRoutes": 521,
     "webhookSignatureRoutes": 3,
@@ -10474,6 +10474,36 @@
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/infrastructure/ready/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "PUBLIC_BY_DESIGN",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Public read-only Railway infrastructure probe: returns database and Redis availability; no customer, payment, account or financial authority. No credentials are returned."
+    },
+    {
+      "routePath": "app/api/infrastructure_ready/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "PUBLIC_BY_DESIGN",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Public read-only Railway infrastructure probe: returns database and Redis availability; no customer, payment, account or financial authority. No credentials are returned."
     },
     {
       "routePath": "app/api/jobs/[processor]/route.ts",
