@@ -12,6 +12,7 @@ import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/couri
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
+import { evaluateProcessorEvidence } from "./processor-evidence";
 
 const processorJobs = ["apply-paystack-webhook-events", "consume-verified-payment-events"] as const;
 
@@ -40,12 +41,12 @@ export async function getProductionReadiness() {
     await probe(key, async () => {
       const run = await prisma.operationalProcessorRun.findFirst({ where: { jobName: job }, orderBy: { startedAt: "desc" }, select: { status: true, completedAt: true, startedAt: true, itemsRetried: true, itemsReconciled: true } });
       const row = await prisma.systemSetting.findUnique({ where: { key: "production_processor_heartbeat" }, select: { value: true } });
-      const heartbeat = row?.value as { observedAt?: string; healthy?: boolean; processors?: { name: string; status: string }[] } | undefined;
-      const age = heartbeat?.observedAt ? now.getTime() - new Date(heartbeat.observedAt).getTime() : Infinity;
-      const fresh = age >= 0 && age < 420000;
-      const result = heartbeat?.processors?.find((r) => r.name === job);
-      const healthy = fresh && heartbeat?.healthy === true && !!result && ["COMPLETED", "IDLE", "PEER_LEASE"].includes(result.status);
-      return capability(key, healthy ? "READY" : "BLOCKED_CONFIGURATION", healthy ? "PROCESSOR_HEALTHY" : "PROCESSOR_STALE_OR_FAILED", "Processor cycle must have a recent successful durable run.", "ENGINEERING", { status: run?.status ?? "NO_RUN", recent: fresh, retryCount: run?.itemsRetried ?? 0, reconciliationCount: run?.itemsReconciled ?? 0 });
+      const heartbeat = row?.value as Parameters<typeof evaluateProcessorEvidence>[0];
+      const result = evaluateProcessorEvidence(heartbeat, job, now);
+      const summary = result.reason === "PROCESSOR_WORKER_BLOCKED"
+        ? "This processor completed its recent cycle, but the operations worker has unresolved readiness blockers. Review the worker blockers and store-order reconciliation before launch."
+        : "Processor cycle must have a recent successful durable run without pending retries.";
+      return capability(key, result.healthy ? "READY" : "BLOCKED_CONFIGURATION", result.reason, summary, "ENGINEERING", { status: run?.status ?? "NO_RUN", cycleStatus: result.cycleStatus, recent: result.fresh, workerBlockers: result.blockers, retryCount: run?.itemsRetried ?? 0, reconciliationCount: run?.itemsReconciled ?? 0 });
     });
   }
   await probe("courier_services", async () => {
