@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { evaluateProductionConfiguration, type SafeConfigurationIssue } from "@/lib/config/production-validation";
 import { getReadinessLockRegistry, type ReadinessLockRecord } from "@/lib/security/integration-registry";
 import { checkRedisHealth, type RedisHealthStatus } from "@/lib/security/redis-client";
+import { reportBlockedReadiness } from "@/lib/health/readiness-diagnostics";
 
 export interface HealthPayload {
   status: "ok";
@@ -80,6 +81,13 @@ export async function checkReadiness(
   let isReady = databaseReachable && !configuration.readinessBlocked;
   if (isProd && (!safeRedis.configured || !safeRedis.connected)) {
     isReady = false;
+  }
+  if (isProd && !isReady) {
+    reportBlockedReadiness({
+      databaseReachable,
+      redisConnected: safeRedis.connected,
+      blockedCodes: configuration.issues.filter((item) => item.blocks !== "NONE").map((item) => item.reasonCode),
+    });
   }
 
   return {
