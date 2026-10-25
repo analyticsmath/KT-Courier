@@ -17,8 +17,23 @@ export function MarketingNavigation() {
   const dialog = useRef<HTMLDialogElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [floating, setFloating] = useState(false);
   const pathname = usePathname();
   const cartCount = useMarketplaceCartCount();
+  useEffect(() => {
+    let previous = false;
+    const update = () => {
+      const next = window.scrollY > 32;
+      if (next !== previous) {
+        previous = next;
+        setFloating(next);
+      }
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
   useEffect(() => {
     // A persistent layout also survives Back/Forward, which do not click a menu link.
     // Native close dispatches onClose and releases the body lock without moving focus.
@@ -42,7 +57,7 @@ export function MarketingNavigation() {
       <a className="kt-new-skip" href="#main-content">
         Skip to content
       </a>
-      <header className="kt-new-header">
+      <header className="kt-new-header" data-floating={floating}>
         <Link className="kt-new-brand" href="/" aria-label="KT Couriers home">
           <CanonicalKtLogo size={45} priority />
         </Link>

@@ -54,3 +54,16 @@ Mobile uses in-flow compositions: short opening lines, a main photo plus a reada
 - Story buttons change both photos and caption without navigation or layout shift.
 - No invented stock, prices, customer quotes, performance metrics or service areas.
 - Type/lint, existing public-page contracts, production build, desktop/mobile visual review and live selector checks before completion.
+
+
+## Follow-up: integrated navigation and directional imagery
+
+The owner requested navigation that belongs to the screen canvas and more variation in image entrance direction. Revisited Palomino live (initial loader, then its work section): navigation and content share the visible canvas rather than being separated by an opaque bar. Re-read the public structure of Palomino, Terminal Industries and Belgrade Arbor. Retain KT’s actual logo and approved page curtain rather than copying those brands.
+
+Diagnosis: KT’s fixed navigation had a full-width white background. Pinned scenes also began/ended 80px below the viewport top, reinforcing the impression of a separate header section. The follow-up removes that bar and lets the selected pinned scenes fill the viewport. Navigation is compact (64px desktop, 60px mobile); the header’s empty area passes pointer events through. Only the actual logo/link/tool groups get a small translucent reading surface after scrolling. This protects legibility over photographs without recreating a full-width band. Native menu, bag count, focus handling and destinations remain unchanged.
+
+Image composition now combines left and right frame reveals in the neighbourhood spread, business scene and route diptych; preparation uses left/rising/right entrances. Frames fade and gently uncover, while their nested photographic parallax remains independent. Mobile travel is bounded to 24px; reduced-motion content remains static and visible. Keyboard focus completes a reveal immediately. The four selected homepage takeovers remain four.
+
+Two light canvases distinguish story roles: muted sage for neighbourhood discovery and warm bone for business preparation. Most of the page remains white. No blue wash, gradients, changing text colours, invented claims or new image generation.
+
+Visually inspected another nine existing WebP assets before choosing three: a merchant working on a laptop beside stock, collection paperwork at handoff, and a quieter monochrome doorstep exchange. These replace repeated photographs in business and arrival; repository filenames are not used as evidence of visible image content. Also corrected the preparation photo’s alt text to describe the sender checking a phone beside packed boxes.

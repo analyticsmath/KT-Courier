@@ -76,7 +76,7 @@ export function NeighbourhoodSpread() {
         ))}
       </div>
       <div className={styles.spreadCanvas} id="neighbourhood-stories">
-        <div className={styles.spreadMain} data-editorial-fade>
+        <div className={styles.spreadMain} data-image-enter="left">
           {stories.map((story, i) => (
             <div
               key={story.title}
@@ -94,7 +94,7 @@ export function NeighbourhoodSpread() {
           ))}
         </div>
         <div className={styles.spreadAside}>
-          <div className={styles.spreadDetail} data-editorial-fade>
+          <div className={styles.spreadDetail} data-image-enter="right">
             {stories.map((story, i) => (
               <div
                 key={story.detail}

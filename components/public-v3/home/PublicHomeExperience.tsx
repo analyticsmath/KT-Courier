@@ -294,19 +294,19 @@ export function PublicHomeExperience() {
           <p>For the work behind every order.</p>
         </div>
         <div className={styles.businessComposition}>
-          <div className={styles.businessMain} data-media-aperture>
+          <div className={styles.businessMain} data-image-enter="left">
             <Image
               data-parallax
-              src="/media/public/home/kt-home-08-merchant-prepare.webp"
-              alt="A small-business owner checking and wrapping a customer order"
+              src="/media/public/derived/photo-prep-leather-goods-boxing-1440w.webp"
+              alt="An independent merchant managing orders on a laptop beside clothing and packing materials"
               fill
               sizes="(max-width:760px) 92vw, 57vw"
             />
           </div>
-          <div className={styles.businessDetail}>
+          <div className={styles.businessDetail} data-image-enter="right">
             <Image
-              src="/media/public/derived/photo-prep-artisan-woodwork-labeling-640w.webp"
-              alt="Labels and paperwork being checked before an order leaves"
+              src="/media/public/derived/photo-courier-merchant-pickup-handoff-640w.webp"
+              alt="Collection paperwork being checked beside a parcel"
               fill
               sizes="(max-width:760px) 45vw, 25vw"
             />
@@ -340,7 +340,7 @@ export function PublicHomeExperience() {
           </p>
         </header>
         <div className={compositions.routeCanvas}>
-          <div className={compositions.routeCity} data-editorial-fade>
+          <div className={compositions.routeCity} data-image-enter="left">
             <Image
               data-parallax
               src="/media/public/home/kt-home-11-route-city.webp"
@@ -349,7 +349,7 @@ export function PublicHomeExperience() {
               sizes="(max-width:760px) 60vw, 63vw"
             />
           </div>
-          <div className={compositions.routeRoad} data-editorial-fade>
+          <div className={compositions.routeRoad} data-image-enter="right">
             <Image
               data-parallax
               src="/media/public/home/kt-home-12-route-road.webp"
@@ -474,7 +474,7 @@ export function PublicHomeExperience() {
         </header>
         <ol className={compositions.packingSequence}>
           <li data-editorial-fade>
-            <div className={compositions.packingPhoto}>
+            <div className={compositions.packingPhoto} data-image-enter="left">
               <Image
                 src="/media/public/home/kt-home-08-merchant-prepare.webp"
                 alt="A shop owner cushioning and preparing a parcel"
@@ -488,10 +488,10 @@ export function PublicHomeExperience() {
             </p>
           </li>
           <li data-editorial-fade>
-            <div className={compositions.packingPhoto}>
+            <div className={compositions.packingPhoto} data-image-enter="rise">
               <Image
                 src="/media/public/derived/photo-prep-artisan-box-assembly-960w.webp"
-                alt="A packed order and its paperwork being checked at a table"
+                alt="A sender reviewing order details on a phone beside packed boxes"
                 fill
                 sizes="(max-width:760px) 80vw, 30vw"
               />
@@ -503,7 +503,7 @@ export function PublicHomeExperience() {
             </p>
           </li>
           <li data-editorial-fade>
-            <div className={compositions.packingPhoto}>
+            <div className={compositions.packingPhoto} data-image-enter="right">
               <Image
                 src="/media/public/home/kt-home-09-package-detail.webp"
                 alt="A parcel wrapped in protective paper with a thank-you note"
@@ -541,11 +541,11 @@ export function PublicHomeExperience() {
             Find your delivery ↗
           </Link>
         </div>
-        <div className={styles.closingPhoto}>
+        <div className={styles.closingPhoto} data-image-enter="right">
           <Image
             data-parallax
-            src="/media/public/home/kt-home-13-arrival.webp"
-            alt="A parcel reaching its recipient at the front door"
+            src="/media/public/derived/photo-courier-recipient-physical-handoff-960w.webp"
+            alt="A parcel passing between two people at an open doorway"
             fill
             sizes="(max-width:760px) 90vw, 40vw"
           />

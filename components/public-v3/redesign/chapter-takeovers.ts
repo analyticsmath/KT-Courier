@@ -25,7 +25,7 @@ export function createChapterTakeovers(root: HTMLElement) {
         trigger: outgoing,
         start: "bottom bottom",
         endTrigger: incoming,
-        end: "top 80px",
+        end: "top top",
         pin: outgoing,
         pinSpacing: false,
         anticipatePin: 1,
@@ -42,7 +42,7 @@ export function createChapterTakeovers(root: HTMLElement) {
           scrollTrigger: {
             trigger: incoming,
             start: "top bottom",
-            end: "top 80px",
+            end: "top top",
             scrub: 0.6,
           },
         },

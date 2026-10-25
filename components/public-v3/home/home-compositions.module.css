@@ -39,7 +39,7 @@
 }
 .neighbourhood {
   padding: 120px var(--space) 130px;
-  background: var(--kt-white-000);
+  background: #edf0e9;
 }
 .spreadHeading {
   display: flex;

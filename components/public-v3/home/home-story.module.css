@@ -33,7 +33,7 @@
   object-fit: cover;
 }
 .hero {
-  padding: 145px var(--space) 0;
+  padding: 112px var(--space) 0;
 }
 .heroTop {
   display: grid;
@@ -149,7 +149,7 @@
 }
 .aperture {
   position: relative;
-  height: calc(100svh - 80px);
+  height: 100svh;
   min-height: 460px;
   background: var(--kt-palette-f2f2f2);
   overflow: hidden;
@@ -313,7 +313,7 @@
   font-size: 17px;
 }
 .business {
-  background: var(--kt-palette-f2f2f2);
+  background: #f3ede5;
   padding: 120px var(--space);
 }
 .businessTitle {
@@ -566,7 +566,7 @@
     font-size: 17px;
   }
   .hero {
-    padding-top: 115px;
+    padding-top: 98px;
   }
   .heroTop {
     display: block;
@@ -976,5 +976,11 @@
   }
   .closingPhoto {
     min-height: 430px;
+  }
+}
+
+@media (max-width: 760px) {
+  .businessDetail {
+    border-color: #f3ede5;
   }
 }

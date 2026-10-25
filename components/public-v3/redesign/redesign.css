@@ -17,7 +17,7 @@
   --kt-public-focus: var(--kt-editorial-signal);
   --kt-public-border-default: var(--kt-palette-d4d4d4);
   --kt-public-border-subtle: var(--kt-palette-e4e4e4);
-  --kt-header-height: 80px;
+  --kt-header-height: 64px;
   background: var(--kt-white-000);
   color: var(--kt-editorial-ink);
   font-family: var(--font-body);
@@ -1343,4 +1343,59 @@
 
 .kt-redesign .kt-detail-actions + p {
   margin-top: 24px;
+}
+
+/* Navigation belongs to the page canvas; only its controls gain a local reading surface. */
+.kt-redesign .kt-new-header {
+  height: 64px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+.kt-redesign .kt-new-header > * {
+  pointer-events: auto;
+}
+.kt-redesign .kt-new-header-links,
+.kt-redesign .kt-new-header-tools,
+.kt-redesign .kt-new-header > .kt-new-brand {
+  border-radius: 999px;
+  transition: background-color 0.4s;
+}
+.kt-redesign .kt-new-header-links {
+  padding: 0 20px;
+}
+.kt-redesign .kt-new-header-tools {
+  padding: 0 14px;
+}
+.kt-redesign .kt-new-header > .kt-new-brand {
+  padding: 3px;
+  border-radius: 6px;
+}
+.kt-redesign .kt-new-header[data-floating="true"] .kt-new-header-links,
+.kt-redesign .kt-new-header[data-floating="true"] .kt-new-header-tools,
+.kt-redesign .kt-new-header[data-floating="true"] > .kt-new-brand {
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+@media (max-width: 760px) {
+  .public-v3-root.kt-redesign {
+    --kt-header-height: 60px;
+  }
+  .kt-redesign .kt-new-header {
+    height: 60px;
+    padding-inline: 17px;
+  }
+  .kt-redesign .kt-new-header-tools {
+    padding: 0 10px;
+    gap: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kt-redesign .kt-new-header-links,
+  .kt-redesign .kt-new-header-tools,
+  .kt-redesign .kt-new-header > .kt-new-brand {
+    transition: none;
+  }
 }

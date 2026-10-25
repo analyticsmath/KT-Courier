@@ -65,7 +65,7 @@ export function ConnectionOrbit({
           const timeline = gsap.timeline({
             scrollTrigger: {
               trigger: scene,
-              start: "top 80px",
+              start: "top top",
               end: "+=900",
               pin: true,
               scrub: 0.8,

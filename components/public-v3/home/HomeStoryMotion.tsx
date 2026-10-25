@@ -37,6 +37,54 @@ export function HomeStoryMotion() {
               element.removeEventListener("focusin", show),
             );
           });
+
+        root
+          .querySelectorAll<HTMLElement>("[data-image-enter]")
+          .forEach((frame) => {
+            const direction = frame.dataset.imageEnter;
+            const distance = () => (window.innerWidth <= 760 ? 24 : 70);
+            const reveal = gsap.fromTo(
+              frame,
+              {
+                x: () =>
+                  direction === "left"
+                    ? -distance()
+                    : direction === "right"
+                      ? distance()
+                      : 0,
+                y: direction === "rise" ? 30 : 0,
+                opacity: 0,
+                clipPath:
+                  direction === "left"
+                    ? "inset(0% 18% 0% 0%)"
+                    : direction === "right"
+                      ? "inset(0% 0% 0% 18%)"
+                      : "inset(12% 0% 0% 0%)",
+              },
+              {
+                x: 0,
+                y: 0,
+                opacity: 1,
+                clipPath: "inset(0% 0% 0% 0%)",
+                duration: 1.4,
+                ease: "power3.out",
+                scrollTrigger: {
+                  trigger: frame,
+                  start: "top 92%",
+                  once: true,
+                  invalidateOnRefresh: true,
+                },
+              },
+            );
+            const show = () => {
+              reveal.progress(1);
+              reveal.scrollTrigger?.kill();
+            };
+            frame.addEventListener("focusin", show);
+            editorialCleanups.push(() =>
+              frame.removeEventListener("focusin", show),
+            );
+          });
         const hero = root.querySelector("[data-hero-window]");
         if (hero)
           gsap.fromTo(
@@ -86,7 +134,7 @@ export function HomeStoryMotion() {
               .timeline({
                 scrollTrigger: {
                   trigger: scene,
-                  start: "top 80px",
+                  start: "top top",
                   end: "+=1050",
                   pin: true,
                   scrub: 0.8,
