@@ -44,7 +44,7 @@ All images are existing, locally hosted WebPs, inspected in contact sheets befor
 
 The story selectors are real buttons with aria-pressed, a named control group and aria-controls. They do not navigate or submit data. All six images remain mounted; the active pair crossfades without moving the layout. The current caption is announced politely. Focus remains on the selected button. No timers, drag-only gestures or mandatory horizontal scrolling.
 
-Mobile uses in-flow compositions: short opening lines, a main photo plus a readable inset/caption, vertically arranged selectors, a two-image location spread and staggered preparation articles. Existing fixed navigation remains. Reduced motion removes the new crossfades and movement, leaving all content and actions usable. Focus completes new reveal effects immediately.
+Mobile uses in-flow compositions: short opening lines, a main photo plus a readable inset/caption, a compact selector row before the photographs, a two-image location spread and staggered preparation articles. Existing fixed navigation remains. Reduced motion removes the new crossfades and movement, leaving all content and actions usable. Focus completes new reveal effects immediately.
 
 ## Acceptance
 

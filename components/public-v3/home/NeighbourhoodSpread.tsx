@@ -57,6 +57,24 @@ export function NeighbourhoodSpread() {
           Explore the shop ↗
         </Link>
       </header>
+      <div
+        className={styles.storyChoices}
+        role="group"
+        aria-label="Explore local stories"
+      >
+        {stories.map((story, i) => (
+          <button
+            type="button"
+            key={story.title}
+            aria-pressed={selected === i}
+            aria-controls="neighbourhood-stories"
+            onClick={() => setSelected(i)}
+          >
+            {story.title}
+            <span aria-hidden="true">↗</span>
+          </button>
+        ))}
+      </div>
       <div className={styles.spreadCanvas} id="neighbourhood-stories">
         <div className={styles.spreadMain} data-editorial-fade>
           {stories.map((story, i) => (
@@ -102,24 +120,6 @@ export function NeighbourhoodSpread() {
             <p>{stories[selected].copy}</p>
           </div>
         </div>
-      </div>
-      <div
-        className={styles.storyChoices}
-        role="group"
-        aria-label="Explore local stories"
-      >
-        {stories.map((story, i) => (
-          <button
-            type="button"
-            key={story.title}
-            aria-pressed={selected === i}
-            aria-controls="neighbourhood-stories"
-            onClick={() => setSelected(i)}
-          >
-            {story.title}
-            <span aria-hidden="true">↗</span>
-          </button>
-        ))}
       </div>
     </section>
   );
