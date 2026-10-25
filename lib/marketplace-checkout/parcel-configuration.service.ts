@@ -8,8 +8,19 @@ import { classifyTrustedMarketplaceParcel, TrustedPackageVersionSchema, type Tru
 import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 
 const prefix = "production_marketplace_trusted_packages_v";
-export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVersionSchema.shape.packages, bundles: TrustedPackageVersionSchema.shape.bundles, effectiveFrom: TrustedPackageVersionSchema.shape.effectiveFrom, effectiveTo: TrustedPackageVersionSchema.shape.effectiveTo, expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict().refine(value => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.")
-  .refine(value => value.packages.length > 0 || (value.bundles?.length ?? 0) > 0, "At least one reviewed package or measured consignment is required.");
+export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVersionSchema.shape.packages, bundles: TrustedPackageVersionSchema.shape.bundles, effectiveFrom: TrustedPackageVersionSchema.shape.effectiveFrom, effectiveTo: TrustedPackageVersionSchema.shape.effectiveTo, expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict().superRefine((value, ctx) => {
+    // Match the persisted version schema at the *write* boundary. Otherwise a
+    // syntactically valid draft can save duplicate measurements that the read
+    // schema rejects, taking down all packaging/marketplace quote lookups.
+    const version = TrustedPackageVersionSchema.safeParse({
+      packages: value.packages, bundles: value.bundles,
+      effectiveFrom: value.effectiveFrom, effectiveTo: value.effectiveTo,
+      version: value.expectedVersion + 1, status: "DRAFT",
+      createdByUserId: "preflight-author", approvedByUserId: null, approvedAt: null,
+    });
+    if (!version.success) for (const issue of version.error.issues)
+      ctx.addIssue({ code: "custom", path: issue.path, message: issue.message });
+  });
 export const TrustedPackageActionSchema = z.object({ version: z.number().int().positive(), expectedUpdatedAt: z.iso.datetime(), action: z.enum(["APPROVE", "ACTIVATE", "RETIRE"]), reason: z.string().trim().min(10).max(500) }).strict();
 
 export async function listTrustedPackageVersions() {

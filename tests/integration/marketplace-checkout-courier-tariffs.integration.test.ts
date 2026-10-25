@@ -72,6 +72,30 @@ describe("marketplace courier tariff persistence on isolated PostgreSQL", () => 
     second = (await listTrustedPackageVersions()).find(item => item.version === secondDraft.version)!;
     await actOnTrustedPackageVersion(actor.id, { version: second.version, expectedUpdatedAt: second.updatedAt,
       action: "ACTIVATE", reason: "Activate independently reviewed two-unit consignment" });
+    // Write-time validation must use the exact persisted-version invariants:
+    // duplicate reviewed packages or sealed bundles must never be committed as
+    // unreadable SystemSetting versions, even through the administrator API.
+    const invalidUnit = {
+      storeId: store.id, offerReference: source.offer.publicReference,
+      variantReference: source.variant.publicReference,
+      publicationVersion: String(source.offer.version), modifiers: [],
+      packingRule: "SINGLE_PREPACKAGED_UNIT" as const, lengthCm: 20,
+      widthCm: 15, heightCm: 8, weightKg: 4.5,
+      authorityReference: "ISOLATED_ACTUAL_SINGLE_UNIT_MEASUREMENT",
+    };
+    await expect(saveTrustedPackageVersion(source.adminUser.id, {
+      expectedVersion: second.version, effectiveFrom: "2026-01-01T00:00:00.000Z",
+      effectiveTo: null, reason: "Reject duplicate single-unit measurements at write time",
+      packages: [invalidUnit, invalidUnit],
+    })).rejects.toThrow(/single-packaged.*one reviewed measurement/i);
+    const actualBundle = second.bundles?.[0];
+    expect(actualBundle).toBeDefined();
+    await expect(saveTrustedPackageVersion(source.adminUser.id, {
+      expectedVersion: second.version, effectiveFrom: "2026-01-01T00:00:00.000Z",
+      effectiveTo: null, reason: "Reject duplicate sealed bundles at write time",
+      packages: [], bundles: [actualBundle!, actualBundle!],
+    })).rejects.toThrow(/sealed consignment.*unambiguous/i);
+    expect((await listTrustedPackageVersions()).some(item => item.version === second.version + 1)).toBe(false);
     // Duplicate content is rejected before creating another approval version.
     // The actor cannot make two identical lines look like different sealed facts.
     const latest = (await listTrustedPackageVersions()).find(item => item.version === second.version)!;
