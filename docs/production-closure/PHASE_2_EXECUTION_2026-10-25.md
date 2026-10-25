@@ -76,6 +76,10 @@ Independent review must not accept an ambiguous invoice/package manifest. A new 
 
 Local candidate: **4,821 tests passed in 966 suites**, TypeScript and changed-file lint clean. **New exact-SHA T2/T3/T4 still NOT_RUN** for this candidate. The previous source `ffb1485837c25d2a969ef31bfa78b688c3f58902` deployed successfully on Vercel/Railway and completed 10/10 CI jobs. Its 23/24 nonbrowser certification jobs passed while the final browser job was still executing; do not inherit those green results for a newer SHA. Live packaging measurements, independent acceptance, financial approval and real custody remain external evidence, and go-live remains NOT_READY.
 
+## Single-unit manifest ambiguity prevented before independent review
+
+A follow-up security/policy regression on `af3da7952230ee83637fc12fa902fe82ec61789b` reproduced a remaining draft-authority issue: single-product package entries could repeat the *same* store, offer, variant, publication and modifier selection within one version, or repeat a modifier option. The downstream classifier refused ambiguous approved manifests (safe), but administrators could still submit and approve a version that would make a legitimate checkout unroutable. A fail-first test in `tests/marketplace-checkout/parcel-classification.test.ts` now enforces both uniqueness constraints at schema/authoring validation time while allowing separately priced modifier-quantity selections. This mirrors the aggregate-manifest ambiguity safeguard without changing checkout prices or bypassing reviewer separation. The new code requires exact-source CI and database/browser acceptance; earlier `af3da795` CI GREEN cannot certify its successor.
+
 ## Mandatory Phase 2 gates and non-inflated evidence inventory
 
 **Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.

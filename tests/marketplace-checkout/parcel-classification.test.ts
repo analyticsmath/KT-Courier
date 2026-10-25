@@ -58,6 +58,14 @@ describe("server-authoritative marketplace parcel measurements", () => {
     expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[bundle,bundle]}]})).toMatchObject({status:"UNKNOWN",reason:"AMBIGUOUS_PACKAGE_EVIDENCE"});
     expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[{...bundle,weightKg:21}]}]})).toMatchObject({status:"UNSUPPORTED",reason:"MEASURED_PACKAGE_UNSUPPORTED"});
   });
+  it("rejects duplicate single-package approvals and repeated modifier options before activation", () => {
+    const one = { ...entry, modifiers: [{ optionReference: "wrap", quantity: 1 }] };
+    const repeat = { ...one, modifiers: [{ optionReference: "wrap", quantity: 1 }, { optionReference: "wrap", quantity: 2 }] };
+    expect(TrustedPackageSchema.safeParse(one).success).toBe(true);
+    expect(TrustedPackageSchema.safeParse(repeat).success).toBe(false);
+    expect(TrustedPackageVersionSchema.safeParse({ ...version, packages: [one, { ...one, weightKg: 6 }] }).success).toBe(false);
+    expect(TrustedPackageVersionSchema.safeParse({ ...version, packages: [one, { ...one, modifiers: [{ optionReference: "wrap", quantity: 2 }] }] }).success).toBe(true);
+  });
   it("rejects ambiguous duplicate product lines, selections and repeat consignments before review", () => {
     const first = { ...line, quantity: 2, modifiers: [{ optionReference: "gift", quantity: 1 }] };
     const second = { ...line, offerReference: "another-offer", variantReference: "another-variant", modifiers: [] };

@@ -11,7 +11,8 @@ export const TrustedPackageSchema = z.object({
   lengthCm: measurement, widthCm: measurement, heightCm: measurement,
   weightKg: z.number().finite().positive().max(10000).refine(fourDecimals, "Use at most four decimal places."),
   authorityReference: z.string().trim().min(10).max(300),
-}).strict();
+}).strict().refine(value => new Set(value.modifiers.map(option => option.optionReference)).size === value.modifiers.length,
+  "A selected modifier may only appear once per packaged unit.");
 // An independently measured, sealed consignment is not the sum of catalog
 // weights or a guessed packing geometry. Every source line and quantity must
 // match a reviewed bundle exactly, including current offer revisions.
@@ -40,6 +41,13 @@ export const TrustedPackageVersionSchema = z.object({
   bundles: z.array(TrustedConsignmentSchema).max(100).optional(),
 }).strict().refine((value) => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.")
   .refine(value => value.packages.length > 0 || (value.bundles?.length ?? 0) > 0, "At least one reviewed package or measured consignment is required.")
+  .refine(value => {
+    const identifiers = value.packages.map(entry => JSON.stringify([
+      entry.storeId, entry.offerReference, entry.variantReference,
+      entry.publicationVersion, selection(entry.modifiers),
+    ]));
+    return new Set(identifiers).size === identifiers.length;
+  }, "A single-packaged product selection may have only one reviewed measurement per version.")
   .refine(value => {
     const identifiers = (value.bundles ?? []).map(bundle => JSON.stringify([
       bundle.storeId, consignmentSignature(bundle.lines),
