@@ -44,6 +44,12 @@ A read-only live browser inspection of `/`, `/shop`, `/quote`, `/signup?role=sto
 
 **Verified UX gap:** `/quote` previously omitted an explanation of when the customer selects payment and when COD is eligible. The page now states explicitly that customers can start without an account and choose **online payment** or **cash on delivery only if approved for the route, service and amount** at booking. This copy does **not** enable an unapproved cash method or change payments. SSR acceptance `tests/public-v2/quote-payment-disclosure.test.ts` reproduces the omission (RED) and confirms the corrected text (GREEN). This copy requires the next SHA's production deploy and browser recheck before P2-07 can be signed off.
 
+## Narrow-device role-based acceptance expansion
+
+The synthetic role-bound browser acceptance `tests/e2e/production-visual-review.spec.ts` now explicitly covers **320px** in addition to 390px, 768px, 1366px and 1440px, checking quote/product, vendor catalog/creation, driver profile/onboarding and Super Admin readiness surfaces for visible page heading and horizontal overflow. The 320px assertion is an additional disposable Chromium case, **NOT_RUN until the next exact-SHA certification**; successful static lint/TypeScript alone does not establish narrow-device acceptance. The browser job still cannot substitute for human assistive-technology or owner visual approval.
+
+As of `1cb21e39dd033cf62c2bf8e0f3653a8111c4d819`, the prior full isolated certification had **24/24 component jobs SUCCESS** with final `certified` job FAILED (`NOT_READY`) for the explicitly listed outstanding engineering/operational gates. No certificate is granted by component green results alone. The current public quote disclosure commit `1fa8dad56d9473cfc8840206a6c97caa30c08caa` passed 4,814/4,814 local tests in 964 suites, TypeScript and changed-file lint; its new CI and certification were triggered separately.
+
 ## Mandatory Phase 2 gates and non-inflated evidence inventory
 
 **Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.
