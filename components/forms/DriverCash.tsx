@@ -103,6 +103,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
       </section>
       <section className="space-y-5">
         <h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Delivery cash records</h2>
+        {summary.hasMoreActionableOrders && <p role="status" className="rounded-lg border border-[var(--kt-border)] bg-[var(--kt-surface-muted)] p-4 text-sm leading-6">More than 100 cash-collection actions require attention. This screen shows the oldest outstanding actions first alongside recent orders. Complete or reconcile these records to reveal the remaining backlog. The cash totals above cover your full account, not just visible rows.</p>}
         {summary.orders.length ? (
           summary.orders.map((order) => (
             <article

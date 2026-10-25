@@ -137,7 +137,19 @@ export async function saveBankInstructions(
 }
 export async function driverCashSummary(userId: string) {
   const driver = await activeDriver(userId);
-  const [collected, custody, rows, deposits, bankInstructions] =
+  const cashOrderSelect = {
+    orderId: true, collectorDriverId: true, authoritativePayable: true,
+    digitalPaid: true, cashObligation: true, cashCollected: true,
+    cashReconciled: true, status: true,
+    order: { select: { orderNumber: true, status: true } },
+  } as const;
+  const driverOrderScope = {
+    OR: [
+      { collectorDriverId: driver.id },
+      { order: { currentDriverProfileId: driver.id } },
+    ],
+  };
+  const [collected, custody, rows, actionableRows, deposits, bankInstructions] =
     await Promise.all([
       prisma.cashOnDelivery.aggregate({
         where: { collectorDriverId: driver.id },
@@ -154,25 +166,21 @@ export async function driverCashSummary(userId: string) {
         _sum: { currentBalance: true },
       }),
       prisma.cashOnDelivery.findMany({
-        where: {
-          OR: [
-            { collectorDriverId: driver.id },
-            { order: { currentDriverProfileId: driver.id } },
-          ],
-        },
-        select: {
-          orderId: true,
-          collectorDriverId: true,
-          authoritativePayable: true,
-          digitalPaid: true,
-          cashObligation: true,
-          cashCollected: true,
-          cashReconciled: true,
-          status: true,
-          order: { select: { orderNumber: true, status: true } },
-        },
+        where: driverOrderScope,
+        select: cashOrderSelect,
         orderBy: { createdAt: "desc" },
         take: 100,
+      }),
+      // A display history cap must never hide an older unremitted collection
+      // or an assigned delivery still requiring cash collection. Include the
+      // oldest actionable work separately (101st record signals pagination).
+      prisma.cashOnDelivery.findMany({
+        where: {
+          AND: [driverOrderScope, { status: { in: ["READY_FOR_COLLECTION", "COLLECTED"] } }],
+        },
+        select: cashOrderSelect,
+        orderBy: { createdAt: "asc" },
+        take: 101,
       }),
       prisma.driverCashDeposit.findMany({
         where: { driverProfileId: driver.id },
@@ -192,10 +200,14 @@ export async function driverCashSummary(userId: string) {
       }),
       readBankInstructions(),
     ]);
+  // Combine actionable work with recent history using order identity, without
+  // displaying duplicate records or altering the authoritative aggregate sums.
+  const orderedRows = [...actionableRows.slice(0, 100), ...rows];
+  const visibleRows = [...new Map(orderedRows.map(row => [row.orderId, row])).values()];
   // Recent history is capped for display. An older active remittance must
   // still disable a second submission for the same delivery; using only the
   // latest 100 deposits here produced an incorrect driver action.
-  const collectibleOrderIds = rows
+  const collectibleOrderIds = visibleRows
     .filter((r) => r.collectorDriverId === driver.id && r.status === "COLLECTED")
     .map((r) => r.orderId);
   const activeRemittances = collectibleOrderIds.length
@@ -221,7 +233,8 @@ export async function driverCashSummary(userId: string) {
     },
     bankInstructions,
     handoverEnabled: bankInstructions?.handoverEnabled === true,
-    orders: rows.map((r) => ({
+    hasMoreActionableOrders: actionableRows.length > 100,
+    orders: visibleRows.map((r) => ({
       orderId: r.orderId,
       orderNumber: r.order.orderNumber,
       total: r.authoritativePayable.toFixed(2),

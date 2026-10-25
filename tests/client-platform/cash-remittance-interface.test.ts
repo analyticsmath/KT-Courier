@@ -14,7 +14,7 @@ const bank = {
 } as Awaited<ReturnType<typeof readBankInstructions>>;
 const cash = {
   totals: { collected: "125.00", remitted: "0.00", held: "125.00" },
-  bankInstructions: bank, handoverEnabled: true,
+  bankInstructions: bank, handoverEnabled: true, hasMoreActionableOrders: false,
   orders: [{ orderId: "order-fixture", orderNumber: "KT-123",
     total: "125.00", digitalPaid: "0.00", cashRequired: "125.00",
     cashCollected: "125.00", cashDeposited: "0.00", status: "COLLECTED",
