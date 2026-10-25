@@ -54,5 +54,37 @@ describe("marketplace courier tariff persistence on isolated PostgreSQL", () => 
     await prisma.marketplaceCheckoutLineSnapshot.create({ data: { ...line, id: undefined, createdAt: undefined, reviewVersion: 2, quantity: 2, lineTotal: "180.00" } });
     await expect(createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey)).rejects.toThrow("packed dimensions and weight must be verified");
     expect(await prisma.pricingQuote.count({ where: { storeId: store.id } })).toBe(1);
+
+    // The second approved snapshot measures the actual sealed two-unit parcel.
+    // Its size is NOT inferred by doubling the first product's dimensions.
+    const secondDraft = await saveTrustedPackageVersion(source.adminUser.id, {
+      expectedVersion: draft.version, effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null,
+      reason: "Isolated measured two-unit parcel with an independent reviewer",
+      packages: [], bundles: [{ storeId: store.id, packingRule: "MEASURED_SEALED_CONSIGNMENT",
+        lines: [{ offerReference: source.offer.publicReference, variantReference: source.variant.publicReference,
+          publicationVersion: String(source.offer.version), quantity: 2, modifiers: [] }],
+        lengthCm: 35, widthCm: 25, heightCm: 18, weightKg: 9,
+        authorityReference: "ISOLATED_ACTUAL_SEALED_CONSIGNMENT_MEASUREMENT" }],
+    });
+    let second = (await listTrustedPackageVersions()).find(item => item.version === secondDraft.version)!;
+    await actOnTrustedPackageVersion(actor.id, { version: second.version, expectedUpdatedAt: second.updatedAt,
+      action: "APPROVE", reason: "Separate reviewer for isolated package evidence" });
+    second = (await listTrustedPackageVersions()).find(item => item.version === secondDraft.version)!;
+    await actOnTrustedPackageVersion(actor.id, { version: second.version, expectedUpdatedAt: second.updatedAt,
+      action: "ACTIVATE", reason: "Activate independently reviewed two-unit consignment" });
+    const aggregate = await createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey);
+    expect(aggregate.total).toBe("89.00");
+    const aggregateRow = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: aggregate.id } });
+    expect(aggregateRow.ruleSnapshot).toMatchObject({ parcelClassification: {
+      reason: "REVIEWED_MEASURED_CONSIGNMENT", sizeClass: "MEDIUM", weightKg: 9, packageVersion: second.version,
+    } });
+    expect(isFrozenCourierQuote({ quote: aggregateRow, storeId: store.id, reference: aggregate.id, version: aggregate.quoteVersion })).toBe(true);
+
+    // An altered customer quantity never matches the sealed measurements.
+    await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { reviewVersion: 3 } });
+    await prisma.marketplaceCheckoutLineSnapshot.create({ data: { ...line, id: undefined, createdAt: undefined,
+      reviewVersion: 3, quantity: 3, lineTotal: "270.00" } });
+    await expect(createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey)).rejects.toThrow("packed dimensions and weight must be verified");
+    expect(await prisma.pricingQuote.count({ where: { storeId: store.id } })).toBe(2);
   }, 90_000);
 });

@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     const active = versions.filter(item => item.status === "ACTIVE").sort((a,b) => b.version - a.version)[0];
     const entry = { storeId: offer.storeId, offerReference: offer.publicReference, variantReference: offer.variant.publicReference, publicationVersion: String(offer.version), modifiers: [], packingRule: "SINGLE_PREPACKAGED_UNIT" as const, lengthCm: declaration.lengthCm, widthCm: declaration.widthCm, heightCm: declaration.heightCm, weightKg: declaration.weightKg, authorityReference: `${PACKAGING_PREFIX}${offer.publicReference}:${declaration.revision}` };
     const packages = [...(active?.packages ?? []).filter(item => item.offerReference !== offer.publicReference), entry];
-    const result = await saveTrustedPackageVersion(auth.user.id, { packages, effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: input.expectedVersion, reason: input.reason });
+    const result = await saveTrustedPackageVersion(auth.user.id, { packages, bundles: active?.bundles ?? [], effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: input.expectedVersion, reason: input.reason });
     return json(result, 201);
   } catch (error) { return failure(error); }
 }

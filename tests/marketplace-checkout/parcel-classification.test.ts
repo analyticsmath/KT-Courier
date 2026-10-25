@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyTrustedMarketplaceParcel, TrustedPackageSchema, type TrustedPackageVersion, type ParcelLimits, type ParcelSourceLine } from "@/lib/marketplace-checkout/parcel-classification";
+import { classifyTrustedMarketplaceParcel, TrustedPackageSchema, TrustedConsignmentSchema, TrustedPackageVersionSchema, type TrustedPackageVersion, type ParcelLimits, type ParcelSourceLine } from "@/lib/marketplace-checkout/parcel-classification";
 import { selectMarketplaceDeliveryPolicy, type DeliveryPolicyVersion } from "@/lib/marketplace-checkout/delivery-policy";
 
 const now = new Date("2026-10-08T12:00:00Z");
@@ -42,6 +42,31 @@ describe("server-authoritative marketplace parcel measurements", () => {
   it("leaves all multiple units and line groups unknown without inventing a packing algorithm", () => {
     expect(classify(entry, { ...line, quantity: 2 })).toMatchObject({ status: "UNKNOWN", reason: "AGGREGATE_PACKING_APPROVAL_REQUIRED" });
     expect(classifyTrustedMarketplaceParcel({ storeId: "store", lines: [line, line], versions: [version], profiles, now }).status).toBe("UNKNOWN");
+  });
+  it("classifies a multi-item consignment only when its entire package was measured and independently activated", () => {
+    const bundle = {storeId:"store", packingRule:"MEASURED_SEALED_CONSIGNMENT" as const, lines:[{...line,modifiers:[...line.modifiers],quantity:2},{...line,modifiers:[...line.modifiers],offerReference:"offer-two",variantReference:"variant-two",quantity:1}], lengthCm:40,widthCm:30,heightCm:20,weightKg:8,authorityReference:"measured:sealed-consignment:fixture"};
+    const source = {storeId:"store", lines:[bundle.lines[1],bundle.lines[0]], profiles, now, versions:[{...version,bundles:[bundle]}]};
+    expect(classifyTrustedMarketplaceParcel(source)).toMatchObject({status:"CLASSIFIED",sizeClass:"MEDIUM",weightKg:8,reason:"REVIEWED_MEASURED_CONSIGNMENT",packageVersion:1});
+    for(const changed of [
+      {...bundle.lines[0],quantity:3},
+      {...bundle.lines[0],publicationVersion:"pub-stale"},
+      {...bundle.lines[0],modifiers:[{optionReference:"gift-wrap",quantity:1}]},
+      {...bundle.lines[0],offerReference:"foreign"},
+    ]) expect(classifyTrustedMarketplaceParcel({...source,lines:[changed,bundle.lines[1]]})).toMatchObject({status:"UNKNOWN",sizeClass:null});
+    expect(classifyTrustedMarketplaceParcel({...source,storeId:"another-store"})).toMatchObject({status:"UNKNOWN",sizeClass:null});
+    expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[bundle],status:"DRAFT"}]})).toMatchObject({status:"UNKNOWN",sizeClass:null});
+    expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[bundle,bundle]}]})).toMatchObject({status:"UNKNOWN",reason:"AMBIGUOUS_PACKAGE_EVIDENCE"});
+    expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[{...bundle,weightKg:21}]}]})).toMatchObject({status:"UNSUPPORTED",reason:"MEASURED_PACKAGE_UNSUPPORTED"});
+  });
+  it("rejects guessed, empty or non-aggregate consignment evidence and blank policies", () => {
+    const wrapped = {storeId:"store",packingRule:"MEASURED_SEALED_CONSIGNMENT",lines:[{...line,modifiers:[]}],
+      lengthCm:20,widthCm:15,heightCm:10,weightKg:5,authorityReference:"reference:sealed:test"};
+    expect(TrustedConsignmentSchema.safeParse(wrapped).success).toBe(false);
+    expect(TrustedConsignmentSchema.safeParse({...wrapped,lines:[{...line,quantity:2,modifiers:[]}]}).success).toBe(true);
+    expect(TrustedConsignmentSchema.safeParse({...wrapped,lines:[{...line,quantity:2,modifiers:[]}],weightKg:0}).success).toBe(false);
+    expect(TrustedConsignmentSchema.safeParse({...wrapped,lines:[{...line,quantity:2,modifiers:[]}],authorityReference:"missing"}).success).toBe(false);
+    expect(TrustedPackageVersionSchema.safeParse({...version,packages:[],bundles:[]}).success).toBe(false);
+    expect(TrustedPackageVersionSchema.safeParse({...version,packages:[],bundles:[{...wrapped,lines:[{...line,quantity:2,modifiers:[]}]}]}).success).toBe(true);
   });
   it("fails closed for missing, conflicting and nonmonotonic parcel profiles", () => {
     for (const limits of [profiles.slice(0, 2), [...profiles, profiles[0]], [profiles[0], { ...profiles[1], maximumWeightKg: 4 }, profiles[2]]]) expect(classify(entry, line, [version], limits).status).toBe("UNKNOWN");

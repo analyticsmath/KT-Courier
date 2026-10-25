@@ -8,7 +8,8 @@ import { classifyTrustedMarketplaceParcel, TrustedPackageVersionSchema, type Tru
 import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 
 const prefix = "production_marketplace_trusted_packages_v";
-export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVersionSchema.shape.packages, effectiveFrom: TrustedPackageVersionSchema.shape.effectiveFrom, effectiveTo: TrustedPackageVersionSchema.shape.effectiveTo, expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict().refine(value => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.");
+export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVersionSchema.shape.packages, bundles: TrustedPackageVersionSchema.shape.bundles, effectiveFrom: TrustedPackageVersionSchema.shape.effectiveFrom, effectiveTo: TrustedPackageVersionSchema.shape.effectiveTo, expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict().refine(value => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.")
+  .refine(value => value.packages.length > 0 || (value.bundles?.length ?? 0) > 0, "At least one reviewed package or measured consignment is required.");
 export const TrustedPackageActionSchema = z.object({ version: z.number().int().positive(), expectedUpdatedAt: z.iso.datetime(), action: z.enum(["APPROVE", "ACTIVATE", "RETIRE"]), reason: z.string().trim().min(10).max(500) }).strict();
 
 export async function listTrustedPackageVersions() {
@@ -23,7 +24,7 @@ export async function saveTrustedPackageVersion(actorId: string, input: z.infer<
     const rows = await tx.systemSetting.findMany({ where: { key: { startsWith: prefix } } });
     const latest = Math.max(0, ...rows.map((row) => TrustedPackageVersionSchema.parse(row.value).version));
     if (latest !== data.expectedVersion) throw new PlatformError("VERSION_CONFLICT", "Trusted packaging changed. Refresh before saving.", 409);
-    for (const entry of data.packages) {
+    for (const entry of [...data.packages, ...(data.bundles ?? []).flatMap(bundle => bundle.lines.map(line => ({...line, storeId: bundle.storeId})))]) {
       const source = await tx.storeCatalogOffer.findUnique({ where: { publicReference: entry.offerReference }, include: { variant: true, publicationSnapshots: { where: { status: "PUBLISHED" }, orderBy: { versionNumber: "desc" }, take: 1 } } });
       // Checkout records the offer revision as publicationVersion. Snapshot
       // publication IDs use a separate namespace and cannot be compared to it.
