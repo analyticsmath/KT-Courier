@@ -83,7 +83,9 @@ export async function updateCartLineQuantity(repository: MarketplaceCartMutation
     mutableCart(cart, input.owner, input.mutation.expectedVersion);
     const existing = cart.lines.find((line) => line.publicReference === input.lineReference); if (!existing) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line is unavailable.");
     const selection = await input.revalidate(existing, input.quantity);
-    const fingerprint = cartLineFingerprint({ offerReference: selection.offerReference, variantReference: selection.variantReference, modifiers: selection.modifiers.map((item) => ({ groupReference: item.groupReference, optionReference: item.optionReference, quantity: item.quantity })) });
+    const fingerprint = selectionFingerprint(selection);
+    if (selection.quantity !== input.quantity || selection.storeId !== existing.storeId || fingerprint !== existing.fingerprint)
+      throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line changed during quantity revalidation.");
     return commit(repository, { ...cart, version: cart.version + 1, lines: cart.lines.map((line) => line.publicReference === input.lineReference ? { ...line, quantity: input.quantity, fingerprint, selection } : line) }, input.mutation, "UPDATE_QUANTITY");
   });
 }
@@ -156,6 +158,7 @@ export async function claimGuestCart(repository: MarketplaceCartMergeRepository,
     const guest = await repository.lockCartByOwner(input.guestOwner, { includeMerged: true }); if (!guest) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Guest cart is unavailable.");
     const replay = await replayOrConflict(repository, guest.id, input.mutation); if (replay) return replay;
     if (["EXPIRED", "CONVERTED", "MERGED"].includes(guest.status)) throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Guest cart cannot be claimed.");
+    mutableCart(guest, input.guestOwner, input.mutation.expectedVersion);
     const customer = await repository.lockCartByOwner(input.customerOwner);
     if (customer) {
       const result = await mergeGuestAndCustomerCartsInTransaction(repository, { guestCart: guest, customerCart: customer, mutation: input.mutation, customerOwner: input.customerOwner, revalidate: input.revalidate });
@@ -169,7 +172,8 @@ export async function claimGuestCart(repository: MarketplaceCartMergeRepository,
 
 async function mergeGuestAndCustomerCartsInTransaction(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestCart: MarketplaceCartState; customerCart: MarketplaceCartState; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState, quantity?: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   const guest = input.guestCart; const customer = input.customerCart;
-  if (["EXPIRED", "CONVERTED", "MERGED"].includes(guest.status)) throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Guest cart cannot be merged.");
+  if (guest.status !== "ACTIVE") throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Guest cart cannot be merged.");
+  if (guest.version !== input.mutation.expectedVersion) throw new MarketplaceCheckoutError("CART_VERSION_CONFLICT", "Guest cart changed. Refresh before claiming it.");
   mutableCart(customer, input.customerOwner, customer.version);
   const conflicts: string[] = []; const candidates: MarketplaceCartLineState[] = [...customer.lines];
   for (const guestLine of guest.lines) {

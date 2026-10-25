@@ -24,6 +24,16 @@
 
 **CI history:** `e63e32d` CI succeeded and deployed on both Railway services plus Vercel; its 23 completed non-browser certification jobs passed, but its still-running catalog browser job was subsequently canceled when the newer commit superseded it. A canceled certification is **not** a PASS, nor is it a test failure. The current exact-SHA certification must finish for release acceptance.
 
+## Additional Phase 2 cart authorization and concurrent-edit hardening
+
+An independent policy audit found three fail-open paths in the cart service, reproduced first as failing tests: (1) quantity revalidation could silently substitute a different store/SKU or quantity; (2) a guest cart changed after a user's claim screen had been displayed could be claimed using a stale version; (3) a checkout-locked guest cart could be merged into a customer cart despite its lifecycle lock. `lib/marketplace-checkout/cart-mutation.service.ts` now validates the revalidated SKU fingerprint/store/quantity and uses the guest's expected optimistic version and ACTIVE lifecycle for claims and merges. All invalid paths reject before persistence and before writing operation receipts. Original quantity/cash/security behaviour is unchanged. Unit regressions: `tests/marketplace-checkout/cart-mutation.service.test.ts`.
+
+Latest isolated local candidate after those hardening changes: **4,810/4,810 unit/contract tests passed in 962 suites**, `tsc --noEmit` and changed-file ESLint passed. The exact current production commit before these unshipped changes is `2b90d9ac976ffff3ba95f74653216178a27314f5`: its CI completed successfully, production Vercel/Railway web/worker were SUCCESS, and full certification had 23/24 successful jobs while browser checks were still executing. A subsequent commit requires fresh CI, deployment and browser evidence; no result can be inherited silently.
+
+## Phase 2 identity and signup failure semantics
+
+A targeted signup audit found that all transaction failures—including expired, used or concurrently claimed vendor onboarding links—were previously reported as `ACCOUNT_EMAIL_UNAVAILABLE`, despite rolling back the account before any verification email could be sent. Signup now distinguishes `STORE_INVITATION_INVALID` (HTTP 409 with a safe replacement-link instruction) from unexpected account-creation failures (HTTP 503 `ACCOUNT_CREATION_UNAVAILABLE` with no database or email-provider claims). An actual security-email readiness failure remains separately governed before signup starts. Concurrent invitation claims throw the typed refusal inside the same transaction. Regression: `tests/auth/signup-invitation-error.test.ts`, `tests/admin/store-invite-policy.test.ts`.
+
 ## Mandatory Phase 2 gates and non-inflated evidence inventory
 
 **Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.

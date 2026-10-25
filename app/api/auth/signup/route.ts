@@ -3,7 +3,9 @@ import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pic
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 import { hashToken } from "@/lib/auth/tokens";
+import { signupTransactionFailureResponse } from "@/lib/auth/signup-failure";
 import { verifyStoreInvitationClaim } from "@/lib/super-admin/store-invitation";
+import { ManagedCommerceError } from "@/lib/super-admin/commerce.service";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { generateSlug, generateUniqueSlug } from "@/lib/utils/slug";
 import { newDriverCode } from "@/lib/utils/driver-code";
@@ -22,7 +24,6 @@ import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
 import {
-  accountEmailQueueFailureResponse,
   shouldQueueSecurityEmail,
   securityEmailUnavailableResponse,
 } from "@/lib/auth/security-email-readiness";
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
         ? UserRole.STORE
         : UserRole.DRIVER;
 
+  let transactionFailure: unknown = null;
   const result = await prisma
     .$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -166,7 +168,7 @@ export async function POST(req: NextRequest) {
         });
         if(invitation){
           const claim=await tx.storeOnboardingInvitation.updateMany({where:{id:invitation.id,status:"PENDING",expiresAt:{gt:new Date()}},data:{status:"CLAIMED",claimedByUserId:newUser.id,claimedStoreId:store.id}});
-          if(claim.count!==1)throw new Error("STORE_INVITATION_ALREADY_CLAIMED");
+          if (claim.count !== 1) throw new ManagedCommerceError("STORE_INVITATION_INVALID", "The store invitation was already used.", 409);
         }
         if (d.businessLocation && completeStorePickupAddress(d.businessLocation)) {
           const pickup = await tx.address.create({ data: {
@@ -228,9 +230,9 @@ export async function POST(req: NextRequest) {
         deliveryId,
       };
     })
-    .catch(() => null);
+    .catch((error: unknown) => { transactionFailure = error; return null; });
 
-  if (!result) return accountEmailQueueFailureResponse();
+  if (!result) return signupTransactionFailureResponse(transactionFailure);
 
   let deliveryPending = false;
   if (process.env.NODE_ENV === "production" && result.deliveryId) {

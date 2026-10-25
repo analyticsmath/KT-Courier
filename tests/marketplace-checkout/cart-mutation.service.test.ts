@@ -194,6 +194,45 @@ describe("marketplace cart mutation service", () => {
       }),
     ).rejects.toThrow("CART_MUTATION_NOT_ALLOWED");
   });
+  it("rejects quantity repricing that silently swaps stores or SKUs, preserving the original cart", async () => {
+    const fingerprint=cartLineFingerprint({offerReference:"offer",variantReference:"variant",modifiers:[]});
+    const original:MarketplaceCartState={id:"cart",publicReference:"cart-ref",owner:customer,status:"ACTIVE",version:1,lines:[{
+      publicReference:"line",storeId:"store",quantity:1,fingerprint,selection,
+    }]};
+    for(const unexpected of [{storeId:"other-store"},{offerReference:"other-offer"},{quantity:1}]) {
+      const repo=repository(original);
+      await expect(updateCartLineQuantity(repo,{
+        cartId:"cart",lineReference:"line",owner:customer,
+        mutation:{operationId:"quantity-substitution",requestHash:"qhash",expectedVersion:1},quantity:2,
+        revalidate:async()=>({...selection,quantity:2,...unexpected}),
+      })).rejects.toMatchObject({code:"CART_LINE_INVALID"});
+      expect(repo.state).toEqual(original);
+      expect(repo.receipts.size).toBe(0);
+    }
+  });
+  it("cannot merge a locked guest cart into an authenticated customer cart", async () => {
+    const customerCart: MarketplaceCartState={id:"customer-cart",publicReference:"customer-ref",owner:customer,status:"ACTIVE",version:1,lines:[]};
+    const guestCart: MarketplaceCartState={id:"guest-cart",publicReference:"guest-ref",owner:guest,status:"CHECKOUT_LOCKED",version:1,lines:[]};
+    const repo=repository(customerCart);
+    await expect(mergeGuestAndCustomerCarts(repo,{
+      guestCart,customerCart,customerOwner:customer,
+      mutation:{operationId:"locked-guest-merge",requestHash:"g",expectedVersion:1},
+      revalidate:async(line)=>line.selection,
+    })).rejects.toMatchObject({code:"CART_MUTATION_NOT_ALLOWED"});
+    expect(repo.state).toEqual(customerCart);
+    expect(repo.receipts.size).toBe(0);
+  });
+  it("rejects a stale guest cart claim instead of silently adopting changed selections", async () => {
+    const original:MarketplaceCartState={id:"guest-cart",publicReference:"guest-ref",owner:guest,status:"ACTIVE",version:3,lines:[]};
+    const repo=repository(original);
+    await expect(claimGuestCart(repo,{
+      guestOwner:guest,customerOwner:customer,
+      mutation:{operationId:"stale-guest-claim",requestHash:"g",expectedVersion:2},
+      revalidate:async(line)=>line.selection,
+    })).rejects.toMatchObject({code:"CART_VERSION_CONFLICT"});
+    expect(repo.state).toEqual(original);
+    expect(repo.receipts.size).toBe(0);
+  });
   it("revalidates quantity without accepting a price", async () => {
     const repo = repository({
       id: "cart",
@@ -206,7 +245,7 @@ describe("marketplace cart mutation service", () => {
           publicReference: "line",
           storeId: "store",
           quantity: 1,
-          fingerprint: "fingerprint",
+          fingerprint: cartLineFingerprint({ offerReference: "offer", variantReference: "variant", modifiers: [] }),
           selection,
         },
       ],
