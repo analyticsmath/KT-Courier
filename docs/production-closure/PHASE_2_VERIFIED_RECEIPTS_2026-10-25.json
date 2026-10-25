@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "auditedSourceSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+  "runUrl": "https://github.com/analyticsmath/KT-Courier/actions/runs/40181645152",
+  "componentJobsPassed": 24,
+  "terminalGate": "FAIL_UNRESOLVED_LAUNCH_REGISTER",
+  "phase2Disposition": "PARTIAL",
+  "remainingEngineeringAcceptance": [
+    "Measured bounded load/capacity with explicit operating target",
+    "Complete assistive-technology and interactive visual review beyond captured states"
+  ],
+  "receiptArtifactId": 12596330836,
+  "screenshotArtifactId": 12595637572,
+  "receipts": [
+    {
+      "file": "test-e2e.json",
+      "sha256": "40d4f98479c7c350d858c8bd7d0fee43ac1ec7c41320682466bd6c6b2188123e",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T10:11:45.785Z",
+      "endedAt": "2026-10-25T10:33:17.443Z",
+      "testsExpected": 151,
+      "testsExecuted": 151,
+      "testsPassed": 151,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    },
+    {
+      "file": "test-e2e-phase2-3-directed.json",
+      "sha256": "73d4030d613166dfd5e4339db1cf124ea53df8f5d06c882ce96039baee008233",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T09:55:29.759Z",
+      "endedAt": "2026-10-25T10:08:32.118Z",
+      "testsExpected": 44,
+      "testsExecuted": 44,
+      "testsPassed": 44,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    },
+    {
+      "file": "test-e2e-finance-focused.json",
+      "sha256": "a52c14f1ece26069ef456ff3c7739607f125ab1340da5e170bb7afa055d2c9cf",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T10:08:32.307Z",
+      "endedAt": "2026-10-25T10:09:31.852Z",
+      "testsExpected": 3,
+      "testsExecuted": 3,
+      "testsPassed": 3,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    },
+    {
+      "file": "test-e2e-paystack-focused.json",
+      "sha256": "373aef23e5030ef7f80a44e67015f832358939c87ebc9d76108196f250ee7b4f",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T10:09:32.043Z",
+      "endedAt": "2026-10-25T10:11:45.594Z",
+      "testsExpected": 9,
+      "testsExecuted": 9,
+      "testsPassed": 9,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    },
+    {
+      "file": "test-e2e-store-finance-focused.json",
+      "sha256": "8912d332aed7753d0c96465670d2a6907c93298486477df21a6a73f04f54e181",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T09:43:01.089Z",
+      "endedAt": "2026-10-25T09:46:45.027Z",
+      "testsExpected": 3,
+      "testsExecuted": 3,
+      "testsPassed": 3,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    },
+    {
+      "file": "test-e2e-vendor-five-products.json",
+      "sha256": "9d079a2b5ed3216ede37244284a485aee203967f873dce0737a645fda60bc14d",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "sourceTreeSha": "e454fe0b499ae1a7a66d86b9cc4e30592544193d",
+      "startedAt": "2026-10-25T09:53:24.799Z",
+      "endedAt": "2026-10-25T09:55:29.567Z",
+      "testsExpected": 1,
+      "testsExecuted": 1,
+      "testsPassed": 1,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "testsFlaky": 0,
+      "sourceBinding": "EXACT_COMMIT",
+      "status": "PASS"
+    }
+  ],
+  "disposableHarnesses": [
+    {
+      "selection": "custom-e2e",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T09:43:01.230Z",
+      "endedAt": "2026-10-25T09:46:44.972Z",
+      "expectedTests": null,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "phase2-canonical-postgres",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T09:46:45.340Z",
+      "endedAt": "2026-10-25T09:53:24.583Z",
+      "expectedTests": 41,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "custom-e2e",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T09:53:24.943Z",
+      "endedAt": "2026-10-25T09:55:29.514Z",
+      "expectedTests": null,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "phase2-3-directed",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T09:55:29.894Z",
+      "endedAt": "2026-10-25T10:08:32.065Z",
+      "expectedTests": 44,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "custom-e2e",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T10:08:32.448Z",
+      "endedAt": "2026-10-25T10:09:31.797Z",
+      "expectedTests": null,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "custom-e2e",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T10:09:32.175Z",
+      "endedAt": "2026-10-25T10:11:45.537Z",
+      "expectedTests": null,
+      "status": "PASS",
+      "cleanup": "PASS"
+    },
+    {
+      "selection": "phase1-seven-stage-plan",
+      "commitSha": "ce77362a0b8c3e7933119909baf9e218c02732a9",
+      "startedAt": "2026-10-25T10:11:45.916Z",
+      "endedAt": "2026-10-25T10:33:17.384Z",
+      "expectedTests": 151,
+      "status": "PASS",
+      "cleanup": "PASS"
+    }
+  ],
+  "localRegression": {
+    "testsPassed": 4834,
+    "suitesPassed": 970,
+    "failures": 0
+  },
+  "limitations": [
+    "Overlapping browser selections must not be summed as unique coverage.",
+    "Offline provider and synthetic identities do not demonstrate live bank, mailbox or road acceptance.",
+    "Evidence belongs to auditedSourceSha; no successor is implicitly certified."
+  ]
+}
