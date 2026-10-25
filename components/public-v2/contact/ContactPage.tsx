@@ -47,12 +47,7 @@ export function ContactPage() {
           </div>
         </section>
         <ContactTopics />
-        <section
-          id="contact-form"
-          tabIndex={-1}
-          className={styles.formSection}
-          data-chapter-takeover
-        >
+        <section id="contact-form" tabIndex={-1} className={styles.formSection}>
           <div className={styles.formHeading}>
             <h2 data-split-heading>
               A few details.

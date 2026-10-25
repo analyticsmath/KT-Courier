@@ -400,7 +400,7 @@
 }
 .choiceRow {
   display: grid;
-  grid-template-columns: 50px 1fr 200px 55px;
+  grid-template-columns: 1fr 200px 55px;
   gap: 25px;
   align-items: center;
   padding: 30px 0;
@@ -541,7 +541,7 @@
     margin-left: -45px;
   }
   .choiceRow {
-    grid-template-columns: 35px 1fr 160px 40px;
+    grid-template-columns: 1fr 160px 40px;
   }
   .coverageCopy {
     padding: 70px 35px;
@@ -938,5 +938,43 @@
   }
   .heroSeal:hover {
     transform: none;
+  }
+}
+
+/* Fewer repeated splits: business and final arrival form photographic spreads. */
+.businessTitle {
+  align-items: start;
+}
+.businessTitle p {
+  max-width: 260px;
+  padding-top: 12px;
+}
+.businessMain {
+  height: 650px;
+}
+.businessDetail {
+  width: 85%;
+  height: 310px;
+}
+.journeySteps article {
+  padding-top: 45px;
+}
+.closing {
+  grid-template-columns: 1.15fr 1fr;
+  gap: 50px 7vw;
+}
+.closingPhoto {
+  min-height: 620px;
+}
+@media (max-width: 760px) {
+  .businessMain {
+    height: 430px;
+  }
+  .businessDetail {
+    width: 55%;
+    height: 190px;
+  }
+  .closingPhoto {
+    min-height: 430px;
   }
 }

@@ -14,9 +14,29 @@ export function HomeStoryMotion() {
     gsap.registerPlugin(ScrollTrigger);
     const media = gsap.matchMedia();
     media.add("(prefers-reduced-motion: no-preference)", () => {
+      const editorialCleanups: Array<() => void> = [];
       let disposeHero: (() => void) | undefined;
       const ctx = gsap.context(() => {
         disposeHero = createHeroEntrance(root);
+        root
+          .querySelectorAll<HTMLElement>("[data-editorial-fade]")
+          .forEach((element) => {
+            const reveal = gsap.from(element, {
+              opacity: 0,
+              y: 22,
+              duration: 1.15,
+              ease: "power2.out",
+              scrollTrigger: { trigger: element, start: "top 94%", once: true },
+            });
+            const show = () => {
+              reveal.progress(1);
+              reveal.scrollTrigger?.kill();
+            };
+            element.addEventListener("focusin", show);
+            editorialCleanups.push(() =>
+              element.removeEventListener("focusin", show),
+            );
+          });
         const hero = root.querySelector("[data-hero-window]");
         if (hero)
           gsap.fromTo(
@@ -51,6 +71,7 @@ export function HomeStoryMotion() {
           });
       }, root);
       return () => {
+        editorialCleanups.forEach((dispose) => dispose());
         ctx.revert();
         disposeHero?.();
       };

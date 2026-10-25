@@ -4,11 +4,7 @@ import styles from "./delivery-planning.module.css";
 
 export function ServiceStartingPoints() {
   return (
-    <section
-      className={styles.starting}
-      data-section-transition="open"
-      data-chapter-takeover
-    >
+    <section className={styles.starting}>
       <div className={styles.heading}>
         <h2 data-split-heading>
           Different days.
@@ -91,11 +87,7 @@ export function QuotePlanningSection({
     "Your delivery service and a future date if you’re planning ahead.",
   ];
   return (
-    <section
-      className={styles.quote}
-      data-section-transition="sweep"
-      data-chapter-takeover
-    >
+    <section className={styles.quote}>
       <div className={styles.quoteImage}>
         <Image
           data-parallax
@@ -135,11 +127,7 @@ export function QuotePlanningSection({
 }
 export function ParcelPackingSection() {
   return (
-    <section
-      className={styles.parcel}
-      data-section-transition="open"
-      data-chapter-takeover
-    >
+    <section className={styles.parcel}>
       <div className={styles.heading}>
         <h2 data-split-heading>
           Small details.
@@ -208,7 +196,7 @@ export function DeliveryCoverageSection() {
   return (
     <section
       className={styles.coverage}
-      data-section-transition="rise"
+      data-section-transition="soft"
       data-chapter-takeover
     >
       <h2 data-split-heading>

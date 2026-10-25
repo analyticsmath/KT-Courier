@@ -81,12 +81,7 @@ export function AboutPage() {
             </Link>
           </div>
         </section>
-        <section
-          id="our-story"
-          className={styles.statement}
-          data-chapter-takeover
-          data-section-transition="open"
-        >
+        <section id="our-story" className={styles.statement}>
           <h2 data-text-scrub>
             Good things start with people.{" "}
             <span className={styles.inlinePhoto}>
@@ -138,7 +133,7 @@ export function AboutPage() {
         <section
           className={styles.actions}
           data-chapter-takeover
-          data-section-transition="open"
+          data-section-transition="soft"
         >
           <h2 data-split-heading>
             There’s a place for you

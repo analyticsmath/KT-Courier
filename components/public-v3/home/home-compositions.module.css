@@ -1,0 +1,439 @@
+.manifesto {
+  padding: clamp(85px, 10vw, 160px) var(--space) 110px;
+  background: var(--kt-white-000);
+}
+.manifesto .statement {
+  font-size: clamp(40px, 5.5vw, 88px);
+  line-height: 1.13;
+  letter-spacing: -0.055em;
+  max-width: 1300px;
+}
+.statementLine {
+  display: block;
+}
+.inlinePhoto {
+  display: inline-block;
+  position: relative;
+  width: 1.6em;
+  height: 0.85em;
+  vertical-align: -0.04em;
+  margin: 0 0.16em;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.inlinePhoto img {
+  object-fit: cover;
+}
+.manifestoFoot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8vw;
+  margin-top: 50px;
+  align-items: end;
+}
+.manifestoFoot a {
+  justify-self: start;
+}
+.manifestoFoot p {
+  max-width: 440px;
+}
+.neighbourhood {
+  padding: 120px var(--space) 130px;
+  background: var(--kt-white-000);
+}
+.spreadHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 50px;
+  margin-bottom: 60px;
+}
+.spreadHeading .spreadTitle {
+  font-size: clamp(44px, 5.5vw, 86px);
+  line-height: 1.06;
+}
+.spreadHeading a {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+}
+.spreadCanvas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.4fr);
+  gap: 5.5vw;
+  align-items: start;
+}
+.spreadMain {
+  position: relative;
+  aspect-ratio: 1.32;
+  overflow: hidden;
+  background: var(--kt-palette-f2f2f2);
+}
+.spreadAside {
+  padding-top: 110px;
+}
+.spreadDetail {
+  position: relative;
+  aspect-ratio: 0.95;
+  overflow: hidden;
+  background: var(--kt-palette-f2f2f2);
+}
+.storyPhoto {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(1.035);
+  transition:
+    opacity 0.8s ease,
+    transform 1.1s cubic-bezier(0.2, 0.65, 0.3, 1),
+    visibility 0.8s;
+}
+.storyPhoto[data-active="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+}
+.storyCopy {
+  margin-top: 28px;
+}
+.storyCopy h3 {
+  font-size: clamp(23px, 2.2vw, 34px);
+  line-height: 1.13;
+}
+.storyCopy p {
+  font-size: 17px;
+  line-height: 1.5;
+  margin-top: 18px;
+  max-width: 360px;
+}
+.storyChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 35px;
+  margin-top: 48px;
+}
+.storyChoices button {
+  appearance: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 15px;
+  border: 0;
+  border-top: 1px solid var(--kt-palette-cccccc);
+  background: transparent;
+  padding: 20px 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: clamp(20px, 2vw, 30px);
+  letter-spacing: -0.04em;
+  cursor: pointer;
+  transition:
+    border-color 0.3s,
+    transform 0.3s;
+}
+.storyChoices button[aria-pressed="true"] {
+  border-top: 3px solid currentColor;
+  padding-top: 18px;
+}
+.storyChoices button span {
+  transition: transform 0.4s;
+}
+.storyChoices button:hover span {
+  transform: translate(4px, -4px);
+}
+.storyChoices button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 6px;
+}
+.coverage {
+  padding: 90px var(--space) 130px;
+  background: var(--kt-white-000);
+}
+.coverageHeading {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 7vw;
+  align-items: end;
+  margin-bottom: 55px;
+}
+.coverageHeading .coverageTitle {
+  font-size: clamp(46px, 6.5vw, 100px);
+  line-height: 1.02;
+}
+.coverageHeading p {
+  max-width: 380px;
+}
+.routeCanvas {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 24px;
+  align-items: end;
+}
+.routeCity {
+  position: relative;
+  aspect-ratio: 1.5;
+  overflow: hidden;
+}
+.routeRoad {
+  position: relative;
+  aspect-ratio: 0.88;
+  overflow: hidden;
+}
+.routeFoot {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 24px;
+  margin-top: 30px;
+  align-items: start;
+}
+.routePlaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 26px;
+  font-size: clamp(21px, 2.1vw, 32px);
+  letter-spacing: -0.04em;
+}
+.routePlaces span:not(:last-child)::after {
+  content: "·";
+  margin-left: 26px;
+}
+.routeFoot small {
+  display: block;
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 370px;
+}
+.packing {
+  padding: 120px var(--space);
+  background: var(--kt-palette-f3f3f3);
+}
+.packingHeading {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 8vw;
+  align-items: end;
+  margin-bottom: 65px;
+}
+.packingHeading .packingTitle {
+  font-size: clamp(46px, 5.8vw, 90px);
+  line-height: 1.04;
+}
+.packingHeading p {
+  margin-bottom: 24px;
+  max-width: 350px;
+}
+.packingSequence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 35px;
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+.packingSequence li:nth-child(2) {
+  padding-top: 95px;
+}
+.packingSequence li:nth-child(3) {
+  padding-top: 190px;
+}
+.packingPhoto {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.packingSequence h3 {
+  font-size: clamp(26px, 2.5vw, 38px);
+  line-height: 1.08;
+}
+.packingSequence p {
+  font-size: 17px;
+  max-width: 340px;
+  margin-top: 18px;
+}
+@media (max-width: 1000px) {
+  .spreadAside {
+    padding-top: 60px;
+  }
+  .storyCopy p {
+    font-size: 16px;
+  }
+  .spreadCanvas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
+    gap: 30px;
+  }
+  .coverageHeading,
+  .packingHeading {
+    gap: 35px;
+  }
+  .packingSequence {
+    gap: 22px;
+  }
+}
+@media (max-width: 760px) {
+  .manifesto {
+    padding: 85px var(--space);
+  }
+  .manifesto .statement {
+    font-size: clamp(30px, 7.8vw, 56px);
+    line-height: 1.2;
+  }
+  .statementLine {
+    display: inline;
+  }
+  .inlinePhoto {
+    width: 1.2em;
+    height: 0.8em;
+  }
+  .manifestoFoot {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: start;
+    gap: 25px;
+    margin-top: 35px;
+  }
+  .manifestoFoot p {
+    font-size: 16px;
+  }
+  .neighbourhood {
+    padding: 85px var(--space);
+  }
+  .spreadHeading {
+    display: block;
+    margin-bottom: 32px;
+  }
+  .spreadHeading .spreadTitle {
+    font-size: clamp(36px, 9.5vw, 60px);
+  }
+  .spreadHeading a {
+    display: table;
+    margin-top: 25px;
+  }
+  .spreadCanvas {
+    display: block;
+  }
+  .spreadMain {
+    aspect-ratio: 1.05;
+  }
+  .spreadAside {
+    display: grid;
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1fr);
+    gap: 22px;
+    padding-top: 28px;
+    align-items: center;
+  }
+  .spreadDetail {
+    aspect-ratio: 0.8;
+  }
+  .storyCopy {
+    margin: 0;
+  }
+  .storyCopy h3 {
+    font-size: 24px;
+  }
+  .storyCopy p {
+    font-size: 14px;
+    line-height: 1.45;
+    margin-top: 13px;
+  }
+  .storyChoices {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 30px;
+  }
+  .storyChoices button {
+    font-size: 22px;
+    padding: 18px 0;
+  }
+  .storyChoices button[aria-pressed="true"] {
+    padding-top: 16px;
+  }
+  .coverage {
+    padding: 80px var(--space);
+  }
+  .coverageHeading {
+    display: block;
+    margin-bottom: 35px;
+  }
+  .coverageHeading .coverageTitle {
+    font-size: clamp(42px, 11vw, 70px);
+  }
+  .coverageHeading p {
+    margin-top: 28px;
+    font-size: 17px;
+  }
+  .routeCanvas {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.55fr);
+    gap: 12px;
+  }
+  .routeCity {
+    aspect-ratio: 0.8;
+  }
+  .routeRoad {
+    aspect-ratio: 0.55;
+  }
+  .routeFoot {
+    display: block;
+    margin-top: 25px;
+  }
+  .routePlaces {
+    font-size: 21px;
+    gap: 8px 15px;
+  }
+  .routePlaces span:not(:last-child)::after {
+    margin-left: 15px;
+  }
+  .routeFoot > div:last-child {
+    margin-top: 26px;
+  }
+  .packing {
+    padding: 80px var(--space);
+  }
+  .packingHeading {
+    display: block;
+    margin-bottom: 38px;
+  }
+  .packingHeading .packingTitle {
+    font-size: clamp(41px, 10.5vw, 65px);
+  }
+  .packingHeading p {
+    margin-top: 25px;
+  }
+  .packingSequence {
+    display: block;
+  }
+  .packingSequence li,
+  .packingSequence li:nth-child(2),
+  .packingSequence li:nth-child(3) {
+    padding: 0 0 45px;
+  }
+  .packingSequence li:nth-child(2) {
+    width: 85%;
+    margin-left: auto;
+  }
+  .packingSequence li:nth-child(3) {
+    width: 92%;
+  }
+  .packingPhoto {
+    aspect-ratio: 1.15;
+    margin-bottom: 23px;
+  }
+  .packingSequence h3 {
+    font-size: 30px;
+  }
+  .packingSequence p {
+    font-size: 16px;
+    margin-top: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .storyPhoto,
+  .storyChoices button,
+  .storyChoices button span {
+    transition: none;
+    transform: none;
+  }
+}

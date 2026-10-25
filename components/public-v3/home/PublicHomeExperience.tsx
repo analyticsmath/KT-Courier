@@ -6,6 +6,8 @@ import { EditorialMotion } from "../redesign/EditorialMotion";
 import { OpeningCurtain } from "./OpeningCurtain";
 import { HomeStoryMotion } from "./HomeStoryMotion";
 import styles from "./home-story.module.css";
+import { NeighbourhoodSpread } from "./NeighbourhoodSpread";
+import compositions from "./home-compositions.module.css";
 import { ConnectionOrbit } from "../editorial/ConnectionOrbit";
 
 const journeys = [
@@ -32,26 +34,6 @@ const journeys = [
     alt: "A recipient accepting a parcel at her door",
     link: "/track",
     action: "Find your delivery",
-  },
-];
-const local = [
-  {
-    src: "/media/public/home/kt-home-01-world-market.webp",
-    alt: "Independent stalls inside a Johannesburg market",
-    title: "The places you know.",
-    text: "Independent stores and everyday discoveries.",
-  },
-  {
-    src: "/media/public/editorial/conversation.webp",
-    alt: "A florist discussing an arrangement with a customer",
-    title: "The people behind them.",
-    text: "Real shops. Personal touches. Something worth finding.",
-  },
-  {
-    src: "/media/public/home/kt-home-08-merchant-prepare.webp",
-    alt: "A shop owner preparing a carefully wrapped order",
-    title: "A little closer to you.",
-    text: "Browse the shop, then follow your order in your account.",
   },
 ];
 const choices = [
@@ -142,16 +124,44 @@ export function PublicHomeExperience() {
         </nav>
       </section>
 
-      <section className={styles.manifesto} data-home-chapter="connection">
-        <h2 data-text-scrub>
-          It’s never just a box.
-          <br />
-          It’s someone’s hard work.
-          <br />A small surprise.
-          <br />A reason to open the door.
+      <section
+        className={compositions.manifesto}
+        data-home-chapter="connection"
+      >
+        <h2 className={compositions.statement}>
+          <span className={compositions.statementLine} data-editorial-fade>
+            It’s never just a box.
+            <span className={compositions.inlinePhoto} aria-hidden="true">
+              <Image
+                src="/media/public/home/kt-home-09-package-detail.webp"
+                alt=""
+                fill
+                sizes="140px"
+              />
+            </span>
+          </span>{" "}
+          <span className={compositions.statementLine} data-editorial-fade>
+            It’s someone’s hard work.
+          </span>{" "}
+          <span className={compositions.statementLine} data-editorial-fade>
+            <span className={compositions.inlinePhoto} aria-hidden="true">
+              <Image
+                src="/media/public/home/kt-home-10-handoff.webp"
+                alt=""
+                fill
+                sizes="140px"
+              />
+            </span>
+            A small surprise.
+          </span>{" "}
+          <span className={compositions.statementLine} data-editorial-fade>
+            A reason to open the door.
+          </span>
         </h2>
-        <div className={styles.manifestoFoot}>
-          <span aria-hidden="true">↓</span>
+        <div className={compositions.manifestoFoot}>
+          <Link href="/about" className="kt-text-link">
+            The people behind the journey ↗
+          </Link>
           <p>
             We connect the everyday things that keep your world moving. From a
             single parcel to the next chapter of your business.
@@ -221,7 +231,6 @@ export function PublicHomeExperience() {
           <div className={styles.journeySteps}>
             {journeys.map((step, i) => (
               <article key={step.title} data-journey-step={i}>
-                <span className={styles.stepNumber}>0{i + 1}</span>
                 <h3>{step.title}</h3>
                 <p>{step.copy}</p>
                 <Link href={step.link} className="kt-text-link">
@@ -268,43 +277,7 @@ export function PublicHomeExperience() {
         </div>
       </section>
 
-      <section
-        className={styles.local}
-        data-home-chapter="local"
-        data-chapter-takeover
-        data-section-transition="soft"
-        aria-labelledby="local-heading"
-      >
-        <div className={styles.chapterHeader}>
-          <h2 id="local-heading" data-split-heading>
-            Your next favourite.
-            <br />
-            Closer than you think.
-          </h2>
-          <Link href="/shop" className="kt-pill">
-            Explore the shop <span aria-hidden="true">↗</span>
-          </Link>
-        </div>
-        <div className={styles.localGallery}>
-          {local.map((item, i) => (
-            <figure key={item.title} data-gallery-drift={i}>
-              <div>
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  fill
-                  sizes="(max-width:760px) 90vw, 43vw"
-                  data-parallax
-                />
-              </div>
-              <figcaption>
-                <h3>{item.title}</h3>
-                <p>{item.text}</p>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
+      <NeighbourhoodSpread />
 
       <section
         className={styles.business}
@@ -353,44 +326,54 @@ export function PublicHomeExperience() {
         </div>
       </section>
 
-      <section
-        className={styles.coverage}
-        data-home-chapter="coverage"
-        data-chapter-takeover
-        data-section-transition="soft"
-      >
-        <div className={styles.coveragePhoto}>
-          <Image
-            data-parallax
-            src="/media/public/home/kt-home-11-route-city.webp"
-            alt="Streets and buildings in Johannesburg"
-            fill
-            sizes="(max-width:760px) 100vw, 50vw"
-          />
-        </div>
-        <div className={styles.coverageCopy}>
-          <h2 data-split-heading>
-            Rooted here.
+      <section className={compositions.coverage} data-home-chapter="coverage">
+        <header className={compositions.coverageHeading}>
+          <h2 className={compositions.coverageTitle} data-split-heading>
+            These streets.
             <br />
-            Ready to connect.
+            Your next stop.
           </h2>
           <p>
             Courier operations focus on Gauteng: Johannesburg, Pretoria and
             surrounding areas. Start with your pickup and destination to check
             the route for your service.
           </p>
-          <ul>
-            <li>Johannesburg</li>
-            <li>Pretoria</li>
-            <li>Surrounding Gauteng</li>
-          </ul>
-          <Link href="/coverage-areas" className="kt-text-link">
-            Explore delivery coverage ↗
-          </Link>
-          <small>
-            Store availability and courier coverage are separate. Your route is
-            confirmed through the quote process.
-          </small>
+        </header>
+        <div className={compositions.routeCanvas}>
+          <div className={compositions.routeCity} data-editorial-fade>
+            <Image
+              data-parallax
+              src="/media/public/home/kt-home-11-route-city.webp"
+              alt="A street framed by buildings in Johannesburg"
+              fill
+              sizes="(max-width:760px) 60vw, 63vw"
+            />
+          </div>
+          <div className={compositions.routeRoad} data-editorial-fade>
+            <Image
+              data-parallax
+              src="/media/public/home/kt-home-12-route-road.webp"
+              alt="Traffic moving along a road at sunset"
+              fill
+              sizes="(max-width:760px) 35vw, 34vw"
+            />
+          </div>
+        </div>
+        <div className={compositions.routeFoot}>
+          <div className={compositions.routePlaces}>
+            <span>Johannesburg</span>
+            <span>Pretoria</span>
+            <span>Surrounding Gauteng</span>
+          </div>
+          <div>
+            <Link href="/coverage-areas" className="kt-text-link">
+              Explore delivery coverage ↗
+            </Link>
+            <small>
+              Store availability and courier coverage are separate. Your route
+              is confirmed through the quote process.
+            </small>
+          </div>
         </div>
       </section>
 
@@ -410,9 +393,8 @@ export function PublicHomeExperience() {
           </Link>
         </div>
         <div className={styles.choiceList}>
-          {choices.map((item, i) => (
+          {choices.map((item) => (
             <Link href={item.href} key={item.href} className={styles.choiceRow}>
-              <span className={styles.choiceCount}>0{i + 1}</span>
               <div>
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
@@ -473,71 +455,77 @@ export function PublicHomeExperience() {
         </div>
       </section>
 
-      <section
-        className={styles.packing}
-        data-home-chapter="packing"
-        data-chapter-takeover
-        data-section-transition="soft"
-      >
-        <div className={styles.packingIntro}>
-          <h2 data-split-heading>
+      <section className={compositions.packing} data-home-chapter="packing">
+        <header className={compositions.packingHeading}>
+          <h2 className={compositions.packingTitle} data-split-heading>
             A good journey
             <br />
             starts inside.
           </h2>
-          <p>
-            Before the doorbell.
-            <br />
-            Before the road.
-            <br />A little care with the packing.
-          </p>
-          <Link href="/services/parcel" className="kt-text-link">
-            Your parcel preparation guide ↗
-          </Link>
-        </div>
-        <div className={styles.packingImage} data-media-aperture>
-          <Image
-            src="/media/public/home/kt-home-09-package-detail.webp"
-            alt="A parcel protected with paper and finished with a thank-you note"
-            fill
-            sizes="(max-width:760px) 90vw, 45vw"
-          />
-        </div>
-        <ol className={styles.packingSteps}>
-          <li>
-            <span>01</span>
-            <div>
-              <h3>Give it a safe home.</h3>
-              <p>
-                Choose a sturdy box and protect the contents so they cannot
-                shift.
-              </p>
+          <div>
+            <p>
+              Before the doorbell. Before the road. A little care with the
+              packing.
+            </p>
+            <Link href="/services/parcel" className="kt-text-link">
+              Your parcel preparation guide ↗
+            </Link>
+          </div>
+        </header>
+        <ol className={compositions.packingSequence}>
+          <li data-editorial-fade>
+            <div className={compositions.packingPhoto}>
+              <Image
+                src="/media/public/home/kt-home-08-merchant-prepare.webp"
+                alt="A shop owner cushioning and preparing a parcel"
+                fill
+                sizes="(max-width:760px) 90vw, 30vw"
+              />
             </div>
+            <h3>Give it a safe home.</h3>
+            <p>
+              Choose a sturdy box and protect the contents so they cannot shift.
+            </p>
           </li>
-          <li>
-            <span>02</span>
-            <div>
-              <h3>Make the details clear.</h3>
-              <p>
-                Check the addresses, recipient contact and any collection
-                instructions.
-              </p>
+          <li data-editorial-fade>
+            <div className={compositions.packingPhoto}>
+              <Image
+                src="/media/public/derived/photo-prep-artisan-box-assembly-960w.webp"
+                alt="A packed order and its paperwork being checked at a table"
+                fill
+                sizes="(max-width:760px) 80vw, 30vw"
+              />
             </div>
+            <h3>Make the details clear.</h3>
+            <p>
+              Check the addresses, recipient contact and any collection
+              instructions.
+            </p>
           </li>
-          <li>
-            <span>03</span>
-            <div>
-              <h3>Tell us what matters.</h3>
-              <p>
-                Include size, weight where applicable and special handling needs
-                in your quote.
-              </p>
+          <li data-editorial-fade>
+            <div className={compositions.packingPhoto}>
+              <Image
+                src="/media/public/home/kt-home-09-package-detail.webp"
+                alt="A parcel wrapped in protective paper with a thank-you note"
+                fill
+                sizes="(max-width:760px) 85vw, 30vw"
+              />
             </div>
+            <h3>Tell us what matters.</h3>
+            <p>
+              Include size, weight where applicable and special handling needs
+              in your quote.
+            </p>
           </li>
         </ol>
       </section>
 
-      <section className={styles.closing} data-home-chapter="keep-connected">
+      <section
+        className={styles.closing}
+        data-home-chapter="keep-connected"
+        data-chapter-takeover
+        data-section-transition="soft"
+      >
         <div>
           <h2 data-split-heading>
             Already on

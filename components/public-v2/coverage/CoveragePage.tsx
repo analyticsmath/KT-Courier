@@ -56,11 +56,7 @@ export function CoveragePage({
             }
           </div>
         </section>
-        <section
-          className={styles.statement}
-          data-chapter-takeover
-          data-section-transition="open"
-        >
+        <section className={styles.statement}>
           <h2 data-text-scrub>
             One place to collect.{" "}
             <span className={styles.inlinePhoto}>
@@ -79,7 +75,11 @@ export function CoveragePage({
             specific route can go ahead.
           </p>
         </section>
-        <section className={styles.mapChapter} data-chapter-takeover>
+        <section
+          className={styles.mapChapter}
+          data-chapter-takeover
+          data-section-transition="soft"
+        >
           <div className={styles.mapHeading}>
             <h2 data-split-heading>
               Explore the places
@@ -146,11 +146,7 @@ export function CoveragePage({
             </div>
           </div>
         </section>
-        <section
-          className={styles.coverageCta}
-          data-chapter-takeover
-          data-section-transition="rise"
-        >
+        <section className={styles.coverageCta}>
           <h2 data-split-heading>
             Got somewhere
             <br />

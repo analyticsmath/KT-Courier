@@ -96,7 +96,7 @@ export function ServiceJourney({
     <section
       className={styles.journey}
       data-chapter-takeover
-      data-section-transition="open"
+      data-section-transition="soft"
       aria-labelledby={`${service.id}-journey`}
     >
       <div className={styles.heading}>

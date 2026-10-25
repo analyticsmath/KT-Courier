@@ -25,7 +25,7 @@ export function ContactTopics() {
     <section
       className={styles.contactChoices}
       data-chapter-takeover
-      data-section-transition="open"
+      data-section-transition="soft"
     >
       <h2 data-split-heading>
         Let’s start with
