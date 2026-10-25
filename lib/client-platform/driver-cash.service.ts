@@ -192,6 +192,23 @@ export async function driverCashSummary(userId: string) {
       }),
       readBankInstructions(),
     ]);
+  // Recent history is capped for display. An older active remittance must
+  // still disable a second submission for the same delivery; using only the
+  // latest 100 deposits here produced an incorrect driver action.
+  const collectibleOrderIds = rows
+    .filter((r) => r.collectorDriverId === driver.id && r.status === "COLLECTED")
+    .map((r) => r.orderId);
+  const activeRemittances = collectibleOrderIds.length
+    ? await prisma.driverCashDeposit.findMany({
+        where: {
+          driverProfileId: driver.id,
+          orderId: { in: collectibleOrderIds },
+          status: { in: ["PENDING", "PROCESSING", "CONFIRMED"] },
+        },
+        select: { orderId: true },
+      })
+    : [];
+  const remittedOrderIds = new Set(activeRemittances.map((r) => r.orderId));
   return {
     totals: {
       collected: (
@@ -221,11 +238,7 @@ export async function driverCashSummary(userId: string) {
       canDeposit:
         r.collectorDriverId === driver.id &&
         r.status === "COLLECTED" &&
-        !deposits.some(
-          (d) =>
-            d.orderId === r.orderId &&
-            ["PENDING", "PROCESSING", "CONFIRMED"].includes(d.status),
-        ),
+        !remittedOrderIds.has(r.orderId),
     })),
     deposits: deposits.map((d) => ({
       ...d,
@@ -459,15 +472,27 @@ export async function reviewDriverDeposit(
 }
 export async function listCashDeposits(user: AuthenticatedUser) {
   await financeActor(user);
-  const rows = await prisma.driverCashDeposit.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: {
-      driver: { select: { driverCode: true, displayName: true } },
-      order: { select: { orderNumber: true } },
-    },
-  });
-  return rows.map((r) => ({
+  const related = {
+    driver: { select: { driverCode: true, displayName: true } },
+    order: { select: { orderNumber: true } },
+  } as const;
+  // A recent-history limit must never hide unreviewed deposits. Prioritize
+  // oldest pending finance work, then include recent completed/rejected history.
+  const [open, history] = await Promise.all([
+    prisma.driverCashDeposit.findMany({
+      where: { status: { in: ["PENDING", "PROCESSING"] } },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+      include: related,
+    }),
+    prisma.driverCashDeposit.findMany({
+      where: { status: { notIn: ["PENDING", "PROCESSING"] } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: related,
+    }),
+  ]);
+  return [...open, ...history].map((r) => ({
     id: r.id,
     driverName: r.driver.displayName ?? r.driver.driverCode,
     driverCode: r.driver.driverCode,
