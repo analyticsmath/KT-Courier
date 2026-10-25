@@ -50,6 +50,12 @@ The synthetic role-bound browser acceptance `tests/e2e/production-visual-review.
 
 As of `1cb21e39dd033cf62c2bf8e0f3653a8111c4d819`, the prior full isolated certification had **24/24 component jobs SUCCESS** with final `certified` job FAILED (`NOT_READY`) for the explicitly listed outstanding engineering/operational gates. No certificate is granted by component green results alone. The current public quote disclosure commit `1fa8dad56d9473cfc8840206a6c97caa30c08caa` passed 4,814/4,814 local tests in 964 suites, TypeScript and changed-file lint; its new CI and certification were triggered separately.
 
+## Browser-reproduced narrow-device usability defects
+
+A second read-only production browser run on **2026-10-25** inspected `/quote` and `/shop/products/red-apples-2-kg-bag-CP-6322DA1CCFB7C1B9B85944C678590B4C` at **320px and 768px**. The new payment disclosure rendered fully with no horizontal overflow or clipped primary buttons. Two real problems were confirmed: the fixed header could cover quote labels on scroll, and the fixed Add to cart/Buy now dock covered the policy links in the product footer. No production form or purchase action was performed.
+
+The release candidate adds a route-scoped footer clearance only on product-detail pages and a visible scroll offset for quote field labels and controls, using existing public layout tokens. A fail-first SSR assertion (`tests/public-v2/product-footer-dock-clearance.test.ts`) verifies that the footer reserves purchase-dock clearance only for product routes. Exact browser regression cases at **320px and 768px** now assert label `scrollIntoView` clears the fixed header and the Safety policy link remains above the dock at the true end of the product page (`tests/e2e/production-visual-review.spec.ts`). **These new browser cases are not counted as passing until the exact source commit's disposable Chromium run completes**; static checks are not visual acceptance.
+
 ## Mandatory Phase 2 gates and non-inflated evidence inventory
 
 **Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.

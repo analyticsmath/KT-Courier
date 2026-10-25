@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { EditorialMotion } from "./EditorialMotion";
 import styles from "./marketing-footer.module.css";
@@ -34,8 +35,10 @@ const groups = [
   },
 ];
 export function MarketingFooter() {
+  const pathname = usePathname();
+  const hasMobilePurchaseDock = pathname?.startsWith("/shop/products/") ?? false;
   return (
-    <footer className={styles.footer}>
+    <footer className={styles.footer} data-mobile-purchase-dock={hasMobilePurchaseDock ? "true" : undefined}>
       <EditorialMotion className="kt-footer-motion">
         <div className={styles.invitation} data-section-transition="open">
           <h2 data-split-heading>

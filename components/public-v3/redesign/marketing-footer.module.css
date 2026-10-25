@@ -155,3 +155,11 @@
     transition: none;
   }
 }
+
+/* A fixed product purchase dock must never cover the final policy/footer links.
+ * Other pages retain their normal footer composition; this is route scoped. */
+@media (max-width: 768px) {
+  .footer[data-mobile-purchase-dock="true"] {
+    padding-bottom: calc(164px + env(safe-area-inset-bottom, 0px));
+  }
+}

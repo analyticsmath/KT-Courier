@@ -186,3 +186,9 @@
     margin-inline: -2px;
   }
 }
+
+/* Native keyboard focus and programmatic field navigation must reveal labels
+ * below the fixed public header instead of moving focused controls under it. */
+.quoteBody :global(:is(label, input, select, textarea, button, [role="combobox"])) {
+  scroll-margin-block-start: calc(var(--kt-header-height, 80px) + 48px);
+}

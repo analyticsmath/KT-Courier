@@ -31,3 +31,31 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768
     // Functional assertions do not replace the required native browser review.
   });
 }
+
+// The phone product dock and fixed navigation must not obscure actionable UI.
+// Both controls are rendered on real public routes in the disposable browser.
+for (const viewport of [{ width: 320, height: 720 }, { width: 768, height: 1024 }]) {
+  test(`quote labels and mobile product footer controls remain unobscured at ${viewport.width}px`, async ({ page }) => {
+    if (!process.env.PLAYWRIGHT_BASE_URL) throw new Error("Run through the disposable E2E runner.");
+    await page.setViewportSize(viewport);
+    await page.goto("/quote");
+    const province = page.locator('label[for="pickup-province"]');
+    await expect(province).toBeVisible();
+    await province.evaluate(element => element.scrollIntoView({ block: "start" }));
+    const labelBounds = await province.boundingBox();
+    const headerBounds = await page.locator(".kt-new-header").boundingBox();
+    expect(labelBounds && headerBounds && labelBounds.y >= headerBounds.y + headerBounds.height + 4,
+      "Navigating to a quote label must not place it beneath the fixed header").toBe(true);
+
+    await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
+    const dock = page.getByRole("region", { name: "Quick purchase dock" });
+    const safety = page.locator('footer nav[aria-label="Policies"] a[href="/safety"]');
+    await expect(dock).toBeVisible();
+    await expect(safety).toBeVisible();
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    const dockBounds = await dock.boundingBox();
+    const safetyBounds = await safety.boundingBox();
+    expect(safetyBounds && dockBounds && safetyBounds.y + safetyBounds.height + 4 <= dockBounds.y,
+      "Policy links must remain fully above the fixed purchase dock at the end of the page").toBe(true);
+  });
+}
