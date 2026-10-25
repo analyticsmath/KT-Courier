@@ -5,7 +5,7 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { mutation, json, failure } from "@/lib/client-platform/api";
 import { PlatformError } from "@/lib/client-platform/contracts";
-import { listCatalogPackaging, PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
+import { findCatalogPackagingDeclaration, listCatalogPackaging, PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 import { listTrustedPackageVersions, saveTrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-configuration.service";
 const inputSchema = z.object({ offerReference: z.string().min(8).max(100), revision: z.uuid(), expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict();
 export async function GET() {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const prepared = await mutation(request, `catalog-package-review:${auth.user.id}`); if ("response" in prepared) return prepared.response;
   try {
     const input = inputSchema.parse(prepared.body);
-    const declaration = (await listCatalogPackaging()).find(item => item.offerReference === input.offerReference && item.revision === input.revision);
+    const declaration = await findCatalogPackagingDeclaration(input.offerReference, input.revision);
     if (!declaration) throw new PlatformError("VERSION_CONFLICT", "The vendor measurements changed. Reload before review.", 409);
     const offer = await prisma.storeCatalogOffer.findFirst({ where: { publicReference: input.offerReference, storeId: declaration.storeId, status: "ACTIVE", publicationStatus: "PUBLISHED" }, include: { variant: true } });
     if (!offer) throw new PlatformError("PACKAGE_SOURCE_INVALID", "Publish the reviewed product offer before preparing its delivery packaging approval.", 422);

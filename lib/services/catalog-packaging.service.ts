@@ -7,6 +7,24 @@ import { packageFitsLimits } from "@/lib/catalog/package-fit";
 import { CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 export const PACKAGING_PREFIX = "vendor_catalog_packaging:";
 export type PackagingDeclaration = CatalogPackaging & { offerReference: string; storeId: string; actorUserId: string; revision: string; submittedAt: string };
+/** Resolve the exact current vendor submission rather than searching the most
+ * recent page. Commercial approval still requires independent review. */
+export async function findCatalogPackagingDeclaration(offerReference: string, revision: string): Promise<PackagingDeclaration | null> {
+  const row = await prisma.systemSetting.findUnique({ where: { key: PACKAGING_PREFIX + offerReference } });
+  const source = row?.value as Partial<PackagingDeclaration> | null | undefined;
+  if (!source || source.offerReference !== offerReference || source.revision !== revision ||
+    typeof source.storeId !== "string" || !source.storeId ||
+    typeof source.actorUserId !== "string" || !source.actorUserId ||
+    typeof source.submittedAt !== "string" || Number.isNaN(Date.parse(source.submittedAt))) return null;
+  const measurements = CatalogPackagingSchema.safeParse({
+    lengthCm: source.lengthCm, widthCm: source.widthCm, heightCm: source.heightCm,
+    weightKg: source.weightKg, description: source.description,
+  });
+  return measurements.success
+    ? { ...measurements.data, offerReference, storeId: source.storeId, actorUserId: source.actorUserId, revision, submittedAt: source.submittedAt }
+    : null;
+}
+
 export async function saveCatalogPackaging(storeId: string, actorUserId: string, offerReference: string, raw: CatalogPackaging, transaction?: Prisma.TransactionClient) {
   const input = CatalogPackagingSchema.parse(raw);
   const limits = await publicParcelProfiles();
