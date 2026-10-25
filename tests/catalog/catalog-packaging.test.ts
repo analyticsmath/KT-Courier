@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CatalogPackagingSchema } from "@/lib/validation/catalog-packaging";
-const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), create: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn() }));
 vi.mock("@/lib/commercial/parcel-profiles", () => ({ publicParcelProfiles: async () => [{ lengthCm: 70, widthCm: 50, heightCm: 50, maximumWeightKg: 30 }] }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { systemSetting: { findUnique: mocks.findUnique } } }));
-import { saveCatalogPackaging, findCatalogPackagingDeclaration } from "@/lib/services/catalog-packaging.service";
+vi.mock("@/lib/db/prisma", () => ({ prisma: { systemSetting: { findUnique: mocks.findUnique, findMany: mocks.findMany } } }));
+import { saveCatalogPackaging, findCatalogPackagingDeclaration, listCatalogPackagingPage } from "@/lib/services/catalog-packaging.service";
 const input = { lengthCm: 20, widthCm: 15, heightCm: 5, weightKg: 1.2, description: "One sealed package including protective padding." };
 beforeEach(() => vi.clearAllMocks());
 describe("vendor package evidence", () => {
@@ -17,6 +17,22 @@ describe("vendor package evidence", () => {
     await expect(findCatalogPackagingDeclaration(declaration.offerReference, declaration.revision)).resolves.toBeNull();
     mocks.findUnique.mockResolvedValue({ value: { ...declaration, weightKg: -10 } });
     await expect(findCatalogPackagingDeclaration(declaration.offerReference, declaration.revision)).resolves.toBeNull();
+  });
+  it("paginates vendor submissions so older submissions remain discoverable", async () => {
+    const pages = Array.from({ length: 101 }, (_, index) => ({
+      id: `page-${index}`,
+      value: { ...input, offerReference: `offer-${index}`, storeId: "store", actorUserId: "vendor", revision: `rev-${index}`, submittedAt: "2026-10-25T08:00:00.000Z" },
+    }));
+    mocks.findMany.mockResolvedValueOnce(pages).mockResolvedValueOnce([{
+      id: "last-page", value: { ...input, offerReference: "last-offer", storeId: "store", actorUserId: "vendor", revision: "last-revision", submittedAt: "2026-10-25T08:00:00.000Z" },
+    }]);
+    const first = await listCatalogPackagingPage();
+    expect(first.declarations).toHaveLength(100);
+    expect(first.nextCursor).toBe("page-99");
+    const second = await listCatalogPackagingPage(first.nextCursor!);
+    expect(second.declarations).toHaveLength(1);
+    expect(second.nextCursor).toBeNull();
+    expect(mocks.findMany.mock.calls[1][0]).toMatchObject({ cursor: { id: "page-99" }, skip: 1, take: 101 });
   });
   it("rejects invalid measurements and unsupported precision", () => { for (const lengthCm of [0, -1, Infinity, 1001, 1.12345]) expect(CatalogPackagingSchema.safeParse({ ...input, lengthCm }).success).toBe(false); expect(CatalogPackagingSchema.safeParse(input).success).toBe(true); });
   it("rejects packages beyond configured courier limits", async () => { await expect(saveCatalogPackaging("store", "actor", "CO-test", { ...input, lengthCm: 71 }, {} as never)).rejects.toMatchObject({ code: "PACKAGE_LIMIT_EXCEEDED" }); expect(mocks.upsert).not.toHaveBeenCalled(); });

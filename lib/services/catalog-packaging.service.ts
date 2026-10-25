@@ -40,6 +40,21 @@ export async function saveCatalogPackaging(storeId: string, actorUserId: string,
   };
   return transaction ? save(transaction) : prisma.$transaction(save);
 }
+
+/** A bounded, stable admin listing; older submissions remain retrievable. */
+export async function listCatalogPackagingPage(cursor?: string) {
+  const pageSize = 100;
+  const rows = await prisma.systemSetting.findMany({
+    where: { key: { startsWith: PACKAGING_PREFIX } },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: pageSize + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+  return {
+    declarations: rows.slice(0, pageSize).map(row => row.value as unknown as PackagingDeclaration),
+    nextCursor: rows.length > pageSize ? rows[pageSize - 1]!.id : null,
+  };
+}
 export async function listCatalogPackaging(storeId?: string) {
   const rows = await prisma.systemSetting.findMany({ where: { key: { startsWith: PACKAGING_PREFIX } }, orderBy: { updatedAt: "desc" }, take: 500 });
   return rows.map(row => row.value as unknown as PackagingDeclaration).filter(value => !storeId || value.storeId === storeId);

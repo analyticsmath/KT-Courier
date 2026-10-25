@@ -5,12 +5,16 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { mutation, json, failure } from "@/lib/client-platform/api";
 import { PlatformError } from "@/lib/client-platform/contracts";
-import { findCatalogPackagingDeclaration, listCatalogPackaging, PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
+import { findCatalogPackagingDeclaration, listCatalogPackagingPage, PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 import { listTrustedPackageVersions, saveTrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-configuration.service";
 const inputSchema = z.object({ offerReference: z.string().min(8).max(100), revision: z.uuid(), expectedVersion: z.number().int().nonnegative(), reason: z.string().trim().min(10).max(500) }).strict();
-export async function GET() {
-  const auth = await requireAdminApiPermission(PERMISSIONS.COMMERCIAL_CONFIGURATION_READ); if (auth.response) return auth.response;
-  try { return json({ declarations: await listCatalogPackaging() }); } catch (error) { return failure(error); }
+export async function GET(request: NextRequest) {
+  const auth = await requireAdminApiPermission(PERMISSIONS.COMMERCIAL_CONFIGURATION_READ);
+  if (auth.response) return auth.response;
+  const cursor = request.nextUrl.searchParams.get("cursor");
+  if (cursor && !z.string().min(1).max(128).safeParse(cursor).success)
+    return failure(new PlatformError("INVALID_CURSOR", "Invalid catalog packaging page cursor.", 400));
+  try { return json(await listCatalogPackagingPage(cursor ?? undefined)); } catch (error) { return failure(error); }
 }
 export async function POST(request: NextRequest) {
   const auth = await requireAdminApiPermission(PERMISSIONS.COMMERCIAL_CONFIGURATION_MANAGE, { request }); if (auth.response) return auth.response;

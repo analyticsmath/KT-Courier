@@ -12,6 +12,7 @@ import { MeasuredConsignmentDraft } from "./MeasuredConsignmentDraft";
 type Version = TrustedPackageVersion & { updatedAt: string };
 export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }: { initial: Version[]; actorId: string; canManage: boolean }) {
   const [declarations, setDeclarations] = useState<PackagingDeclaration[]>([]);
+  const [declarationCursor, setDeclarationCursor] = useState<string | null>(null);
   const [versions, setVersions] = useState(initial); const [busy, setBusy] = useState(false); const [message, setMessage] = useState("");
   async function request(method: string, body: unknown) {
     setBusy(true); setMessage("");
@@ -23,8 +24,20 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
     } catch (error) { setMessage(error instanceof Error ? error.message : "Packaging could not be saved."); }
     finally { setBusy(false); }
   }
-  async function loadDeclarations() {
-    setBusy(true); try { const response = await fetch("/api/admin/catalog-packaging-declarations"); const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Could not load vendor packages."); setDeclarations(body.declarations); } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load vendor packages."); } finally { setBusy(false); }
+  async function loadDeclarations(cursor?: string) {
+    setBusy(true);
+    try {
+      const url = cursor ? `/api/admin/catalog-packaging-declarations?cursor=${encodeURIComponent(cursor)}` : "/api/admin/catalog-packaging-declarations";
+      const response = await fetch(url);
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not load vendor packages.");
+      const received = body.declarations as PackagingDeclaration[];
+      setDeclarations(current => cursor
+        ? [...current.filter(item => !received.some(next => next.offerReference === item.offerReference)), ...received]
+        : received);
+      setDeclarationCursor(body.nextCursor ?? null);
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not load vendor packages."); }
+    finally { setBusy(false); }
   }
   async function prepareDeclaration(declaration: PackagingDeclaration) {
     setBusy(true); try {
@@ -55,7 +68,7 @@ export function MarketplaceTrustedPackageManager({ initial, actorId, canManage }
     void request("POST", { expectedVersion:latest?.version ?? 0, ...schedule, packages:current?.packages ?? [], bundles:[...bundles,bundle] });
   }
   return <div className="space-y-4"><p>Supply measured packaged dimensions and weight, with the source authority reference. Single units and measured multi-item sealed consignments require independent approval. Unmeasured aggregates are refused unless a separate all-size tariff is explicitly approved.</p><p role="status" aria-live="polite">{message}</p>
-    <section className="space-y-3"><h3>Vendor package submissions</h3><Button type="button" disabled={busy} onClick={loadDeclarations}>Load vendor package submissions</Button>{declarations.map(declaration => <article key={declaration.offerReference} className="rounded border p-3 space-y-2"><p className="break-all">Offer: {declaration.offerReference}</p><p>{declaration.lengthCm} × {declaration.widthCm} × {declaration.heightCm} cm · {declaration.weightKg} kg</p><p>{declaration.description}</p><p>Submitted {declaration.submittedAt}</p>{canManage ? <Button type="button" disabled={busy} onClick={() => prepareDeclaration(declaration)}>Prepare packaging review</Button> : null}</article>)}</section>
+    <section className="space-y-3"><h3>Vendor package submissions</h3><Button type="button" disabled={busy} onClick={() => loadDeclarations()}>Load vendor package submissions</Button>{declarations.map(declaration => <article key={declaration.offerReference} className="rounded border p-3 space-y-2"><p className="break-all">Offer: {declaration.offerReference}</p><p>{declaration.lengthCm} × {declaration.widthCm} × {declaration.heightCm} cm · {declaration.weightKg} kg</p><p>{declaration.description}</p><p>Submitted {declaration.submittedAt}</p>{canManage ? <Button type="button" disabled={busy} onClick={() => prepareDeclaration(declaration)}>Prepare packaging review</Button> : null}</article>)}{declarationCursor ? <Button type="button" disabled={busy} onClick={() => loadDeclarations(declarationCursor)}>Load more vendor submissions</Button> : null}</section>
     {canManage ? <form onSubmit={draft} className="grid gap-3 sm:grid-cols-2"><h3 className="sm:col-span-2">Create measured packaging draft</h3>
       {([['storeId', 'Packaging store ID'], ['offerReference', 'Packaging offer reference'], ['variantReference', 'Packaging variant reference'], ['publicationVersion', 'Packaging publication version'], ['authorityReference', 'Measurement authority reference'], ['reason', 'Packaging audit reason']] as const).map(([key, label]) => <div key={key}><Label htmlFor={`package-${key}`}>{label}</Label><Input id={`package-${key}`} name={key} required minLength={key === "reason" || key === "authorityReference" ? 10 : 1} /></div>)}
       {([['lengthCm', 'Packaged length (cm)'], ['widthCm', 'Packaged width (cm)'], ['heightCm', 'Packaged height (cm)'], ['weightKg', 'Packaged weight (kg)']] as const).map(([key, label]) => <div key={key}><Label htmlFor={`package-${key}`}>{label}</Label><Input id={`package-${key}`} name={key} type="number" min="0.0001" max={key === "weightKg" ? "10000" : "1000"} step="0.0001" required /></div>)}
