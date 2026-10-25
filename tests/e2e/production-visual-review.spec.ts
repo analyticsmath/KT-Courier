@@ -41,21 +41,31 @@ for (const viewport of [{ width: 320, height: 720 }, { width: 768, height: 1024 
     await page.goto("/quote");
     const province = page.locator('label[for="pickup-province"]');
     await expect(province).toBeVisible();
-    await province.evaluate(element => element.scrollIntoView({ block: "start" }));
-    const labelBounds = await province.boundingBox();
-    const headerBounds = await page.locator(".kt-new-header").boundingBox();
-    expect(labelBounds && headerBounds && labelBounds.y >= headerBounds.y + headerBounds.height + 4,
-      "Navigating to a quote label must not place it beneath the fixed header").toBe(true);
+    await province.evaluate(element => {
+      // The production shell uses smooth scrolling. Measure the settled
+      // destination, not an intermediate animation frame.
+      document.documentElement.style.scrollBehavior = "auto";
+      element.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+    await expect.poll(async () => {
+      const labelBounds = await province.boundingBox();
+      const headerBounds = await page.locator(".kt-new-header").boundingBox();
+      return Boolean(labelBounds && headerBounds && labelBounds.y >= headerBounds.y + headerBounds.height + 4);
+    }, { message: "Navigating to a quote label must not place it beneath the fixed header" }).toBe(true);
 
     await page.goto("/shop/products/e2e-smartphone-CP-E2ESMARTPHONE");
     const dock = page.getByRole("region", { name: "Quick purchase dock" });
     const safety = page.locator('footer nav[aria-label="Policies"] a[href="/safety"]');
     await expect(dock).toBeVisible();
     await expect(safety).toBeVisible();
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const dockBounds = await dock.boundingBox();
-    const safetyBounds = await safety.boundingBox();
-    expect(safetyBounds && dockBounds && safetyBounds.y + safetyBounds.height + 4 <= dockBounds.y,
-      "Policy links must remain fully above the fixed purchase dock at the end of the page").toBe(true);
+    await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = "auto";
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" });
+    });
+    await expect.poll(async () => {
+      const dockBounds = await dock.boundingBox();
+      const safetyBounds = await safety.boundingBox();
+      return Boolean(safetyBounds && dockBounds && safetyBounds.y + safetyBounds.height + 4 <= dockBounds.y);
+    }, { message: "Policy links must remain fully above the fixed purchase dock at the end of the page" }).toBe(true);
   });
 }
