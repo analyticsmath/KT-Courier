@@ -36,6 +36,26 @@ test.describe("Marketplace canonical cart journey", () => {
     await page.goto("/cart"); await page.reload();
     expect((await cart(page.request)).storeGroups[0].lines[0]).toMatchObject({ quantity: 3, lineTotal: "4500.00" });
   });
+  test("duplicate additions use one stable line, canonical totals and survive reload", async ({ page }) => {
+    const first = await add(page, 2);
+    const before = first.body.cart;
+    expect(before.storeGroups[0].lines).toHaveLength(1);
+    const second = await add(page, 1);
+    expect(second.body.cart.storeGroups).toHaveLength(1);
+    expect(second.body.cart.storeGroups[0].lines).toHaveLength(1);
+    expect(second.body.cart.storeGroups[0].lines[0]).toMatchObject({
+      reference: before.storeGroups[0].lines[0].reference,
+      quantity: 3,
+      lineTotal: "4500.00",
+    });
+    expect(second.body.cart.version).toBe(before.version + 1);
+    await page.goto("/cart");
+    await page.reload();
+    const persisted = await cart(page.request);
+    expect(persisted.storeGroups[0].lines).toHaveLength(1);
+    expect(persisted.storeGroups[0].lines[0]).toMatchObject({ quantity: 3, lineTotal: "4500.00" });
+    expect(persisted.totals.grandTotal).toBe("4500.00");
+  });
   test("modifier changes apply the canonical option price", async ({ page }) => {
     const { body } = await add(page);
     const line = body.cart.storeGroups[0].lines[0];
