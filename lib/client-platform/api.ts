@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { PlatformError } from "./contracts";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
-import { readCatalogJsonBody } from "@/lib/catalog/catalog-api-policy";
+import { CATALOG_JSON_BODY_LIMIT, readCatalogJsonBody } from "@/lib/catalog/catalog-api-policy";
 export function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -39,7 +39,7 @@ export function failure(error: unknown) {
     500,
   );
 }
-export async function mutation(req: NextRequest, key: string) {
+export async function mutation(req: NextRequest, key: string, maxBodyBytes = 16 * 1024) {
   const origin = await enforceSameOriginRequest(req);
   if (origin) return { response: origin };
   const rate = await checkIpRateLimit(req, key, RATE_LIMITS.ORDER_ESTIMATE);
@@ -50,5 +50,5 @@ export async function mutation(req: NextRequest, key: string) {
         429,
       ),
     };
-  return readCatalogJsonBody(req, 16 * 1024);
+  return readCatalogJsonBody(req, Math.min(CATALOG_JSON_BODY_LIMIT, maxBodyBytes));
 }
