@@ -192,7 +192,7 @@ export async function createMarketplaceCheckout(
           productTitle: source.productReference,
           variantTitle: source.variantReference,
           quantity: source.quantity,
-          sellingUnit: "EACH",
+          sellingUnit: source.sellingUnit,
           publicationVersion: source.publicationVersion,
           priceVersion: source.priceVersion,
           baseUnitPrice: source.unitPrice,

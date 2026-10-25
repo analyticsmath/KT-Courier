@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PublicHomeExperience } from "@/components/public-v3/home";
 import { publicPageMetadata } from "@/lib/public-site/site-metadata";
+import { getPublishedHomeBanner } from "@/lib/super-admin/home-banner";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -13,6 +14,6 @@ export const metadata: Metadata = {
   title: { absolute: "Marketplace and courier services | KT Couriers" },
 };
 
-export default function HomePage() {
-  return <PublicHomeExperience />;
+export default async function HomePage() {
+  return <PublicHomeExperience banner={await getPublishedHomeBanner()} />;
 }

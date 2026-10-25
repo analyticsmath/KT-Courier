@@ -1375,6 +1375,7 @@
 .kt-redesign .kt-new-header[data-floating="true"] .kt-new-header-links,
 .kt-redesign .kt-new-header[data-floating="true"] .kt-new-header-tools,
 .kt-redesign .kt-new-header[data-floating="true"] > .kt-new-brand {
+  /* kt-color-audit-allow: frosted white glass behind a floating public header for text contrast */
   background: rgba(255, 255, 255, 0.9);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);

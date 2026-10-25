@@ -51,6 +51,7 @@ export const StoreSignupSchema = z
     password: passwordField,
     confirmPassword: z.string().min(1, "Please confirm your password"),
     accountType: z.literal("STORE"),
+    inviteToken: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.password !== data.confirmPassword) {

@@ -68,9 +68,11 @@ export const StoreOfferCreateSchema = z.object({
   merchantDescription: safeText(2_000).optional(),
   inventoryTrackingMode: z.enum(["TRACKED", "UNTRACKED", "MADE_TO_ORDER"]),
   fulfilmentMode: z.enum(["COURIER_DELIVERY", "STORE_PICKUP", "PICKUP_AND_DELIVERY"]).default("COURIER_DELIVERY"),
-  sellingUnit: z.enum(["EACH", "FIXED_WEIGHT", "VARIABLE_WEIGHT", "VOLUME", "LENGTH"]).default("EACH"),
+  sellingUnit: z.enum(["EACH", "PAIR", "PACK", "BULK", "FIXED_WEIGHT", "VARIABLE_WEIGHT", "VOLUME", "LENGTH"]).default("EACH"),
   quantityStep: z.string().regex(/^\d{1,12}(?:\.\d{1,4})?$/).default("1"),
   minimumQuantity: z.string().regex(/^\d{1,12}(?:\.\d{1,4})?$/).default("1"),
+  packagedQuantity: z.string().regex(/^\d{1,4}$/).optional(),
+  unitOfMeasure: z.string().trim().min(2).max(30).optional(),
   primaryInventoryLocationId: opaqueId.optional(),
   operationId,
 }).strict();
@@ -93,6 +95,7 @@ export const StorePriceVersionCreateSchema = z.object({
   effectiveUntil: z.string().datetime().nullable().optional(),
   reasonCode: z.string().trim().regex(/^[A-Z][A-Z0-9_]{2,79}$/).optional(),
   offerVersion: optimisticVersion,
+  volumeTiers: z.array(z.object({ minQuantity: z.number().int().min(2).max(99), unitPrice: z.string().regex(/^(?:0|[1-9]\d{0,14})\.\d{2}$/) }).strict()).max(10).optional(),
   operationId,
 }).strict();
 

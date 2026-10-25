@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { priceForOrderQuantity, type VolumePriceTier } from "@/lib/catalog/volume-pricing";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
 import { assertStorefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
@@ -28,7 +29,7 @@ export type CartOwner = { type: "CUSTOMER"; userId: string } | { type: "GUEST"; 
 export type CartMutation = { operationId: string; requestHash: string; expectedVersion: number };
 export type CartLineSelection = {
   offerReference: string; variantReference: string; productReference: string; storeId: string;
-  fulfilmentMode: string; publicationVersion: string; priceVersion: string; unitPrice: string; quantity: number;
+  fulfilmentMode: string; sellingUnit: string; publicationVersion: string; priceVersion: string; unitPrice: string; quantity: number;
   modifiers: { groupReference: string; optionReference: string; quantity: number; priceDelta: string }[];
 };
 
@@ -60,7 +61,10 @@ export async function resolveMarketplaceCartLine(input: { offerReference: string
     const count = selections.filter((item) => item.groupReference === group.publicReference).reduce((sum, item) => sum + item.quantity, 0);
     if (count < group.minimumSelections || count > group.maximumSelections || (group.isRequired && count === 0)) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Modifier selection does not satisfy this item.");
   }
-  return { offerReference: offer.publicReference, variantReference: offer.variant.publicReference, productReference: offer.product.publicReference, storeId: offer.storeId, fulfilmentMode: offer.fulfilmentMode, publicationVersion: String(offer.version), priceVersion: price.publicReference, unitPrice: price.amount.toFixed(2), quantity: input.quantity, modifiers: selections };
+  let unitPrice: string;
+  try { unitPrice=priceForOrderQuantity(price.amount.toFixed(2), (price.volumeTiers ?? []) as VolumePriceTier[],input.quantity); }
+  catch { throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Store pricing is unavailable for this quantity."); }
+  return { offerReference: offer.publicReference, variantReference: offer.variant.publicReference, productReference: offer.product.publicReference, storeId: offer.storeId, fulfilmentMode: offer.fulfilmentMode, sellingUnit: offer.sellingUnit ?? "EACH", publicationVersion: String(offer.version), priceVersion: price.publicReference, unitPrice, quantity: input.quantity, modifiers: selections };
 }
 
 export async function getOrCreateMarketplaceCart(input: { owner: CartOwner; serviceAreaReference?: string | null }, database = db): Promise<any> {

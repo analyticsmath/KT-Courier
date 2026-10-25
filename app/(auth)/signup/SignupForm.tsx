@@ -33,6 +33,9 @@ export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = safeAuthReturnUrl(searchParams.get("returnUrl"));
+  const invitationToken=searchParams.get("invite");
+  const invitedStoreName=searchParams.get("storeName")||"";
+  const invitedEmail=searchParams.get("email")||"";
   const roleParam = searchParams.get("role")?.toLowerCase();
   const [accountType, setAccountType] = useState<AccountType>(
     roleParam === "driver"
@@ -74,6 +77,7 @@ export function SignupForm() {
             }
           : {
               accountType: "STORE",
+              ...(invitationToken?{inviteToken:invitationToken}:{}),
               storeName: form.get("business_name") as string,
               contactPerson: form.get("contact_person") as string,
               email: form.get("email") as string,
@@ -202,6 +206,8 @@ export function SignupForm() {
               id="business_name"
               label="Business or store name"
               name="business_name"
+              defaultValue={invitedStoreName}
+              readOnly={Boolean(invitationToken)}
               placeholder="Your business name"
               required
             />
@@ -221,6 +227,8 @@ export function SignupForm() {
               id="email"
               label="Email address"
               name="email"
+              defaultValue={invitedEmail}
+              readOnly={Boolean(invitationToken)}
               placeholder="business@example.com"
               required
               spellCheck={false}

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
+import { hashToken } from "@/lib/auth/tokens";
+import { verifyStoreInvitationClaim } from "@/lib/super-admin/store-invitation";
 import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { generateSlug, generateUniqueSlug } from "@/lib/utils/slug";
 import { newDriverCode } from "@/lib/utils/driver-code";
@@ -126,6 +128,8 @@ export async function POST(req: NextRequest) {
         });
       } else if (accountType === "STORE") {
         const d = data as StoreSignupInput;
+        const invitation = d.inviteToken ? await tx.storeOnboardingInvitation.findUnique({where:{tokenHash:hashToken(d.inviteToken)}}) : null;
+        if(d.inviteToken)verifyStoreInvitationClaim(invitation,{email:d.email,storeName:d.storeName});
         const slugKey = `store-signup:${generateSlug(d.storeName) || "store"}`;
         await tx.$queryRaw`SELECT TRUE AS locked FROM pg_advisory_xact_lock(hashtextextended(${slugKey}, 0))`;
         const storeSlug = await generateUniqueSlug(d.storeName, slug =>
@@ -160,6 +164,10 @@ export async function POST(req: NextRequest) {
             featured: false,
           },
         });
+        if(invitation){
+          const claim=await tx.storeOnboardingInvitation.updateMany({where:{id:invitation.id,status:"PENDING",expiresAt:{gt:new Date()}},data:{status:"CLAIMED",claimedByUserId:newUser.id,claimedStoreId:store.id}});
+          if(claim.count!==1)throw new Error("STORE_INVITATION_ALREADY_CLAIMED");
+        }
         if (d.businessLocation && completeStorePickupAddress(d.businessLocation)) {
           const pickup = await tx.address.create({ data: {
             ...d.businessLocation, storeId: store.id, type: "PICKUP", isDefault: true,

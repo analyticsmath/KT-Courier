@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { validatePackUnit } from "@/lib/catalog/volume-pricing";
 import { type Prisma } from "@prisma/client";
 import { assertOfferTransition } from "@/lib/catalog/catalog-state-machines";
 import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
@@ -34,13 +35,20 @@ export async function createStoreCatalogOffer(storeId: string, actorUserId: stri
   merchantDescription?: string;
   inventoryTrackingMode: "TRACKED" | "UNTRACKED" | "MADE_TO_ORDER";
   fulfilmentMode: "COURIER_DELIVERY" | "STORE_PICKUP" | "PICKUP_AND_DELIVERY";
-  sellingUnit: "EACH" | "FIXED_WEIGHT" | "VARIABLE_WEIGHT" | "VOLUME" | "LENGTH";
+  sellingUnit: "EACH" | "PAIR" | "PACK" | "BULK" | "FIXED_WEIGHT" | "VARIABLE_WEIGHT" | "VOLUME" | "LENGTH";
   quantityStep: string;
   minimumQuantity: string;
+  packagedQuantity?: string;
+  unitOfMeasure?: string;
   primaryInventoryLocationId?: string;
   operationId: string;
 }, transaction?: Prisma.TransactionClient) {
   const database = transaction ?? prisma;
+  const packageInfo=validatePackUnit(input.sellingUnit,input.packagedQuantity,input.unitOfMeasure);
+  if (["PAIR", "PACK", "BULK"].includes(input.sellingUnit) &&
+      (!/^\d+$/.test(input.quantityStep) || !/^\d+$/.test(input.minimumQuantity) ||
+        Number(input.quantityStep) !== 1 || Number(input.minimumQuantity) < 1))
+    throw new CatalogPolicyError("PACKAGE_QUANTITY_INVALID", "Packs must be sold as whole, independently inventoried SKU quantities.");
   const [product, variant, location] = await Promise.all([
     database.catalogProduct.findUnique({ where: { id: input.productId } }),
     database.catalogProductVariant.findUnique({ where: { id: input.variantId } }),
@@ -65,6 +73,8 @@ export async function createStoreCatalogOffer(storeId: string, actorUserId: stri
         inventoryTrackingMode: input.inventoryTrackingMode,
         fulfilmentMode: input.fulfilmentMode,
         sellingUnit: input.sellingUnit,
+        packagedQuantity:packageInfo.packagedQuantity,
+        unitOfMeasure:packageInfo.unitOfMeasure,
         quantityStep: input.quantityStep,
         minimumQuantity: input.minimumQuantity,
         primaryInventoryLocationId: input.primaryInventoryLocationId,

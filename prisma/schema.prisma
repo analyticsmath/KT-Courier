@@ -7684,6 +7684,9 @@ enum CatalogFulfilmentMode {
 
 enum CatalogSellingUnit {
   EACH
+  PAIR
+  PACK
+  BULK
   FIXED_WEIGHT
   VARIABLE_WEIGHT
   VOLUME
@@ -8278,6 +8281,7 @@ model StoreOfferPriceVersion {
   unitPriceAmount   Decimal?              @db.Decimal(18, 2)
   unitPriceUnit     String?
   unitPriceQuantity Decimal?              @db.Decimal(18, 4)
+  volumeTiers       Json?
   effectiveFrom     DateTime
   effectiveUntil    DateTime?
   status            StoreOfferPriceStatus @default(DRAFT)
@@ -14627,4 +14631,22 @@ model LegacyMigrationMap {
   @@index([runId, disposition])
   @@index([targetModel, targetId])
   @@index([sourceTable, sourceId])
+}
+
+// Super Admin invitations only create verified vendor accounts through ordinary signup.
+model StoreOnboardingInvitation {
+  id              String   @id @default(cuid())
+  email           String
+  storeName       String
+  contactName     String
+  tokenHash       String   @unique
+  status          String   @default("PENDING")
+  expiresAt       DateTime
+  createdByUserId String
+  claimedByUserId String?
+  claimedStoreId  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([email, status, expiresAt])
 }

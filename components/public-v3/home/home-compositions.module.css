@@ -39,6 +39,7 @@
 }
 .neighbourhood {
   padding: 120px var(--space) 130px;
+  /* kt-color-audit-allow: approved photographic editorial backdrop retained for the neighbourhood spread */
   background: #edf0e9;
 }
 .spreadHeading {

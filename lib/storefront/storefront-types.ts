@@ -27,7 +27,7 @@ export type StorefrontDocument = {
   variantOptions: Record<string, string>;
   condition: "NEW" | "REFURBISHED" | "RECONDITIONED" | "USED";
   fulfilmentMode: "COURIER_DELIVERY" | "STORE_PICKUP" | "PICKUP_AND_DELIVERY";
-  sellingUnit: "EACH" | "FIXED_WEIGHT" | "VARIABLE_WEIGHT" | "VOLUME" | "LENGTH";
+  sellingUnit: "EACH" | "PAIR" | "PACK" | "BULK" | "FIXED_WEIGHT" | "VARIABLE_WEIGHT" | "VOLUME" | "LENGTH";
   price: { publicReference: string; amount: string; currency: "ZAR"; includesTax: true; unitAmount?: string; unit?: string; quantity?: string };
   availability: StorefrontAvailabilityState;
   primaryMedia?: { publicReference: string; width: number; height: number; alt: string };

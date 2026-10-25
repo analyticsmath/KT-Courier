@@ -12,7 +12,7 @@ export default async function SuperAdminPage() {
     prisma.store.findMany({where:{status:{in:["ACTIVE","PENDING"]}},select:{id:true,name:true,status:true},orderBy:{name:"asc"},take:150}),
     prisma.productTypeDefinition.findMany({where:{status:{in:["APPROVED","ACTIVE"]}},select:{id:true,name:true},orderBy:{name:"asc"},take:150}),
     prisma.catalogCategory.findMany({where:{status:"ACTIVE"},select:{id:true,path:true},orderBy:{path:"asc"},take:150}),
-    prisma.catalogProduct.findMany({where:{scope:"STORE_PRIVATE",sourceStoreId:{not:null}},select:{id:true,title:true,sourceStoreId:true,variants:{select:{id:true,title:true,status:true}}},orderBy:{updatedAt:"desc"},take:300}),
+    prisma.catalogProduct.findMany({where:{scope:"STORE_PRIVATE",sourceStoreId:{not:null}},select:{id:true,publicReference:true,version:true,title:true,sourceStoreId:true,variants:{select:{id:true,title:true,status:true}}},orderBy:{updatedAt:"desc"},take:300}),
     prisma.storeCatalogOffer.findMany({select:{id:true,storeId:true,storeSku:true,publicReference:true,version:true,product:{select:{title:true}},variant:{select:{title:true}}},orderBy:{updatedAt:"desc"},take:300}),
   ]);
   return <ProtectedPageFrame>

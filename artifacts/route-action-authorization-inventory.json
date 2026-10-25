@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 768,
+    "totalRoutes": 771,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 667,
-    "permissionGatedRoutes": 523,
+    "authenticatedRoutes": 670,
+    "permissionGatedRoutes": 526,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 214,
-    "generatedAt": "2026-10-25T02:02:02.870Z"
+    "rateLimitedRoutes": 216,
+    "generatedAt": "2026-10-25T03:08:30.109Z"
   },
   "serverActions": [],
   "routes": [
@@ -8171,6 +8171,57 @@
       "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/super-admin/home-banner/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/super-admin/media/[reference]/content/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_DETECTED",
+      "remediationStatus": "REVIEW_REQUIRED_ORIGIN_PROTECTION",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/super-admin/media/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",

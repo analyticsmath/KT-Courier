@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { PublicHomeBanner } from "@/lib/super-admin/home-banner";
 import Link from "next/link";
 import { EditorialMotion } from "../redesign/EditorialMotion";
 import { OpeningCurtain } from "./OpeningCurtain";
@@ -60,7 +61,7 @@ const choices = [
     alt: "A delivery worker carrying a large box to a doorway",
   },
 ];
-export function PublicHomeExperience() {
+export function PublicHomeExperience({banner}:{banner?:PublicHomeBanner|null}) {
   return (
     <EditorialMotion className={styles.home}>
       <OpeningCurtain />
@@ -123,6 +124,17 @@ export function PublicHomeExperience() {
           </Link>
         </nav>
       </section>
+
+      {banner && (
+        <section data-home-chapter="editorial-banner" aria-label="KT Couriers featured message" className="mx-auto my-10 grid max-w-[1440px] overflow-hidden rounded-[1.5rem] bg-[var(--kt-public-surface-inverse)] text-white md:my-16 md:grid-cols-2">
+          <div className="flex flex-col justify-center gap-5 p-7 sm:p-10 lg:p-16">
+            <h2 className="max-w-xl text-3xl font-semibold tracking-tight sm:text-5xl">{banner.title}</h2>
+            <p className="max-w-lg text-base leading-7 text-white/80">{banner.description}</p>
+            <Link href={banner.href} className="inline-flex min-h-12 w-fit items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-[var(--kt-public-text-primary)] transition-transform hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Explore this offer <span aria-hidden="true" className="ml-3">↗</span></Link>
+          </div>
+          <div className="relative min-h-64 md:min-h-[400px]"><Image src={banner.imageUrl} alt={banner.altText} fill unoptimized sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" /></div>
+        </section>
+      )}
 
       <section
         className={compositions.manifesto}

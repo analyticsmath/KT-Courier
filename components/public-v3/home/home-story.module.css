@@ -313,6 +313,7 @@
   font-size: 17px;
 }
 .business {
+  /* kt-color-audit-allow: approved photographic warm business-scene backdrop, not a brand palette */
   background: #f3ede5;
   padding: 120px var(--space);
 }
@@ -981,6 +982,7 @@
 
 @media (max-width: 760px) {
   .businessDetail {
+    /* kt-color-audit-allow: matches warm photography background in the business detail section */
     border-color: #f3ede5;
   }
 }

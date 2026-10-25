@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { parseVolumePriceTiers, type VolumePriceTier } from "@/lib/catalog/volume-pricing";
 import { type Prisma } from "@prisma/client";
 import { assertExactZarPrice, assertPricePeriod } from "@/lib/catalog/catalog-price-policy";
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
@@ -14,11 +15,13 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   effectiveFrom: string;
   effectiveUntil?: string | null;
   reasonCode?: string;
+  volumeTiers?: VolumePriceTier[];
   offerVersion: number;
   operationId: string;
 }, transaction?: Prisma.TransactionClient) {
   const database = transaction ?? prisma;
   assertExactZarPrice(input);
+  const volumeTiers=parseVolumePriceTiers(input.amount,input.volumeTiers??[]);
   const offer = await database.storeCatalogOffer.findFirst({ where: { publicReference: input.offerPublicReference, storeId }, include: { priceVersions: true } });
   if (!offer) {
     const exists = await database.storeCatalogOffer.findUnique({ where: { publicReference: input.offerPublicReference }, select: { storeId: true } });
@@ -33,7 +36,7 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   return withCatalogTransaction(transaction, async (tx) => {
     const current = await tx.storeCatalogOffer.updateMany({ where: { id: offer.id, storeId, version: input.offerVersion }, data: { version: { increment: 1 } } });
     if (current.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before adding a price.");
-    const price = await tx.storeOfferPriceVersion.create({ data: { publicReference, offerId: offer.id, versionNumber: nextNumber, amount: input.amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom, effectiveUntil, status: "DRAFT", reasonCode: input.reasonCode, createdByUserId: actorUserId } });
+    const price = await tx.storeOfferPriceVersion.create({ data: { publicReference, offerId: offer.id, versionNumber: nextNumber, amount: input.amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom, effectiveUntil, status: "DRAFT", reasonCode: input.reasonCode, volumeTiers, createdByUserId: actorUserId } });
     await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: publicReference, aggregateVersion: nextNumber, action: "DRAFT_CREATED", eventType: "OFFER_UPDATED", actorUserId, safeMetadata: { offerReference: offer.publicReference, currency: "ZAR", includesTax: true }, operation: { operationId: input.operationId, storeId, request: input } });
     return price;
   });

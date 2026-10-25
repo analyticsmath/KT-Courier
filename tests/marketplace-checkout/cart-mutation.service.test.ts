@@ -21,6 +21,7 @@ const selection = {
   productReference: "product",
   storeId: "store",
   fulfilmentMode: "COURIER_DELIVERY",
+  sellingUnit: "EACH",
   publicationVersion: "p1",
   priceVersion: "price1",
   unitPrice: "10.00",

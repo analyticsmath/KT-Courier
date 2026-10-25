@@ -157,6 +157,17 @@ describe("Phase 1 Acceptance: PDP Interactive Modifiers & Server-Authoritative C
       currency: "ZAR",
     };
 
+    it("charges the server-approved bulk tier and retains the actual package unit", async () => {
+      mockPrisma.storeCatalogOffer.findFirst.mockResolvedValueOnce({ ...offerWithModifiers, sellingUnit: "PACK", packagedQuantity: new Prisma.Decimal("6") });
+      mockPrisma.storeOfferPriceVersion.findFirst.mockResolvedValueOnce({ ...priceVersion, volumeTiers: [
+        { minQuantity: 3, unitPrice: "110.00" }, { minQuantity: 10, unitPrice: "95.00" },
+      ] });
+      const resolved = await resolveMarketplaceCartLine({
+        offerReference: "offer-pizza-1", variantReference: "var-large", quantity: 10,
+        modifiers: [{ groupReference: "grp-crust", optionReference: "opt-thin", quantity: 1 }],
+      });
+      expect(resolved).toMatchObject({ sellingUnit: "PACK", unitPrice: "95.00", quantity: 10, priceVersion: "price-ver-1" });
+    });
     it("fails closed when a required modifier group has no selection", async () => {
       mockPrisma.storeCatalogOffer.findFirst.mockResolvedValueOnce(offerWithModifiers);
       mockPrisma.storeOfferPriceVersion.findFirst.mockResolvedValueOnce(priceVersion);
