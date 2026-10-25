@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 766,
+    "totalRoutes": 768,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 665,
-    "permissionGatedRoutes": 521,
+    "authenticatedRoutes": 667,
+    "permissionGatedRoutes": 523,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 212,
-    "generatedAt": "2026-10-24T01:45:51.066Z"
+    "rateLimitedRoutes": 214,
+    "generatedAt": "2026-10-25T02:02:02.870Z"
   },
   "serverActions": [],
   "routes": [
@@ -1979,9 +1979,8 @@
         "GET",
         "POST"
       ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
       "requiredRoles": [
-        "ADMIN",
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
@@ -4010,9 +4009,8 @@
         "GET",
         "PATCH"
       ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
       "requiredRoles": [
-        "ADMIN",
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
@@ -4031,9 +4029,8 @@
         "GET",
         "POST"
       ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
       "requiredRoles": [
-        "ADMIN",
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
@@ -8163,6 +8160,40 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/super-admin/commerce/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/super-admin/password-reset/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/admin/users/[id]/route.ts",
       "httpMethods": [
         "GET",
@@ -10488,7 +10519,7 @@
       "bolaOwnershipValidated": false,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Public read-only Railway infrastructure probe: returns database and Redis availability; no customer, payment, account or financial authority. No credentials are returned."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/infrastructure_ready/route.ts",
@@ -10503,7 +10534,7 @@
       "bolaOwnershipValidated": false,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Public read-only Railway infrastructure probe: returns database and Redis availability; no customer, payment, account or financial authority. No credentials are returned."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/jobs/[processor]/route.ts",

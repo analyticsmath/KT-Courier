@@ -83,6 +83,18 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     expect(offenders, `Routes whose enforced permission is missing from the inventory:\n${offenders.join("\n")}`).toEqual([]);
   });
 
+  it("records the exact SUPER_ADMIN role for privileged commerce and password recovery", () => {
+    const report = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    for (const routePath of ["app/api/admin/super-admin/commerce/route.ts", "app/api/admin/super-admin/password-reset/route.ts"]) {
+      const entry = report.routes.find((r: { routePath: string }) => r.routePath === routePath);
+      expect(entry, routePath).toBeDefined();
+      expect(entry.httpMethods).toEqual(["POST"]);
+      expect(entry.authorizationMechanism).toBe("SUPER_ADMIN_SESSION");
+      expect(entry.requiredRoles).toEqual(["SUPER_ADMIN"]);
+      expect(entry.rateLimitingApplied).toBe(true);
+    }
+  });
+
   it("keeps the dispatch recovery route inventory truthful (method, role, permission, protections, idempotency)", () => {
     const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const entry = content.routes.find((r: any) => r.routePath === "app/api/admin/dispatch/recover/route.ts");

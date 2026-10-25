@@ -47,7 +47,8 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (page > pageCount) redirect(filterHref(selectedFilter, pageCount));
   return <ProtectedPageFrame className="eo-store-directory">
-    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : " in this view"}.`} />
+    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : " in this view"}.`}
+      actions={user.role === "SUPER_ADMIN" ? <Link href="/admin/super-admin" className="eo-table-action">Add or manage stores</Link> : undefined} />
     <nav aria-label="Store account status filters" className="eo-filter-chips">
       {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
     </nav>

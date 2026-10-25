@@ -100,6 +100,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "developer-usage", label: "Usage and quotas", href: "/developers/usage", icon: "chart", group: "Operations", requiredPermissions: [PERMISSIONS.DEVELOPER_API_USAGE_READ_OWN], contexts: C.DEVELOPER },
 
   { id: "admin-overview", label: "Overview", href: "/admin", icon: "home", group: "Command centre", exact: true, requiredPermissions: [PERMISSIONS.ADMIN_DASHBOARD_READ], contexts: C.ADMIN },
+  { id: "super-admin-commerce", label: "Commerce command", href: "/admin/super-admin", icon: "store", group: "Command centre", contexts: C.SUPER_ADMIN },
   { id: "admin-orders", label: "Orders", href: "/admin/orders", icon: "clipboard", group: "Operations", requiredPermissions: [PERMISSIONS.ORDERS_READ], contexts: C.ADMIN },
   { id: "admin-dispatch", label: "Dispatch", href: "/admin/dispatch", icon: "route", group: "Operations", requiredPermissions: [PERMISSIONS.DISPATCH_READ], contexts: C.ADMIN },
   { id: "admin-pickup-exceptions", label: "Pickup exceptions", href: "/admin/pickup-exceptions", icon: "activity", group: "Operations", requiredPermissions: [PERMISSIONS.DISPATCH_READ], contexts: C.ADMIN },

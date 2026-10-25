@@ -118,6 +118,12 @@ for (const file of routeFiles) {
   ) {
     authMechanism = "WEBHOOK_SIGNATURE";
     webhookSignatureCount++;
+  } else if (content.includes("requireSuperAdminApi")) {
+    // Exact role guard: normal ADMIN sessions must never be shown as permitted.
+    authMechanism = "SUPER_ADMIN_SESSION";
+    requiredRoles = ["SUPER_ADMIN"];
+    permissionGatedCount++;
+    authenticatedCount++;
   } else if (
     content.includes("requireAdminApiPermission") ||
     relPath.includes("/admin/")
