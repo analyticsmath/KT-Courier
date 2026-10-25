@@ -120,6 +120,18 @@ describe("real PostgreSQL security notification outbox", () => {
     expect(await prisma.otpCode.count({ where: { email } })).toBe(0);
   });
 
+  it("rejects a fabricated vendor invitation without creating a user or OTP", async () => {
+    const email = `${emailPrefix}-bad-invite@example.test`;
+    const response = await signup(request("signup", {
+      accountType: "STORE", storeName: "Fictional test shop", contactPerson: "Vendor Tester",
+      email, phone: "0712345678", password: "TestOnly-SecurePassword42!", confirmPassword: "TestOnly-SecurePassword42!",
+      inviteToken: "f".repeat(64),
+    }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({code:"STORE_INVITATION_INVALID"});
+    expect(await prisma.user.count({ where: {email} })).toBe(0);
+    expect(await prisma.otpCode.count({ where: {email} })).toBe(0);
+  });
   it("commits a signup with an expiring encrypted intent and preserves its old OTP on a failed resend", async () => {
     const email = `${emailPrefix}-signup@example.test`;
     const response = await signup(request("signup", { accountType: "CUSTOMER", fullName: "Test customer", email, password: "TestOnly-SecurePassword42!", confirmPassword: "TestOnly-SecurePassword42!" }));

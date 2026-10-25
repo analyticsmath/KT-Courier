@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
         : UserRole.DRIVER;
 
   let transactionFailure: unknown = null;
+  let securityEmailQueueFailed = false;
   const result = await prisma
     .$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -206,6 +207,7 @@ export async function POST(req: NextRequest) {
 
       let deliveryId: string | undefined;
       if (shouldQueueSecurityEmail()) {
+        securityEmailQueueFailed = true;
         const queued = await queueSecurityNotification(
           {
             eventType: "EMAIL_VERIFICATION_OTP",
@@ -223,6 +225,7 @@ export async function POST(req: NextRequest) {
           tx,
         );
         deliveryId = queued.delivery.id;
+        securityEmailQueueFailed = false;
       }
 
       return {
@@ -232,7 +235,7 @@ export async function POST(req: NextRequest) {
     })
     .catch((error: unknown) => { transactionFailure = error; return null; });
 
-  if (!result) return signupTransactionFailureResponse(transactionFailure);
+  if (!result) return signupTransactionFailureResponse(transactionFailure, { securityEmailQueueFailed });
 
   let deliveryPending = false;
   if (process.env.NODE_ENV === "production" && result.deliveryId) {
