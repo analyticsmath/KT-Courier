@@ -49,7 +49,7 @@ export async function createOrResolveCart(repository: MarketplaceCartMutationRep
   return repository.transaction(async () => (await repository.findCartByOwner(owner)) ?? create());
 }
 
-export async function addCartLine(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; owner: CartOwner; mutation: CartMutation; selection: CartLineSelection }>): Promise<CartOperationResult> {
+export async function addCartLine(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; owner: CartOwner; mutation: CartMutation; selection: CartLineSelection; revalidate?: (line: MarketplaceCartLineState, quantity: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   assertSupportedQuantity(input.selection.quantity);
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
@@ -61,8 +61,15 @@ export async function addCartLine(repository: MarketplaceCartMutationRepository,
     if (!matching && cart.lines.length >= MAX_CART_LINES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line limit reached.");
     const stores = new Set(cart.lines.map((line) => line.storeId));
     if (!stores.has(input.selection.storeId) && stores.size >= MAX_CART_STORES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart store limit reached.");
-    const lines = matching ? cart.lines.map((line) => line.fingerprint === fingerprint ? { ...line, quantity: line.quantity + input.selection.quantity } : line) : [...cart.lines, { publicReference: `line_${randomUUID().replaceAll("-", "")}`, storeId: input.selection.storeId, quantity: input.selection.quantity, fingerprint, selection: input.selection }];
-    if (lines.some((line) => line.quantity > 99)) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
+    const combinedQuantity = (matching?.quantity ?? 0) + input.selection.quantity;
+    if (combinedQuantity > 99) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
+    // A new quantity can cross a bulk-price tier. Re-resolve the full server-authorized
+    // selection before committing a duplicate line; never preserve an old unit price.
+    if (matching && !input.revalidate) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart pricing must be revalidated for the combined quantity.");
+    const resolved = matching ? await input.revalidate!(matching, combinedQuantity) : input.selection;
+    if (resolved.quantity !== combinedQuantity || resolved.storeId !== input.selection.storeId || selectionFingerprint(resolved) !== fingerprint)
+      throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line changed during price validation.");
+    const lines = matching ? cart.lines.map((line) => line.publicReference === matching.publicReference ? { ...line, quantity: combinedQuantity, selection: resolved } : line) : [...cart.lines, { publicReference: `line_${randomUUID().replaceAll("-", "")}`, storeId: input.selection.storeId, quantity: input.selection.quantity, fingerprint, selection: input.selection }];
     return commit(repository, { ...cart, lines, version: cart.version + 1 }, input.mutation, "ADD_LINE");
   });
 }
@@ -81,7 +88,7 @@ export async function updateCartLineQuantity(repository: MarketplaceCartMutation
   });
 }
 
-export async function replaceCartLineModifiers(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; lineReference: string; owner: CartOwner; mutation: CartMutation; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; revalidate: (line: MarketplaceCartLineState, modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
+export async function replaceCartLineModifiers(repository: MarketplaceCartMutationRepository, input: Readonly<{ cartId: string; lineReference: string; owner: CartOwner; mutation: CartMutation; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; revalidate: (line: MarketplaceCartLineState, modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[], quantity?: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   return repository.transaction(async () => {
     const cart = await repository.lockCart(input.cartId); if (!cart) throw new MarketplaceCheckoutError("CART_NOT_FOUND", "Cart is unavailable.");
     if (!sameOwner(cart.owner, input.owner)) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
@@ -91,8 +98,12 @@ export async function replaceCartLineModifiers(repository: MarketplaceCartMutati
     const selection = await input.revalidate(existing, input.modifiers);
     const fingerprint = cartLineFingerprint({ offerReference: selection.offerReference, variantReference: selection.variantReference, modifiers: selection.modifiers.map((item) => ({ groupReference: item.groupReference, optionReference: item.optionReference, quantity: item.quantity })) });
     const collision = cart.lines.find((line) => line.publicReference !== existing.publicReference && line.fingerprint === fingerprint);
-    const lines = collision ? cart.lines.filter((line) => line.publicReference !== existing.publicReference).map((line) => line.publicReference === collision.publicReference ? { ...line, quantity: line.quantity + existing.quantity } : line) : cart.lines.map((line) => line.publicReference === existing.publicReference ? { ...line, fingerprint, selection } : line);
-    if (lines.some((line) => line.quantity > 99)) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
+    const combinedQuantity = (collision?.quantity ?? 0) + existing.quantity;
+    if (combinedQuantity > 99) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
+    const combined = collision ? await input.revalidate(collision, input.modifiers, combinedQuantity) : selection;
+    if (combined.quantity !== combinedQuantity || combined.storeId !== existing.storeId || selectionFingerprint(combined) !== fingerprint)
+      throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Combined modifier price could not be validated.");
+    const lines = collision ? cart.lines.filter((line) => line.publicReference !== existing.publicReference).map((line) => line.publicReference === collision.publicReference ? { ...line, quantity: combinedQuantity, selection: combined } : line) : cart.lines.map((line) => line.publicReference === existing.publicReference ? { ...line, fingerprint, selection } : line);
     return commit(repository, { ...cart, lines, version: cart.version + 1 }, input.mutation, "REPLACE_MODIFIERS");
   });
 }
@@ -127,7 +138,7 @@ function selectionFingerprint(selection: CartLineSelection): string {
   return cartLineFingerprint({ offerReference: selection.offerReference, variantReference: selection.variantReference, modifiers: selection.modifiers.map((item) => ({ groupReference: item.groupReference, optionReference: item.optionReference, quantity: item.quantity })) });
 }
 
-async function revalidateGuestLines(lines: readonly MarketplaceCartLineState[], revalidate: (line: MarketplaceCartLineState) => Promise<CartLineSelection>): Promise<readonly MarketplaceCartLineState[]> {
+async function revalidateGuestLines(lines: readonly MarketplaceCartLineState[], revalidate: (line: MarketplaceCartLineState, quantity?: number) => Promise<CartLineSelection>): Promise<readonly MarketplaceCartLineState[]> {
   const revalidated: MarketplaceCartLineState[] = [];
   for (const line of lines) {
     try {
@@ -140,7 +151,7 @@ async function revalidateGuestLines(lines: readonly MarketplaceCartLineState[], 
   return revalidated;
 }
 
-export async function claimGuestCart(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestOwner: Extract<CartOwner, { type: "GUEST" }>; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
+export async function claimGuestCart(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestOwner: Extract<CartOwner, { type: "GUEST" }>; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState, quantity?: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   return repository.transaction(async () => {
     const guest = await repository.lockCartByOwner(input.guestOwner, { includeMerged: true }); if (!guest) throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Guest cart is unavailable.");
     const replay = await replayOrConflict(repository, guest.id, input.mutation); if (replay) return replay;
@@ -156,21 +167,25 @@ export async function claimGuestCart(repository: MarketplaceCartMergeRepository,
   });
 }
 
-async function mergeGuestAndCustomerCartsInTransaction(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestCart: MarketplaceCartState; customerCart: MarketplaceCartState; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
+async function mergeGuestAndCustomerCartsInTransaction(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestCart: MarketplaceCartState; customerCart: MarketplaceCartState; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState, quantity?: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   const guest = input.guestCart; const customer = input.customerCart;
   if (["EXPIRED", "CONVERTED", "MERGED"].includes(guest.status)) throw new MarketplaceCheckoutError("CART_MUTATION_NOT_ALLOWED", "Guest cart cannot be merged.");
   mutableCart(customer, input.customerOwner, customer.version);
   const conflicts: string[] = []; const candidates: MarketplaceCartLineState[] = [...customer.lines];
   for (const guestLine of guest.lines) {
     try {
-      const selection = await input.revalidate(guestLine);
+      const selection = await input.revalidate(guestLine, guestLine.quantity);
       const fingerprint = selectionFingerprint(selection);
       const duplicateIndex = candidates.findIndex((line) => line.fingerprint === fingerprint);
       if (duplicateIndex >= 0) {
         const duplicate = candidates[duplicateIndex]!;
-        const quantity = duplicate.quantity + guestLine.quantity;
-        candidates[duplicateIndex] = { ...duplicate, quantity: quantity > 99 ? 99 : quantity };
-        if (quantity > 99) conflicts.push(`QUANTITY_CAPPED:${guestLine.publicReference}`);
+        const requestedQuantity = duplicate.quantity + guestLine.quantity;
+        const quantity = requestedQuantity > 99 ? 99 : requestedQuantity;
+        const combinedSelection = await input.revalidate(duplicate, quantity);
+        if (combinedSelection.quantity !== quantity || combinedSelection.storeId !== duplicate.storeId || selectionFingerprint(combinedSelection) !== fingerprint)
+          throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Combined cart pricing could not be validated.");
+        candidates[duplicateIndex] = { ...duplicate, quantity, selection: combinedSelection };
+        if (requestedQuantity > 99) conflicts.push(`QUANTITY_CAPPED:${guestLine.publicReference}`);
       } else if (candidates.length >= MAX_CART_LINES || (!new Set(candidates.map((line) => line.storeId)).has(guestLine.storeId) && new Set(candidates.map((line) => line.storeId)).size >= MAX_CART_STORES)) conflicts.push(`CART_LIMIT:${guestLine.publicReference}`);
       else candidates.push({ ...guestLine, publicReference: `line_${randomUUID().replaceAll("-", "")}`, fingerprint, selection });
     } catch { conflicts.push(`UNAVAILABLE:${guestLine.publicReference}`); }
@@ -180,6 +195,6 @@ async function mergeGuestAndCustomerCartsInTransaction(repository: MarketplaceCa
   return commit(repository, merged, input.mutation, "MERGE", conflicts);
 }
 
-export async function mergeGuestAndCustomerCarts(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestCart: MarketplaceCartState; customerCart: MarketplaceCartState; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
+export async function mergeGuestAndCustomerCarts(repository: MarketplaceCartMergeRepository, input: Readonly<{ guestCart: MarketplaceCartState; customerCart: MarketplaceCartState; customerOwner: Extract<CartOwner, { type: "CUSTOMER" }>; mutation: CartMutation; revalidate: (line: MarketplaceCartLineState, quantity?: number) => Promise<CartLineSelection> }>): Promise<CartOperationResult> {
   return repository.transaction(() => mergeGuestAndCustomerCartsInTransaction(repository, input));
 }

@@ -31,6 +31,13 @@ export async function resolveDeliveryOtpRecipient(orderId: string, db: Prisma.Tr
     if (!bridge || !storeOrder || !marketplaceOrder || !checkout ||
       marketplaceReference !== storeOrder.publicReference || order.storeId !== storeOrder.storeId ||
       order.customerId !== marketplaceOrder.customerUserId || marketplaceOrder.customerUserId !== checkout.customerUserId) return unresolved();
+    // The authenticated purchaser and the destination contact are not necessarily
+    // the same person. The courier bridge freezes the checkout contact email;
+    // no buyer-account fallback may reroute the six-digit handoff secret.
+    const frozenEmail = checkout.contactSnapshot?.email?.trim().toLowerCase();
+    const shipmentEmail = order.recipientEmail?.trim().toLowerCase();
+    if (!frozenEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(frozenEmail) || shipmentEmail !== frozenEmail)
+      return unresolved();
     if (!checkout.customerUserId) {
       if (!checkout.contactSnapshotId) return unresolved();
       try {
@@ -43,7 +50,11 @@ export async function resolveDeliveryOtpRecipient(orderId: string, db: Prisma.Tr
     }
     const account = order.customer;
     if (!account?.email || account.status !== "ACTIVE" || !account.emailVerifiedAt) return unresolved();
-    return { kind: "ACCOUNT", subjectUserId: account.id, email: account.email, name: checkout.addressSnapshot?.recipientName ?? checkout.contactSnapshot?.recipientName ?? "Recipient" };
+    const recipientName = checkout.addressSnapshot?.recipientName ?? checkout.contactSnapshot?.recipientName ?? "Recipient";
+    if (account.email.trim().toLowerCase() === frozenEmail)
+      return { kind: "ACCOUNT", subjectUserId: account.id, email: frozenEmail, name: recipientName };
+    const addressHash = createHash("sha256").update(frozenEmail).digest("hex").slice(0, 24);
+    return { kind: "SHIPMENT_RECIPIENT", subjectUserId: `delivery-recipient:${order.id}:${addressHash}`, email: frozenEmail, name: recipientName };
   }
   const email = order.recipientEmail?.trim().toLowerCase();
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return unresolved();

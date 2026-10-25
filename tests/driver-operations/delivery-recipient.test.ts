@@ -6,8 +6,8 @@ describe("delivery OTP recipient authority", () => {
   const findOrder = vi.fn(), findBridge = vi.fn(), findContact = vi.fn();
   const db = { order: { findUnique: findOrder }, marketplaceStoreOrderDeliveryBridge: { findUnique: findBridge }, marketplaceCheckoutContactSnapshot: { findUnique: findContact } } as unknown as Prisma.TransactionClient;
   const account = { id: "seller", email: "seller@example.test", name: "Seller", status: "ACTIVE", emailVerifiedAt: new Date() };
-  const order = { id: "courier", status: "IN_TRANSIT", orderNumber: "KT-1", source: "STORE", customerId: null, storeId: "store", pricingSnapshot: { marketplaceStoreOrderReference: "MSO-1" }, customer: null, store: { ownerUser: account } };
-  const checkout = { id: "checkout", customerUserId: null, contactSnapshotId: "contact", contactSnapshot: { recipientName: "Guest recipient" }, addressSnapshot: { recipientName: "Destination recipient" } };
+  const order = { id: "courier", status: "IN_TRANSIT", orderNumber: "KT-1", source: "STORE", customerId: null, storeId: "store", recipientEmail:"guest@example.test", pricingSnapshot: { marketplaceStoreOrderReference: "MSO-1" }, customer: null, store: { ownerUser: account } };
+  const checkout = { id: "checkout", customerUserId: null, contactSnapshotId: "contact", contactSnapshot: { recipientName: "Guest recipient", email:"guest@example.test" }, addressSnapshot: { recipientName: "Destination recipient" } };
   const bridge = { courierOrderId: "courier", storeOrder: { publicReference: "MSO-1", storeId: "store", marketplaceOrder: { customerUserId: null, checkout } } };
   beforeEach(() => {
     findOrder.mockResolvedValue(order); findBridge.mockResolvedValue(bridge);
@@ -29,12 +29,29 @@ describe("delivery OTP recipient authority", () => {
     findBridge.mockResolvedValue(null);
     await expect(resolveDeliveryOtpRecipient("courier", db)).rejects.toMatchObject({ code: "DELIVERY_RECIPIENT_NOT_RESOLVED" });
   });
+  it("sends a paid marketplace shipment OTP to the frozen recipient contact, not the buyer's account inbox", async () => {
+    const buyer = { ...account, id: "buyer", email: "buyer@example.test" };
+    const marketCheckout = { ...checkout, customerUserId:"buyer",contactSnapshotId:"contact", contactSnapshot:{recipientName:"Receiver",email:"receiver@example.test"}, addressSnapshot:{recipientName:"Receiver"} };
+    findOrder.mockResolvedValue({ ...order,customerId:"buyer", customer:buyer,recipientEmail:"receiver@example.test" });
+    findBridge.mockResolvedValue({ ...bridge,storeOrder:{...bridge.storeOrder, marketplaceOrder:{customerUserId:"buyer",checkout:marketCheckout}} });
+    await expect(resolveDeliveryOtpRecipient("courier",db)).resolves.toMatchObject({
+      kind:"SHIPMENT_RECIPIENT", email:"receiver@example.test", name:"Receiver",
+      subjectUserId:expect.stringMatching(/^delivery-recipient:courier:[a-f0-9]{24}$/),
+    });
+  });
+  it("rejects marketplace recipient routing when the courier order email disagrees with the frozen checkout", async () => {
+    const buyer = { ...account, id:"buyer", email:"buyer@example.test" };
+    const marketCheckout={...checkout,customerUserId:"buyer",contactSnapshot:{email:"receiver@example.test",recipientName:"Receiver"},addressSnapshot:{recipientName:"Receiver"}};
+    findOrder.mockResolvedValue({...order,customerId:"buyer",customer:buyer,recipientEmail:"intruder@example.test"});
+    findBridge.mockResolvedValue({...bridge,storeOrder:{...bridge.storeOrder,marketplaceOrder:{customerUserId:"buyer",checkout:marketCheckout}}});
+    await expect(resolveDeliveryOtpRecipient("courier",db)).rejects.toMatchObject({code:"DELIVERY_RECIPIENT_NOT_RESOLVED"});
+  });
   it("uses the explicit parcel recipient even when the sender has a different verified account", async () => {
     findOrder.mockResolvedValue({ ...order, source: "CUSTOMER", customerId: "buyer", recipientName: "Receiver", recipientEmail: " Receiver@Example.Test ", pricingSnapshot: {}, customer: { ...account, id: "buyer", email: "buyer@example.test" } }); findBridge.mockResolvedValue(null);
     await expect(resolveDeliveryOtpRecipient("courier", db)).resolves.toMatchObject({ kind: "SHIPMENT_RECIPIENT", subjectUserId: expect.stringMatching(/^delivery-recipient:courier:[a-f0-9]{24}$/), email: "receiver@example.test", name: "Receiver" });
   });
   it("does not send a legacy parcel's handoff code to its sender when recipient email is absent", async () => {
-    findOrder.mockResolvedValue({ ...order, source: "CUSTOMER", customerId: "buyer", pricingSnapshot: {}, customer: { ...account, id: "buyer" } }); findBridge.mockResolvedValue(null);
+    findOrder.mockResolvedValue({ ...order, source: "CUSTOMER", customerId: "buyer", recipientEmail:null, pricingSnapshot: {}, customer: { ...account, id: "buyer" } }); findBridge.mockResolvedValue(null);
     await expect(resolveDeliveryOtpRecipient("courier", db)).rejects.toMatchObject({ code: "DELIVERY_RECIPIENT_NOT_RESOLVED" });
   });
   it("changes the delivery subject when the parcel recipient email changes", async () => {

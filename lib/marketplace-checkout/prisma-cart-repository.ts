@@ -8,7 +8,7 @@ import type { CartOperationResult, MarketplaceCartMutationRepository, Marketplac
 type Db = any;
 type CartLookupOptions = Readonly<{ includeMerged?: boolean; publicReference?: string }>;
 function ownerWhere(owner: CartOwner) { return owner.type === "CUSTOMER" ? { ownerType: "CUSTOMER", customerUserId: owner.userId } : { ownerType: "GUEST", guestTokenHash: owner.guestTokenHash }; }
-function toState(row: any): MarketplaceCartState { return { id: row.id, publicReference: row.publicReference, owner: row.ownerType === "CUSTOMER" ? { type: "CUSTOMER", userId: row.customerUserId } : { type: "GUEST", guestTokenHash: row.guestTokenHash }, status: row.status, version: row.version, lines: row.storeGroups.flatMap((group: any) => group.lines.map((line: any) => ({ publicReference: line.publicReference, storeId: group.storeId, quantity: line.quantity, fingerprint: line.lineFingerprint, selection: { offerReference: line.offerPublicReference, variantReference: line.variantPublicReference, productReference: line.productPublicReference, storeId: group.storeId, fulfilmentMode: group.fulfilmentMode, publicationVersion: line.observedPublicationVersion, priceVersion: line.observedPriceVersion, unitPrice: line.observedUnitPrice.toFixed(2), quantity: line.quantity, modifiers: line.modifiers.map((modifier: any) => ({ groupReference: modifier.modifierGroupPublicReference, optionReference: modifier.modifierOptionPublicReference, quantity: modifier.quantity, priceDelta: modifier.observedPriceDelta.toFixed(2) })) } }))) }; }
+export function cartRowToState(row: any): MarketplaceCartState { return { id: row.id, publicReference: row.publicReference, owner: row.ownerType === "CUSTOMER" ? { type: "CUSTOMER", userId: row.customerUserId } : { type: "GUEST", guestTokenHash: row.guestTokenHash }, status: row.status, version: row.version, lines: row.storeGroups.flatMap((group: any) => group.lines.map((line: any) => ({ publicReference: line.publicReference, storeId: group.storeId, quantity: line.quantity, fingerprint: line.lineFingerprint, selection: { offerReference: line.offerPublicReference, variantReference: line.variantPublicReference, productReference: line.productPublicReference, storeId: group.storeId, fulfilmentMode: group.fulfilmentMode, sellingUnit: line.observedSellingUnit ?? "EACH", publicationVersion: line.observedPublicationVersion, priceVersion: line.observedPriceVersion, unitPrice: line.observedUnitPrice.toFixed(2), quantity: line.quantity, modifiers: line.modifiers.map((modifier: any) => ({ groupReference: modifier.modifierGroupPublicReference, optionReference: modifier.modifierOptionPublicReference, quantity: modifier.quantity, priceDelta: modifier.observedPriceDelta.toFixed(2) })) } }))) }; }
 const include = { storeGroups: { include: { lines: { include: { modifiers: true } } } } } as const;
 async function lock(db: Db, id: string) { await db.$queryRawUnsafe('SELECT "id" FROM "MarketplaceCart" WHERE "id" = $1 FOR UPDATE', id); return db.marketplaceCart.findUnique({ where: { id }, include }); }
 
@@ -21,7 +21,7 @@ export function createPrismaMarketplaceCartRepository(database: Db = prisma): Ma
         (tx: Db) => transactions.run(tx, work), { isolationLevel: "Serializable" },
       ));
     },
-    async lockCart(id: string) { const row = await lock(current(), id); return row ? toState(row) : null; },
+    async lockCart(id: string) { const row = await lock(current(), id); return row ? cartRowToState(row) : null; },
     async lockCartByOwner(owner: CartOwner, options?: CartLookupOptions) {
       const where = { ...ownerWhere(owner), ...(options?.publicReference ? { publicReference: options.publicReference } : {}) };
       // A previous checkout can leave a locked cart alongside the new active
@@ -32,16 +32,16 @@ export function createPrismaMarketplaceCartRepository(database: Db = prisma): Ma
       const row = checkout ?? (options?.includeMerged ? await current().marketplaceCart.findFirst({ where: { ...where, status: "MERGED" }, include }) : null);
       if (!row) return null;
       const locked = await lock(current(), row.id);
-      return locked ? toState(locked) : null;
+      return locked ? cartRowToState(locked) : null;
     },
-    async findCartByOwner(owner: CartOwner) { const row = await current().marketplaceCart.findFirst({ where: { ...ownerWhere(owner), status: "ACTIVE" }, include }); return row ? toState(row) : null; },
-    async create(owner: CartOwner) { const row = await current().marketplaceCart.create({ data: { publicReference: `cart_${crypto.randomUUID().replaceAll("-", "")}`, ownerType: owner.type, customerUserId: owner.type === "CUSTOMER" ? owner.userId : null, guestTokenHash: owner.type === "GUEST" ? owner.guestTokenHash : null, currency: "ZAR", status: "ACTIVE" }, include }); return toState(row); },
+    async findCartByOwner(owner: CartOwner) { const row = await current().marketplaceCart.findFirst({ where: { ...ownerWhere(owner), status: "ACTIVE" }, include }); return row ? cartRowToState(row) : null; },
+    async create(owner: CartOwner) { const row = await current().marketplaceCart.create({ data: { publicReference: `cart_${crypto.randomUUID().replaceAll("-", "")}`, ownerType: owner.type, customerUserId: owner.type === "CUSTOMER" ? owner.userId : null, guestTokenHash: owner.type === "GUEST" ? owner.guestTokenHash : null, currency: "ZAR", status: "ACTIVE" }, include }); return cartRowToState(row); },
     async saveCart(cart: MarketplaceCartState) {
       const db = current();
       await db.marketplaceCartLineModifier.deleteMany({ where: { cartLine: { cartId: cart.id } } });
       await db.marketplaceCartLine.deleteMany({ where: { cartId: cart.id } });
       await db.marketplaceCartStoreGroup.deleteMany({ where: { cartId: cart.id } });
-      await db.marketplaceCart.update({ where: { id: cart.id }, data: { ownerType: cart.owner.type, customerUserId: cart.owner.type === "CUSTOMER" ? cart.owner.userId : null, guestTokenHash: cart.owner.type === "GUEST" ? cart.owner.guestTokenHash : null, version: cart.version, lastActivityAt: new Date(), storeGroups: { create: groupData(cart) } } });
+      await db.marketplaceCart.update({ where: { id: cart.id }, data: { ownerType: cart.owner.type, customerUserId: cart.owner.type === "CUSTOMER" ? cart.owner.userId : null, guestTokenHash: cart.owner.type === "GUEST" ? cart.owner.guestTokenHash : null, version: cart.version, lastActivityAt: new Date(), storeGroups: { create: cartStateToGroupCreateData(cart) } } });
     },
     async readOperation(cartId: string, operationId: string) { const row = await current().marketplaceCartOperation.findUnique({ where: { cartId_operationId: { cartId, operationId } } }); return row ? { requestHash: row.requestHash, result: row.response as CartOperationResult } : null; },
     async appendOperation(cartId: string, operationId: string, requestHash: string, result: CartOperationResult, type: MarketplaceCartOperationType) { await current().marketplaceCartOperation.create({ data: { cartId, operationId, requestHash, type, response: result } }); },
@@ -49,8 +49,8 @@ export function createPrismaMarketplaceCartRepository(database: Db = prisma): Ma
   };
   return repository;
 }
-function groupData(cart: MarketplaceCartState) {
+export function cartStateToGroupCreateData(cart: MarketplaceCartState) {
   const byStore = new Map<string, MarketplaceCartState["lines"]>();
   for (const line of cart.lines) byStore.set(line.storeId, [...(byStore.get(line.storeId) ?? []), line]);
-  return [...byStore.entries()].map(([storeId, lines]) => ({ storeId, fulfilmentMode: lines[0]!.selection.fulfilmentMode, lines: { create: lines.map((line) => ({ publicReference: line.publicReference, productPublicReference: line.selection.productReference, variantPublicReference: line.selection.variantReference, offerPublicReference: line.selection.offerReference, quantity: line.quantity, observedPublicationVersion: line.selection.publicationVersion, observedPriceVersion: line.selection.priceVersion, observedUnitPrice: line.selection.unitPrice, lineFingerprint: line.fingerprint, cart: { connect: { id: cart.id } }, modifiers: { create: line.selection.modifiers.map((modifier) => ({ modifierGroupPublicReference: modifier.groupReference, modifierOptionPublicReference: modifier.optionReference, quantity: modifier.quantity, observedPriceDelta: modifier.priceDelta })) } })) } }));
+  return [...byStore.entries()].map(([storeId, lines]) => ({ storeId, fulfilmentMode: lines[0]!.selection.fulfilmentMode, lines: { create: lines.map((line) => ({ publicReference: line.publicReference, productPublicReference: line.selection.productReference, variantPublicReference: line.selection.variantReference, offerPublicReference: line.selection.offerReference, quantity: line.quantity, observedPublicationVersion: line.selection.publicationVersion, observedPriceVersion: line.selection.priceVersion, observedSellingUnit: line.selection.sellingUnit, observedUnitPrice: line.selection.unitPrice, lineFingerprint: line.fingerprint, cart: { connect: { id: cart.id } }, modifiers: { create: line.selection.modifiers.map((modifier) => ({ modifierGroupPublicReference: modifier.groupReference, modifierOptionPublicReference: modifier.optionReference, quantity: modifier.quantity, observedPriceDelta: modifier.priceDelta })) } })) } }));
 }

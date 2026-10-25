@@ -9330,6 +9330,7 @@ model MarketplaceCartLine {
   observedPublicationVersion String
   observedPriceVersion       String
   observedUnitPrice          Decimal                      @db.Decimal(18, 2)
+  observedSellingUnit        CatalogSellingUnit           @default(EACH)
   eligibilityStatus          MarketplaceEligibilityStatus @default(ELIGIBLE)
   eligibilityIssues          Json?
   lineFingerprint            String

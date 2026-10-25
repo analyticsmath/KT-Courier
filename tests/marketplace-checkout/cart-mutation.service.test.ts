@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- in-memory repository fixture intentionally models a dynamic persistence adapter. */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
+import { cartLineFingerprint } from "@/lib/marketplace-checkout/policy";
 import {
   addCartLine,
   claimGuestCart,
   clearCart,
   mergeGuestAndCustomerCarts,
+  replaceCartLineModifiers,
   updateCartLineQuantity,
   type MarketplaceCartMutationRepository,
   type MarketplaceCartState,
@@ -121,6 +123,54 @@ describe("marketplace cart mutation service", () => {
     });
     expect(first.cart.lines).toHaveLength(1);
     expect(replay.replayed).toBe(true);
+  });
+  it("reprices a duplicate line at the combined quantity, rather than retaining the first unit-price tier", async () => {
+    const repo = repository({ id: "cart", publicReference: "cart-ref", owner: customer, status: "ACTIVE", version: 1, lines: [{publicReference:"existing",storeId:"store",quantity:2,fingerprint:cartLineFingerprint({offerReference: "offer",variantReference:"variant",modifiers:[]}),selection:{...selection,quantity:2,unitPrice:"100.00"}}] });
+    const result = await addCartLine(repo, {
+      cartId:"cart",owner:customer,mutation:{operationId:"volume-add",requestHash:"volume-hash",expectedVersion:1},
+      selection:{...selection,quantity:1,unitPrice:"100.00"},
+      revalidate: async (_line,quantity)=>({...selection,quantity,unitPrice:quantity>=3?"90.00":"100.00"}),
+    });
+    expect(result.cart.lines).toHaveLength(1);
+    expect(result.cart.lines[0]).toMatchObject({quantity:3,selection:{quantity:3,unitPrice:"90.00"}});
+    expect(repo.receipts.get("volume-add")?.type).toBe("ADD_LINE");
+  });
+  it("rejects duplicate SKU additions if server price revalidation fails, without changing cart or operation receipts", async () => {
+    const fingerprint=cartLineFingerprint({offerReference:"offer",variantReference:"variant",modifiers:[]});
+    const original:MarketplaceCartState={id:"cart",publicReference:"cart-ref",owner:customer,status:"ACTIVE",version:1,lines:[{publicReference:"existing",storeId:"store",quantity:2,fingerprint,selection:{...selection,quantity:2}}]};
+    const repo=repository(original);
+    await expect(addCartLine(repo,{cartId:"cart",owner:customer,mutation:{operationId:"unverified-volume",requestHash:"hash",expectedVersion:1},selection:{...selection,quantity:1},revalidate:async()=>{throw new Error("The product is no longer offered.");}})).rejects.toThrow("The product is no longer offered.");
+    expect(repo.state).toEqual(original);
+    expect(repo.receipts.size).toBe(0);
+  });
+  it("rejects attempts to substitute a different offer while repricing the combined cart quantity", async () => {
+    const fingerprint=cartLineFingerprint({offerReference:"offer",variantReference:"variant",modifiers:[]});
+    const repo=repository({id:"cart",publicReference:"cart-ref",owner:customer,status:"ACTIVE",version:1,lines:[{publicReference:"existing",storeId:"store",quantity:2,fingerprint,selection:{...selection,quantity:2}}]});
+    await expect(addCartLine(repo,{cartId:"cart",owner:customer,mutation:{operationId:"different-offer",requestHash:"hash",expectedVersion:1},selection:{...selection,quantity:1},revalidate:async(_,quantity)=>({...selection,offerReference:"other",quantity})})).rejects.toMatchObject({code:"CART_LINE_INVALID"});
+    expect(repo.state.version).toBe(1);
+  });
+  it("merging identical guest/customer SKU reprices at the merged volume tier", async () => {
+    const customerCart:MarketplaceCartState={id:"customer-cart",publicReference:"customer-ref",owner:customer,status:"ACTIVE",version:1,lines:[{publicReference:"own",storeId:"store",quantity:2,fingerprint:cartLineFingerprint({offerReference: "offer",variantReference:"variant",modifiers:[]}),selection:{...selection,quantity:2,unitPrice:"100.00"}}]};
+    const guestCart:MarketplaceCartState={id:"guest-cart",publicReference:"guest-ref",owner:guest,status:"ACTIVE",version:1,lines:[{publicReference:"guest",storeId:"store",quantity:1,fingerprint:cartLineFingerprint({offerReference: "offer",variantReference:"variant",modifiers:[]}),selection:{...selection,quantity:1,unitPrice:"100.00"}}]};
+    const repo=repository(customerCart);
+    const result=await mergeGuestAndCustomerCarts(repo,{guestCart,customerCart,customerOwner:customer,mutation:{operationId:"merge-volume",requestHash:"merge-hash",expectedVersion:1},revalidate:async(line,quantity)=>({...line.selection,quantity:quantity??line.quantity,unitPrice:(quantity??line.quantity)>=3?"90.00":"100.00"})});
+    expect(result.cart.lines).toHaveLength(1);
+    expect(result.cart.lines[0]).toMatchObject({quantity:3,selection:{quantity:3,unitPrice:"90.00"}});
+  });
+  it("reprices a modifier collision at the combined quantity before removing the old line", async () => {
+    const modifier = { groupReference:"topping", optionReference:"cheese", quantity:1,priceDelta:"3.00" };
+    const cheese={...selection,quantity:2,modifiers:[modifier],unitPrice:"100.00"};
+    const base={...selection,quantity:1,unitPrice:"100.00"};
+    const cheeseFingerprint=cartLineFingerprint({offerReference:"offer",variantReference:"variant",modifiers:[{groupReference:"topping",optionReference:"cheese",quantity:1}]});
+    const plainFingerprint=cartLineFingerprint({offerReference:"offer",variantReference:"variant",modifiers:[]});
+    const repo=repository({id:"cart",publicReference:"cart-ref",owner:customer,status:"ACTIVE",version:1,lines:[
+      {publicReference:"cheese",storeId:"store",quantity:2,fingerprint:cheeseFingerprint,selection:cheese},
+      {publicReference:"plain",storeId:"store",quantity:1,fingerprint:plainFingerprint,selection:base},
+    ]});
+    const result=await replaceCartLineModifiers(repo,{cartId:"cart",lineReference:"plain",owner:customer,mutation:{operationId:"collision-tier",requestHash:"collision",expectedVersion:1},modifiers:[{groupReference:"topping",optionReference:"cheese",quantity:1}],
+      revalidate:async (_line,_mods,quantity)=>({...cheese,quantity:quantity??1,unitPrice:(quantity??1)>=3?"90.00":"100.00"}) });
+    expect(result.cart.lines).toHaveLength(1);
+    expect(result.cart.lines[0]).toMatchObject({quantity:3,selection:{quantity:3,unitPrice:"90.00"}});
   });
   it("rejects changed-request replay and locked carts", async () => {
     const repo = repository({

@@ -17,7 +17,12 @@ export async function POST(request: NextRequest) {
     const repository = createPrismaMarketplaceCartRepository();
     const cart = await createOrResolveCart(repository, owner as CartOwner, () => repository.create(owner as CartOwner));
     const selection = await resolveMarketplaceCartLine({ offerReference: stringField(body, "offerReference", 160), variantReference: stringField(body, "variantReference", 160), quantity: integerField(body, "quantity"), modifiers });
-    const result = await addCartLine(repository, { cartId: cart.id, owner: owner as CartOwner, mutation: { operationId: stringField(body, "operationId", 160), requestHash: stringField(body, "requestHash", 160), expectedVersion: integerField(body, "cartVersion") }, selection });
+    const result = await addCartLine(repository, { cartId: cart.id, owner: owner as CartOwner, mutation: { operationId: stringField(body, "operationId", 160), requestHash: stringField(body, "requestHash", 160), expectedVersion: integerField(body, "cartVersion") }, selection,
+      revalidate: (line, quantity) => resolveMarketplaceCartLine({
+        offerReference: line.selection.offerReference, variantReference: line.selection.variantReference,
+        quantity, modifiers: line.selection.modifiers.map(({ groupReference, optionReference, quantity: modifierQuantity }) => ({ groupReference, optionReference, quantity: modifierQuantity })),
+      }),
+    });
     const hydrated = await projectHydratedCart(result.cart);
     const response = marketplaceJson({ cart: { ...result, cart: hydrated, ...hydrated } }, 201); if (guestSecret) response.cookies.set(MARKETPLACE_CART_COOKIE, guestSecret, marketplaceGuestCookieOptions); return response;
   } catch (error) { return marketplaceError(error); }

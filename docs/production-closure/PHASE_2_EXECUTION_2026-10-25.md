@@ -1,0 +1,36 @@
+# Phase 2 — role-by-role functional and security acceptance ledger
+
+**Scope authority:** `THREE_PHASE_FINISH_PLAN_2026-10-25.md`, client documentation precedence already recorded there, and current source. **No claim of Phase 2 closure is authorized by passing unit tests alone.** Record each evidence tier separately. This ledger is an engineering checkpoint; phase status stays **IN_PROGRESS** until every P2 gate has T2/T3 evidence at one exact release SHA and no P0 failures.
+
+## New defects reproduced and corrected on the Phase 2 release candidate
+
+| Gate | Before (RED reproduction) | Correction and regression (GREEN) |
+|---|---|---|
+| P2-03 marketplace pricing | Adding a duplicate cart SKU increased quantity without updating its authoritative bulk-discount unit price. A guest-cart merge produced the same inconsistency. | `addCartLine` requires fresh server pricing on the combined quantity; guest/customer merges and modifier collisions also revalidate the combined quantity before storing. Replays remain idempotent, cross-store/offer substitutions fail closed, and unresolved pricing cannot mutate the cart. `tests/marketplace-checkout/cart-mutation.service.test.ts`. |
+| P2-03 catalog units/checkout | Phase 1.5 captured pair/pack/bulk SKU on selection, but the persisted `MarketplaceCartLine` had no selling-unit field. Reloading a cart could lose the package type before review and checkout. | Versioned `observedSellingUnit` cart snapshot with migration `20261025024000_cart_pack_unit_snapshots`; repository serialization/deserialization, state and legacy creation paths updated. Backfill only where cart publication version still matches source; checkout continues canonical revalidation. `tests/marketplace-checkout/cart-pack-persistence.test.ts`. |
+| P2-04/P2-06 delivery OTP | An authenticated marketplace purchase addressed to another recipient sent the code to buyer-account email instead of frozen shipment recipient. The former implementation did not refuse disagreement between checkout and courier-order recipient email. | Recipient email now bound to `MarketplaceCheckoutContactSnapshot` plus matching courier `Order.recipientEmail`, preserving guest verified-contact checks; a distinct buyer gets a `SHIPMENT_RECIPIENT` identity. No fallback to buyer/seller. `tests/driver-operations/delivery-recipient.test.ts`. The existing security-email worker independently checks the subject identity again before send. |
+
+## Mandatory Phase 2 gates and non-inflated evidence inventory
+
+**Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.
+
+| Gate | Primary existing evidence anchors | Remaining acceptance before PASS |
+|---|---|---|
+| P2-01 Identity and tenant RBAC | `tests/e2e/customer-identity-lifecycle.spec.ts`, `driver-account-signup.spec.ts`, `tests/integration/auth*`, `tests/security/bola-*`, permissions suites | Exact-SHA full selected T2/T3, invalid OTP, role revocation, vendor invitation handoff and responsive account recovery |
+| P2-02 Parcel quotes and payment choices | `tests/e2e/anonymous-courier-quote.spec.ts`, `pricing/pricing.spec.ts`, `tests/api/parcel-payment-methods.test.ts`, payment-policy tests | T3 complete booking with approved/blocked 100% COD, address/coverage variations, real lifecycle cancellation/refund tests in isolated runtime |
+| P2-03 Marketplace | `tests/e2e/marketplace-cart.spec.ts`, `marketplace-checkout-payment.spec.ts`, `vendor-five-product-media.spec.ts`, PostgreSQL checkout/catalog suites, new cart tests | T2/T3 full approved SKU/cart/repricing/stock reservation, guest claim, signed isolated Paystack, vendor pack/dispatch, checkout/refund after new cart persistence migration |
+| P2-04 Driver and delivery | `tests/e2e/driver-canonical-delivery.spec.ts`, `driver-operations.spec.ts`, `driver-profile-onboarding.spec.ts`, `driver-documents.spec.ts`, `dispatch/dispatch.spec.ts` | 1440/390 GPS/no-GPS custody, OTP/POD/failed attempt/redelivery, role denies, synthetic device evidence; no genuine road acceptance assumed |
+| P2-05 COD and finance | `tests/e2e/cod-custody-remittance.spec.ts`, canonical COD support and finance ledger tests, refund/withdrawal acceptance suites | T2/T3 exact ledger before/after, bank/in-person handover replay, independent admin approval, no unverified funds released; real bank receipt is Phase 3 |
+| P2-06 Notifications | `tests/e2e/transactional-notifications.spec.ts`, `tests/api/driver-delivery-otp.test.ts`, delivery recipient and provider-status tests | Secure deliverability tests for sender/receiver/vendor/driver, retries, fail-closed wrong recipient, provider accepted distinct from actual inbox receipt |
+| P2-07 Dashboards and UX | `tests/e2e/production-visual-review.spec.ts`, `keyboard-navigation.spec.ts`, `store-order-accessibility.spec.ts`, `mobile-viewport.spec.ts`, `control-desk.spec.ts` | Authenticated screen review at 320/390/768/1440, accessible actions, actual empty/error states and independent human visual QA. No fabricated sign-off |
+| P2-08 Nonfunctional/security | `tests/security/*`, migration smoke, distributed worker and idempotency tests, `docs/production-closure/DISASTER_RECOVERY_RUNBOOK.md` | Exact-SHA Docker + PostgreSQL/Redis, rollback and restoration drill on *disposable* backup, rate/abuse controls, real performance measurement, no leaked credentials |
+
+## Operational safeguards and signoff rules
+
+- No live payment, refund, COD bank transfer, payout or settlement triggered by tests; use isolated disposable databases and synthetic identities only.
+- Existing production finance/policy locks stay enabled and unmodified. Optional promoter/referral/paid-advertising programs remain outside initial launch until valid approvals; code presence does not imply business activation.
+- New SHA invalidates exact-commit acceptance and requires CI/browser/deploy replay. Artifacts should identify SHA, UTC time, role, viewport, identity isolation, route, financial before/after and any skipped cases.
+- **Latest verified local candidate, 2026-10-25:** all 4,806 tests PASS across 962 Vitest suites; TypeScript and changed-file lint PASS, Prisma schema validation and migration safety PASS. Targeted regression reproductions first failed and subsequently passed. CI/isolated DB/browser acceptance remains a separate exact-SHA gate and must not be inferred from local tests.
+- **Phase 2 result at authoring:** IN_PROGRESS. Remaining role-by-role browser/runtime and independent UX evidence cannot be inferred from compilation or the prior release's CI.
+
+**Client-input trigger:** No client WhatsApp request for dummy testing. After the engineering-owned T2/T3 gates close, request only missing real bank/company/provider/legal/operational decisions under Phase 3.

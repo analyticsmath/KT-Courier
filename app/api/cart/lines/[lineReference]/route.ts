@@ -49,10 +49,10 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ l
       owner: owner as CartOwner,
       mutation,
       modifiers,
-      revalidate: async (line, currentModifiers) => resolveMarketplaceCartLine({
+      revalidate: async (line, currentModifiers, quantity) => resolveMarketplaceCartLine({
         offerReference: line.selection.offerReference,
         variantReference: line.selection.variantReference,
-        quantity: line.quantity,
+        quantity: quantity ?? line.quantity,
         modifiers: currentModifiers,
       }),
     });
