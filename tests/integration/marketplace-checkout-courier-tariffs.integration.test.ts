@@ -73,7 +73,8 @@ describe("marketplace courier tariff persistence on isolated PostgreSQL", () => 
     await actOnTrustedPackageVersion(actor.id, { version: second.version, expectedUpdatedAt: second.updatedAt,
       action: "ACTIVATE", reason: "Activate independently reviewed two-unit consignment" });
     const aggregate = await createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey);
-    expect(aggregate.total).toBe("89.00");
+    // The measured sealed consignment is MEDIUM, not the single item's SMALL.
+    expect(aggregate.total).toBe("129.00");
     const aggregateRow = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: aggregate.id } });
     expect(aggregateRow.ruleSnapshot).toMatchObject({ parcelClassification: {
       reason: "REVIEWED_MEASURED_CONSIGNMENT", sizeClass: "MEDIUM", weightKg: 9, packageVersion: second.version,
