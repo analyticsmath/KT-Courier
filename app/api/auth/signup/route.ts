@@ -20,9 +20,10 @@ import {
 import { UserRole, OtpPurpose } from "@/types/db";
 import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
 import { deliverSecurityEmail } from "@/lib/notifications/security-email-delivery";
-import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import { checkAuthRateLimit, checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
+import { issuePendingVerificationOtp } from "@/lib/auth/pending-verification-otp";
 import {
   shouldQueueSecurityEmail,
   securityEmailUnavailableResponse,
@@ -89,7 +90,17 @@ export async function POST(req: NextRequest) {
     where: { email: data.email },
   });
   if (existing) {
-    if (process.env.NODE_ENV === "production") return NextResponse.json({ message: REGISTRATION_NOTICE, email: data.email, deliveryPending: true }, { status: 202, headers: { "Cache-Control": "no-store" } });
+    if (process.env.NODE_ENV === "production") {
+      // A prior, unverified registration must not strand the user on a code screen.
+      // Reuse the same recipient-scoped limiter as the explicit resend endpoint.
+      // Keep the response indistinguishable for active/absent/pending accounts.
+      const limiter = await checkAuthRateLimit(req, "resend-otp", data.email, RATE_LIMITS.RESEND_OTP);
+      if (limiter.ok && existing.status === "PENDING_VERIFICATION") {
+        const issued = await issuePendingVerificationOtp(data.email).catch(() => null);
+        if (issued?.deliveryId) await deliverSecurityEmail(issued.deliveryId).catch(() => null);
+      }
+      return NextResponse.json({ message: REGISTRATION_NOTICE, email: data.email, deliveryPending: true }, { status: 202, headers: { "Cache-Control": "no-store" } });
+    }
     return NextResponse.json(
       { error: "An account with this email already exists." },
       { status: 409 },

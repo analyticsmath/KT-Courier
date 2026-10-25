@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { generateOtpCode, hashOtp, otpExpiresAt } from "@/lib/auth/otp";
 import { ResendOtpSchema, formatZodErrors } from "@/lib/validation/auth";
-import { OtpPurpose, UserStatus } from "@/types/db";
+import { UserStatus } from "@/types/db";
 import { VERIFICATION_NOTICE } from "@/lib/auth/public-auth-messages";
-import { queueSecurityNotification } from "@/lib/notifications/security-delivery";
 import { deliverSecurityEmail } from "@/lib/notifications/security-email-delivery";
 import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
 import {
   accountEmailQueueFailureResponse,
-  shouldQueueSecurityEmail,
   securityEmailUnavailableResponse,
 } from "@/lib/auth/security-email-readiness";
-
-const OTP_EXPIRES_MINUTES = 15;
+import { issuePendingVerificationOtp } from "@/lib/auth/pending-verification-otp";
 
 export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
@@ -65,52 +61,7 @@ export async function POST(req: NextRequest) {
     }, { status: process.env.NODE_ENV === "production" ? 202 : 200, headers: { "Cache-Control": "no-store" } });
   }
 
-  const code = generateOtpCode();
-  const queued = await prisma
-    .$transaction(async (tx) => {
-      await tx.otpCode.updateMany({
-        where: {
-          email,
-          purpose: OtpPurpose.EMAIL_VERIFICATION,
-          consumedAt: null,
-        },
-        data: { consumedAt: new Date() },
-      });
-
-      const otp = await tx.otpCode.create({
-        data: {
-          userId: user.id,
-          email,
-          codeHash: hashOtp(code),
-          purpose: OtpPurpose.EMAIL_VERIFICATION,
-          expiresAt: otpExpiresAt(),
-        },
-      });
-
-      let deliveryId: string | undefined;
-      if (shouldQueueSecurityEmail()) {
-        const notification = await queueSecurityNotification(
-          {
-            eventType: "EMAIL_VERIFICATION_OTP",
-            operationId: `email-verification:${otp.id}`,
-            subjectUserId: user.id,
-            aggregateReference: user.id,
-            expiresAt: otp.expiresAt,
-            values: {
-              name: user.name ?? "there",
-              otp: code,
-              expiresMinutes: OTP_EXPIRES_MINUTES,
-            },
-            allowUnverifiedBootstrapEmail: true,
-          },
-          tx,
-        );
-        deliveryId = notification.delivery.id;
-      }
-
-      return { deliveryId };
-    })
-    .catch(() => null);
+  const queued = await issuePendingVerificationOtp(email).catch(() => null);
 
   if (!queued) return accountEmailQueueFailureResponse();
 
@@ -126,7 +77,7 @@ export async function POST(req: NextRequest) {
     message: VERIFICATION_NOTICE,
     ...(process.env.NODE_ENV === "production" && { deliveryPending: true }),
     ...(process.env.NODE_ENV !== "production" && {
-      _dev_otp: code,
+      _dev_otp: queued.devOtp,
       _dev_note: "OTP visible in development only.",
     }),
   }, { status: process.env.NODE_ENV === "production" ? 202 : 200, headers: { "Cache-Control": "no-store" } });

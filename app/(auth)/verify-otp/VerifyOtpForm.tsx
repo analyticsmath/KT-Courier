@@ -90,7 +90,8 @@ export function VerifyOtpForm({
   return (
     <>
       <AuthRouteIntro title="Check your email">
-        Enter the verification code sent to <strong>{maskedEmail}</strong>.
+        Enter the verification code sent to <strong>{maskedEmail}</strong> if this address still needs verification.
+        If no code arrives, choose <strong>Resend verification code</strong> below. Already verified? Sign in instead.
       </AuthRouteIntro>
       <form
         className={`${styles.formCard} ${styles.formStack}`}
