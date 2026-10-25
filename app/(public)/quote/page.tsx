@@ -25,7 +25,8 @@ export default async function Page({
             <p className={styles.description}>
               Enter your collection and destination addresses, choose a parcel
               size and service, and get a quote before you book. No account
-              needed to start.
+              needed to start. At booking, choose online payment or cash on
+              delivery only if approved for your route, service and amount.
             </p>
           </header>
           <div className={`${styles.body} ${styles.quoteBody}`}>
