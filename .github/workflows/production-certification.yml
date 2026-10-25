@@ -166,11 +166,29 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: certification-browser-reports, path: 'output/production-closure'}
-  certified:
+  phase2-automated:
+    name: Phase 2 automated engineering verification (not live launch approval)
     runs-on: ubuntu-latest
     needs: [quality, postgres, redis-and-recovery, recovery, browser]
+    env:
+      KT_PHASE2_JOB_QUALITY: ${{ needs.quality.result }}
+      KT_PHASE2_JOB_POSTGRES: ${{ needs.postgres.result }}
+      KT_PHASE2_JOB_REDIS: ${{ needs['redis-and-recovery'].result }}
+      KT_PHASE2_JOB_RECOVERY: ${{ needs.recovery.result }}
+      KT_PHASE2_JOB_BROWSER: ${{ needs.browser.result }}
     steps:
       - uses: actions/checkout@v4
         with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
-      - run: node scripts/check-closure-engineering-gates.mjs
+      - run: node scripts/phase2-engineering-verification.mjs
+      - uses: actions/upload-artifact@v4
+        with: {name: phase2-automated-engineering, path: 'output/production-closure/phase2-automated-engineering.json'}
+  certified:
+    name: Phase 3 live launch veto (real approvals still required)
+    runs-on: ubuntu-latest
+    needs: [quality, postgres, redis-and-recovery, recovery, browser, phase2-automated]
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
+      - name: Independent Phase 3 launch authorization — fail closed until real evidence exists
+        run: node scripts/check-closure-engineering-gates.mjs
       - run: echo 'Engineering gates passed for this commit. Separate production and live acceptance evidence is still required.'

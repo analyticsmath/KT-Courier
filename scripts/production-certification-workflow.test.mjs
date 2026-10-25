@@ -28,7 +28,8 @@ test("all certification jobs check out the same exact PR head or dispatch/tag SH
 });
 
 test("separate observable disposable jobs, strict browser plan and final manifest gates remain", () => {
-  assert.deepEqual(workflow.jobs.certified.needs, ["quality", "postgres", "redis-and-recovery", "recovery", "browser"]);
+  assert.deepEqual(workflow.jobs.certified.needs, ["quality", "postgres", "redis-and-recovery", "recovery", "browser", "phase2-automated"]);
+  assert.deepEqual(workflow.jobs["phase2-automated"].needs, ["quality", "postgres", "redis-and-recovery", "recovery", "browser"]);
   assert.equal(workflow.jobs.postgres.services.postgres.env.POSTGRES_DB, "kt_launch_test");
   assert.equal(workflow.env.KT_NETWORK_DISABLED, "true");
   assert.equal(workflow.env.PAYSTACK_ACTIVE, "false");
