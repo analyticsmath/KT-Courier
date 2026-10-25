@@ -68,9 +68,21 @@ export function storeOrderScenarios(domain: "customer" | "merchant" | "admin" | 
       await expect(caseRow).toHaveCount(1);
       await expect(caseRow).toBeVisible();
       await expect(caseRow.getByText(f.storeReference, { exact: true })).toBeVisible();
-      await expect(caseRow).toContainText("ADMIN_CANONICAL_RESCAN");
       await expect(caseRow).toContainText("Settled");
-      await expect(caseRow).toContainText("PENDING_STORE_REVIEW");
+      await expect(caseRow.getByText("Awaiting store review", { exact: true })).toBeVisible();
+      await expect(caseRow.getByText("Not started", { exact: true })).toBeVisible();
+      await expect(caseRow.getByText("Not requested", { exact: true })).toBeVisible();
+      await expect(caseRow.getByText("Administrator-requested reconciliation rescan", { exact: true })).toBeVisible();
+      // Internal reason codes remain discoverable without replacing human-facing status labels.
+      const auditDetails = caseRow.getByText("Technical reason", { exact: true });
+      await auditDetails.click();
+      await expect(caseRow.getByText("ADMIN_CANONICAL_RESCAN", { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+      if (width === 390) {
+        await page.setViewportSize({ width: 320, height: 720 });
+        expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
+        await expect(caseRow.getByText("Awaiting store review", { exact: true })).toBeVisible();
+      }
       await info.attach(`admin-store-reconciliation-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`admin-store-reconciliation-${width}.png`) }), contentType: "image/png" });
     } else if (domain === "substitution") {
       const pref = await customerAction(page, f.order.publicReference, f.storeReference, { action: "substitution-preference", orderLineId: f.baseline.lines[0].id, preference: "CONTACT_ME" }); expect(pref.status(), await pref.text()).toBe(200);
