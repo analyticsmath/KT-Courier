@@ -28,6 +28,9 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 1366, height: 768
     await checkSurface(page, "/driver/onboarding");
     await login(page, "superadmin@ktcouriers.local");
     await checkSurface(page, "/admin/production-readiness");
+    await checkSurface(page, "/admin/marketplace-delivery-policy");
+    await expect(page.getByRole("heading", {name:"Measured multi-item consignment", exact:true})).toBeVisible();
+    await expect(page.getByLabel("Sealed package total weight (kg)")).toBeVisible();
     // Functional assertions do not replace the required native browser review.
   });
 }
