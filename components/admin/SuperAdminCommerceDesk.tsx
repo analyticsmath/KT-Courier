@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { parseCommerceSelection } from "@/lib/super-admin/selection";
 
 type Store={id:string;name:string;status:string};
 type Product={id:string;title:string;sourceStoreId:string|null;variants:{id:string;title:string;status:string}[]};
@@ -30,19 +31,19 @@ export function SuperAdminCommerceDesk({stores,types,categories,products,offers}
  async function submit(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();if(busy)return;setBusy(true);setNotice(null);
   const raw=Object.fromEntries(new FormData(e.currentTarget));let data:Record<string,unknown>={...raw};let action="CREATE_STORE";
+  try {
   if(mode==="PRODUCTS"){action="CREATE_PRODUCT_DRAFT";data={...raw,storeId,scope:"STORE_PRIVATE",condition:"NEW",attributeValues:{},complianceValues:{},operationId:crypto.randomUUID()};}
-  if(mode==="OFFERS"){action="CREATE_OFFER_DRAFT";data={...JSON.parse(String(raw.variantSelection)),storeId,storeSku:raw.storeSku,sellingUnit:raw.sellingUnit,inventoryTrackingMode:raw.inventoryTrackingMode,fulfilmentMode:"COURIER_DELIVERY",quantityStep:raw.quantityStep,minimumQuantity:raw.minimumQuantity,operationId:crypto.randomUUID()};}
-  if(mode==="PRICES"){action="CREATE_PRICE_DRAFT";data={...JSON.parse(String(raw.offer)),storeId,amount:raw.amount,currency:"ZAR",priceIncludesTax:true,effectiveFrom:new Date(String(raw.effectiveFrom)).toISOString(),reasonCode:"ADMIN_PRICE_DRAFT",operationId:crypto.randomUUID()};}
+  if(mode==="OFFERS"){action="CREATE_OFFER_DRAFT";data={...parseCommerceSelection(String(raw.variantSelection ?? ""),["productId","variantId"]),storeId,storeSku:raw.storeSku,sellingUnit:raw.sellingUnit,inventoryTrackingMode:raw.inventoryTrackingMode,fulfilmentMode:"COURIER_DELIVERY",quantityStep:raw.quantityStep,minimumQuantity:raw.minimumQuantity,operationId:crypto.randomUUID()};}
+  if(mode==="PRICES"){action="CREATE_PRICE_DRAFT";data={...parseCommerceSelection(String(raw.offer ?? ""),["offerPublicReference","offerVersion"]),storeId,amount:raw.amount,currency:"ZAR",priceIncludesTax:true,effectiveFrom:new Date(String(raw.effectiveFrom)).toISOString(),reasonCode:"ADMIN_PRICE_DRAFT",operationId:crypto.randomUUID()};}
   if(mode==="ATTRIBUTES"){
    action="CREATE_PRICED_ATTRIBUTES";
-   const offer=JSON.parse(String(raw.offer)) as {offerPublicReference:string};
+   const offer=parseCommerceSelection<{offerPublicReference:string}>(String(raw.offer ?? ""),["offerPublicReference"]);
    const selected=offers.find(x=>x.publicReference===offer.offerPublicReference&&x.storeId===storeId);
    data={storeId,offerId:selected?.id,name:raw.groupName,minimumSelections:1,maximumSelections:1,isRequired:true,options:[
     {name:raw.optionName,priceDelta:raw.optionPrice,currency:"ZAR",displayOrder:0}
    ],operationId:crypto.randomUUID()};
   }
   if(mode==="RECOVERY")data={email:raw.email};
-  try{
    const response=await fetch(mode==="RECOVERY"?"/api/admin/super-admin/password-reset":"/api/admin/super-admin/commerce",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(mode==="RECOVERY"?data:{action,data})});
    const outcome=await response.json();if(!response.ok)throw new Error(outcome.error??"Operation rejected.");
    const labels:Record<Mode,string>={STORES:"Pending store created. Independent vendor approval remains required.",PRODUCTS:"Unpublished product draft created.",OFFERS:"Store listing drafted; inventory and publication require review.",PRICES:"Price version drafted; live checkout pricing unchanged.",ATTRIBUTES:"Draft offer option created and linked. It still requires independent publication review.",RECOVERY:"If eligible, this account will receive secure password reset instructions."};
