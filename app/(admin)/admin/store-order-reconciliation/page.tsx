@@ -5,6 +5,7 @@ import { OperationalPanel } from "@/components/protected-v2/surfaces/Operational
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { presentCommerceStatus } from "@/lib/commerce-admin-presentation/commerce-status";
+import { operationalWorkflowStatus, reconciliationReason } from "@/lib/commerce-admin-presentation/store-order-reconciliation";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { prisma } from "@/lib/db/prisma";
@@ -48,8 +49,8 @@ export default async function StoreOrderReconciliationPage() {
         { id: "reference", header: "Case", priority: "primary", cell: (item) => <span className="font-mono text-xs">{item.publicReference}</span> },
         { id: "storeOrder", header: "Marketplace store order", priority: "primary", cell: (item) => <div><span className="block break-all font-mono text-xs">{item.storeOrder?.publicReference ?? "Store order unavailable"}</span><small className="block mt-1">{item.storeOrder?.store?.name ?? "Store unavailable"}</small></div> },
         { id: "scope", header: "Order scope", priority: "secondary", cell: (item) => item.storeOrder?.operationalScope === "HISTORICAL" ? "Historical record · read only" : "Live operations" },
-        { id: "fulfilment", header: "Operational state", priority: "secondary", cell: (item) => item.storeOrder ? <div><ProtectedStatus label={presentCommerceStatus(item.storeOrder.status).label} tone={presentCommerceStatus(item.storeOrder.status).tone} /><small>{item.storeOrder.acceptanceStatus} · {item.storeOrder.preparationStatus} · {item.storeOrder.deliveryBridgeStatus}</small></div> : "Unavailable" },
-        { id: "reason", header: "Discrepancy", priority: "secondary", cell: (item) => item.reasonCode },
+        { id: "fulfilment", header: "Operational state", priority: "secondary", cell: (item) => item.storeOrder ? <dl className="grid min-w-0 gap-2 text-xs">{operationalWorkflowStatus(item.storeOrder).map(state => <div key={state.label} className="grid min-w-0 gap-1 sm:grid-cols-[7rem_minmax(0,1fr)] sm:items-baseline"><dt className="text-[var(--kt-text-soft)]">{state.label}</dt><dd className="min-w-0 break-words font-medium text-[var(--kt-brand-navy)]">{state.value}</dd></div>)}</dl> : "Unavailable" },
+        { id: "reason", header: "Discrepancy", priority: "secondary", cell: (item) => <div className="min-w-0"><span className="block break-words">{reconciliationReason(item.reasonCode)}</span><details className="mt-2 text-xs text-[var(--kt-text-soft)]"><summary className="cursor-pointer">Technical reason</summary><code className="mt-1 block break-all font-mono">{item.reasonCode}</code></details></div> },
         { id: "summary", header: "Safe summary", priority: "optional", cell: (item) => item.safeSummary },
         { id: "caseState", header: "Case state", priority: "secondary", cell: (item) => { const state = presentCommerceStatus(item.status); return <ProtectedStatus label={state.label} tone={state.tone} />; } },
         { id: "observed", header: "Last updated", priority: "secondary", cell: (item) => <time>{formatDateTime(item.updatedAt)}</time> },
