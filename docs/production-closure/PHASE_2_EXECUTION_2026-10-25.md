@@ -18,6 +18,12 @@
 
 **Evidence status:** source tests and static lint are available; neither new browser case may be counted as PASS until an isolated Chromium run executes this exact SHA. The earlier Phase 2 CI `e63e32d` concluded SUCCESS with 10/10 mandatory CI jobs and 18 scope-conditional skips; Railway `web`/worker both SUCCESS and Vercel READY at that SHA. Full certification was 23/24 green while its catalog browser job continued. These results belong to that historical SHA only.
 
+## Cash-method visual truthfulness
+
+`components/forms/ParcelPaymentChoice.tsx` now mutes the unavailable `FULL_COD` label, icon and cash amount using the existing public muted text token, while leaving the eligible state in the normal brand palette. The response remains visible and explanatory; it is not silently removed. This is presentation-only and **does not change** independent cash eligibility, pricing, banking, or ledger authority. The fail-first SSR regression in `tests/client-platform/parcel-payment-choice-ui.test.ts` verifies the state distinction. The full local suite passes **4,807/4,807** on this candidate with TypeScript and changed-file lint passing. Authenticated browser recheck is separately required.
+
+**CI history:** `e63e32d` CI succeeded and deployed on both Railway services plus Vercel; its 23 completed non-browser certification jobs passed, but its still-running catalog browser job was subsequently canceled when the newer commit superseded it. A canceled certification is **not** a PASS, nor is it a test failure. The current exact-SHA certification must finish for release acceptance.
+
 ## Mandatory Phase 2 gates and non-inflated evidence inventory
 
 **Evidence levels:** T1 = unit/static contract; T2 = isolated real PostgreSQL/Redis integration; T3 = role-bound browser 390px and 1440px + negative states/keyboard; T4 = clean exact-SHA CI and production deploy; T5 = live money/personnel/provider verification (Phase 3, never implicit). `NOT_RUN` and `PARTIAL` are not passes.

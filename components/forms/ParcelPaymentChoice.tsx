@@ -68,11 +68,11 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
               />
               <span className="flex items-start justify-between gap-3">
                 <span className="flex items-start gap-3">
-                  <span aria-hidden="true" className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[var(--kt-brand-blue)] text-white" : "bg-[var(--kt-surface-muted)] text-[var(--kt-brand-navy)]"}`}>
+                  <span aria-hidden="true" className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[var(--kt-brand-blue)] text-white" : method.disabled ? "bg-[var(--kt-surface-muted)] text-[var(--kt-public-text-muted-on-surface)]" : "bg-[var(--kt-surface-muted)] text-[var(--kt-brand-navy)]"}`}>
                     {method.id === "FULL_COD" ? <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9h.01M18 15h.01"/></svg> : <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h3"/></svg>}
                   </span>
                   <span className="min-w-0">
-                    <span className="block text-base font-semibold text-[var(--kt-brand-navy)]">{method.label}</span>
+                    <span className={`block text-base font-semibold ${method.disabled ? "text-[var(--kt-public-text-muted-on-surface)]" : "text-[var(--kt-brand-navy)]"}`}>{method.label}</span>
                     <span className="mt-1 block text-sm leading-5 text-[var(--kt-text-soft)]">{method.summary}</span>
                   </span>
                 </span>
@@ -81,7 +81,7 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
                 </span>
               </span>
               <span className="flex flex-wrap items-end justify-between gap-2">
-                <span className="text-xl font-semibold tracking-tight text-[var(--kt-brand-navy)]">{method.amount}</span>
+                <span className={`text-xl font-semibold tracking-tight ${method.disabled ? "text-[var(--kt-public-text-muted-on-surface)]" : "text-[var(--kt-brand-navy)]"}`}>{method.amount}</span>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${eligible && method.id === "FULL_COD" ? "bg-[#E8F4ED] text-[#21643F]" : "bg-[var(--kt-surface-muted)] text-[var(--kt-text-soft)]"}`}>{method.badge}</span>
               </span>
             </label>
