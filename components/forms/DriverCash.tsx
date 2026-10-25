@@ -12,6 +12,8 @@ export function DriverCash({ summary }: { summary: Summary }) {
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   const operations = useRef(new Map<string, { payload: string; id: string }>());
+  const [remittanceChoice, setRemittanceChoice] = useState<Record<string, "BANK_DEPOSIT" | "IN_PERSON">>({});
+  const [copied, setCopied] = useState("");
   async function send(
     key: string,
     url: string,
@@ -39,7 +41,9 @@ export function DriverCash({ summary }: { summary: Summary }) {
       setNotice(
         key.startsWith("collect")
           ? "Cash collection recorded."
-          : "Deposit submitted. Cash remains in your custody until KT verifies receipt.",
+          : payload.remittanceMethod === "IN_PERSON"
+            ? "Cash handover requested. The cash remains your responsibility until KT Couriers confirms it was physically received."
+            : "Deposit submitted. Cash remains in your custody until KT verifies bank receipt.",
       );
       router.refresh();
     } catch (e) {
@@ -54,42 +58,42 @@ export function DriverCash({ summary }: { summary: Summary }) {
   }
   const bank = summary.bankInstructions;
   return (
-    <div className="space-y-8">
-      <dl className="grid gap-5 sm:grid-cols-3">
+    <div className="space-y-9">
+      <dl className="grid gap-3 sm:grid-cols-3">
         {Object.entries({
           "Cash collected": summary.totals.collected,
           "Cash remitted": summary.totals.remitted,
           "Cash in your custody": summary.totals.held,
         }).map(([label, amount]) => (
-          <div key={label}>
-            <dt className="text-sm text-[var(--eo-text-muted)]">{label}</dt>
-            <dd className="mt-2 text-2xl font-semibold">R {amount}</dd>
+          <div key={label} className="rounded-xl border border-[var(--kt-border)] bg-white p-5">
+            <dt className="text-sm text-[var(--kt-text-soft)]">{label}</dt>
+            <dd className="mt-2 text-2xl font-semibold tracking-tight text-[var(--kt-brand-navy)]">R {amount}</dd>
           </div>
         ))}
       </dl>
       <section className="space-y-3">
-        <h2 className="font-semibold">Deposit instructions</h2>
+        <h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Return collected cash to KT Couriers</h2>
         {bank ? (
-          <>
-            <dl className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="space-y-5 rounded-xl border border-[var(--kt-border)] bg-white p-5 sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-semibold text-[var(--kt-brand-navy)]">Official KT Couriers banking details</p><p className="text-sm text-[var(--kt-text-soft)]">Secure instructions · version {bank.expectedVersion}</p></div><Button type="button" variant="secondary" size="sm" onClick={() => { void navigator.clipboard.writeText([bank.bankName, bank.accountName, bank.accountNumber, bank.branchCode, bank.referenceHint].join("\n")).then(() => setCopied("Bank details copied"), () => setCopied("Copy failed — please use the details below")); }}>Copy bank details</Button></div>
+            {copied && <p role="status" className="text-sm">{copied}</p>}
+            <dl className="grid gap-4 text-sm sm:grid-cols-2">
               {Object.entries({
                 Bank: bank.bankName,
                 "Account holder": bank.accountName,
                 "Account number": bank.accountNumber,
                 "Branch code": bank.branchCode,
               }).map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-[var(--eo-text-muted)]">{label}</dt>
-                  <dd>{value}</dd>
+                <div key={label} className="border-b border-[var(--kt-border)] pb-3">
+                  <dt className="text-[var(--kt-text-soft)]">{label}</dt>
+                  <dd className="mt-1 break-all font-semibold text-[var(--kt-brand-navy)]">{value}</dd>
                 </div>
               ))}
             </dl>
-            <p>{bank.referenceHint}</p>
-            <p className="text-sm">
-              Submit the exact deposited amount and bank reference. KT confirms
-              receipt before your cash balance changes.
-            </p>
-          </>
+            <div className="rounded-lg bg-[var(--kt-surface-muted)] p-4 text-sm"><strong>Deposit reference instructions:</strong> {bank.referenceHint}</div>
+            <p className="text-sm leading-6 text-[var(--kt-text-soft)]">Submit the exact deposited amount and real bank reference. KT Couriers must confirm receipt before your cash custody decreases.</p>
+            {summary.handoverEnabled && <p className="rounded-lg border border-[var(--kt-border)] p-4 text-sm leading-6"><strong>Prefer to return cash directly?</strong> Select in-person handover on a cash order below. The administrator must physically count and confirm it.</p>}
+          </div>
         ) : (
           <p>
             KT has not configured bank deposit instructions yet. Contact support
@@ -98,12 +102,12 @@ export function DriverCash({ summary }: { summary: Summary }) {
         )}
       </section>
       <section className="space-y-5">
-        <h2 className="font-semibold">Delivery cash records</h2>
+        <h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Delivery cash records</h2>
         {summary.orders.length ? (
           summary.orders.map((order) => (
             <article
               key={order.orderId}
-              className="space-y-4 border-b border-[var(--eo-border)] pb-5"
+              className="space-y-5 rounded-xl border border-[var(--kt-border)] bg-white p-5 sm:p-6"
             >
               <div className="flex flex-wrap justify-between gap-3">
                 <h3 className="font-medium">{order.orderNumber}</h3>
@@ -139,7 +143,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
               )}
               {order.canDeposit && bank && (
                 <form
-                  className="flex flex-wrap items-end gap-3"
+                  className="space-y-4 rounded-lg bg-[var(--kt-surface-muted)] p-4"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const data = new FormData(e.currentTarget);
@@ -147,12 +151,20 @@ export function DriverCash({ summary }: { summary: Summary }) {
                       orderId: order.orderId,
                       amount: order.cashCollected,
                       bankReference: String(data.get("bankReference") ?? ""),
+                      remittanceMethod: remittanceChoice[order.orderId] ?? "BANK_DEPOSIT",
                     });
                   }}
                 >
-                  <div className="min-w-60 flex-1">
+                  <fieldset className="space-y-2"><legend className="text-sm font-semibold text-[var(--kt-brand-navy)]">How will you return this cash?</legend><div className="flex flex-wrap gap-3">
+                    {(["BANK_DEPOSIT", ...(summary.handoverEnabled ? ["IN_PERSON"] : [])] as Array<"BANK_DEPOSIT" | "IN_PERSON">).map((method) => (
+                      <label key={method} className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--kt-border)] bg-white px-4 py-3 text-sm font-medium">
+                        <input type="radio" name={`remittance-${order.orderId}`} checked={(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === method} onChange={() => setRemittanceChoice((current) => ({ ...current, [order.orderId]: method }))}/>{method === "IN_PERSON" ? "Hand cash directly to KT" : "Bank deposit"}
+                      </label>
+                    ))}
+                  </div></fieldset>
+                  <div className="max-w-xl">
                     <Label htmlFor={`bank-${order.orderId}`}>
-                      Bank deposit reference
+                      {(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "IN_PERSON" ? "Cash handover reference" : "Bank deposit reference"}
                     </Label>
                     <Input
                       id={`bank-${order.orderId}`}
@@ -162,12 +174,9 @@ export function DriverCash({ summary }: { summary: Summary }) {
                       maxLength={120}
                     />
                   </div>
-                  <Button
-                    type="submit"
-                    disabled={busy !== null}
-                    loading={busy === `deposit:${order.orderId}`}
-                  >
-                    Submit R {order.cashCollected} deposit
+                  <p className="text-sm leading-6 text-[var(--kt-text-soft)]">{(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "IN_PERSON" ? "Enter an agreed handover reference. Your cash remains in custody until an authorised administrator physically receives and confirms it." : "Use the real bank transaction reference. Your cash remains in custody until KT Couriers verifies bank receipt."}</p>
+                  <Button type="submit" disabled={busy !== null} loading={busy === `deposit:${order.orderId}`}>
+                    {(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "IN_PERSON" ? `Request handover of R ${order.cashCollected}` : `Submit R ${order.cashCollected} deposit`}
                   </Button>
                 </form>
               )}
@@ -189,7 +198,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
                 R {d.amount} · {d.status.replaceAll("_", " ")}
               </p>
               <p className="text-sm">
-                {d.bankReference} ·{" "}
+                {d.remittanceMethod === "IN_PERSON" ? "In-person handover" : "Bank deposit"} · {d.bankReference} ·{" "}
                 <time dateTime={d.createdAt}>
                   {new Date(d.createdAt).toLocaleDateString()}
                 </time>

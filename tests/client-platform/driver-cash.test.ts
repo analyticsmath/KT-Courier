@@ -30,6 +30,7 @@ import {
   submitDriverDeposit,
   reviewDriverDeposit,
   saveBankInstructions,
+  driverCashSummary,
 } from "@/lib/client-platform/driver-cash.service";
 const input = {
   orderId: "corder12345678901234567890",
@@ -55,6 +56,7 @@ const deposit = {
   ...input,
   amount: new Prisma.Decimal(input.amount),
   driverProfileId: "driver-1",
+  remittanceMethod: "BANK_DEPOSIT",
   status: "PENDING",
   reviewedByUserId: null,
 };
@@ -93,6 +95,43 @@ beforeEach(() => {
   db.driverCashDeposit.updateMany.mockResolvedValue({ count: 1 });
 });
 describe("driver cash deposit verification", () => {
+  it("accepts a governed in-person remittance request but does not reconcile before review", async () => {
+    db.systemSetting.findUnique.mockResolvedValue({ value: { ...bank, handoverEnabled: true } });
+    await submitDriverDeposit("driver-user", { ...input, remittanceMethod: "IN_PERSON", bankReference: "MEETING-2026-OCT-25" });
+    expect(db.driverCashDeposit.create.mock.calls[0][0].data).toMatchObject({
+      remittanceMethod: "IN_PERSON", bankReference: "MEETING-2026-OCT-25", amount: new Prisma.Decimal("100.00"),
+    });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+  it("blocks in-person handover submissions until an admin opts in", async () => {
+    await expect(submitDriverDeposit("driver-user", { ...input, remittanceMethod: "IN_PERSON" }))
+      .rejects.toMatchObject({ code: "CASH_HANDOVER_NOT_ENABLED" });
+    expect(db.driverCashDeposit.create).not.toHaveBeenCalled();
+  });
+  it("forbids approving a physical handover with only a bank verification checkbox", async () => {
+    db.driverCashDeposit.findUnique.mockResolvedValue({ ...deposit, remittanceMethod: "IN_PERSON" });
+    await expect(reviewDriverDeposit(actor, deposit.id, { decision: "CONFIRM", note: "Actual handover not received", bankReceiptVerified: true }))
+      .rejects.toMatchObject({ code: "HANDOVER_RECEIPT_NOT_VERIFIED" });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+  it("confirms verified in-person handover using a distinct physical evidence reference", async () => {
+    db.driverCashDeposit.findUnique.mockResolvedValue({ ...deposit, remittanceMethod: "IN_PERSON" });
+    db.driverCashDeposit.update.mockImplementation(({ data }: { data: object }) => ({ ...deposit, remittanceMethod: "IN_PERSON", ...data }));
+    db.cashOnDeliveryReconciliation.findUnique.mockResolvedValueOnce(null).mockResolvedValue({
+      ...receipt, evidenceReference: `HANDOVER:${input.bankReference}`,
+    });
+    await expect(reviewDriverDeposit(actor, deposit.id, {
+      decision: "CONFIRM", note: "Cash counted together in person and physically received",
+      bankReceiptVerified: false, handoverReceived: true,
+    })).resolves.toMatchObject({ status: "CONFIRMED" });
+    expect(reconcile).toHaveBeenCalledWith(expect.objectContaining({ evidenceReference: `HANDOVER:${input.bankReference}` }));
+  });
+  it("does not let a bank deposit be confirmed as an in-person handover", async () => {
+    db.driverCashDeposit.findUnique.mockResolvedValue({ ...deposit, remittanceMethod: "BANK_DEPOSIT" });
+    await expect(reviewDriverDeposit(actor, deposit.id, { decision: "CONFIRM", note: "Attempt to skip bank evidence", bankReceiptVerified: false, handoverReceived: true }))
+      .rejects.toMatchObject({ code: "BANK_RECEIPT_NOT_VERIFIED" });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
   it("creates evidence without moving the ledger or reducing custody", async () => {
     await submitDriverDeposit("driver-user", input);
     expect(
@@ -240,6 +279,23 @@ describe("driver cash deposit verification", () => {
       saveBankInstructions(actor, { ...bank, expectedVersion: 0 }),
     ).rejects.toMatchObject({ status: 409 });
     expect(db.systemSetting.upsert).not.toHaveBeenCalled();
+  });
+  it("saves finance-controlled bank details and an explicit physical handover setting without exposing numbers in audit metadata", async () => {
+    await expect(saveBankInstructions(actor, { ...bank, handoverEnabled: true }))
+      .resolves.toMatchObject({ saved: true, version: 2 });
+    expect(db.systemSetting.upsert.mock.calls[0][0].update.value).toMatchObject({
+      bankName: "Bank test", accountNumber: "123456789", handoverEnabled: true, expectedVersion: 2,
+    });
+    const log = db.adminActivityLog.create.mock.calls[0][0].data;
+    expect(log.metadata).toEqual({ version: 2 });
+    expect(JSON.stringify(log)).not.toContain(bank.accountNumber);
+  });
+  it("never exposes remittance instructions to an inactive driver", async () => {
+    db.driverProfile.findUnique.mockResolvedValue({
+      id: "driver-1", status: "DISABLED", user: { role: "DRIVER", status: "ACTIVE" },
+    });
+    await expect(driverCashSummary("driver-user")).rejects.toMatchObject({ code: "DRIVER_ACCESS_DENIED" });
+    expect(db.systemSetting.findUnique).not.toHaveBeenCalled();
   });
   it("rejects bank account text that is not a number", () => {
     expect(

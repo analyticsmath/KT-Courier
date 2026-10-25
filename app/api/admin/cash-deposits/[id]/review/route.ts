@@ -16,7 +16,7 @@ export async function POST(
   const p = DepositReviewSchema.safeParse(b.body);
   if (!p.success)
     return json(
-      { error: "Confirm actual bank receipt and provide a review note." },
+      { error: "Confirm actual bank receipt or physical cash handover, and provide a review note." },
       422,
     );
   try {

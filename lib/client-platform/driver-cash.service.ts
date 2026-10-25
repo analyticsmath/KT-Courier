@@ -17,6 +17,7 @@ export const DepositSchema = z
           new Prisma.Decimal(v).gt(0) && new Prisma.Decimal(v).lte("1000000"),
       ),
     bankReference: z.string().trim().min(4).max(120),
+    remittanceMethod: z.enum(["BANK_DEPOSIT", "IN_PERSON"]).optional(),
     operationId: z.string().regex(/^[A-Za-z0-9_-]{12,100}$/),
   })
   .strict();
@@ -25,10 +26,11 @@ export const DepositReviewSchema = z
     decision: z.enum(["CONFIRM", "REJECT"]),
     note: z.string().trim().min(10).max(500),
     bankReceiptVerified: z.boolean(),
+    handoverReceived: z.boolean().optional(),
   })
   .strict()
-  .refine((v) => v.decision !== "CONFIRM" || v.bankReceiptVerified, {
-    message: "Verify actual bank receipt before confirming.",
+  .refine((v) => v.decision !== "CONFIRM" || v.bankReceiptVerified || v.handoverReceived, {
+    message: "Verify bank receipt or actual cash handover before confirming.",
   });
 export const BankInstructionsSchema = z
   .object({
@@ -37,6 +39,8 @@ export const BankInstructionsSchema = z
     accountNumber: z.string().regex(/^\d{6,30}$/),
     branchCode: z.string().regex(/^\d{4,12}$/),
     referenceHint: z.string().trim().min(3).max(150),
+    // In-person cash handover is disabled until a finance administrator opts in.
+    handoverEnabled: z.boolean().optional().default(false),
     expectedVersion: z.number().int().nonnegative(),
   })
   .strict();
@@ -89,7 +93,7 @@ export async function readBankInstructions() {
 }
 export async function saveBankInstructions(
   user: AuthenticatedUser,
-  input: z.infer<typeof BankInstructionsSchema>,
+  input: z.input<typeof BankInstructionsSchema>,
 ) {
   await financeActor(user);
   input = BankInstructionsSchema.parse(input);
@@ -107,7 +111,7 @@ export async function saveBankInstructions(
         "Reload the bank instructions before saving.",
         409,
       );
-    const value = { ...input, expectedVersion: version + 1 };
+    const value = { ...input, handoverEnabled: input.handoverEnabled === true, expectedVersion: version + 1 };
     await tx.systemSetting.upsert({
       where: { key: BANK_KEY },
       create: {
@@ -177,6 +181,7 @@ export async function driverCashSummary(userId: string) {
           orderId: true,
           amount: true,
           bankReference: true,
+          remittanceMethod: true,
           status: true,
           reviewNote: true,
           createdAt: true,
@@ -198,6 +203,7 @@ export async function driverCashSummary(userId: string) {
       held: (custody._sum.currentBalance ?? new Prisma.Decimal(0)).toFixed(2),
     },
     bankInstructions,
+    handoverEnabled: bankInstructions?.handoverEnabled === true,
     orders: rows.map((r) => ({
       orderId: r.orderId,
       orderNumber: r.order.orderNumber,
@@ -235,12 +241,12 @@ export async function submitDriverDeposit(
 ) {
   input = DepositSchema.parse(input);
   const driver = await activeDriver(userId);
-  if (!(await readBankInstructions()))
-    throw new PlatformError(
-      "BANK_INSTRUCTIONS_MISSING",
-      "Bank instructions have not been configured. Contact KT support.",
-      409,
-    );
+  const method = input.remittanceMethod ?? "BANK_DEPOSIT";
+  const bank = await readBankInstructions();
+  if (!bank)
+    throw new PlatformError("BANK_INSTRUCTIONS_MISSING", "Remittance instructions have not been configured. Contact KT support.", 409);
+  if (method === "IN_PERSON" && bank.handoverEnabled !== true)
+    throw new PlatformError("CASH_HANDOVER_NOT_ENABLED", "Direct cash handover is not authorized for drivers.", 409);
   return withLedgerRetry(() => prisma.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deposit:${input.operationId}`}))`;
@@ -254,7 +260,8 @@ export async function submitDriverDeposit(
           prior.driverProfileId !== driver.id ||
           prior.orderId !== input.orderId ||
           !prior.amount.equals(amount) ||
-          prior.bankReference !== input.bankReference
+          prior.bankReference !== input.bankReference ||
+          prior.remittanceMethod !== method
         )
           throw new PlatformError(
             "DEPOSIT_OPERATION_CONFLICT",
@@ -285,7 +292,7 @@ export async function submitDriverDeposit(
       if (await tx.driverCashDeposit.findFirst({ where: { orderId: input.orderId, status: { in: ["PENDING", "PROCESSING", "CONFIRMED"] } } }))
         throw new PlatformError("CASH_DEPOSIT_ALREADY_SUBMITTED", "This delivery already has a deposit awaiting review or confirmed receipt.", 409);
       const row = await tx.driverCashDeposit.create({
-        data: { ...input, amount, driverProfileId: driver.id },
+        data: { ...input, amount, remittanceMethod: method, driverProfileId: driver.id },
         select: { id: true, status: true },
       });
       await tx.adminActivityLog.create({
@@ -294,8 +301,11 @@ export async function submitDriverDeposit(
           action: "CREATE",
           entityType: "DriverCashDeposit",
           entityId: row.id,
-          message: "Driver submitted bank deposit for verification",
+          message: method === "IN_PERSON"
+            ? "Driver requested physical cash handover verification"
+            : "Driver submitted bank deposit for verification",
           metadata: {
+            remittanceMethod: method,
             orderId: input.orderId,
             driverProfileId: driver.id,
             amount: amount.toFixed(2),
@@ -313,6 +323,7 @@ async function matchingReceipt(row: {
   driverProfileId: string;
   amount: Prisma.Decimal;
   bankReference: string;
+  remittanceMethod: string;
   reviewedByUserId: string | null;
 }) {
   const receipt = await prisma.cashOnDeliveryReconciliation.findUnique({
@@ -324,7 +335,7 @@ async function matchingReceipt(row: {
     receipt.cashOnDelivery.orderId !== row.orderId ||
     receipt.collectorDriverId !== row.driverProfileId ||
     !receipt.receivedAmount.equals(row.amount) ||
-    receipt.evidenceReference !== `BANK:${row.bankReference}` ||
+    receipt.evidenceReference !== `${row.remittanceMethod === "IN_PERSON" ? "HANDOVER" : "BANK"}:${row.bankReference}` ||
     receipt.reconciledByUserId !== row.reviewedByUserId
   )
     throw new PlatformError(
@@ -346,6 +357,12 @@ export async function reviewDriverDeposit(
     const row = await tx.driverCashDeposit.findUnique({ where: { id } });
     if (!row)
       throw new PlatformError("DEPOSIT_NOT_FOUND", "Deposit not found.", 404);
+    if (input.decision === "CONFIRM") {
+      if (row.remittanceMethod === "IN_PERSON" && !input.handoverReceived)
+        throw new PlatformError("HANDOVER_RECEIPT_NOT_VERIFIED", "Confirm only after actually receiving and counting the cash in person.", 422);
+      if (row.remittanceMethod !== "IN_PERSON" && !input.bankReceiptVerified)
+        throw new PlatformError("BANK_RECEIPT_NOT_VERIFIED", "Confirm only after independently verifying the deposited funds on the bank statement.", 422);
+    }
     if (row.status === "CONFIRMED" && input.decision === "CONFIRM") return row;
     if (row.status === "REJECTED" && input.decision === "REJECT") return row;
     if (
@@ -376,9 +393,11 @@ export async function reviewDriverDeposit(
         entityId: id,
         message:
           input.decision === "REJECT"
-            ? "Bank deposit evidence rejected"
-            : "Bank receipt verified; cash reconciliation started",
-        metadata: { decision: input.decision, note: input.note },
+            ? "Cash remittance evidence rejected"
+            : row.remittanceMethod === "IN_PERSON"
+              ? "Physical cash received and counted; reconciliation started"
+              : "Bank receipt verified; cash reconciliation started",
+        metadata: { decision: input.decision, note: input.note, remittanceMethod: row.remittanceMethod },
       },
     });
     return updated;
@@ -392,7 +411,7 @@ export async function reviewDriverDeposit(
         actorUserId: user.id,
         receivedAmount: row.amount.toFixed(2),
         operationId: `cash-deposit:${row.id}`,
-        evidenceReference: `BANK:${row.bankReference}`,
+        evidenceReference: `${row.remittanceMethod === "IN_PERSON" ? "HANDOVER" : "BANK"}:${row.bankReference}`,
       });
     } catch (e) {
       if (!(await matchingReceipt(row))) throw e;
@@ -429,8 +448,10 @@ export async function reviewDriverDeposit(
           entityType: "DriverCashDeposit",
           entityId: id,
           message:
-            "Bank deposit confirmed against posted reconciliation receipt",
-          metadata: { orderId: row.orderId },
+            row.remittanceMethod === "IN_PERSON"
+              ? "Physical cash handover confirmed against posted reconciliation receipt"
+              : "Bank deposit confirmed against posted reconciliation receipt",
+          metadata: { orderId: row.orderId, remittanceMethod: row.remittanceMethod },
         },
       });
   });
@@ -453,6 +474,7 @@ export async function listCashDeposits(user: AuthenticatedUser) {
     orderNumber: r.order.orderNumber,
     amount: r.amount.toFixed(2),
     bankReference: r.bankReference,
+    remittanceMethod: r.remittanceMethod,
     status: r.status,
     note: r.reviewNote,
     createdAt: r.createdAt.toISOString(),

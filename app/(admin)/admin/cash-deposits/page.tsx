@@ -19,7 +19,7 @@ export default async function Page() {
       <ProtectedPageHeader
         eyebrow="Cash operations"
         title="Cash deposits"
-        description="Verify bank receipt before releasing driver cash custody. Every decision retains the real reviewer."
+        description="Manage official bank details, share them with drivers and reconcile verified deposits or cash physically handed over."
       />
       <OperationalPanel title="Deposit verification">
         <CashDepositReview deposits={deposits} bank={bank} />

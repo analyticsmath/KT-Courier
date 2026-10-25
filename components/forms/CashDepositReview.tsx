@@ -34,7 +34,7 @@ export function CashDepositReview({
       const b = await r.json();
       if (!r.ok)
         throw Error(b.error ?? "The operation could not be completed.");
-      setNotice("Saved.");
+      setNotice(key === "bank" ? "Bank details saved and shared with active drivers. Cash policies must be reapproved after changes." : "Cash review recorded and reconciled where applicable.");
       router.refresh();
     } catch (e) {
       setError(
@@ -47,15 +47,18 @@ export function CashDepositReview({
     }
   }
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <h2 className="font-semibold">KT bank deposit instructions</h2>
+    <div className="space-y-10">
+      <section className="space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--kt-border)] pb-5">
+          <div><h2 className="text-xl font-semibold tracking-tight text-[var(--kt-brand-navy)]">KT Couriers banking details</h2><p className="mt-2 max-w-xl text-sm leading-6 text-[var(--kt-text-soft)]">Manage the official account securely shared with active drivers in their Cash collections dashboard. Saving changes creates an audit entry and requires renewed independent COD policy approval.</p></div>
+          <span className="rounded-full border border-[var(--kt-border)] bg-white px-4 py-2 text-xs font-semibold">{bank ? `Configured · version ${bank.expectedVersion}` : "Not configured"}</span>
+        </div>
         <p className="text-sm">
           Enter the verified business bank account drivers should use. Changes
           are recorded in the activity log.
         </p>
         <form
-          className="grid gap-4 sm:grid-cols-2"
+          className="grid gap-5 rounded-xl border border-[var(--kt-border)] bg-white p-5 sm:grid-cols-2 sm:p-7"
           key={bank?.expectedVersion ?? 0}
           onSubmit={(e) => {
             e.preventDefault();
@@ -66,6 +69,7 @@ export function CashDepositReview({
               accountNumber: f.get("accountNumber"),
               branchCode: f.get("branchCode"),
               referenceHint: f.get("referenceHint"),
+              handoverEnabled: f.get("handoverEnabled") === "yes",
               expectedVersion: bank?.expectedVersion ?? 0,
             });
           }}
@@ -107,24 +111,25 @@ export function CashDepositReview({
               />
             </div>
           ))}
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 space-y-5 border-t border-[var(--kt-border)] pt-5">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-[var(--kt-surface-muted)] p-4 text-sm"><input type="checkbox" name="handoverEnabled" value="yes" defaultChecked={bank?.handoverEnabled ?? false} className="mt-1 h-4 w-4 accent-[var(--kt-brand-blue)]"/><span><strong className="block text-[var(--kt-brand-navy)]">Allow physical cash handover to KT Couriers</strong><span className="mt-1 block leading-6 text-[var(--kt-text-soft)]">Let drivers request direct cash handover to an authorised administrator. Only actual counted and verified cash clears their custody; scheduling or requesting a handover does not.</span></span></label>
             <Button
               type="submit"
               disabled={busy !== null}
               loading={busy === "bank"}
             >
-              Save instructions
+              Save and share instructions
             </Button>
           </div>
         </form>
       </section>
       <section className="space-y-6">
-        <h2 className="font-semibold">Driver deposits</h2>
+        <div className="border-b border-[var(--kt-border)] pb-4"><h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Driver cash remittances</h2><p className="mt-1 text-sm text-[var(--kt-text-soft)]">Confirm cleared bank deposits or cash physically counted and received in person.</p></div>
         {deposits.length ? (
           deposits.map((d) => (
             <article
               key={d.id}
-              className="space-y-3 border-b border-[var(--eo-border)] pb-5"
+              className="space-y-4 rounded-xl border border-[var(--kt-border)] bg-white p-5"
             >
               <div className="flex flex-wrap justify-between gap-3">
                 <h3 className="font-medium">
@@ -133,7 +138,7 @@ export function CashDepositReview({
                 <p>{d.status.replaceAll("_", " ")}</p>
               </div>
               <p>
-                R {d.amount} · Bank reference: {d.bankReference}
+                <strong className="text-lg">R {d.amount}</strong> · {d.remittanceMethod === "IN_PERSON" ? "In-person cash handover" : "Bank deposit"} · Reference: {d.bankReference}
               </p>
               <time className="text-sm" dateTime={d.createdAt}>
                 {new Date(d.createdAt).toLocaleString()}
@@ -152,7 +157,8 @@ export function CashDepositReview({
                     void send(d.id, `/api/admin/cash-deposits/${d.id}/review`, {
                       decision,
                       note: f.get("note"),
-                      bankReceiptVerified: f.get("verified") === "on",
+                      bankReceiptVerified: d.remittanceMethod !== "IN_PERSON" && f.get("verified") === "on",
+                      handoverReceived: d.remittanceMethod === "IN_PERSON" && f.get("verified") === "on",
                     });
                   }}
                 >
@@ -167,9 +173,10 @@ export function CashDepositReview({
                     maxLength={500}
                   />
                   <label className="flex gap-3 items-start text-sm">
-                    <input name="verified" type="checkbox" className="mt-1" />I
-                    verified that R {d.amount} was received in the KT bank
-                    account with this reference.
+                    <input name="verified" type="checkbox" className="mt-1 h-4 w-4 shrink-0 accent-[var(--kt-brand-blue)]" />
+                    <span>{d.remittanceMethod === "IN_PERSON"
+                      ? `I personally received and counted R ${d.amount} cash from this driver and recorded the actual handover.`
+                      : `I independently verified R ${d.amount} cleared into the KT Couriers bank account against this reference.`}</span>
                   </label>
                   <div className="flex flex-wrap gap-3">
                     <Button
@@ -198,7 +205,7 @@ export function CashDepositReview({
             </article>
           ))
         ) : (
-          <p>No driver deposits submitted yet.</p>
+          <p className="rounded-xl border border-dashed border-[var(--kt-border)] p-8 text-center text-sm text-[var(--kt-text-soft)]">No bank deposits or cash handovers submitted yet.</p>
         )}
       </section>
       {error && <p role="alert">{error}</p>}

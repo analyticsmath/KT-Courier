@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return json(
       {
         error:
-          "Provide the delivery, exact deposited amount and bank reference.",
+          "Provide the delivery, exact remittance amount, method and supporting reference.",
       },
       422,
     );

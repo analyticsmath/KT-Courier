@@ -19,7 +19,7 @@ export default async function Page() {
         <ProtectedPageHeader
           eyebrow="Cash operations"
           title="Cash collections"
-          description="Record exact delivery cash and track bank deposits through verification."
+          description="Record delivery cash and return funds through verified bank deposits or authorised in-person handover."
         />
         <OperationalPanel title="Cash operations">
           <div className="space-y-3">
@@ -35,7 +35,7 @@ export default async function Page() {
       <ProtectedPageHeader
         eyebrow="Cash operations"
         title="Cash collections"
-        description="Record exact delivery cash and track bank deposits through verification."
+        description="Record delivery cash and return funds through verified bank deposits or authorised in-person handover."
       />
       <OperationalPanel title="Your cash records">
         <DriverCash summary={summary} />
