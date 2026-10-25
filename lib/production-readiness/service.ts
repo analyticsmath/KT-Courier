@@ -6,7 +6,7 @@ import { evaluateCoverageEvidence } from "./coverage-evidence";
 import { getActiveParcelProfiles } from "@/lib/commercial/configuration.service";
 import { usableParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
-import { readBankInstructions } from "@/lib/client-platform/driver-cash.service";
+import { BankInstructionsSchema, readBankInstructions } from "@/lib/client-platform/driver-cash.service";
 import { capability, configurationCapability, type Capability } from "./contracts";
 import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
@@ -113,13 +113,24 @@ export async function getProductionReadiness() {
   }
 
   await probe("cod_policy", async () => {
-    const rows = await prisma.paymentMethodPolicy.findMany({ where: { status: "ACTIVE", mode: "DEPOSIT_PLUS_COD", effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }] } });
-    const bank = await prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { updatedAt: true } });
+    // Launch scope is personal-parcel 100% COD, not the legacy store 50/50 program.
+    // Mirror the server-side conditions before advertising financial readiness.
+    const rows = await prisma.paymentMethodPolicy.findMany({ where: {
+      status: "ACTIVE", mode: "FULL_COD", storeId: null, orderType: "PARCEL_DOCUMENT",
+      effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
+    } });
+    const bank = await prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true, updatedAt: true } });
+    const bankValid = !!bank && !!BankInstructionsSchema.safeParse(bank.value).success;
     const eligible = rows.filter((r) => {
       const evidence = r.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
-      return r.storeId && r.deliveryServiceId && (r.regionId || (Array.isArray(r.provinceScope) && r.provinceScope.length)) && Number(r.maximumCodAmount) > 0 && Number(r.depositPercent) === 0.5 && evidence?.approvedByUserId && evidence.approvedByUserId !== r.createdByUserId && evidence.approvedAt && evidence.remittanceApproved && evidence.settlementTiming && bank?.updatedAt.toISOString() === evidence.remittanceUpdatedAt;
+      return !r.storeId && r.orderType === "PARCEL_DOCUMENT" && !!r.deliveryServiceId &&
+        (!!r.regionId || (Array.isArray(r.provinceScope) && r.provinceScope.length > 0)) &&
+        r.depositPercent == null && r.depositAmount == null && Number(r.maximumCodAmount) > 0 &&
+        !!evidence?.approvedByUserId && evidence.approvedByUserId !== r.createdByUserId &&
+        !!evidence.approvedAt && evidence.remittanceApproved === true && !!evidence.settlementTiming &&
+        bankValid && bank?.updatedAt.toISOString() === evidence.remittanceUpdatedAt;
     });
-    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "COD availability remains specific to independently approved stores, services, regions and cash limits.", "FINANCE", { scopedPolicyCount: eligible.length });
+    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Personal parcel 100% cash requires an independently approved service, area, cash limit and unchanged remittance instructions. Legacy 50/50 store policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length });
   });
   await probe("cod_remittance", async () => {
     const configured = !!await readBankInstructions(); const approved = entries.find((e) => e.key === "cod_policy")?.status === "READY";

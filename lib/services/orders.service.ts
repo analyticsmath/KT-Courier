@@ -24,6 +24,7 @@ import { ownedActiveQuoteForOrder } from "@/lib/services/pricing-quote.service";
 import { canTransitionOrderStatus } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { resolvePaymentBreakdown } from "@/lib/payments/payment-policy.service";
+import { assertParcelPaymentChoice, assertSelectedPaymentMode } from "@/lib/payments/parcel-payment-method-selection";
 import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
 
 // ─── Full include for order queries ──────────────────────────────────────────
@@ -88,8 +89,7 @@ export async function createOrder(
       serviceKey?: string;
       configurationId?: string;
     };
-    if (input.deliveryType === "PARCEL_DOCUMENT" && input.paymentMethod === "DEPOSIT_PLUS_COD")
-      throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
+    assertParcelPaymentChoice(input.deliveryType, input.paymentMethod);
     const committedPayment =
       input.paymentMethod && input.paymentMethod !== "DIGITAL_ONLY"
         ? await resolvePaymentBreakdown(
@@ -108,8 +108,7 @@ export async function createOrder(
             tx,
           )
         : null;
-    if (committedPayment && committedPayment.mode !== input.paymentMethod)
-      throw new Error("PAYMENT_METHOD_NOT_ALLOWED");
+    assertSelectedPaymentMode(input.paymentMethod, committedPayment?.mode);
     const pickup = await tx.address.create({
       data: {
         type: "PICKUP",

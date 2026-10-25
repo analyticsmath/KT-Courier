@@ -45,9 +45,9 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/quote\\?reference=${dto.id}$`));
   expect((await page.context().cookies()).find(cookie => cookie.name === "kt_public_quote")?.value).toBe(ownedCookie.value);
-  const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "DEPOSIT_PLUS_COD" } });
+  const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "FULL_COD" } });
   expect(forbiddenCash.status(), await forbiddenCash.text()).toBe(422);
-  expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+  expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
   expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);
   for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Sender email for pickup code", `sender-${width}@ktcouriers.local`], ["Recipient name", "Disposable recipient"], ["Recipient email for delivery code", `recipient-${width}@ktcouriers.local`], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);

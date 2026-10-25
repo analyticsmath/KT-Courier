@@ -34,7 +34,8 @@ vi.mock("@/lib/commercial/configuration.service", () => ({
 vi.mock("@/lib/marketplace-checkout/delivery-policy-configuration", () => ({
   listDeliveryMatrices: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/client-platform/driver-cash.service", () => ({
+vi.mock("@/lib/client-platform/driver-cash.service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/client-platform/driver-cash.service")>()),
   readBankInstructions: vi.fn().mockResolvedValue(null),
 }));
 vi.mock("@/lib/production-readiness/evidence", () => ({
@@ -113,6 +114,51 @@ describe("Commercial Program Readiness Scoping", () => {
     const adv = report.capabilities.find((c) => c.key === "advertising_package_configuration");
     expect(adv?.status).toBe("BLOCKED_CONFIGURATION");
     expect(adv?.reasonCode).toBe("COMMERCIAL_SCOPE_CONFLICT");
+  });
+});
+
+describe("100% personal parcel COD production readiness", () => {
+  const date = new Date("2026-10-25T00:00:00.000Z");
+  const bank = {
+    bankName: "Verified test bank", accountName: "KT Couriers Pty", accountNumber: "123456789",
+    branchCode: "123456", referenceHint: "Use delivery reference", expectedVersion: 1, handoverEnabled: false,
+  };
+  const approval = { approvedByUserId: "finance-reviewer", approvedAt: "2026-10-20T12:00:00.000Z", remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Daily" };
+  const valid = { id: "personal-cod", mode: "FULL_COD", storeId: null, deliveryServiceId: "CLIENT_STANDARD",
+    orderType: "PARCEL_DOCUMENT", provinceScope: ["Gauteng"], regionId: null,
+    maximumCodAmount: { toString: () => "1000.00" }, depositPercent: null, depositAmount: null,
+    createdByUserId: "policy-author", policyEvidence: approval };
+  beforeEach(() => {
+    db.deliveryServiceDefinition.count.mockResolvedValue(1);
+    db.deliveryRegion.findMany.mockResolvedValue([]);
+    db.parcelProfile.findMany.mockResolvedValue([]);
+    db.commissionPlan.count.mockResolvedValue(1);
+    db.subscriptionPlanVersion.count.mockResolvedValue(0);
+    db.promoterProgramVersion.count.mockResolvedValue(0);
+    db.advertisingRateCardVersion.count.mockResolvedValue(0);
+    db.systemSetting.findUnique.mockResolvedValue({ value: bank, updatedAt: date });
+    db.operationalProcessorRun.findFirst.mockResolvedValue(null);
+    db.notificationEventRoute.findMany.mockResolvedValue([]);
+    db.notificationEventRouteVersion.findMany.mockResolvedValue([]);
+    db.notificationTemplateVersion.findMany.mockResolvedValue([]);
+    db.notificationRecipientPolicyVersion.findMany.mockResolvedValue([]);
+    db.productionAcceptanceRecord.findMany.mockResolvedValue([]);
+  });
+  it("recognizes independently approved 100% COD for personal parcels", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([valid]);
+    const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
+    expect(entry).toMatchObject({ status: "READY", reasonCode: "COD_SCOPED_APPROVAL_CURRENT", evidence: { scopedPolicyCount: 1 } });
+  });
+  it("does not mistake a legacy 50/50 business policy for the 100% personal parcel launch feature", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...valid, mode: "DEPOSIT_PLUS_COD", storeId: "store-1", depositPercent: { toString: () => "0.5" } }]);
+    const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
+    expect(entry).toMatchObject({ status: "BLOCKED_EXTERNAL_INPUT", reasonCode: "COD_APPROVED_SCOPE_MISSING" });
+  });
+  it("does not authorize COD after the banking instructions have changed", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([valid]);
+    db.systemSetting.findUnique.mockResolvedValue({ value: bank, updatedAt: new Date("2026-10-25T10:00:00Z") });
+    const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
+    expect(entry).toMatchObject({ status: "BLOCKED_EXTERNAL_INPUT" });
   });
 });
 
