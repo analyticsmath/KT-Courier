@@ -72,6 +72,16 @@ describe("marketplace courier tariff persistence on isolated PostgreSQL", () => 
     second = (await listTrustedPackageVersions()).find(item => item.version === secondDraft.version)!;
     await actOnTrustedPackageVersion(actor.id, { version: second.version, expectedUpdatedAt: second.updatedAt,
       action: "ACTIVATE", reason: "Activate independently reviewed two-unit consignment" });
+    // Duplicate content is rejected before creating another approval version.
+    // The actor cannot make two identical lines look like different sealed facts.
+    const latest = (await listTrustedPackageVersions()).find(item => item.version === second.version)!;
+    const recorded = latest.bundles![0];
+    await expect(saveTrustedPackageVersion(source.adminUser.id, {
+      expectedVersion: second.version, effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null,
+      reason: "Reject duplicate source selections before any approval version",
+      packages: [], bundles: [{ ...recorded, lines: [recorded.lines[0], recorded.lines[0]] }],
+    })).rejects.toThrow("Duplicate product selections");
+    expect((await listTrustedPackageVersions()).some(item => item.version === second.version + 1)).toBe(false);
     const aggregate = await createMarketplaceMatrixQuote(owner, input, region.id, checkout.publicReference, service.stableKey);
     // The measured sealed consignment is MEDIUM, not the single item's SMALL.
     expect(aggregate.total).toBe("129.00");

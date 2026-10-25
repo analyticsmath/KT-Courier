@@ -19,7 +19,8 @@ const TrustedBundleLineSchema = z.object({
   offerReference: z.string().min(1).max(100), variantReference: z.string().min(1).max(100),
   publicationVersion: z.string().min(1).max(160), quantity: z.number().int().positive().max(10000),
   modifiers: TrustedPackageSchema.shape.modifiers,
-}).strict();
+}).strict().refine(line => new Set(line.modifiers.map(option => option.optionReference)).size === line.modifiers.length,
+  "A selected modifier may only appear once per product line.");
 export const TrustedConsignmentSchema = z.object({
   storeId: z.string().min(1).max(100), packingRule: z.literal("MEASURED_SEALED_CONSIGNMENT"),
   lines: z.array(TrustedBundleLineSchema).min(1).max(50),
@@ -27,7 +28,10 @@ export const TrustedConsignmentSchema = z.object({
   weightKg: TrustedPackageSchema.shape.weightKg,
   authorityReference: z.string().trim().min(10).max(300),
 }).strict().refine(value => value.lines.length > 1 || value.lines.some(line => line.quantity > 1),
-  "A consignment must contain multiple units; use SINGLE_PREPACKAGED_UNIT for one unit.");
+  "A consignment must contain multiple units; use SINGLE_PREPACKAGED_UNIT for one unit.")
+  .refine(value => new Set(value.lines.map(line => JSON.stringify([
+    line.offerReference, line.variantReference, line.publicationVersion, selection(line.modifiers),
+  ]))).size === value.lines.length, "Duplicate product selections must be combined into one measured quantity.");
 export const TrustedPackageVersionSchema = z.object({
   version: z.number().int().positive(), status: z.enum(["DRAFT", "APPROVED", "ACTIVE", "RETIRED"]),
   effectiveFrom: z.iso.datetime(), effectiveTo: z.iso.datetime().nullable(),
@@ -35,7 +39,13 @@ export const TrustedPackageVersionSchema = z.object({
   packages: z.array(TrustedPackageSchema).max(500),
   bundles: z.array(TrustedConsignmentSchema).max(100).optional(),
 }).strict().refine((value) => !value.effectiveTo || value.effectiveTo > value.effectiveFrom, "Effective end must follow start.")
-  .refine(value => value.packages.length > 0 || (value.bundles?.length ?? 0) > 0, "At least one reviewed package or measured consignment is required.");
+  .refine(value => value.packages.length > 0 || (value.bundles?.length ?? 0) > 0, "At least one reviewed package or measured consignment is required.")
+  .refine(value => {
+    const identifiers = (value.bundles ?? []).map(bundle => JSON.stringify([
+      bundle.storeId, consignmentSignature(bundle.lines),
+    ]));
+    return new Set(identifiers).size === identifiers.length;
+  }, "A sealed consignment selection must have one unambiguous measured record per version.");
 export type TrustedPackageVersion = z.infer<typeof TrustedPackageVersionSchema>;
 export type ParcelClass = "SMALL" | "MEDIUM" | "LARGE";
 export type ParcelLimits = { id: string; stableKey: string; versionNumber: number; lengthCm: number; widthCm: number; heightCm: number; maximumWeightKg: number };

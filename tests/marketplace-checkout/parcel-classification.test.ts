@@ -58,6 +58,19 @@ describe("server-authoritative marketplace parcel measurements", () => {
     expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[bundle,bundle]}]})).toMatchObject({status:"UNKNOWN",reason:"AMBIGUOUS_PACKAGE_EVIDENCE"});
     expect(classifyTrustedMarketplaceParcel({...source,versions:[{...version,bundles:[{...bundle,weightKg:21}]}]})).toMatchObject({status:"UNSUPPORTED",reason:"MEASURED_PACKAGE_UNSUPPORTED"});
   });
+  it("rejects ambiguous duplicate product lines, selections and repeat consignments before review", () => {
+    const first = { ...line, quantity: 2, modifiers: [{ optionReference: "gift", quantity: 1 }] };
+    const second = { ...line, offerReference: "another-offer", variantReference: "another-variant", modifiers: [] };
+    const consignment = { storeId: "store", packingRule: "MEASURED_SEALED_CONSIGNMENT" as const,
+      lines: [first, second], lengthCm: 30, widthCm: 20, heightCm: 15, weightKg: 7,
+      authorityReference: "disposable:evidence:measured" };
+    expect(TrustedConsignmentSchema.safeParse(consignment).success).toBe(true);
+    expect(TrustedConsignmentSchema.safeParse({ ...consignment, lines: [first, first] }).success).toBe(false);
+    expect(TrustedConsignmentSchema.safeParse({ ...consignment, lines: [
+      {...first, modifiers: [{ optionReference: "gift", quantity: 1 }, { optionReference: "gift", quantity: 2 }]}, second,
+    ] }).success).toBe(false);
+    expect(TrustedPackageVersionSchema.safeParse({ ...version, packages: [], bundles: [consignment, consignment] }).success).toBe(false);
+  });
   it("rejects guessed, empty or non-aggregate consignment evidence and blank policies", () => {
     const wrapped = {storeId:"store",packingRule:"MEASURED_SEALED_CONSIGNMENT",lines:[{...line,modifiers:[]}],
       lengthCm:20,widthCm:15,heightCm:10,weightKg:5,authorityReference:"reference:sealed:test"};

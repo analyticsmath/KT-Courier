@@ -4,11 +4,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { utcDateInputToIso } from "@/lib/utils/utc-date-input";
-import type { TrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-classification";
+import { TrustedConsignmentSchema, type TrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-classification";
 
 type Bundle = NonNullable<TrustedPackageVersion["bundles"]>[number];
 type Entry = { offerReference: string; variantReference: string; publicationVersion: string; quantity: number; modifiers: string };
 const newEntry = (): Entry => ({ offerReference: "", variantReference: "", publicationVersion: "", quantity: 1, modifiers: "[]" });
+
+export function parseMeasuredConsignmentDraft(input: unknown): Bundle {
+  const result = TrustedConsignmentSchema.safeParse(input);
+  if (!result.success) throw new Error(result.error.issues[0]?.message ?? "Check sealed-package measurements and selected products.");
+  return result.data;
+}
 
 /** Exact measured consignment authoring. Deliberately no guessed dimensions,
  * weight summing, shopper-supplied class or automatic financial activation. */
@@ -31,7 +37,7 @@ export function MeasuredConsignmentDraft({ disabled, onSave }: {
         lengthCm: Number(text("lengthCm")), widthCm: Number(text("widthCm")), heightCm: Number(text("heightCm")),
         weightKg: Number(text("weightKg")), authorityReference: text("authorityReference"),
       };
-      onSave(bundle, { effectiveFrom: utcDateInputToIso(text("effectiveFrom")), effectiveTo: text("effectiveTo") ? utcDateInputToIso(text("effectiveTo")) : null, reason: text("reason") });
+      onSave(parseMeasuredConsignmentDraft(bundle), { effectiveFrom: utcDateInputToIso(text("effectiveFrom")), effectiveTo: text("effectiveTo") ? utcDateInputToIso(text("effectiveTo")) : null, reason: text("reason") });
     } catch (err) { setError(err instanceof Error ? err.message : "Review the exact selected lines and effective dates."); }
   }
   function setLine(index: number, field: keyof Entry, value: string) {
