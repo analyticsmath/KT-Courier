@@ -57,6 +57,9 @@ jobs:
       - name: Verify exact-source CI and Vercel deployment controls
         run: node --test scripts/production-certification-workflow.test.mjs
 
+      - name: Prove isolated bounded capacity guardrails
+        run: node --test tests/scripts/phase2-bounded-capacity.node-test.mjs
+
       - name: Validate Phase 3 receipts and isolation guards
         run: |
           node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/final-closure-evidence.test.mjs scripts/edge-build-refusal.test.mjs

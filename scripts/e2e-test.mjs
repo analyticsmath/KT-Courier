@@ -264,6 +264,13 @@ try {
   const baseUrl = `http://localhost:${currentAppPort}`;
   if (!(await waitForHttp(`${baseUrl}/api/health`, { timeoutMs: 60_000 })).ok) throw new Error("E2E health endpoint did not return 200.");
   if (!(await waitForHttp(`${baseUrl}/api/ready`, { timeoutMs: 60_000 })).ok) throw new Error("E2E readiness endpoint did not return 200.");
+  if (process.env.KT_PHASE2_BOUNDED_CAPACITY === "true") {
+    if (!phase1Acceptance) throw new Error("Phase 2 capacity smoke may only run with the complete isolated Phase 1 browser acceptance.");
+    const capacity = spawnSync(process.execPath, ["scripts/phase2-bounded-capacity.mjs", baseUrl], {
+      cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 240_000,
+    });
+    if (capacity.status !== 0) throw new Error("Bounded Phase 2 capacity gate failed; browser acceptance cannot mask a load refusal.");
+  }
   if (phase2Canonical) {
     const report = path.resolve("output/production-closure/phase2-canonical-vitest.json");
     mkdirSync(path.dirname(report), { recursive: true });
