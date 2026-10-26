@@ -20,7 +20,7 @@ export default async function CatalogAdministrationPage() {
     prisma.catalogProduct.count(),
     prisma.catalogModerationCase.count({ where: { status: { in: ["OPEN", "UNDER_REVIEW", "NEEDS_CHANGES"] } } }),
     prisma.catalogMediaAsset.count(),
-    listCatalogModerationCases(),
+    listCatalogModerationCases({ needsAttention: true }),
   ]);
   const publicExposureLocked = !storefrontPublicExposureAllowed();
   return <ProtectedPageFrame>

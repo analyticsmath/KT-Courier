@@ -5,8 +5,8 @@ import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
 import { type Prisma } from "@prisma/client";
 import { catalogRequestHash } from "@/lib/catalog/catalog-normalization";
 
-export async function listCatalogModerationCases(filters: { status?: string } = {}) {
-  return prisma.catalogModerationCase.findMany({ where: filters.status ? { status: filters.status as never } : undefined, include: { product: { include: { variants: true, primaryCategory: true, productTypeDefinition: true } }, offer: { include: { priceVersions: true, inventoryItem: { include: { levels: true } } } }, history: { orderBy: { createdAt: "asc" } } }, orderBy: [{ priority: "desc" }, { openedAt: "asc" }] });
+export async function listCatalogModerationCases(filters: { status?: string; needsAttention?: boolean } = {}) {
+  return prisma.catalogModerationCase.findMany({ where: filters.status ? { status: filters.status as never } : filters.needsAttention ? { status: { in: ["OPEN", "UNDER_REVIEW", "NEEDS_CHANGES"] } } : undefined, include: { product: { include: { variants: true, primaryCategory: true, productTypeDefinition: true } }, offer: { include: { priceVersions: true, inventoryItem: { include: { levels: true } } } }, history: { orderBy: { createdAt: "asc" } } }, orderBy: [{ priority: "desc" }, { openedAt: "asc" }] });
 }
 
 export async function getCatalogModerationCase(id: string) {
