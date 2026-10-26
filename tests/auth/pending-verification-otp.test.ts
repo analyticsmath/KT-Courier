@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { issuePendingVerificationOtp } from '@/lib/auth/pending-verification-otp';
+import { issuePendingVerificationOtp } from '@/lib/notifications/pending-verification-otp';
 const state=vi.hoisted(()=>({
  transaction:vi.fn(),lookup:vi.fn(),lock:vi.fn(),replace:vi.fn(),create:vi.fn(),queue:vi.fn(),
 }));

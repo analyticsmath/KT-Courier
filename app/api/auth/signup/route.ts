@@ -23,7 +23,7 @@ import { deliverSecurityEmail } from "@/lib/notifications/security-email-deliver
 import { checkAuthRateLimit, checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
-import { issuePendingVerificationOtp } from "@/lib/auth/pending-verification-otp";
+import { issuePendingVerificationOtp } from "@/lib/notifications/pending-verification-otp";
 import {
   shouldQueueSecurityEmail,
   securityEmailUnavailableResponse,

@@ -11,7 +11,7 @@ import {
   accountEmailQueueFailureResponse,
   securityEmailUnavailableResponse,
 } from "@/lib/auth/security-email-readiness";
-import { issuePendingVerificationOtp } from "@/lib/auth/pending-verification-otp";
+import { issuePendingVerificationOtp } from "@/lib/notifications/pending-verification-otp";
 
 export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);

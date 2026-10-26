@@ -7,7 +7,14 @@ describe("Phase 27 source audits", () => {
     const emailAdapter = readFileSync(join(process.cwd(), "lib", "email", "email-service.ts"), "utf8");
     expect(emailAdapter).toContain("queueLegacyEmailIntent");
     expect(emailAdapter).not.toContain("Resend");
-    for (const file of ["app/api/auth/signup/route.ts", "app/api/auth/resend-otp/route.ts", "app/api/auth/forgot-password/route.ts", "app/api/auth/reset-password/route.ts", "lib/services/delivery-otp.service.ts"]) expect(readFileSync(join(process.cwd(), file), "utf8")).toContain("queueSecurityNotification");
+    for (const file of ["app/api/auth/signup/route.ts", "app/api/auth/forgot-password/route.ts", "app/api/auth/reset-password/route.ts", "lib/services/delivery-otp.service.ts"]) expect(readFileSync(join(process.cwd(), file), "utf8")).toContain("queueSecurityNotification");
+    const resendRoute = readFileSync(join(process.cwd(), "app/api/auth/resend-otp/route.ts"), "utf8");
+    expect(resendRoute).toContain("issuePendingVerificationOtp");
+    // The canonical notifications module is the only producer of resends;
+    // a route must never send directly, or bypass the transactional outbox.
+    const resendIssuer = readFileSync(join(process.cwd(), "lib/notifications/pending-verification-otp.ts"), "utf8");
+    expect(resendIssuer).toContain("queueSecurityNotification");
+    expect(resendIssuer).toContain("$transaction");
   });
 
   it("keeps secrets, raw push endpoints and arbitrary sending outside DTOs and logs", () => {

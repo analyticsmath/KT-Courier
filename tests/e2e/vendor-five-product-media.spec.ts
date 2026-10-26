@@ -31,7 +31,10 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const owner = await prisma.user.findUniqueOrThrow({ where: { email } });
   const store = await prisma.store.findFirstOrThrow({ where: { ownerUserId: owner.id } });
   expect(store.status).toBe("PENDING");
-  expect(await prisma.otpCode.count({ where: { userId: owner.id, purpose: "EMAIL_VERIFICATION" } })).toBe(1);
+  // A second signup of an unverified email issues a replacement, never two usable codes.
+  expect(await prisma.otpCode.count({ where: { userId: owner.id, purpose: "EMAIL_VERIFICATION" } })).toBe(2);
+  expect(await prisma.otpCode.count({ where: { userId: owner.id, purpose: "EMAIL_VERIFICATION", consumedAt: null } })).toBe(1);
+  expect(await prisma.otpCode.count({ where: { userId: owner.id, purpose: "EMAIL_VERIFICATION", consumedAt: { not: null } } })).toBe(1);
   const absentEmail = `e2e-no-account-${tag}@ktcouriers.local`;
   const absentResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email: absentEmail } });
   const pendingResend = await page.request.post("/api/auth/resend-otp", { headers, data: { email } });
