@@ -25,3 +25,15 @@ The corrected PostgreSQL suite must prove durable preview, atomic private-draft 
 Local PostgreSQL installation was unavailable in the workspace (container/package permissions). No production database was used to work around isolation. Production test-store mutations, real legal identity verification, finance activation, payment or settlement have not been performed for this import release.
 
 Phase 2 remains open until the relevant exact-source database, browser, deployment and remaining role-journey gates pass. This file is an engineering checkpoint, not commercial launch certification.
+
+## Live vendor acceptance, 27 October (Pakistan time)
+
+Release 4e3d322 is deployed successfully to Railway web and worker. Production Certification 40389134749 passed catalog and closure PostgreSQL jobs, all other PostgreSQL jobs, and quality. Browser certification was still running at this checkpoint.
+
+In the signed-in Tolvyn test store, invalid title `x` produced row-level validation and no product creation (CIJ-7933814B17A59A82A48A1A48FC849635). A valid pasted CSV preview survived reload and was resumed through Review saved import. Applying CIJ-B341396946338240E5FB7EC3CA7FFEA6 completed one row and created private draft CP-A56CCD7F3517221056235076E17DAE28. Product list showed exactly one matching draft. File chooser transport was not exercised in this live session; pasted input uses the same parser and service.
+
+Selected existing synthetic fixture CMA-FA2F423A4C34FCD0FE3188B5B969251D with explicit QA alt text, saved it, created offer CO-569D7CA3965E8216313C5A6ADB749724 / TOL-QA-CSV-271026, and saved ZAR 99.00 draft price. Neither product nor offer was submitted or published. No stock or real packaging measurements were asserted. Live testing exposed confusing empty-selection wording after photo save; the follow-up correction distinguishes new selections from saved photos and displays the saved attachment count.
+
+Coupon PROMO_3a5493bf-88da-4f27-8bd7-fc22328ef76b saved successfully as DRAFT with integer usage limits. No promotion was submitted, funded or activated.
+
+Admin review, stock CSV file transport, and remaining cross-role financial/order journeys remain separate acceptance work; this is not a full Phase 2 completion claim.
