@@ -33,9 +33,4 @@ export function catalogImportCellIssues(value: string): string[] {
   return issues;
 }
 
-export function assertCatalogImportCanApply(value: { dryRunCompleted: boolean; invalidRows: number; status: string }): void {
-  if (!value.dryRunCompleted || value.status !== "VALIDATED" || value.invalidRows !== 0) {
-    throw new CatalogPolicyError("CATALOG_IMPORT_NOT_READY", "A successful dry-run with no invalid rows is required before apply.");
-  }
-}
-
+export functio¶»§q«^
