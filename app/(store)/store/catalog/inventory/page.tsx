@@ -6,6 +6,7 @@ import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/Protected
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { StoreCatalogNavigation } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
+import { inventoryReceiptTemplate } from "@/lib/catalog/inventory-receipt-template";
 import { listStoreInventory } from "@/lib/services/catalog-inventory.service";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
@@ -27,7 +28,7 @@ export default async function StoreCatalogInventoryPage() {
       <StoreCatalogNavigation />
       {manage.allowed && <InventoryLocationForm />}
       {locations.length > 0 && <OperationalPanel title="Stock locations"><ul className="space-y-2 text-sm">{locations.map(location => <li key={location.publicReference} className="break-words">{location.name} · {location.status === "ACTIVE" ? "Active" : "Inactive"}{location.isPrimary ? " · Primary" : ""}</li>)}</ul></OperationalPanel>}
-      {manage.allowed && <InventoryCsvUpload template={inventory.flatMap(item => item.trackingMode === "TRACKED" ? item.levels.filter(level => level.location.status === "ACTIVE").slice(0, 1).map(level => ({ inventoryReference: item.publicReference, locationReference: level.location.publicReference, version: item.version })) : [])} />}
+      {manage.allowed && <InventoryCsvUpload template={inventoryReceiptTemplate(inventory, locations)} />}
       {inventory.length ? (
         <EditorialTable
           caption="Store inventory records"
