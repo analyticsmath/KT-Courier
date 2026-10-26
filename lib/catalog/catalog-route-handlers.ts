@@ -9,6 +9,7 @@ import {
   CatalogCategoryPatchSchema,
   CatalogDuplicateResolveSchema,
   CatalogImportCreateSchema,
+  CatalogImportActionSchema,
   CatalogListQuerySchema,
   CatalogModerationActionSchema,
   CatalogProductCreateSchema,
@@ -177,7 +178,7 @@ export async function storeImportsPost(request: NextRequest) {
 
 export async function storeImportAction(request: NextRequest, publicReference: string, action: "validate" | "apply") {
   const prepared = await storeMutation(request, PERMISSIONS.CATALOG_IMPORTS_MANAGE, `/api/store/catalog/imports/${publicReference}/${action}`); if (!("body" in prepared)) return prepared.response;
-  const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
+  const parsed = CatalogImportActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
   try { return catalogJson({ importJob: action === "validate" ? await validateCatalogImportJob(prepared.store.id, publicReference) : await applyCatalogImportJob(prepared.store.id, prepared.user.id, publicReference) }); } catch (error) { return catalogApiError(error); }
 }
 

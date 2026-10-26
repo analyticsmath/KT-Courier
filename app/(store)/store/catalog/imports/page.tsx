@@ -1,3 +1,6 @@
+import { prisma } from "@/lib/db/prisma";
+import { ProductCsvImport } from "@/components/store/ProductCsvImport";
+import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
@@ -12,19 +15,20 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
 export default async function StoreCatalogImportsPage() {
   await requireBusinessPage("/store/catalog/imports");
-  const { store } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_IMPORTS_READ);
-  const imports = await listStoreCatalogImports(store.id);
+  const { store, user } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_IMPORTS_READ);
+  const [imports, manage, types, categories] = await Promise.all([listStoreCatalogImports(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_IMPORTS_MANAGE), prisma.productTypeDefinition.findMany({ where: { status: { in: ["APPROVED", "ACTIVE"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } }), prisma.catalogCategory.findMany({ where: { status: "ACTIVE" }, select: { id: true, path: true }, orderBy: { path: "asc" } })]);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
         eyebrow="Catalog"
         title="Bulk imports"
-        description="Store import records and validation evidence. Product draft import is currently unavailable."
+        description="Upload a CSV, review each row and create private product drafts."
       />
       <StoreCatalogNavigation />
+      {manage.allowed && <ProductCsvImport types={types} categories={categories} initialJobs={JSON.parse(JSON.stringify(imports))} />}
       <OperationalPanel title="Import safeguards" padding="compact">
         <p className="text-sm text-[var(--eo-text-secondary)]">
-          Create product drafts in the catalog. To record received stock, use
+          Imports create product identities only. Add photos, offers, prices and stock before submitting them for review. To record received stock, use
           Upload stock receipts on the Inventory page.
         </p>
       </OperationalPanel>

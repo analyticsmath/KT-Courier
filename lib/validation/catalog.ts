@@ -126,11 +126,16 @@ export const ModifierGroupCreateSchema = z.object({
   operationId,
 }).strict();
 
+export const CatalogImportActionSchema = z.object({ operationId, version: optimisticVersion.optional() }).strict();
+
 export const CatalogImportCreateSchema = z.object({
   filename: z.string().trim().min(5).max(255).regex(/\.csv$/i),
   mimeType: z.enum(["text/csv", "application/csv", "text/plain"]),
   byteSize: z.number().int().positive().max(5 * 1024 * 1024),
   templateVersion: z.literal(1),
+  csv: z.string().min(1).max(64_000).optional(),
+  productTypeDefinitionId: opaqueId.optional(),
+  primaryCategoryId: opaqueId.optional(),
   operationId,
 }).strict();
 

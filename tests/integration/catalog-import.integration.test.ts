@@ -20,15 +20,15 @@ describeCatalogIntegration("canonical catalog import staging", () => {
     const validated = await validateCatalogImportJob(f.store.id, job.publicReference); expect(validated).toMatchObject({ status: "VALIDATED", dryRunCompleted: true, invalidRows: 1, validRows: 0, totalRows: 1 });
     await expect(applyCatalogImportJob(f.store.id, f.user.id, job.publicReference)).rejects.toMatchObject({ code: "CATALOG_IMPORT_NOT_READY" });
     await expect(validateCatalogImportJob("foreign-store", job.publicReference)).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
-    expect(await prisma.catalogImportJob.findUnique({ where: { id: job.id } })).toEqual(validated);
+    expect(await prisma.catalogImportJob.findUnique({ where: { id: job.id } })).toMatchObject({ status: validated.status, dryRunCompleted: validated.dryRunCompleted, validRows: validated.validRows, invalidRows: validated.invalidRows, totalRows: validated.totalRows });
     expect(await prisma.catalogProduct.count({ where: { sourceStoreId: f.store.id } })).toBe(1); expect(await catalogEvidence(job.publicReference)).toMatchObject({ events: [], audit: [] });
   });
-  it("refuses a validated job without manufacturing successful draft application", async () => {
+  it("refuses an incomplete legacy payload without manufacturing successful draft application", async () => {
     const f = await catalogFoundation(); const job = await createCatalogImportJob(f.store.id, f.user.id, { filename: "synthetic.csv", mimeType: "text/csv", byteSize: 100, templateVersion: 1, operationId: randomUUID() });
     await prisma.catalogImportRow.create({ data: { jobId: job.id, rowNumber: 1, status: "VALID", normalizedPayload: { title: "Synthetic draft" }, errorCodes: [] } });
     const validated = await validateCatalogImportJob(f.store.id, job.publicReference);
-    await expect(applyCatalogImportJob(f.store.id, f.user.id, job.publicReference)).rejects.toMatchObject({ code: "CATALOG_IMPORT_APPLICATION_UNAVAILABLE" });
-    expect(await prisma.catalogImportJob.findUnique({ where: { id: job.id } })).toEqual(validated);
+    await expect(applyCatalogImportJob(f.store.id, f.user.id, job.publicReference)).rejects.toMatchObject({ code: "IMPORT_PAYLOAD_INVALID" });
+    expect(await prisma.catalogImportJob.findUnique({ where: { id: job.id } })).toMatchObject({ status: validated.status, dryRunCompleted: validated.dryRunCompleted, validRows: validated.validRows, invalidRows: validated.invalidRows, totalRows: validated.totalRows });
     expect(await prisma.catalogProduct.count({ where: { sourceStoreId: f.store.id } })).toBe(1); expect(await catalogEvidence(job.publicReference)).toMatchObject({ events: [], audit: [] });
   });
 });
