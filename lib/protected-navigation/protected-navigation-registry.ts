@@ -125,6 +125,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "admin-commission-plans", label: "Commission plans", href: "/admin/commission-plans", icon: "file", group: "Finance", requiredPermissions: [PERMISSIONS.COMMISSION_PLANS_READ], contexts: C.ADMIN },
   { id: "admin-earning-clearance-policy", label: "Earning clearance policy", href: "/admin/earning-clearance-policy", icon: "wallet", group: "Finance", requiredPermissions: [PERMISSIONS.COMMISSION_PLANS_READ], contexts: C.ADMIN },
   { id: "admin-advertising", label: "Advertising", href: "/admin/advertising", icon: "chart", group: "Growth programmes", requiredPermissions: [PERMISSIONS.ADVERTISING_READ], contexts: C.ADMIN },
+  { id: "admin-promotions", label: "Coupons and promotions", href: "/admin/promotions", icon: "chart", group: "Growth programmes", requiredPermissions: [PERMISSIONS.PROMOTIONS_READ], contexts: C.ADMIN },
   { id: "admin-promoters", label: "Promoters", href: "/admin/promoters", icon: "people", group: "Growth programmes", requiredPermissions: [PERMISSIONS.PROMOTERS_READ], contexts: C.ADMIN },
   { id: "admin-developers", label: "Developers", href: "/admin/developers", icon: "key", group: "Platform", requiredPermissions: [PERMISSIONS.DEVELOPER_APPLICATION_READ], contexts: C.ADMIN },
   { id: "admin-emails", label: "Emails", href: "/admin/emails", icon: "file", group: "Platform", requiredPermissions: [PERMISSIONS.EMAILS_READ], contexts: C.ADMIN },
