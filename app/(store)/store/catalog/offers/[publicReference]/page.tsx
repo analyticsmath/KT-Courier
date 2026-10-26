@@ -13,6 +13,7 @@ import {
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { getStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { StoreOfferSubmit } from "@/components/catalog/StoreOfferSubmit";
+import { StoreOfferAvailability } from "@/components/catalog/StoreOfferAvailability";
 import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { StoreOfferEditor } from "@/components/catalog/StoreOfferEditor";
@@ -61,6 +62,7 @@ export default async function StoreOfferDetailPage({
         <StoreOfferEditor key={`${offer.publicReference}:${offer.version}`} offer={{ publicReference: offer.publicReference, version: offer.version, status: offer.status, merchantTitle: offer.merchantTitle, merchantDescription: offer.merchantDescription, fulfilmentMode: offer.fulfilmentMode, primaryInventoryLocationId: offer.primaryInventoryLocationId }} locations={locations} canManage={manage.allowed} canPrice={pricing.allowed} initialPrice={offer.priceVersions[0]?.amount.toFixed(2) ?? ""} initialEffectiveFrom={new Date().toISOString()} />
       </OperationalPanel> : null}
       {submit.allowed && ["DRAFT", "NEEDS_CHANGES"].includes(offer.status) && <OperationalPanel title="Offer review"><StoreOfferSubmit key={`${offer.publicReference}:${offer.version}`} reference={offer.publicReference} version={offer.version} /></OperationalPanel>}
+      {manage.allowed && ["ACTIVE", "OUT_OF_STOCK", "PAUSED"].includes(offer.status) ? <OperationalPanel title="Listing availability"><StoreOfferAvailability key={`${offer.publicReference}:${offer.version}`} reference={offer.publicReference} version={offer.version} status={offer.status} /></OperationalPanel> : null}
       <div className="grid gap-5 lg:grid-cols-2">
         <OperationalPanel title="Offer record" padding="compact">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">

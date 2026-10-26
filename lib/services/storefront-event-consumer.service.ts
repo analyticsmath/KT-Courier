@@ -22,12 +22,24 @@ export class StorefrontEventConsumerService {
           ? [event.aggregateReference]
           : (await prisma.catalogPublicationSnapshot.findMany({ where: { status: "PUBLISHED", supersededAt: null, OR: [{ offer: { publicReference: event.aggregateReference } }, { product: { publicReference: event.aggregateReference } }, { variant: { publicReference: event.aggregateReference } }] }, select: { publicReference: true } })).map((snapshot) => snapshot.publicReference);
         for (const snapshotReference of snapshots) {
+          const source = await prisma.catalogPublicationSnapshot.findUnique({
+            where: { publicReference: snapshotReference },
+            select: { offer: { select: {
+              publicReference: true, status: true, publicationStatus: true, storeId: true,
+              store: { select: { status: true } },
+              product: { select: { primaryCategoryId: true } },
+            } } },
+          });
+          if (source && (source.offer.status !== "ACTIVE" || source.offer.publicationStatus !== "PUBLISHED" || source.offer.store.status !== "ACTIVE")) {
+            await this.projections.withdrawOffer(source.offer.publicReference);
+            await Promise.all([rebuildStorefrontStoreDocument(source.offer.storeId), rebuildStorefrontCategoryDocument(source.offer.product.primaryCategoryId)]);
+            continue;
+          }
           const document = await this.projections.buildPublishedSnapshot(snapshotReference);
-          const source = await prisma.catalogPublicationSnapshot.findUnique({ where: { publicReference: snapshotReference }, select: { offer: { select: { storeId: true, product: { select: { primaryCategoryId: true } } } } } });
           if (source) await Promise.all([rebuildStorefrontStoreDocument(source.offer.storeId), rebuildStorefrontCategoryDocument(source.offer.product.primaryCategoryId)]);
           void document;
         }
-        await processingClient.storefrontEventProcessing.create({ data: { catalogEventId: event.id, eventPublicReference: event.publicReference, aggregateReference: event.aggregateReference, aggregateVersion: event.aggregateVersion, attemptNumber, status: "PROCESSED", projectionVersion: snapshots[0] ?? null, safeSummary: snapshots.length ? "Published source evidence was projected and cache invalidation intent recorded." : "No published snapshot required a storefront projection." } });
+        await processingClient.storefrontEventProcessing.create({ data: { catalogEventId: event.id, eventPublicReference: event.publicReference, aggregateReference: event.aggregateReference, aggregateVersion: event.aggregateVersion, attemptNumber, status: "PROCESSED", projectionVersion: snapshots[0] ?? null, safeSummary: snapshots.length ? "Published source eligibility checked; projections refreshed or withdrawn and cache invalidation recorded." : "No published snapshot required a storefront projection." } });
         // Mark only after the projection/search/cache evidence completed.
         await prisma.catalogChangeEvent.update({ where: { id: event.id }, data: { processedAt: new Date() } });
         processed += 1;

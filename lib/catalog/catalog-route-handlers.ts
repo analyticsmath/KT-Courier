@@ -117,10 +117,10 @@ export async function storeOfferPatch(request: NextRequest, publicReference: str
   try { return catalogJson({ offer: await updateStoreCatalogOffer(prepared.store.id, publicReference, prepared.user.id, parsed.data) }); } catch (error) { return catalogApiError(error); }
 }
 
-export async function storeOfferAction(request: NextRequest, publicReference: string, action: "submit" | "pause" | "archive") {
+export async function storeOfferAction(request: NextRequest, publicReference: string, action: "submit" | "pause" | "archive" | "resume") {
   const prepared = await storeMutation(request, action === "submit" ? PERMISSIONS.CATALOG_SUBMIT : PERMISSIONS.CATALOG_MANAGE, `/api/store/catalog/offers/${publicReference}/${action}`); if (!("body" in prepared)) return prepared.response;
   const parsed = CatalogActionSchema.safeParse(prepared.body); if (!parsed.success) return invalid();
-  const target = { submit: "SUBMITTED", pause: "PAUSED", archive: "ARCHIVED" }[action] as "SUBMITTED" | "PAUSED" | "ARCHIVED";
+  const target = { submit: "SUBMITTED", pause: "PAUSED", archive: "ARCHIVED", resume: "ACTIVE" }[action] as "SUBMITTED" | "PAUSED" | "ARCHIVED" | "ACTIVE";
   try { return catalogJson({ offer: await transitionStoreCatalogOffer(prepared.store.id, publicReference, prepared.user.id, target, parsed.data) }); } catch (error) { return catalogApiError(error); }
 }
 

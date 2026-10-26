@@ -6,6 +6,7 @@ import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalo
 import { normalizeStoreSku } from "@/lib/catalog/product-identifiers";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
+import { StorefrontProjectionService } from "@/lib/services/storefront-projection.service";
 
 export async function listStoreCatalogOffers(storeId: string, filters: { page: number; pageSize: number; search?: string; status?: string }) {
   return prisma.storeCatalogOffer.findMany({
@@ -116,7 +117,7 @@ export async function updateStoreCatalogOffer(storeId: string, publicReference: 
   });
 }
 
-export async function transitionStoreCatalogOffer(storeId: string, publicReference: string, actorUserId: string, toStatus: "SUBMITTED" | "PAUSED" | "ARCHIVED", input: { version: number; operationId: string }) {
+export async function transitionStoreCatalogOffer(storeId: string, publicReference: string, actorUserId: string, toStatus: "SUBMITTED" | "PAUSED" | "ARCHIVED" | "ACTIVE", input: { version: number; operationId: string }) {
   const request = { ...input, toStatus };
   const requestHash = catalogRequestHash(request);
   return prisma.$transaction(async tx => {
@@ -134,10 +135,17 @@ export async function transitionStoreCatalogOffer(storeId: string, publicReferen
       return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: current.id } });
     }
     if (current.version !== input.version) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before continuing.");
+    if (toStatus === "ACTIVE" && current.status !== "PAUSED") throw new CatalogConflictError("OFFER_NOT_PAUSED", "Only a paused offer can be resumed. Other offers must follow catalog review.");
     assertOfferTransition(current.status, toStatus);
     if (toStatus === "SUBMITTED" && !current.priceVersions.some(price => ["DRAFT", "SCHEDULED", "ACTIVE"].includes(price.status))) throw new CatalogPolicyError("OFFER_PRICE_REQUIRED", "Offer submission requires a valid price version.");
     const result = await tx.storeCatalogOffer.updateMany({ where: { id: current.id, storeId, version: input.version, status: current.status }, data: { status: toStatus, publicationStatus: toStatus === "ARCHIVED" ? "WITHDRAWN" : current.publicationStatus, submittedByUserId: toStatus === "SUBMITTED" ? actorUserId : undefined, version: { increment: 1 } } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before continuing.");
+    if (toStatus === "PAUSED" || toStatus === "ARCHIVED") await new StorefrontProjectionService(tx).withdrawOffer(publicReference);
+    if (toStatus === "ACTIVE" && current.publicationStatus === "PUBLISHED") {
+      const snapshot = await tx.catalogPublicationSnapshot.findFirst({ where: { offerId: current.id, status: "PUBLISHED", supersededAt: null }, orderBy: { versionNumber: "desc" }, select: { publicReference: true } });
+      if (!snapshot) throw new CatalogPolicyError("OFFER_PUBLICATION_EVIDENCE_MISSING", "The listing cannot resume without its approved publication evidence. Contact catalog support.");
+      await new StorefrontProjectionService(tx).buildPublishedSnapshot(snapshot.publicReference);
+    }
     if (toStatus === "SUBMITTED") await tx.catalogModerationCase.create({ data: { publicReference: catalogPublicReference("CMC"), offerId: current.id, type: "OFFER", reasonCode: "OFFER_SUBMISSION", safeSummary: "Store offer submitted for catalog review.", submittedByUserId: actorUserId } });
     await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: toStatus, eventType: "OFFER_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request } });
     return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: current.id } });

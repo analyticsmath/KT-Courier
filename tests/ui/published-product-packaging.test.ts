@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ permission: vi.fn() }));
 vi.mock("@/lib/client-platform/business-auth", () => ({ requireBusinessPage: async () => {} }));
 vi.mock("@/lib/services/catalog-page.service", () => ({ getCurrentStoreForCatalogPage: async () => ({ store: { id: "store" } }) }));
-vi.mock("@/lib/services/catalog-product.service", () => ({ getStoreCatalogProduct: async () => ({ publicReference: "CP-published", sourceStoreId: "store", scope: "STORE_PRIVATE", title: "Published apples", status: "ACTIVE", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED", primaryCategory: { path: "/groceries" }, variants: [], offers: [{ publicReference: "CO-apples", storeSku: "APPLES" }], brand: null }) }));
+vi.mock("@/lib/services/catalog-product.service", () => ({ getStoreCatalogProduct: async () => ({ publicReference: "CP-published", sourceStoreId: "store", scope: "STORE_PRIVATE", title: "Published apples", status: "ACTIVE", moderationStatus: "APPROVED", publicationStatus: "PUBLISHED", primaryCategory: { path: "/groceries" }, variants: [], media: [], offers: [{ publicReference: "CO-apples", storeSku: "APPLES" }], brand: null }) }));
 vi.mock("@/lib/services/catalog-packaging.service", () => ({ listCatalogPackaging: async () => [] }));
 vi.mock("@/lib/commercial/parcel-profiles", () => ({ publicParcelProfiles: async () => [] }));
 vi.mock("@/lib/catalog/catalog-auth", () => ({ requireStoreCatalogPermission: mocks.permission }));

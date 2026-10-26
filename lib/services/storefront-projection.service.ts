@@ -131,6 +131,12 @@ export class StorefrontProjectionService {
 
   async withdrawOffer(offerReference: string): Promise<void> {
     const storefrontClient = this.client;
+    const documents = await storefrontClient.storefrontProductDocument.findMany({ where: { offerPublicReference: offerReference, status: "ACTIVE" }, select: { productPublicReference: true, variantPublicReference: true, storePublicReference: true, categoryPublicReference: true, publicationVersion: true } });
     await storefrontClient.storefrontProductDocument.updateMany({ where: { offerPublicReference: offerReference, status: "ACTIVE" }, data: { status: "WITHDRAWN", searchable: false, indexable: false } });
+    for (const document of documents) {
+      const sourceVersion = `withdrawn:${document.publicationVersion}`;
+      const tags = [STOREFRONT_CACHE_TAGS.product(document.productPublicReference), STOREFRONT_CACHE_TAGS.variant(document.variantPublicReference), STOREFRONT_CACHE_TAGS.store(document.storePublicReference), STOREFRONT_CACHE_TAGS.category(document.categoryPublicReference), STOREFRONT_CACHE_TAGS.searchIndex(STOREFRONT_SEARCH_INDEX_VERSION)];
+      for (const tag of tags) await storefrontClient.storefrontCacheInvalidation.upsert({ where: { tag_sourceReference_sourceVersion: { tag, sourceReference: offerReference, sourceVersion } }, create: { publicReference: catalogPublicReference("SCI"), tag, sourceReference: offerReference, sourceVersion, safeSummary: "Withdrawn listing requires public cache invalidation." }, update: { status: "PENDING", safeSummary: "Withdrawn listing requires public cache invalidation." } });
+    }
   }
 }
