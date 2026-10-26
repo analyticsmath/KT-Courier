@@ -50,6 +50,7 @@ export default defineConfig({
         /driver-canonical-delivery\.spec\.ts/,
         /cod-custody-remittance\.spec\.ts/,
         /catalog-inventory-upload\.spec\.ts/,
+        /catalog-product-import\.spec\.ts/,
         /anonymous-courier-quote\.spec\.ts/,
         /customer-identity-lifecycle\.spec\.ts/,
         /store-order-positive-substitution\.spec\.ts/,

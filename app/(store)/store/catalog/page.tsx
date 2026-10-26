@@ -28,7 +28,7 @@ export default async function StoreCatalogPage() {
       <ProtectedPageHeader
         eyebrow="Catalog"
         title="Product Catalog"
-        description="Manage store-owned product identities, offers, prices, and movement-backed inventory. Storefront publication remains separate."
+        description="Add products, prepare your listings, set prices and record stock. Review and publication are required before products appear in the marketplace."
         actions={
           <Link
             className="inline-flex min-h-11 items-center rounded-[var(--eo-radius-control)] bg-[var(--eo-signal)] px-4 text-sm font-semibold text-white"
@@ -58,12 +58,12 @@ export default async function StoreCatalogPage() {
         <MetricTile
           label="Products"
           value={summary.products}
-          description="Canonical store product records"
+          description="Products in your catalog"
         />
         <MetricTile
           label="Offers"
           value={summary.offers}
-          description="Store variant offers"
+          description="Listings with their own SKU and price"
         />
         <MetricTile
           label="Open imports"
@@ -79,7 +79,7 @@ export default async function StoreCatalogPage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <OperationalPanel
           title="Catalog workspace"
-          description="Product identity, offers, price versions, and inventory are distinct records with their own validation authority."
+          description="Prepare the product details first, then complete its price, stock and packaging before review."
           padding="compact"
         >
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -96,7 +96,7 @@ export default async function StoreCatalogPage() {
                 Next action
               </dt>
               <dd className="mt-1 text-[var(--eo-text-secondary)]">
-                Create or review a canonical product record.
+                <Link className="underline underline-offset-4" href={summary.products ? "/store/catalog/products" : "/store/catalog/products/new"}>{summary.products ? "Review your products and complete their listings" : "Add your first product"}</Link>
               </dd>
             </div>
           </dl>

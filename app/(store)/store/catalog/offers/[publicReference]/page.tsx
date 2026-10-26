@@ -53,6 +53,10 @@ export default async function StoreOfferDetailPage({
         }
       />
       <StoreCatalogNavigation />
+      <div className="flex flex-wrap gap-4 text-sm font-semibold">
+        <Link className="underline underline-offset-4" href={`/store/catalog/products/${offer.product.publicReference}`}>Manage product photos and packaging</Link>
+        <Link className="underline underline-offset-4" href="/store/catalog/inventory">Record received stock</Link>
+      </div>
       {["DRAFT", "NEEDS_CHANGES", "PAUSED"].includes(offer.status) && (manage.allowed || pricing.allowed) ? <OperationalPanel title="Correct offer and draft price">
         <StoreOfferEditor key={`${offer.publicReference}:${offer.version}`} offer={{ publicReference: offer.publicReference, version: offer.version, status: offer.status, merchantTitle: offer.merchantTitle, merchantDescription: offer.merchantDescription, fulfilmentMode: offer.fulfilmentMode, primaryInventoryLocationId: offer.primaryInventoryLocationId }} locations={locations} canManage={manage.allowed} canPrice={pricing.allowed} initialPrice={offer.priceVersions[0]?.amount.toFixed(2) ?? ""} initialEffectiveFrom={new Date().toISOString()} />
       </OperationalPanel> : null}

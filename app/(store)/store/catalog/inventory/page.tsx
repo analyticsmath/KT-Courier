@@ -23,12 +23,15 @@ export default async function StoreCatalogInventoryPage() {
       <ProtectedPageHeader
         eyebrow="Catalog"
         title="Inventory"
-        description="Location-aware inventory projections derived from canonical stock movements. No stock threshold, reservation, or adjustment authority is inferred here."
+        description="Track available stock by location and record the units you receive. Reserved stock stays protected."
       />
       <StoreCatalogNavigation />
       {manage.allowed && <InventoryLocationForm />}
       {locations.length > 0 && <OperationalPanel title="Stock locations"><ul className="space-y-2 text-sm">{locations.map(location => <li key={location.publicReference} className="break-words">{location.name} · {location.status === "ACTIVE" ? "Active" : "Inactive"}{location.isPrimary ? " · Primary" : ""}</li>)}</ul></OperationalPanel>}
-      {manage.allowed && <InventoryCsvUpload template={inventoryReceiptTemplate(inventory, locations)} />}
+      {manage.allowed && <InventoryCsvUpload template={inventoryReceiptTemplate(inventory, locations).map(row => {
+        const item = inventory.find(item => item.publicReference === row.inventoryReference);
+        return { ...row, label: item ? `${item.offer.product.title} — ${item.offer.variant.title} (${item.offer.storeSku})` : row.inventoryReference, locationName: locations.find(location => location.publicReference === row.locationReference)?.name ?? row.locationReference };
+      })} />}
       {inventory.length ? (
         <EditorialTable
           caption="Store inventory records"

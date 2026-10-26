@@ -1,6 +1,7 @@
 import { StoreCatalogDraftSetup } from "@/components/catalog/StoreCatalogDraftSetup";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import Link from "next/link";
+import Image from "next/image";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
@@ -59,7 +60,7 @@ export default async function StoreCatalogProductDetailPage({
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <OperationalPanel
           title="Product identity"
-          description="Canonical attributes are shown exactly as recorded for this store product."
+          description="Category, brand and ownership details saved for this product."
           padding="compact"
         >
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
@@ -77,24 +78,26 @@ export default async function StoreCatalogProductDetailPage({
             </div>
             <div>
               <dt className="font-semibold text-[var(--eo-text-muted)]">
-                Record scope
+                Visibility scope
               </dt>
-              <dd className="mt-1">{product.scope}</dd>
+              <dd className="mt-1">{product.scope === "STORE_PRIVATE" ? "Owned by this store" : "Shared catalog product"}</dd>
             </div>
           </dl>
         </OperationalPanel>
         <OperationalPanel title="Catalog state" padding="compact">
           <div className="grid gap-2">
-            <ProtectedStatus label={product.status.replaceAll("_", " ")} />
+            <p className="text-xs font-semibold">Product</p><ProtectedStatus label={product.status.replaceAll("_", " ")} />
+            <p className="text-xs font-semibold">Review</p>
             <ProtectedStatus
               label={product.moderationStatus.replaceAll("_", " ")}
             />
-            <ProtectedStatus
+            <p className="text-xs font-semibold">Publication</p><ProtectedStatus
               label={product.publicationStatus.replaceAll("_", " ")}
             />
           </div>
         </OperationalPanel>
       </div>
+      {product.scope === "STORE_PRIVATE" && product.media.length > 0 ? <OperationalPanel title="Saved product photos" description="Images already saved to this product. New selections are added separately below."><ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{product.media.map(item => <li key={item.id} className="space-y-2 rounded-lg border p-3">{item.asset.status === "READY" ? <Image src={`/api/store/catalog/media/${encodeURIComponent(item.asset.publicReference)}/content`} alt={item.altText} width={240} height={180} unoptimized className="h-40 w-full rounded-md object-contain" /> : <p className="text-sm">Image unavailable: {item.asset.status.toLowerCase().replaceAll("_", " ")}</p>}<p className="text-sm">{item.role === "PRIMARY" ? "Primary photo" : "Gallery photo"} · {item.altText}</p></li>)}</ul></OperationalPanel> : null}
       {editable && (canManage || canSubmit) ? <OperationalPanel title="Update product draft" description="Save text changes, then submit the saved product for catalog review.">
         <StoreCatalogProductActions key={`${product.publicReference}:${product.version}`} product={{ publicReference: product.publicReference, version: product.version, title: product.title, description: product.description }} canManage={canManage} canSubmit={canSubmit} />
       </OperationalPanel> : null}
@@ -102,7 +105,7 @@ export default async function StoreCatalogProductDetailPage({
       {product.offers.length > 0 && <OperationalPanel title="Store offers"><ul className="space-y-2">{product.offers.map(offer => <li key={offer.publicReference}><Link className="underline" href={`/store/catalog/offers/${offer.publicReference}`}>{offer.storeSku} — manage price and listing</Link></li>)}</ul></OperationalPanel>}
       <OperationalPanel
         title="Variants"
-        description="Each variant remains an individual canonical record."
+        description="Sizes, colours or other versions sold for this product."
         padding="compact"
       >
         <EditorialTable

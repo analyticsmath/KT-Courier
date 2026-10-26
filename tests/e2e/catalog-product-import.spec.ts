@@ -49,6 +49,8 @@ for (const width of [320, 390, 1440]) test(`vendor product CSV preview, apply, r
   await page.getByRole("button", { name: "Save product photos", exact: true }).click(); expect((await attached).status()).toBe(201);
   await expect.poll(async () => prisma.catalogProductMedia.count({ where: { productId: products[0].id } })).toBe(1);
   await page.reload();
+  await expect(page.getByRole("heading", { name: "Saved product photos", exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Synthetic imported product image", exact: true })).toBeVisible();
   await page.getByLabel("Store offer SKU", { exact: true }).fill(`IMPORT-${tag}`);
   await page.getByRole("button", { name: "Create offer and add price", exact: true }).click();
   await expect(page.getByLabel("Price including VAT (ZAR)", { exact: true })).toBeVisible();

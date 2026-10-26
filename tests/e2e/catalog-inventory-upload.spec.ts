@@ -21,7 +21,13 @@ for (const width of [1440, 390]) test(`native vendor CSV stock receipt with scop
   await expect(page.getByRole("heading", { name: "Upload stock receipts", exact: true })).toBeVisible();
   await page.getByLabel("Inventory CSV file", { exact: true }).setInputFiles({ name: "invalid.csv", mimeType: "text/csv", buffer: Buffer.from(`${INVENTORY_UPLOAD_HEADER}\n${inventory.publicReference},${level.location.publicReference},1,-1`) });
   await expect(page.getByRole("alert").filter({ hasText: "positive whole-unit" })).toBeVisible(); expect(await state()).toEqual(before);
-  await page.getByLabel("Inventory CSV file", { exact: true }).setInputFiles({ name: "receipts.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  if (width === 390) {
+    await page.getByLabel("Product and stock location", { exact: true }).selectOption(inventory.publicReference);
+    await page.getByLabel("Units received", { exact: true }).fill("2");
+    await page.getByRole("button", { name: "Prepare stock receipt", exact: true }).click();
+  } else {
+    await page.getByLabel("Inventory CSV file", { exact: true }).setInputFiles({ name: "receipts.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  }
   const reviewed = page.waitForResponse(response => response.url().endsWith(endpoint));
   await page.getByRole("button", { name: "Review stock changes", exact: true }).focus(); await page.keyboard.press("Enter");
   expect((await reviewed).status()).toBe(200); await expect(page.getByRole("list", { name: "Reviewed stock changes" })).toContainText(`${before.level.onHand} + 2 = ${before.level.onHand + 2}`); expect(await state()).toEqual(before);

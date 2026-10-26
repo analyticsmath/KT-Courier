@@ -1,7 +1,7 @@
 export const DEFAULT_PLAYWRIGHT_TIMEOUT_MS = 15 * 60 * 1000;
 export const PHASE1_FULL_CHROMIUM_TIMEOUT_MS = 45 * 60 * 1000;
 export const PHASE2_3_DIRECTED_TIMEOUT_MS = 45 * 60 * 1000;
-export const PHASE2_3_DIRECTED_EXPECTED_TESTS = 44;
+export const PHASE2_3_DIRECTED_EXPECTED_TESTS = 47;
 
 export const PHASE2_3_DIRECTED_SPECS = Object.freeze([
   "tests/e2e/customer-wallet-refunds.spec.ts",
@@ -18,6 +18,7 @@ export const PHASE2_3_DIRECTED_SPECS = Object.freeze([
   "tests/e2e/driver-canonical-delivery.spec.ts",
   "tests/e2e/cod-custody-remittance.spec.ts",
   "tests/e2e/catalog-inventory-upload.spec.ts",
+  "tests/e2e/catalog-product-import.spec.ts",
   "tests/e2e/anonymous-courier-quote.spec.ts",
   "tests/e2e/customer-identity-lifecycle.spec.ts",
   "tests/e2e/store-order-positive-substitution.spec.ts",
