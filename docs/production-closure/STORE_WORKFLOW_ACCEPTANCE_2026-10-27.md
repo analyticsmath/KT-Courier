@@ -37,3 +37,9 @@ This record distinguishes implemented behavior, automated checks and live accept
 - Current-release vendor onboarding, payment, settlement, refund and payout acceptance remains required. Provider configuration or mocked fixtures alone does not prove provider acceptance.
 - Runtime production readiness reported 13 global launch blockers, 20 ready checks and 3 policy exclusions when inspected; this is broader than store-only scope and is not a readiness percentage.
 - Human usability testing has not occurred. Browser automation proves the exercised behaviors, not that real owners find every action without help.
+
+## Settings correction follow-up
+
+The settings API emits validation as `{ error, fields }`, while StoreProfileForm was reading `{ message, errors }`. Corrected the response contract so server field errors render beside their fields and input values survive failure. Optional phone/email now submit blank values when deliberately cleared. Existing store contact fields populate defaults when the separate store profile is missing, avoiding accidental removal during an unrelated save. Whitespace-only business/contact names are rejected after trimming. Pending saves lock inputs and reject duplicate submission; success remains visible until another edit and refreshes the page's saved identity.
+
+Updated focused validation: 18 tests pass across four receipt/profile suites. New profile tests exercise real API error shape, preserved invalid input, optional clearing, pending duplicate prevention and whitespace rejection. TypeScript and changed-file ESLint pass. Live owner settings save/reload remains pending sign-in; do not infer it from component tests.

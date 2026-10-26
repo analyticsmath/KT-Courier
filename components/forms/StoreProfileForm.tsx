@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +22,8 @@ interface StoreProfileFormProps {
 }
 
 export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormProps) {
+  const router = useRouter();
+  const pending = useRef(false);
   const [fields, setFields] = useState({
     storeName: defaultValues?.storeName ?? "",
     contactPerson: defaultValues?.contactPerson ?? "",
@@ -38,22 +41,26 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
   const [serverError, setServerError] = useState<string | null>(null);
 
   function set(key: keyof typeof fields) {
-    return (e: React.ChangeEvent<HTMLInputElement>) =>
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSaved(false);
       setFields((f) => ({ ...f, [key]: e.target.value }));
+    };
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
     setLoading(true);
     setSaved(false);
     setErrors({});
     setServerError(null);
 
     const body = {
-      storeName: fields.storeName.trim() || undefined,
-      contactPerson: fields.contactPerson.trim() || undefined,
-      businessPhone: fields.businessPhone.trim() || undefined,
-      businessEmail: fields.businessEmail.trim() || undefined,
+      storeName: fields.storeName.trim(),
+      contactPerson: fields.contactPerson.trim(),
+      businessPhone: fields.businessPhone.trim(),
+      businessEmail: fields.businessEmail.trim(),
     };
 
     try {
@@ -65,30 +72,32 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
 
       const data = await res.json() as {
         success?: boolean;
-        errors?: Record<string, string>;
-        message?: string;
+        fields?: Record<string, string>;
+        error?: string;
       };
 
       if (!res.ok) {
-        if (data.errors) {
-          setErrors(data.errors);
+        if (data.fields) {
+          setErrors(data.fields);
         } else {
-          setServerError(data.message ?? "Something went wrong. Please try again.");
+          setServerError(data.error ?? "The changes could not be saved. Please try again.");
         }
         return;
       }
 
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      router.refresh();
     } catch {
       setServerError("Network error. Please try again.");
     } finally {
+      pending.current = false;
       setLoading(false);
     }
   }
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6">
+      <fieldset disabled={loading} className="space-y-6">
       <div>
         <h2 className="text-sm font-bold text-[--kt-text] mb-5">Store information</h2>
         <div className="space-y-4">
@@ -121,7 +130,7 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
               type="tel"
               value={fields.businessPhone}
               onChange={set("businessPhone")}
-              placeholder="07700 000000"
+              placeholder="+27 11 123 4567"
               error={errors.businessPhone}
             />
           </div>
@@ -160,9 +169,10 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
           Save changes
         </Button>
         {saved && (
-          <span className="text-sm text-[--kt-green] font-medium">Changes saved</span>
+          <span role="status" className="text-sm text-[--kt-green] font-medium">Changes saved</span>
         )}
       </div>
+      </fieldset>
     </form>
   );
 }

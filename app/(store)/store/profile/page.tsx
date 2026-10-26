@@ -33,9 +33,9 @@ export default async function StoreProfilePage() {
   const defaultValues = {
     storeName: profile?.storeProfile?.storeName ?? profile?.store?.name ?? "",
     contactPerson:
-      profile?.storeProfile?.contactPerson ?? profile?.user.name ?? "",
-    businessPhone: profile?.storeProfile?.businessPhone ?? "",
-    businessEmail: profile?.storeProfile?.businessEmail ?? "",
+      profile?.storeProfile?.contactPerson ?? access.store.contactName ?? profile?.user.name ?? "",
+    businessPhone: profile?.storeProfile?.businessPhone ?? access.store.contactPhone ?? "",
+    businessEmail: profile?.storeProfile?.businessEmail ?? access.store.contactEmail ?? "",
     addressLine1: profile?.store?.address.addressLine1 ?? "",
     addressLine2: profile?.store?.address.addressLine2 ?? "",
     city: profile?.store?.address.city ?? "",
@@ -47,7 +47,7 @@ export default async function StoreProfilePage() {
       <ProtectedPageHeader
         eyebrow="Store account"
         title="Store settings"
-        description="Manage canonical store identity, contact, and collection-address records."
+        description="Update your store information, contact details, photos and collection address."
       />
       <OperationalPanel title="Your profile image">
         <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
@@ -56,7 +56,7 @@ export default async function StoreProfilePage() {
       {sellerIdentity ? <OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}{/^PMO-[a-f0-9-]{36}$/.test(item.input.sourceEvidenceReference) ? <a className="ml-3 underline" href={`/api/private-media/${encodeURIComponent(item.input.sourceEvidenceReference)}`}>Download submitted document</a> : null}</li>)}</ul></OperationalPanel> : null}
       <OperationalPanel
         title="Store identity"
-        description="Existing validation and save authority remain inside this form."
+        description="These details identify your business and its main contact. Your login email is shown separately."
         padding="compact"
       >
         <StoreProfileForm

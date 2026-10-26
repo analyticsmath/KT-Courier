@@ -14,12 +14,14 @@ export type CustomerProfileUpdateInput = z.infer<typeof CustomerProfileUpdateSch
 export const StoreProfileUpdateSchema = z.object({
   storeName: z
     .string()
+    .trim()
     .min(2, "Store name must be at least 2 characters")
     .max(100, "Store name is too long")
     .trim()
     .optional(),
   contactPerson: z
     .string()
+    .trim()
     .min(2, "Contact person name must be at least 2 characters")
     .max(100, "Contact person name is too long")
     .trim()
