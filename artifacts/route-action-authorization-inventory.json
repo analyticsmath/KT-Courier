@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 771,
+    "totalRoutes": 772,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 670,
-    "permissionGatedRoutes": 526,
+    "authenticatedRoutes": 671,
+    "permissionGatedRoutes": 527,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 216,
-    "generatedAt": "2026-10-25T03:08:30.109Z"
+    "rateLimitedRoutes": 220,
+    "generatedAt": "2026-10-26T23:56:27.076Z"
   },
   "serverActions": [],
   "routes": [
@@ -9093,8 +9093,8 @@
       "requiredRoles": [],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
-      "bolaOwnershipValidated": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
@@ -12679,9 +12679,11 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
+      "requiredPermissions": [
+        "catalog.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
@@ -12697,9 +12699,31 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
+      "requiredPermissions": [
+        "catalog.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/store/catalog/offers/[publicReference]/resume/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "BUSINESS_SESSION_EXACT_MODULE",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE"
+      ],
+      "requiredPermissions": [
+        "catalog.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
@@ -12734,9 +12758,11 @@
         "CUSTOMER",
         "STORE"
       ],
-      "requiredPermissions": [],
-      "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
+      "requiredPermissions": [
+        "catalog.submit"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",

@@ -84,6 +84,7 @@ for (const file of routeFiles) {
 
   // Detect rate limit
   const hasRateLimit =
+    content.includes("storeOfferAction") ||
     content.includes("checkIpRateLimit") ||
     content.includes("checkAuthRateLimit") ||
     content.includes("checkRateLimit") ||
@@ -199,7 +200,9 @@ for (const file of routeFiles) {
   // This delegated handler performs scoped origin/rate checks and binds its
   // mandatory operationId to the canonical CSV receipt, not the route wrapper.
   const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
+  const delegatedOfferAction = content.includes("storeOfferAction") && /,\s*"(?:submit|pause|archive|resume)"\s*\)/.test(content);
   if (delegatedInventoryUpload) requiredPermissions = ["catalog_inventory.manage"];
+  if (delegatedOfferAction) requiredPermissions = [/,\s*"submit"\s*\)/.test(content) ? "catalog.submit" : "catalog.manage"];
   // Extract the permission key(s) actually passed to requireAdminApiPermission(PERMISSIONS.X, ...)
   // and resolve them to their canonical string values from lib/auth/permission-keys.ts.
   for (const match of content.matchAll(
@@ -300,7 +303,7 @@ for (const file of routeFiles) {
     requiredRoles,
     requiredPermissions,
     rateLimitingApplied: hasRateLimit,
-    idempotencyEnforced: hasIdempotency || delegatedInventoryUpload,
+    idempotencyEnforced: hasIdempotency || delegatedInventoryUpload || delegatedOfferAction,
     bolaOwnershipValidated: hasBola || authMechanism.includes("ADMIN"),
     originProtection,
     remediationStatus: needsOriginReview ? "REVIEW_REQUIRED_ORIGIN_PROTECTION" : "COMPLIANT",

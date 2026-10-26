@@ -41,13 +41,20 @@ for (const width of [1440, 390]) test(`native vendor CSV stock receipt with scop
   const denied = await post({ ...command, operationId: randomUUID(), csv: `${INVENTORY_UPLOAD_HEADER}\nforeign-inventory,foreign-location,1,2` }); expect(denied.status()).toBe(403); expect(await state()).toEqual(after);
   await expect(page.getByRole("status").filter({ hasText: "Stock receipt recorded for 1 items." })).toBeVisible();
   if (width === 390) {
-    await page.goto(`/store/catalog/offers/${offer.publicReference}`);
-    const paused = page.waitForResponse(r => r.url().endsWith(`/offers/${offer.publicReference}/pause`));
+    // Independent private fixture: the legacy public browsing snapshots are
+    // intentionally shallow and cannot establish valid resume publication evidence.
+    const tag = randomUUID().replaceAll("-", "");
+    const source = await prisma.catalogProduct.findUniqueOrThrow({ where: { id: offer.productId } });
+    const product = await prisma.catalogProduct.create({ data: { publicReference: `CP-${tag}`, scope: "STORE_PRIVATE", sourceStoreId: offer.storeId, productTypeDefinitionId: source.productTypeDefinitionId, productTypeVersionNumber: source.productTypeVersionNumber, primaryCategoryId: source.primaryCategoryId, title: `Private lifecycle QA ${tag}`, normalizedTitle: `private lifecycle qa ${tag}`, slug: `private-lifecycle-${tag}`, status: "APPROVED", moderationStatus: "APPROVED", attributeValues: {}, complianceValues: {}, qualityIssues: [], createdByUserId: offer.store.ownerUser!.id } });
+    const variant = await prisma.catalogProductVariant.create({ data: { publicReference: `CV-${tag}`, productId: product.id, title: "Default", normalizedTitle: "default", optionFingerprint: tag, skuReference: `QA-${tag}`, attributeValues: {}, status: "ACTIVE" } });
+    const lifecycle = await prisma.storeCatalogOffer.create({ data: { publicReference: `CO-${tag}`, storeId: offer.storeId, productId: product.id, variantId: variant.id, storeSku: `QA-${tag}`, status: "ACTIVE", publicationStatus: "DRAFT", inventoryTrackingMode: "TRACKED", fulfilmentMode: "COURIER_DELIVERY", sellingUnit: "EACH", createdByUserId: offer.store.ownerUser!.id } });
+    await page.goto(`/store/catalog/offers/${lifecycle.publicReference}`);
+    const paused = page.waitForResponse(r => r.url().endsWith(`/offers/${lifecycle.publicReference}/pause`));
     await page.getByRole("button", { name: "Pause listing", exact: true }).click(); expect((await paused).status()).toBe(200);
-    expect(await prisma.storeCatalogOffer.findUniqueOrThrow({ where: { id: offer.id } })).toMatchObject({ status: "PAUSED", publicationStatus: offer.publicationStatus });
-    const resumed = page.waitForResponse(r => r.url().endsWith(`/offers/${offer.publicReference}/resume`));
+    expect(await prisma.storeCatalogOffer.findUniqueOrThrow({ where: { id: lifecycle.id } })).toMatchObject({ status: "PAUSED", publicationStatus: "DRAFT" });
+    const resumed = page.waitForResponse(r => r.url().endsWith(`/offers/${lifecycle.publicReference}/resume`));
     await page.getByRole("button", { name: "Resume listing", exact: true }).click(); expect((await resumed).status()).toBe(200);
-    expect(await prisma.storeCatalogOffer.findUniqueOrThrow({ where: { id: offer.id } })).toMatchObject({ status: "ACTIVE", publicationStatus: offer.publicationStatus });
+    expect(await prisma.storeCatalogOffer.findUniqueOrThrow({ where: { id: lifecycle.id } })).toMatchObject({ status: "ACTIVE", publicationStatus: "DRAFT" });
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await info.attach(`inventory-upload-${width}`, { body: await page.screenshot({ fullPage: true, path: info.outputPath(`inventory-upload-${width}.png`) }), contentType: "image/png" });
