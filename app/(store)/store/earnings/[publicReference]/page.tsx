@@ -8,6 +8,8 @@ import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/Protected
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreEarningForOwner } from "@/lib/services/store-earning-query.service";
+import { StoreEarningError } from "@/lib/store-earnings/errors";
+import { StoreEarningsUnavailable } from "../StoreEarningsUnavailable";
 
 export default async function StoreEarningDetailPage({
   params,
@@ -18,7 +20,11 @@ export default async function StoreEarningDetailPage({
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
   const { publicReference } = await params;
-  const earning = await getStoreEarningForOwner(user.id, publicReference);
+  const earning = await getStoreEarningForOwner(user.id, publicReference).catch((error: unknown) => {
+    if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return undefined;
+    throw error;
+  });
+  if (earning === undefined) return <StoreEarningsUnavailable />;
   if (!earning) notFound();
   return (
     <ProtectedPageFrame>

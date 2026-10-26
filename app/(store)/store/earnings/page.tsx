@@ -13,16 +13,23 @@ import { SecureLedgerIllustration } from "@/components/protected-v2/illustration
 import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedState";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { listStoreEarningsForOwner } from "@/lib/services/store-earning-query.service";
+import { StoreEarningError } from "@/lib/store-earnings/errors";
+import { StoreEarningsUnavailable } from "./StoreEarningsUnavailable";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
 
 export default async function StoreEarningsPage() {
   await requireBusinessPage("/store/earnings");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
-  const [summary, earnings] = await Promise.all([
+  const data = await Promise.all([
     getStoreEarningSummaryForOwner(user.id),
     listStoreEarningsForOwner(user.id, { page: 1, pageSize: 50 }),
-  ]);
+  ]).catch((error: unknown) => {
+    if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return null;
+    throw error;
+  });
+  if (!data) return <StoreEarningsUnavailable />;
+  const [summary, earnings] = data;
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
