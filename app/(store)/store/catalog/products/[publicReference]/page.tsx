@@ -1,3 +1,4 @@
+import { StoreCatalogDraftSetup } from "@/components/catalog/StoreCatalogDraftSetup";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import Link from "next/link";
 import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
@@ -97,6 +98,8 @@ export default async function StoreCatalogProductDetailPage({
       {editable && (canManage || canSubmit) ? <OperationalPanel title="Update product draft" description="Save text changes, then submit the saved product for catalog review.">
         <StoreCatalogProductActions key={`${product.publicReference}:${product.version}`} product={{ publicReference: product.publicReference, version: product.version, title: product.title, description: product.description }} canManage={canManage} canSubmit={canSubmit} />
       </OperationalPanel> : null}
+      {editable && canManage ? <OperationalPanel title="Complete product draft" description="Add photos and prepare a store offer for an imported or existing private draft."><StoreCatalogDraftSetup key={`${product.publicReference}:${product.version}`} product={{ id: product.id, publicReference: product.publicReference, version: product.version, variants: product.variants.map(variant => ({ id: variant.id, title: variant.title })), nextMediaOrder: Math.max(-1, ...product.media.map(item => item.displayOrder)) + 1, attachedMediaReferences: product.media.map(item => item.asset.publicReference) }} hasPrimary={product.media.some(item => item.role === "PRIMARY")} canCreateOffer={!product.offers.length} /></OperationalPanel> : null}
+      {product.offers.length > 0 && <OperationalPanel title="Store offers"><ul className="space-y-2">{product.offers.map(offer => <li key={offer.publicReference}><Link className="underline" href={`/store/catalog/offers/${offer.publicReference}`}>{offer.storeSku} — manage price and listing</Link></li>)}</ul></OperationalPanel>}
       <OperationalPanel
         title="Variants"
         description="Each variant remains an individual canonical record."

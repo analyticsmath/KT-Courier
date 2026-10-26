@@ -23,14 +23,14 @@ type SafeAsset = { publicReference: string; status: string; purpose: "PRODUCT_IM
 const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
-export function CatalogMediaUploader({ value, onChange, productOnly = false }: { value: CatalogMediaDraft[]; onChange: (value: CatalogMediaDraft[]) => void; productOnly?: boolean }) {
+export function CatalogMediaUploader({ value, onChange, productOnly = false, excludedReferences = [] }: { value: CatalogMediaDraft[]; onChange: (value: CatalogMediaDraft[]) => void; productOnly?: boolean; excludedReferences?: string[] }) {
   const [available, setAvailable] = useState<SafeAsset[]>([]);
   const [phase, setPhase] = useState<"IDLE" | "CREATING_INTENT" | "UPLOADING" | "VALIDATING">("IDLE");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [purpose, setPurpose] = useState<"PRODUCT_IMAGE" | "VARIANT_IMAGE">("PRODUCT_IMAGE");
   const uploadPurpose = productOnly ? "PRODUCT_IMAGE" : purpose;
-  const selectable = available.filter(asset => asset.purpose === "PRODUCT_IMAGE" || (!productOnly && asset.purpose === "VARIANT_IMAGE"));
+  const selectable = available.filter(asset => !excludedReferences.includes(asset.publicReference) && (asset.purpose === "PRODUCT_IMAGE" || (!productOnly && asset.purpose === "VARIANT_IMAGE")));
   const retryFile = useRef<File | null>(null);
   const retryOperation = useRef<{ file: File; purpose: string; id: string } | null>(null);
 
@@ -71,7 +71,7 @@ export function CatalogMediaUploader({ value, onChange, productOnly = false }: {
   }
 
   function addReadyAsset(asset: SafeAsset) {
-    if ((asset.purpose !== "PRODUCT_IMAGE" && asset.purpose !== "VARIANT_IMAGE") || (productOnly && asset.purpose !== "PRODUCT_IMAGE") || value.some((item) => item.assetPublicReference === asset.publicReference) || asset.status !== "READY" || !asset.mimeType || !asset.byteSize || !asset.width || !asset.height) return;
+    if (excludedReferences.includes(asset.publicReference) || (asset.purpose !== "PRODUCT_IMAGE" && asset.purpose !== "VARIANT_IMAGE") || (productOnly && asset.purpose !== "PRODUCT_IMAGE") || value.some((item) => item.assetPublicReference === asset.publicReference) || asset.status !== "READY" || !asset.mimeType || !asset.byteSize || !asset.width || !asset.height) return;
     onChange([...value, { assetPublicReference: asset.publicReference, status: "READY", mimeType: asset.mimeType, byteSize: asset.byteSize, width: asset.width, height: asset.height, altText: "", primary: asset.purpose === "PRODUCT_IMAGE" && value.every((item) => !item.primary), variantAssociation: asset.purpose === "VARIANT_IMAGE" ? "DEFAULT" : "PRODUCT" }]);
   }
 

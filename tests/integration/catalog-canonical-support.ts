@@ -10,15 +10,15 @@ import { CatalogMediaIntakeService, PrismaCatalogMediaRepository } from "@/lib/s
 import { DeterministicCatalogMediaStorageAdapter } from "@/lib/catalog/media/deterministic-catalog-media-storage-adapter";
 import { attachStoreCatalogMedia } from "@/lib/services/catalog-media-attachment.service";
 
-export async function assertCatalogDatabase() {
+export async function assertCatalogDatabase(role: "disposable" | "kt_closure_test" = "disposable") {
   requireDisposableStoreSettlementDatabase();
-  expect(await prisma.$queryRaw`SELECT current_database() AS database, current_user AS role`).toEqual([{ database: "kt_launch_test", role: "disposable" }]);
+  expect(await prisma.$queryRaw`SELECT current_database() AS database, current_user AS role`).toEqual([{ database: "kt_launch_test", role }]);
 }
 
 /** Synthetic structural inputs; subjects are created through real commands.
  * No paid or published state is fabricated. */
-export async function catalogFoundation() {
-  await assertCatalogDatabase(); const tag = randomUUID();
+export async function catalogFoundation(role: "disposable" | "kt_closure_test" = "disposable") {
+  await assertCatalogDatabase(role); const tag = randomUUID();
   const user = await prisma.user.create({ data: { email: `catalog-${tag}@example.test`, name: "Disposable catalog owner", role: "STORE", status: "ACTIVE" } });
   const store = await prisma.store.create({ data: { ownerUserId: user.id, slug: `catalog-${tag}`, name: "Disposable catalog store", status: "ACTIVE" } });
   const category = await createCatalogCategory({ actorUserId: user.id, name: "Synthetic category", slug: `category-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() });

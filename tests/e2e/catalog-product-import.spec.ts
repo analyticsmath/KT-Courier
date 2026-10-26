@@ -1,3 +1,4 @@
+import sharp from "sharp";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/db/prisma";
@@ -35,6 +36,21 @@ for (const width of [320, 390, 1440]) test(`vendor product CSV preview, apply, r
   const applied = await appliedResponse; expect(applied.status(), await applied.text()).toBe(200);
   const products = await prisma.catalogProduct.findMany({ where: { sourceStoreId: store.id, title }, include: { offers: true } });
   expect(products).toHaveLength(1); expect(products[0]).toMatchObject({ status: "DRAFT", publicationStatus: "DRAFT", scope: "STORE_PRIVATE", shortDescription: "Quoted, summary" }); expect(products[0].offers).toHaveLength(0);
+  await page.goto(`/store/catalog/products/${products[0].publicReference}`);
+  await expect(page.getByRole("heading", { name: "Complete product draft", exact: true })).toBeVisible();
+  const png = await sharp({ create: { width: 400, height: 400, channels: 3, background: "#448855" } }).png().toBuffer();
+  const uploaded = page.waitForResponse(r => r.url().endsWith("/api/store/catalog/media/normalized"));
+  await page.getByLabel("Upload product image", { exact: true }).setInputFiles({ name: "imported.png", mimeType: "image/png", buffer: png });
+  expect((await uploaded).status()).toBe(201);
+  await page.getByLabel("Alt text", { exact: true }).fill("Synthetic imported product image");
+  const attached = page.waitForResponse(r => r.url().endsWith(`/api/store/catalog/products/${products[0].publicReference}/media`));
+  await page.getByRole("button", { name: "Save product photos", exact: true }).click(); expect((await attached).status()).toBe(201);
+  await expect.poll(async () => prisma.catalogProductMedia.count({ where: { productId: products[0].id } })).toBe(1);
+  await page.reload();
+  await page.getByLabel("Store offer SKU", { exact: true }).fill(`IMPORT-${tag}`);
+  await page.getByRole("button", { name: "Create offer and add price", exact: true }).click();
+  await expect(page.getByLabel("Price including VAT (ZAR)", { exact: true })).toBeVisible();
+  expect(await prisma.storeCatalogOffer.count({ where: { storeId: store.id, productId: products[0].id, status: "DRAFT" } })).toBe(1);
   const endpoint = `/api/store/catalog/imports/${job.publicReference}/apply`;
   const headers = { origin: process.env.E2E_BASE_URL! };
   expect((await page.request.post(endpoint, { headers, data: { operationId: randomUUID() } })).status()).toBe(200);
