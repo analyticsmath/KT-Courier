@@ -28,7 +28,7 @@ export default async function Page({
         description={`${c.storeName} · ${c.status}`}
       />
       <Link href="/admin/promotions">Back to promotion review</Link>
-      <OperationalPanel title="Submitted campaign">
+      <OperationalPanel title="Campaign rules">
         <p>{c.description}</p>
         <p>
           Discount: {c.value}
