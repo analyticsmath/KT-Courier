@@ -29,4 +29,8 @@ describe("catalog import validation integrity", () => {
       .toThrowError();
   });
 
-  it("allows apply only after an actual clean, nonempty dry run",¶»§q«^
+  it("allows apply only after an actual clean, nonempty dry run", () => {
+    expect(() => assertCatalogImportCanApply({ status: "VALIDATED", dryRunCompleted: true, totalRows: 2, validRows: 2, invalidRows: 0 }))
+      .not.toThrow();
+  });
+});

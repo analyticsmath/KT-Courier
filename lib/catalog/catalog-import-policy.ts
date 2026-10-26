@@ -33,4 +33,39 @@ export function catalogImportCellIssues(value: string): string[] {
   return issues;
 }
 
-export functio¶»§q«^
+export function assertCatalogImportCanValidate(value: { status: string; rowStatuses: string[] }): void {
+  if (value.status !== "UPLOADED" && value.status !== "VALIDATED") {
+    throw new CatalogPolicyError("CATALOG_IMPORT_STATE_INVALID", "Only uploaded catalog imports can be validated.");
+  }
+  if (value.rowStatuses.length === 0) {
+    throw new CatalogPolicyError("CATALOG_IMPORT_EMPTY", "No parsed CSV rows exist for this import. Upload and parse the product file before validating.");
+  }
+  if (value.rowStatuses.length > CATALOG_IMPORT_MAX_ROWS) {
+    throw new CatalogPolicyError("CATALOG_IMPORT_ROW_LIMIT", "Catalog import exceeds the row limit.");
+  }
+  if (value.rowStatuses.some((status) => status !== "VALID" && status !== "INVALID")) {
+    throw new CatalogPolicyError("CATALOG_IMPORT_ROWS_PENDING", "Every imported CSV row must be parsed and checked before dry-run validation.");
+  }
+}
+
+export function assertCatalogImportCanApply(value: {
+  dryRunCompleted: boolean;
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  status: string;
+}): void {
+  if (
+    !value.dryRunCompleted ||
+    value.status !== "VALIDATED" ||
+    !Number.isSafeInteger(value.totalRows) ||
+    !Number.isSafeInteger(value.validRows) ||
+    !Number.isSafeInteger(value.invalidRows) ||
+    value.totalRows < 1 ||
+    value.totalRows > CATALOG_IMPORT_MAX_ROWS ||
+    value.validRows !== value.totalRows ||
+    value.invalidRows !== 0
+  ) {
+    throw new CatalogPolicyError("CATALOG_IMPORT_NOT_READY", "A successful nonempty dry-run with no invalid or pending rows is required before apply.");
+  }
+}
