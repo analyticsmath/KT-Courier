@@ -153,7 +153,7 @@ export function PromotionDraftForm({
               defaultValue={f.value ?? ""}
               required={f.required}
               {...(f.type === "number"
-                ? { min: 0.01, step: f.name.endsWith("Limit") ? 1 : 0.01 }
+                ? { min: f.name.endsWith("Limit") ? 1 : 0.01, step: f.name.endsWith("Limit") ? 1 : 0.01 }
                 : {})}
               maxLength={f.name === "coupon" ? 32 : 120}
             />
