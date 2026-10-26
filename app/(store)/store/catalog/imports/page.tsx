@@ -16,7 +16,7 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 export default async function StoreCatalogImportsPage() {
   await requireBusinessPage("/store/catalog/imports");
   const { store, user } = await getCurrentStoreForCatalogPage(PERMISSIONS.CATALOG_IMPORTS_READ);
-  const [imports, manage, types, categories] = await Promise.all([listStoreCatalogImports(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_IMPORTS_MANAGE), prisma.productTypeDefinition.findMany({ where: { status: { in: ["APPROVED", "ACTIVE"] } }, select: { id: true, name: true }, orderBy: { name: "asc" } }), prisma.catalogCategory.findMany({ where: { status: "ACTIVE" }, select: { id: true, path: true }, orderBy: { path: "asc" } })]);
+  const [imports, manage, types, categories] = await Promise.all([listStoreCatalogImports(store.id), storeCatalogPermission(user.id, PERMISSIONS.CATALOG_IMPORTS_MANAGE), prisma.productTypeDefinition.findMany({ where: { status: { in: ["APPROVED", "ACTIVE"] } }, select: { id: true, name: true, versionNumber: true }, orderBy: { name: "asc" } }), prisma.catalogCategory.findMany({ where: { status: "ACTIVE" }, select: { id: true, path: true }, orderBy: { path: "asc" } })]);
   return (
     <ProtectedPageFrame>
       <ProtectedPageHeader
@@ -25,7 +25,7 @@ export default async function StoreCatalogImportsPage() {
         description="Upload a CSV, review each row and create private product drafts."
       />
       <StoreCatalogNavigation />
-      {manage.allowed && <ProductCsvImport types={types} categories={categories} initialJobs={JSON.parse(JSON.stringify(imports))} />}
+      {manage.allowed && <ProductCsvImport types={types.map(type => ({ id: type.id, name: `${type.name} (v${type.versionNumber})` }))} categories={categories} initialJobs={JSON.parse(JSON.stringify(imports))} />}
       <OperationalPanel title="Import safeguards" padding="compact">
         <p className="text-sm text-[var(--eo-text-secondary)]">
           Imports create product identities only. Add photos, offers, prices and stock before submitting them for review. To record received stock, use

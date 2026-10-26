@@ -5,7 +5,9 @@ import { catalogFoundation } from "./catalog-canonical-support";
 import { createCatalogImportJob, validateCatalogImportJob, applyCatalogImportJob } from "@/lib/services/catalog-import.service";
 
 async function fixture(csv = 'title,shortDescription\nFirst imported product,Summary\nSecond imported product,Summary') {
-  const f = await catalogFoundation("kt_closure_test");
+  const role = new URL(process.env.DATABASE_URL!).username;
+  if (role !== "disposable" && role !== "kt_closure_test") throw new Error("Named disposable catalog or closure runner required.");
+  const f = await catalogFoundation(role);
   const input = { filename: "products.csv", mimeType: "text/csv", byteSize: Buffer.byteLength(csv), templateVersion: 1, operationId: randomUUID(), csv, productTypeDefinitionId: f.definition.id, primaryCategoryId: f.category.id };
   return { ...f, input };
 }

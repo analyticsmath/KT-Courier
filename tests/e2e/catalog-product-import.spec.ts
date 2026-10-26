@@ -23,7 +23,9 @@ for (const width of [320, 390, 1440]) test(`vendor product CSV preview, apply, r
   await page.getByRole("button", { name: "Upload and preview rows", exact: true }).click(); expect((await invalidPreview).status()).toBe(200);
   await expect(page.getByRole("list", { name: "Product import preview" })).toContainText("Title must contain");
   await expect(page.getByRole("button", { name: /Create .* unpublished drafts/ })).toHaveCount(0);
-  await page.getByLabel("Product CSV file", { exact: true }).setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from(`title,shortDescription\n"${title}","Quoted, summary"`) });
+  const validCsv = `title,shortDescription\n"${title}","Quoted, summary"`;
+  if (width === 320) await page.getByLabel("Or paste CSV contents", { exact: true }).fill(validCsv);
+  else await page.getByLabel("Product CSV file", { exact: true }).setInputFiles({ name: "products.csv", mimeType: "text/csv", buffer: Buffer.from(validCsv) });
   const previewResponse = page.waitForResponse(r => r.url().includes('/api/store/catalog/imports/') && r.url().endsWith('/validate'));
   await page.getByRole("button", { name: "Upload and preview rows", exact: true }).click(); const preview = await previewResponse; expect(preview.status()).toBe(200);
   const job = (await preview.json()).importJob;
