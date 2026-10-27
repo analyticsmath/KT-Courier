@@ -46,3 +46,24 @@ Genuine seller evidence, approved commission terms and current-release provider/
 Validation: 104 focused authentication/listing/settings/inventory tests across 20 suites passed, TypeScript and changed-file ESLint passed. Added PostgreSQL pause/resume, rollback and projection retention cases to the existing storefront withdrawal integration suite, and mobile browser pause/resume assertions. These new DB/browser cases are pending exact-release certification; discovery is not execution.
 
 Live QA stock is synthetic and belongs only to the private unsubmitted product. The two-unit receipt is not evidence of physical goods for sale. No QA product, coupon, identity or commission arrangement was commercially activated.
+
+## Admin continuation after sign-in
+
+- Confirmed the live Super Admin session and store directory/status filters.
+- Opened Tolvyn's submitted offer through the admin list. Product approval and offer/publication state remain separate. An empty publication reason was rejected with a readable validation message; no QA product was published.
+- Opened the seller review. The proposal explicitly contains synthetic, invalid registration evidence. Approval and rejection require evidence review; no false identity attestation was made.
+- Opened store-specific commission preparation. The store and marketplace subject were preselected, and rate/effective dates require explicit commercial input. No rate was invented or activated.
+- Opened an audited read-only support session with a QA reason. Business profile, deliveries, team, campaigns, reviews and membership empty states rendered correctly without ownership or permission changes.
+
+### Fresh verification evidence
+
+For main commit 42a3e42d1c0e404dab87925e399253c8648ff7db:
+- CI quality, build/typecheck/lint, migration, authorization, financial/security and cross-module jobs passed.
+- Production Certification PostgreSQL catalog, storefront, store orders, checkout, earnings, refunds, withdrawals, auth and permission jobs passed.
+- Directed Chromium execution: 46 passed, one failed. All three product CSV cases passed at 320, 390 and 1440 pixels, including file/paste, validation, saved preview, apply/replay, photo persistence, offer continuation and tenant denial.
+- The single failure was invalid lifecycle test setup: ACTIVE offers require published product state and an active current price in PostgreSQL. Replaced the impossible private ACTIVE fixture with independently staged canonical price, publication snapshot and ready media in the disposable test database. Follow-up commits 02557b6 and 2d525e4; their fresh CI/browser execution remains pending. These commits change test fixtures, not production activation requirements.
+- Railway web and worker deployment of 42a3e42 succeeded.
+
+### Remaining acceptance requirements
+
+This is not a declaration of full production readiness. A genuine seller identity, an agreed independently approved commission policy, exact-release payment/settlement/refund/payout acceptance and the resulting withdrawal gate clearance remain outstanding. The live Tolvyn QA offer remains SUBMITTED/DRAFT, its CSV product remains private DRAFT, and all QA promotion/identity evidence remains commercially inactive.
