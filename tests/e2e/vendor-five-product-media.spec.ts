@@ -65,7 +65,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await login(page, email);
   await page.goto("/store/profile");
   const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
-  await seller.getByLabel("Identity version", { exact: true }).fill(`synthetic-${tag}-v1`);
+  await seller.locator('input[name="identityVersion"]').fill(`synthetic-${tag}-v1`);
   await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
   await seller.getByRole("combobox", { name: "VAT registration status", exact: true }).selectOption("NOT_REGISTERED");
   await seller.getByRole("combobox", { name: "Receipt classification", exact: true }).selectOption("RECEIPT");

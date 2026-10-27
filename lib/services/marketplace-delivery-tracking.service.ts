@@ -33,6 +33,7 @@ export type CustomerTrackingRow = Readonly<{
   cashStatus?: string | null;
   proofMethod?: string | null;
   proofDeliveredAt?: Date | null;
+  proofPhotoRecorded?: boolean | null;
 }>;
 
 export type CustomerTrackingStoreOrder = Readonly<{
@@ -45,7 +46,7 @@ export type CustomerTrackingStoreOrder = Readonly<{
   assignmentStatus: string | null;
   cashOnDelivery: Readonly<{ obligation: string; collected: string; outstanding: string; status: string }> | null;
   liveLocation: Readonly<{ latitude: number; longitude: number; observedAt: string }> | null;
-  proofOfDelivery: Readonly<{ method: string; deliveredAt: string }> | null;
+  proofOfDelivery: Readonly<{ method: string; deliveredAt: string; photoEvidenceRecorded: boolean }> | null;
 }>;
 
 function allowsCustomerLocation(status: string | null): boolean {
@@ -78,7 +79,7 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow, now 
     // No recipient phone, internal note, raw GPS or evidence token is exposed.
     proofOfDelivery: ["DELIVERED", "COMPLETED"].includes(row.courierStatus ?? "") &&
       row.proofMethod && row.proofDeliveredAt
-      ? Object.freeze({ method: row.proofMethod, deliveredAt: row.proofDeliveredAt.toISOString() })
+      ? Object.freeze({ method: row.proofMethod, deliveredAt: row.proofDeliveredAt.toISOString(), photoEvidenceRecorded: row.proofPhotoRecorded === true })
       : null,
     liveLocation: mayExposeLocation && row.locationLatitude && row.locationLongitude && row.locationObservedAt && isFreshTrackingObservation(row.locationObservedAt, now.getTime())
       ? Object.freeze({
@@ -111,7 +112,8 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
       latest_location."receivedAt" AS "locationObservedAt",
       COALESCE(cod."cashObligation", marketplace_order."cashRequired") AS "cashObligation",
       cod."cashCollected", cod."status"::text AS "cashStatus",
-      pod."method"::text AS "proofMethod", pod."deliveredAt" AS "proofDeliveredAt"
+      pod."method"::text AS "proofMethod", pod."deliveredAt" AS "proofDeliveredAt",
+      (pod."evidenceReference" IS NOT NULL) AS "proofPhotoRecorded"
     FROM "MarketplaceOrder" marketplace_order
     JOIN "MarketplaceStoreOrder" store_order ON store_order."marketplaceOrderId" = marketplace_order."id"
     JOIN "Store" store ON store."id" = store_order."storeId"

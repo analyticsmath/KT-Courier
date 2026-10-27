@@ -48,13 +48,21 @@ describe("marketplace customer tracking projection", () => {
     const row = { ...base, marketplaceStatus: "CANCELLED", cashObligation: new Prisma.Decimal("99.00"), cashCollected: new Prisma.Decimal(0), cashStatus: "PENDING" };
     expect(projectCustomerTrackingStoreOrder(row).cashOnDelivery).toEqual({ obligation: "99.00", collected: "0.00", outstanding: "0.00", status: "CANCELLED" });
   });
+  it("reports privately stored photo evidence only after delivery without exposing its file reference", () => {
+    const pending = { ...base, proofMethod: "OTP", proofDeliveredAt: new Date("2026-08-04T11:00:00.000Z"), proofPhotoRecorded: true };
+    expect(projectCustomerTrackingStoreOrder(pending).proofOfDelivery).toBeNull();
+    const delivered = projectCustomerTrackingStoreOrder({ ...pending, courierStatus: "DELIVERED" });
+    expect(delivered.proofOfDelivery).toEqual({ method: "OTP", deliveredAt: "2026-08-04T11:00:00.000Z", photoEvidenceRecorded: true });
+    expect(JSON.stringify(delivered)).not.toMatch(/evidenceReference|recipientName|recipientPhone|private-media|latitude|longitude/i);
+    expect(projectCustomerTrackingStoreOrder({ ...pending, courierStatus: "DELIVERED", proofPhotoRecorded: false }).proofOfDelivery).toMatchObject({ photoEvidenceRecorded: false });
+  });
   it("retains customer-safe POD at DELIVERED and COMPLETED without retaining courier GPS", () => {
     const confirmed = { ...base, proofMethod: "OTP", proofDeliveredAt: new Date("2026-08-04T11:00:00.000Z") };
     expect(projectCustomerTrackingStoreOrder(confirmed).proofOfDelivery).toBeNull();
     for (const terminal of ["DELIVERED", "COMPLETED"]) {
       const view = projectCustomerTrackingStoreOrder({ ...confirmed, courierStatus: terminal });
       expect(view.liveLocation).toBeNull();
-      expect(view.proofOfDelivery).toEqual({ method: "OTP", deliveredAt: "2026-08-04T11:00:00.000Z" });
+      expect(view.proofOfDelivery).toEqual({ method: "OTP", deliveredAt: "2026-08-04T11:00:00.000Z", photoEvidenceRecorded: false });
       expect(JSON.stringify(view)).not.toMatch(/recipientPhone|otpCode|evidenceReference/);
     }
   });
