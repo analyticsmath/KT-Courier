@@ -15,6 +15,10 @@
 - Fail-first unit case `tests/services/marketplace-delivery-tracking.service.test.ts` verifies (a) pending orders cannot show POD status, (b) delivered orders expose the boolean and timestamp, (c) absent photo evidence is reported as absent, and (d) no private tokens, raw coordinates, phone or recipient name are serialized. The legacy POD tests remain green.
 - Comparable industry evidence: official Uber Direct proof-of-delivery documentation describes context-sensitive PIN, photo and signature requirements, while DoorDash tracking provides milestone/status/POD confirmation. These are design references, not third-party verification of this code: `https://developer.uber.com/docs/deliveries/guides/proof-of-delivery` and `https://developer.doordash.com/en-US/docs/drive/how_to/Parcel/tracking_links/`.
 
+## Additional customer tracking repair — cancelled marketplace refresh
+
+- The order-confirmation page previously called `shouldRefreshMarketplaceStatus` with only the child delivery states. A **cancelled** parent marketplace order with a still-pending child bridge (or zero children) therefore refreshed indefinitely. The fail-first test reproduces the behaviour; the status decision now receives the canonical parent state and immediately stops polling on `CANCELLED`, while preserving refresh for `CONFIRMED` and `RECONCILIATION_REQUIRED` where recovery can occur. No delivery status, COD balance, provider event or database row is mutated.
+
 ## Phase 3 acceptance gates still blocked on genuine external evidence
 
 - Provider domain/variable existence is not a real Paystack charge/refund/settlement or Resend inbox receipt. As of the previous connected-provider inspection, Resend `ktcouriers.com` domain is verified but the account returned **no delivery-event webhooks**. Confirm webhook tracking and use approved recipient test credentials before any claim of end-to-end email delivery.

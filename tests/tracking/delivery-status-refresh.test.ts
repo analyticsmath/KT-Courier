@@ -10,6 +10,12 @@ describe("customer delivery progress refresh decisions", () => {
       expect(shouldRefreshParcelStatus(status)).toBe(false);
     }
   });
+  it("stops polling cancelled marketplace orders, including those without store deliveries", () => {
+    expect(shouldRefreshMarketplaceStatus(["DRIVER_ASSIGNED"], "CANCELLED")).toBe(false);
+    expect(shouldRefreshMarketplaceStatus([], "CANCELLED")).toBe(false);
+    expect(shouldRefreshMarketplaceStatus(["FAILED"], "RECONCILIATION_REQUIRED")).toBe(true);
+    expect(shouldRefreshMarketplaceStatus(["DRIVER_ASSIGNED"], "CONFIRMED")).toBe(true);
+  });
   it("refreshes marketplace orders until all their store deliveries finish", () => {
     expect(shouldRefreshMarketplaceStatus(["DELIVERED", "DRIVER_ASSIGNED"])).toBe(true);
     expect(shouldRefreshMarketplaceStatus(["DELIVERED", "DELIVERED"])).toBe(false);

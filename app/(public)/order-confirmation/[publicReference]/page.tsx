@@ -42,7 +42,7 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
 
   const confirmed = tracking.status === "CONFIRMED";
   return <>
-    <LiveDeliveryStatusRefresh active={shouldRefreshMarketplaceStatus(tracking.storeOrders.map(row => row.deliveryStatus))} />
+    <LiveDeliveryStatusRefresh active={shouldRefreshMarketplaceStatus(tracking.storeOrders.map(row => row.deliveryStatus), tracking.status)} />
     <main className={styles.commerceRoot} id="storefront-content">
     <div className={styles.commerceInner}>
       <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Order status" }]} />
