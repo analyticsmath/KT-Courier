@@ -6,7 +6,7 @@ import {
   DashboardPeriodControl,
 } from "@/components/protected-v2/dashboard";
 import { presentOrderStatus } from "@/lib/admin-presentation/operational-status";
-import { formatDateTime } from "@/lib/utils/formatters";
+import { formatDashboardDateTime as formatDateTime } from "@/lib/dashboard-insights/dashboard-period";
 import type { AdminDesk } from "@/lib/dashboard-insights/admin-desk";
 import type { DashboardPeriod } from "@/lib/dashboard-insights/types";
 import {

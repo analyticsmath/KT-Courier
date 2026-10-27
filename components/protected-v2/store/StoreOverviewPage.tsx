@@ -14,7 +14,7 @@ import type {
   CountInsight,
   DashboardPeriod,
 } from "@/lib/dashboard-insights/types";
-import { formatDateTime } from "@/lib/utils/formatters";
+import { formatDashboardDateTime as formatDateTime } from "@/lib/dashboard-insights/dashboard-period";
 import { ActivityBars, DistributionRing } from "../studio/StudioCharts";
 import { OperationsWorkbench } from "../studio/OperationsWorkbench";
 import { DeliveryHealth } from "../studio/DeliveryHealth";

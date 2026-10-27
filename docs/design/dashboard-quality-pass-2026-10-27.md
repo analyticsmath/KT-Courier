@@ -40,3 +40,5 @@ Dashboard tests, driver presentation tests, lint, TypeScript and the production 
 - Weekday counts reuse the already-authorized bounded date series; they introduce no additional analytics queries. Truncated series withhold cadence and cumulative detail while retaining separately counted totals.
 - Shared operational table headers now use charcoal with white text, with tighter body rows and existing mobile stacking retained.
 - Browser access is still unavailable to this chat. These changes require live visual acceptance once the originating browser context is restored.
+
+- Record timestamps in admin and vendor overviews explicitly use SAST, matching the freshness clock and avoiding host-timezone ambiguity.
