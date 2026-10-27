@@ -1,4 +1,5 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { Prisma } from "@prisma/client";
 import { buildCatalogPublicationSnapshot } from "@/lib/catalog/catalog-publication-snapshot";
 import { expect, test } from "@playwright/test";
@@ -53,12 +54,18 @@ for (const width of [1440, 390]) test(`native vendor CSV stock receipt with scop
     const price = await prisma.storeOfferPriceVersion.create({ data: { publicReference: `PR-${tag}`, offerId: draftLifecycle.id, versionNumber: 1, amount: new Prisma.Decimal("100.00"), currency: "ZAR", status: "ACTIVE", effectiveFrom: new Date(Date.now() - 3600000), createdByUserId: offer.store.ownerUser!.id } });
     await prisma.catalogProduct.update({ where: { id: product.id }, data: { status: "ACTIVE", publicationStatus: "PUBLISHED" } });
     const lifecycle = await prisma.storeCatalogOffer.update({ where: { id: draftLifecycle.id }, data: { currentPriceVersionId: price.id, status: "ACTIVE", publicationStatus: "PUBLISHED" } });
-    const asset = await prisma.catalogMediaAsset.create({ data: {
-      publicReference: `CMA-${tag}`, ownerType: "STORE", ownerStoreId: offer.storeId, purpose: "PRODUCT_IMAGE",
-      storageProvider: "disposable", storageKey: `catalog-media/${tag.repeat(2)}`, declaredMimeType: "image/png", declaredByteSize: 1024,
-      mimeType: "image/png", byteSize: 1024, checksum: "a".repeat(64), storageConfirmedAt: new Date(), validatedAt: new Date(),
-      width: 400, height: 300, privacyInspectionPassed: true, status: "READY", createdByUserId: offer.store.ownerUser!.id, updatedByUserId: offer.store.ownerUser!.id,
-    } });
+    // The lifecycle fixture must use the real authorized upload/normalization
+    // pathway. A fabricated READY row with nonexistent bytes leaked into the
+    // later public storefront tests and correctly produced an HTTP 409.
+    const uploadBytes = await sharp({ create: { width: 400, height: 300, channels: 3, background: { r: 44, g: 120, b: 190 } } }).png().toBuffer();
+    const mediaResponse = await page.request.post("/api/store/catalog/media/normalized", {
+      headers: { Origin: process.env.E2E_BASE_URL!, "x-catalog-operation-id": randomUUID() },
+      multipart: { purpose: "PRODUCT_IMAGE", file: { name: "synthetic-lifecycle.png", mimeType: "image/png", buffer: uploadBytes } },
+    });
+    expect(mediaResponse.status(), await mediaResponse.text()).toBe(201);
+    const { asset: uploadedAsset } = await mediaResponse.json();
+    const asset = await prisma.catalogMediaAsset.findUniqueOrThrow({ where: { publicReference: uploadedAsset.publicReference } });
+    expect(asset).toMatchObject({ status: "READY", ownerStoreId: offer.storeId, privacyInspectionPassed: true });
     await prisma.catalogProductMedia.create({ data: { productId: product.id, assetId: asset.id, role: "PRIMARY", altText: "Disposable lifecycle image" } });
     const value = buildCatalogPublicationSnapshot({
       productReference: product.publicReference, variantReference: variant.publicReference, offerReference: lifecycle.publicReference, storeReference: offer.store.slug,
@@ -68,6 +75,14 @@ for (const width of [1440, 390]) test(`native vendor CSV stock receipt with scop
       availability: {}, media: [{ assetReference: asset.publicReference, role: "PRIMARY", altText: "Disposable lifecycle image", order: 0 }], compliance: {},
     });
     await prisma.catalogPublicationSnapshot.create({ data: { publicReference: `CPS-${tag}`, productId: product.id, variantId: variant.id, offerId: lifecycle.id, versionNumber: 1, publicationVersion: value.publicationVersion, snapshot: value as Prisma.InputJsonValue, status: "PUBLISHED", createdByUserId: offer.store.ownerUser!.id } });
+    // Public rendering is part of publication evidence, not just a READY label.
+    const publicMedia = await page.request.get(`/api/catalog/media/${asset.publicReference}`);
+    expect(publicMedia.status(), await publicMedia.text()).toBe(200);
+    const delivered = await publicMedia.body();
+    expect(publicMedia.headers()["content-type"]).toContain("image/webp");
+    expect(delivered.byteLength).toBe(asset.byteSize);
+    expect(createHash("sha256").update(delivered).digest("hex")).toBe(asset.checksum);
+
     await page.goto(`/store/catalog/offers/${lifecycle.publicReference}`);
     const paused = page.waitForResponse(r => r.url().endsWith(`/offers/${lifecycle.publicReference}/pause`));
     await page.getByRole("button", { name: "Pause listing", exact: true }).click(); expect((await paused).status()).toBe(200);
