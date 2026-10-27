@@ -4,7 +4,7 @@ const optionalText = text(1, 160).nullable().optional();
 export const StoreSellerIdentityProposalSchema = z.object({
   operationId: text(8, 100).regex(/^[A-Za-z0-9:_-]+$/),
   expectedIdentityReference: text(1, 160).nullable(),
-  identityVersion: text(1, 80).regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/),
+  identityVersion: text(1, 80).regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/, "Use letters and numbers, underscores, periods or hyphens, without spaces. Example: PAMMY_BAKES_V1."),
   legalName: text(2, 240), tradingName: optionalText, registrationReference: optionalText,
   vatRegistrationStatus: z.enum(["REGISTERED", "NOT_REGISTERED"]), vatNumber: optionalText,
   countryCode: z.literal("ZA"), termsReference: optionalText,

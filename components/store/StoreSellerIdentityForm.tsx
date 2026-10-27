@@ -40,6 +40,7 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
   }
   return <form onSubmit={submit} aria-label="Seller legal identity submission" className="space-y-4">
     <p>Supply the seller details and supporting evidence for a separate administrator to review. Checkout requires an effective reviewed identity and approved commercial policies.</p>
+    <p className="rounded-lg border border-[var(--kt-border)] bg-[var(--kt-surface-muted)] p-3 text-sm">An unregistered business or individual seller can submit details for review without a company registration number. Use the legal name of the owner when selling as an individual, and put the shop name (for example, Pammy Bakes) under Trading name. Registration and VAT references are optional when not registered. Required business permits or licences still apply where relevant.</p>
     <fieldset className="space-y-3 rounded-lg border p-4" disabled={busy || uploading}>
       <legend className="font-bold">Supporting document</legend>
       <label htmlFor="seller-evidence-file">Verification file</label>
@@ -49,10 +50,10 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       {/^PMO-[a-f0-9-]{36}$/.test(evidenceReference) ? <a className="block underline" href={`/api/private-media/${encodeURIComponent(evidenceReference)}`}>Download uploaded document</a> : null}
     </fieldset>
     <div className="grid gap-4 sm:grid-cols-2">
-      <label>Identity version<Input name="identityVersion" required maxLength={80} /></label>
-      <label>Legal seller name<Input name="legalName" required maxLength={240} /></label>
-      <label>Trading name<Input name="tradingName" maxLength={160} /></label>
-      <label>Registration reference<Input name="registrationReference" maxLength={160} /></label>
+      <label>Identity version (reference, not the seller name)<Input name="identityVersion" required maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_.-]*" title="Use letters, numbers, underscores, periods or hyphens, without spaces. Example: PAMMY_BAKES_V1" placeholder="PAMMY_BAKES_V1" helpText="Example: PAMMY_BAKES_V1 — no spaces. Use a new version when submitting revised evidence." /></label>
+      <label>Legal seller name<Input name="legalName" required maxLength={240} helpText="For an individual seller, enter the legal name of the owner, not just the shop name." /></label>
+      <label>Trading name (optional)<Input name="tradingName" maxLength={160} placeholder="Pammy Bakes" /></label>
+      <label>Registration reference (optional)<Input name="registrationReference" maxLength={160} helpText="Leave blank if not formally registered. Do not invent a registration number." /></label>
       <div><label htmlFor="seller-vat-status">VAT registration status</label><select id="seller-vat-status" name="vatRegistrationStatus" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select supplied status</option><option value="NOT_REGISTERED">Not registered</option><option value="REGISTERED">Registered</option></select></div>
       <label>VAT reference<Input name="vatNumber" maxLength={160} /></label>
       <div><label htmlFor="seller-receipt-classification">Receipt classification</label><select id="seller-receipt-classification" name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></div>
@@ -60,7 +61,7 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       <p className="sm:col-span-2">Enter effective times in UTC. The review window uses these exact UTC times regardless of your device time zone.</p>
       <label>Effective from (UTC)<Input name="effectiveFrom" type="datetime-local" required /></label>
       <label>Effective until (UTC, optional)<Input name="effectiveUntil" type="datetime-local" /></label>
-      <label className="sm:col-span-2">Supplied evidence reference<Input name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} required minLength={8} maxLength={240} /></label>
+      <label className="sm:col-span-2">Supplied evidence reference<Input name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} required minLength={8} maxLength={240} helpText="Use the reference automatically generated after uploading a genuine supporting document. This is not simply your shop name; an independent administrator must review the evidence." /></label>
     </div>
     <label className="flex items-start gap-2"><input name="confirmSuppliedDetails" type="checkbox" required />I confirm these are the supplied seller details and evidence for review.</label>
     {error ? <p role="alert">{error}</p> : null}<p role="status" aria-live="polite">{status}</p>

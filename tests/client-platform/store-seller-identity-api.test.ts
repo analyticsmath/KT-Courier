@@ -20,6 +20,14 @@ describe("seller identity API scope and review authority", () => {
     const response = await POST(request(input)); expect(response.status).toBe(201); expect(response.headers.get("cache-control")).toContain("no-store");
     expect(state.submit).toHaveBeenCalledWith("owned-store", "owner", input); expect((await GET()).status).toBe(200); expect(state.read).toHaveBeenCalledWith("owned-store");
   });
+  it("returns an actionable identity-version validation message rather than raw regex syntax", async () => {
+    const response = await POST(request({ ...input, identityVersion: "Pammy Bakes" }));
+    expect(response.status).toBe(422);
+    const result = await response.json();
+    expect(result.error).toMatch(/letters.*numbers.*spaces/i);
+    expect(result.error).not.toMatch(/\^|\$|regex|pattern/i);
+    expect(state.submit).not.toHaveBeenCalled();
+  });
   it("does not allow body ownership or approval injection", async () => {
     expect((await POST(request({ ...input, storeId: "foreign-store", status: "APPROVED" }))).status).toBe(422); expect(state.submit).not.toHaveBeenCalled();
   });

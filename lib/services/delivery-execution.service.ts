@@ -1,4 +1,5 @@
 import { DriverOperationError } from "@/lib/driver-operations/errors";
+import { publicDeliveryCompletionNote } from "@/lib/driver-operations/delivery-public-note";
 import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 import { assertCashReadyForDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { prisma } from "@/lib/db/prisma";
@@ -403,7 +404,7 @@ export async function completeDelivery(
         toStatus: statusAfter,
         actorUserId: driverUserId,
         actorRole: "DRIVER",
-        note: input.publicNote ?? `Delivered to ${input.recipientName}.`,
+        note: publicDeliveryCompletionNote(input.publicNote),
         internalNote: input.driverNote,
         source: "driver_delivery_complete",
         context: {
@@ -435,7 +436,7 @@ export async function completeDelivery(
         eventType: OrderOperationalEventType.DELIVERY_COMPLETED,
         statusBefore,
         statusAfter,
-        publicNote: input.publicNote ?? `Your parcel has been delivered to ${input.recipientName}.`,
+        publicNote: publicDeliveryCompletionNote(input.publicNote),
         internalNote: input.driverNote ?? null,
         latitude: verifiedLocation.latitude,
         longitude: verifiedLocation.longitude,

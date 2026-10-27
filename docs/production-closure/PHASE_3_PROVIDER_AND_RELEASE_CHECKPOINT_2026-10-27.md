@@ -24,3 +24,16 @@
 - **Release:** exact current code SHA must pass CI, all mandatory browser/PostgreSQL/Redis/security/recovery jobs, deployment parity and `/api/ready`; collect encrypted/restricted provider/finance logs under the existing real-money runbook. Historical accepted code coverage remains valid for unchanged behavior; complete-source CI is required after code changes.
 
 **Disposition:** engineering fixture remediation in progress; provider setup partially verified; launch **BLOCKED_EXTERNAL** for human/legal/finance/road/provider proofs. No protected production row, cash, deposit, payment, webhook, provider configuration, store status or legal record was modified by this checkpoint.
+
+## Targeted vendor and POD hardening candidate — 27 October 2026
+
+Source review (engineering, not commercial sign-off): the canonical delivery-completion transaction already requires an accepted current assignment, driver responsibilities, cash readiness, six-digit OTP verification (with attempt limits), verified delivery location, consumable private proof evidence, then a restricted `ProofOfDelivery` record and atomic order/assignment transition. The owner-bound marketplace tracking projection already suppresses terminal GPS and returns only POD method/time. No new proof/photo API or synthetic provider identity is justified.
+
+Two narrow defects were reproduced before implementation:
+
+1. The store legal-identity field accepted the identifier grammar on the server but displayed an opaque raw Zod regex error for a trading name such as `Pammy Bakes`. The form now explains individual/unregistered seller requirements, distinguishes legal owner from trading name, marks company registration as optional, gives browser-matched identifier rules and clear evidence-upload guidance. The server now returns a friendly 422 identity-version explanation. VAT registration/tax-invoice requirements and independent legal review remain unchanged; this does not authorize an unregistered seller to bypass any required licensing.
+2. Delivery completion's **default public** status note included the recipient's full name, despite already recording the identity under restricted `ProofOfDelivery`. Default order history and public event notes now say `Your parcel has been delivered.`; any explicit driver-authored public note remains supported. Recipient name, phone, verified OTP, private media, event history, geolocation and custody remain under their existing restricted access and idempotency controls.
+
+Fail-first focused contract tests: `tests/client-platform/unregistered-seller-identity-form.test.ts`, `tests/client-platform/store-seller-identity-api.test.ts`, `tests/services/delivery-completion-public-status.test.ts`. UX rationale: Amazon Seller Central South Africa differentiates individual sellers from registered businesses and still verifies their personal identity; Uber Direct supports context-appropriate PIN, picture and signature POD rather than unnecessarily displaying identifying details in tracking history. External product references inform the direction; only local tests and source prove this implementation.
+
+**Exact-commit CI, production rollout, authenticated review and genuine delivery/provider acceptance remain separate.** No real seller identity, parcel, customer order, payment, OTP, POD media or delivery status was changed by this candidate.
