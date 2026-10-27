@@ -60,7 +60,10 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow, now 
   const mayExposeLocation = allowsCustomerLocation(row.courierStatus);
   const obligation = row.cashObligation ?? new Prisma.Decimal(0);
   const collected = row.cashCollected ?? new Prisma.Decimal(0);
-  const cashStatus = ["REJECTED", "TIMED_OUT"].includes(row.acceptanceStatus ?? "") || row.preparationStatus === "ABORTED" ? "CANCELLED" : row.cashStatus ?? "PENDING";
+  // The parent order is authoritative for the customer's remaining debt.
+  // A stale courier-cash projection must never ask a customer to pay again
+  // after the marketplace order has been cancelled.
+  const cashStatus = row.marketplaceStatus === "CANCELLED" || ["REJECTED", "TIMED_OUT"].includes(row.acceptanceStatus ?? "") || row.preparationStatus === "ABORTED" ? "CANCELLED" : row.cashStatus ?? "PENDING";
   const outstanding = cashStatus === "CANCELLED" ? new Prisma.Decimal(0) : Prisma.Decimal.max(0, obligation.sub(collected));
   return Object.freeze({
     cashOnDelivery: obligation.gt(0) ? Object.freeze({ obligation: obligation.toFixed(2), collected: collected.toFixed(2), outstanding: outstanding.toFixed(2), status: cashStatus }) : null,

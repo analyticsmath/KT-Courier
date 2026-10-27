@@ -44,6 +44,10 @@ describe("marketplace customer tracking projection", () => {
     expect(projectCustomerTrackingStoreOrder({ ...cash, acceptanceStatus: "REJECTED", cashStatus: null }).cashOnDelivery).toMatchObject({ status: "CANCELLED", outstanding: "0.00" });
     expect(projectCustomerTrackingStoreOrder(base).cashOnDelivery).toBeNull();
   });
+  it("never shows a cash collection still due after the marketplace order has been cancelled", () => {
+    const row = { ...base, marketplaceStatus: "CANCELLED", cashObligation: new Prisma.Decimal("99.00"), cashCollected: new Prisma.Decimal(0), cashStatus: "PENDING" };
+    expect(projectCustomerTrackingStoreOrder(row).cashOnDelivery).toEqual({ obligation: "99.00", collected: "0.00", outstanding: "0.00", status: "CANCELLED" });
+  });
   it("retains customer-safe POD at DELIVERED and COMPLETED without retaining courier GPS", () => {
     const confirmed = { ...base, proofMethod: "OTP", proofDeliveredAt: new Date("2026-08-04T11:00:00.000Z") };
     expect(projectCustomerTrackingStoreOrder(confirmed).proofOfDelivery).toBeNull();
