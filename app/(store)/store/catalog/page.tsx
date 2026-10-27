@@ -56,6 +56,7 @@ export default async function StoreCatalogPage() {
         aria-label="Catalog summary"
       >
         <MetricTile
+          tone="blue"
           label="Products"
           value={summary.products}
           description="Products in your catalog"
@@ -66,11 +67,13 @@ export default async function StoreCatalogPage() {
           description="Listings with their own SKU and price"
         />
         <MetricTile
+          tone="citrus"
           label="Open imports"
           value={summary.imports}
           description="In-progress catalog import jobs"
         />
         <MetricTile
+          tone="coral"
           label="Needs review"
           value={summary.moderation}
           description="Open catalog moderation records"
@@ -78,6 +81,7 @@ export default async function StoreCatalogPage() {
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <OperationalPanel
+          accent="coral"
           title="Catalog workspace"
           description="Prepare the product details first, then complete its price, stock and packaging before review."
           padding="compact"

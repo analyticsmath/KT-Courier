@@ -4,23 +4,21 @@ import type { DriverAssignmentDto } from "@/lib/dto/assignment.dto";
 import type { DriverSelfDto } from "@/lib/dto/driver.dto";
 import { getDriverOperationalPresentation } from "@/lib/driver-presentation/driver-state";
 import { prioritiseDriverAssignments } from "@/lib/driver-presentation/assignment-priority";
+import { summariseDriverAssignments } from "@/lib/dashboard-insights/workflow-summary";
 import {
   DashboardCanvas,
-  DashboardGrid,
-  DashboardCol,
-  DashboardCard,
-  DashboardMetricCard,
-  DashboardHeader,
   DashboardPeriodControl,
-  StaticActivityChart,
-  StaticDonutChart,
-  type DonutItem,
 } from "@/components/protected-v2/dashboard";
-import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
+import { EditorialTable } from "@/components/protected-v2/data/EditorialTable";
 import { DriverActiveRun } from "./DriverActiveRun";
-import type { CountInsight, DashboardPeriod } from "@/lib/dashboard-insights/types";
+import type {
+  CountInsight,
+  DashboardPeriod,
+} from "@/lib/dashboard-insights/types";
 import type { DriverReadinessEvaluation } from "@/lib/services/driver-readiness.service";
-import styles from "../dashboard/dashboard.module.css";
+import { ActivityBars, DistributionRing } from "../studio/StudioCharts";
+import s from "../studio/workspaceStudio.module.css";
+import driverStyles from "./driver-pages.module.css";
 
 export interface DriverHomePageProps {
   driver: DriverSelfDto;
@@ -30,7 +28,6 @@ export interface DriverHomePageProps {
   period?: DashboardPeriod;
   activity?: React.ReactNode;
 }
-
 export function DriverHomePage({
   driver,
   assignments,
@@ -44,361 +41,272 @@ export function DriverHomePage({
     status: driver.status,
     availability: driver.availability,
     assignments: ordered,
-    complianceEligible: readiness ? readiness.canBeAvailable : undefined,
+    complianceEligible: readiness?.canBeAvailable,
     complianceSummary: readiness?.blockers[0]?.message,
   });
-
-  const active = state.assignmentId ? ordered.find((a) => a.id === state.assignmentId) ?? null : null;
-  const pendingOffers = ordered.filter((a) => a.status === "ASSIGNED");
-  const currentWork = ordered.filter(
-    (a) => a.status === "ACCEPTED" && !["DELIVERED", "COMPLETED", "CANCELLED", "FAILED"].includes(a.orderStatus)
-  );
-  const nextRecord = ordered.find((a) => a.id !== active?.id && a.status !== "COMPLETED" && a.status !== "CANCELLED") ?? null;
-
-  // Complete assignment distribution
-  const completedAssignments = assignments.filter((a) => a.status === "COMPLETED");
-  const acceptedAssignments = currentWork;
-  const assignedOffers = pendingOffers;
-  const otherAssignments = assignments.filter((a) => a.status === "CANCELLED" || a.status === "REJECTED");
-
-  const assignmentMix: DonutItem[] = [
-    { key: "completed", label: "Completed runs", value: completedAssignments.length, color: "var(--dash-green)" },
-    { key: "accepted", label: "In progress", value: acceptedAssignments.length, color: "var(--dash-teal)" },
-    { key: "assigned", label: "Awaiting decision", value: assignedOffers.length, color: "var(--dash-orange)" },
-    { key: "other", label: "Closed / cancelled", value: otherAssignments.length, color: "var(--dash-muted)" },
+  const current = state.assignmentId
+    ? ordered.find((row) => row.id === state.assignmentId)
+    : null;
+  const mix = summariseDriverAssignments(assignments);
+  const stages = [
+    { label: "Completed", value: mix.completed, color: "#1768ff" },
+    { label: "In progress", value: mix.active, color: "#191a1e" },
+    { label: "Offers", value: mix.offers, color: "#eaff87" },
+    { label: "Other / closed", value: mix.other, color: "#efab9f" },
   ];
-
-  const comparison = insight?.comparison;
-
   return (
     <DashboardCanvas>
-      <DashboardHeader
-        artRole="driver"
-        eyebrow="Driver operations"
-        title={driver.displayName ?? "Driver home"}
-        description="Active runs, dispatch offers, vehicle profile, and completed assignment history."
-        actions={
-          <div className="flex items-center gap-2">
-            <Link className={`${styles.btn} ${styles.btnSecondary}`} href="/driver/availability">
-              Availability: {driver.availability.toLowerCase()}
-            </Link>
-            <Link className={`${styles.btn} ${styles.btnPrimary}`} href="/driver/assignments">
-              All assignments
-            </Link>
+      <header className={`${s.heading} ${s.driverHeading}`}>
+        <div>
+          <h1>{driver.displayName ?? "Driver overview"}</h1>
+          <p>Current work, dispatch readiness and your completed deliveries.</p>
+        </div>
+        <div className={s.actions}>
+          <DashboardPeriodControl
+            period={period}
+            href="/driver"
+            ariaLabel="Filter completed assignments period"
+          />
+          <Link className={s.quietButton} href="/driver/availability">
+            Availability: {driver.availability.toLowerCase()}
+          </Link>
+        </div>
+      </header>
+      <section
+        className={`${s.analytics} ${s.driverAnalytics}`}
+        aria-label="Driver activity analytics"
+      >
+        <article className={s.panel}>
+          <div className={s.panelTitle}>
+            <h2>Completed runs</h2>
+            <Link href="/driver/assignments?filter=history">History ↗</Link>
           </div>
-        }
-      />
-
-      <div className={styles.driverDashboardLayout}>
-      <DashboardGrid className={styles.driverFocusGroup} ariaLabel="Active run focus">
-        <DashboardCol span={12}>
-          {active ? (
-            <div className="flex flex-col gap-3">
-              <DriverActiveRun assignment={active} />
-            </div>
-          ) : state.state === "ASSIGNMENT_DECISION_REQUIRED" && pendingOffers[0] ? (
-            <DashboardCard
-              tone="surface"
-              eyebrow="Offer awaiting decision"
-              title={
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-lg font-bold tracking-tight">{pendingOffers[0].orderNumber}</span>
-                  <ProtectedStatus label="Decision required" tone="warning" />
-                </div>
-              }
-              description="Review the pickup and delivery details to accept or decline."
-              action={
-                <Link
-                  className={`${styles.btn} ${styles.btnPrimary}`}
-                  href={`/driver/assignments/${pendingOffers[0].id}`}
-                >
-                  Review assignment
-                </Link>
-              }
-              padding="normal"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-[var(--dash-surface)] border border-[var(--dash-line)]">
-                <div>
-                  <span className="block text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--dash-muted)]">
-                    Pickup origin
-                  </span>
-                  <span className="text-sm font-semibold text-[var(--dash-ink)] mt-0.5 block">
-                    {pendingOffers[0].pickupCity ?? "Pickup location"}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--dash-muted)]">
-                    Dropoff destination
-                  </span>
-                  <span className="text-sm font-semibold text-[var(--dash-ink)] mt-0.5 block">
-                    {pendingOffers[0].dropoffCity ?? "Dropoff destination"}
-                  </span>
-                </div>
-              </div>
-            </DashboardCard>
-          ) : (
-            <DashboardCard
-              tone="surface"
-              eyebrow={readiness && !readiness.isDispatchReady ? "Dispatch readiness" : "Driver status"}
-              title={
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-lg font-bold tracking-tight">{state.label}</span>
-                  {readiness && !readiness.isDispatchReady && (
-                    <ProtectedStatus
-                      label={readiness.canBeAvailable ? "Online action required" : `${readiness.blockers.length} requirement(s) pending`}
-                      tone={readiness.canBeAvailable ? "information" : "warning"}
-                    />
-                  )}
-                </div>
-              }
-              description={state.description}
-              padding="normal"
-            >
-              <div className="flex flex-col gap-4 py-2">
-                <div className="flex flex-col sm:flex-row items-start gap-5">
-                  <div className="flex flex-col gap-2 text-left flex-1">
-                    <p className="text-sm text-[var(--dash-ink-secondary)] m-0">{state.description}</p>
-                    {readiness && (
-                      <span className="text-xs font-semibold text-[var(--dash-muted)]">
-                        {readiness.checklist.filter((c) => c.status === "COMPLETED").length} of {readiness.checklist.length} readiness requirements satisfied
-                      </span>
-                    )}
-                    <div>
-                      <Link className={`${styles.btn} ${styles.btnSecondary}`} href="/driver/availability">
-                        Manage availability
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-
-                {readiness && !readiness.isDispatchReady && readiness.blockers.length > 0 && (
-                  <div className="rounded-xl border border-[var(--dash-line)] bg-[var(--dash-surface-subtle)] p-3.5 space-y-2.5">
-                    <span className="block text-xs font-bold uppercase tracking-wider text-[var(--dash-ink)]">
-                      Action Required for Dispatch Eligibility
-                    </span>
-                    <ul className="space-y-2 list-none p-0 m-0">
-                      {readiness.blockers.map((b) => (
-                        <li
-                          key={b.key}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-[var(--dash-surface)] border border-[var(--dash-line)]"
-                        >
-                          <span className="text-xs text-[var(--dash-ink)] font-medium">
-                            {b.message}
-                          </span>
-                          <Link
-                            className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSm} whitespace-nowrap self-start sm:self-auto`}
-                            href={b.actionHref}
-                          >
-                            {b.actionLabel}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </DashboardCard>
-          )}
-        </DashboardCol>
-
-      </DashboardGrid>
-
-      <DashboardGrid className={styles.driverRosterGroup} ariaLabel="Driver profile and roster">
-        <DashboardCol span={12}>
-          <DashboardCard
-            tone="dark"
-            eyebrow="Roster details"
-            title="Vehicle & account"
-            description="Operational configuration"
-            padding="normal"
-          >
-            <div className="flex flex-col gap-3 pt-1">
-              <div className="flex justify-between items-center text-sm py-1.5 border-b border-[var(--dash-charcoal-line)]">
-                <span className="text-[var(--dash-charcoal-muted)]">Vehicle type</span>
-                <strong className="text-[var(--dash-charcoal-text)] capitalize">
-                  {driver.vehicleType ? driver.vehicleType.toLowerCase() : "Not assigned"}
-                </strong>
-              </div>
-              <div className="flex justify-between items-center text-sm py-1.5 border-b border-[var(--dash-charcoal-line)]">
-                <span className="text-[var(--dash-charcoal-muted)]">Service regions</span>
-                <strong className="text-[var(--dash-charcoal-text)]">
-                  {driver.serviceRegions.length} assigned
-                </strong>
-              </div>
-              <div className="flex justify-between items-center text-sm py-1.5 border-b border-[var(--dash-charcoal-line)]">
-                <span className="text-[var(--dash-charcoal-muted)]">Profile status</span>
-                <strong className="text-[var(--dash-charcoal-text)] capitalize">
-                  {driver.onboardingStatus.replaceAll("_", " ").toLowerCase()}
-                </strong>
-              </div>
-              <div className="flex gap-2 pt-2">
-                <Link className={`${styles.btn} ${styles.btnDark} ${styles.btnSm} flex-1`} href="/driver/profile">
-                  View profile
-                </Link>
-                <Link className={`${styles.btn} ${styles.btnDark} ${styles.btnSm} flex-1`} href="/driver/availability">
-                  Toggle online
-                </Link>
-              </div>
-            </div>
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
-
-      <DashboardGrid className={styles.driverMetricsGroup} ariaLabel="Driver workload metrics">
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Current assignments"
-            value={currentWork.length}
-            description="Accepted, active runs"
-            href="/driver/assignments"
-            tone="brand"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Awaiting decision"
-            value={pendingOffers.length}
-            description="Dispatched offers to review"
-            href="/driver/assignments"
-            tone="surface"
-            badge={
-              pendingOffers.length > 0 ? (
-                <span className={`${styles.chip} ${styles.chipWarning}`}>Action required</span>
-              ) : undefined
-            }
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Completed in period"
-            value={comparison ? comparison.current : completedAssignments.length}
-            changePercent={comparison ? comparison.changePercent : null}
-            direction={comparison ? comparison.direction : "unavailable"}
-            previousValue={comparison ? comparison.previous : undefined}
-            description={insight ? insight.periodLabel : "Recorded runs"}
-            tone="surface"
-          />
-        </DashboardCol>
-
-        <DashboardCol span={3}>
-          <DashboardMetricCard
-            label="Total assigned runs"
-            value={assignments.length}
-            description="Career assignment history"
-            href="/driver/assignments"
-            tone="surface"
-          />
-        </DashboardCol>
-      </DashboardGrid>
-
-      <DashboardGrid className={styles.driverAnalyticsGroup} ariaLabel="Driver performance analytics">
-        <DashboardCol span={7}>
           {insight ? (
-            <DashboardCard
-              eyebrow="Activity trend"
-              title={insight.title}
-              description={`${insight.definition} · ${insight.periodLabel}`}
-              action={<DashboardPeriodControl period={period} href="/driver" ariaLabel="Filter completed assignments period" />}
-              padding="normal"
-            >
+            <>
+              <div className={s.valueRow}>
+                <strong>
+                  {insight.comparison.current.toLocaleString("en-ZA")}
+                </strong>
+                <span>
+                  {insight.comparison.changePercent === null
+                    ? "Completed in the selected period"
+                    : `${insight.comparison.changePercent > 0 ? "+" : ""}${insight.comparison.changePercent.toFixed(1)}% vs previous period`}
+                </span>
+              </div>
               {insight.seriesUnavailable ? (
-                <p role="status" className={styles.emptyStateDesc}>
-                  Total is available. Detail exceeds display limits for this window; choose a shorter period.
+                <p className={s.notice}>
+                  Choose a shorter period to view the activity detail.
                 </p>
-              ) : insight.buckets.some((b) => b.value > 0) ? (
-                <StaticActivityChart
-                  buckets={insight.buckets}
-                  label={`${insight.title} · ${insight.periodLabel}`}
-                  tone="teal"
-                  heroValue={comparison ? comparison.current : undefined}
-                  comparisonText={
-                    comparison && comparison.changePercent !== null
-                      ? `${comparison.changePercent > 0 ? "+" : ""}${comparison.changePercent.toFixed(1)}% vs prior period`
-                      : undefined
-                  }
-                />
               ) : (
-                <div className={styles.emptyState}>
-                  <p className={styles.emptyStateTitle}>No completed assignments recorded</p>
-                  <p className={styles.emptyStateDesc}>No runs completed in this period window.</p>
-                </div>
-              )}
-            </DashboardCard>
-          ) : activity ? (
-            <DashboardCard eyebrow="Activity trend" title="Completed work" padding="normal">
-              {activity}
-            </DashboardCard>
-          ) : (
-            <DashboardCard eyebrow="Activity trend" title="Completed assignments" padding="normal">
-              <p className={styles.emptyStateDesc}>Activity telemetry unavailable.</p>
-            </DashboardCard>
-          )}
-        </DashboardCol>
-
-        <DashboardCol span={5}>
-          <DashboardCard
-            eyebrow="Workload composition"
-            title="Assignment state mix"
-            description="Distribution of all assigned runs"
-            padding="normal"
-          >
-            {assignments.length > 0 ? (
-              <StaticDonutChart
-                items={assignmentMix}
-                title="Assignment state mix"
-                centerValue={assignments.length}
-                centerLabel="Total runs"
-                layout="row"
-              />
-            ) : (
-              <div className={styles.emptyState}>
-                <p className={styles.emptyStateTitle}>No assignments yet</p>
-                <p className={styles.emptyStateDesc}>You haven&apos;t been assigned any runs yet. Toggle availability online to receive dispatch offers.</p>
-              </div>
-            )}
-          </DashboardCard>
-        </DashboardCol>
-      </DashboardGrid>
-
-      {/* Row 3: Upcoming Work Queue / Next Record (12 cols) */}
-      {nextRecord && (
-        <DashboardGrid className={styles.driverQueueGroup} ariaLabel="Next assignment">
-          <DashboardCol span={12}>
-            <DashboardCard
-              eyebrow="Work queue"
-              title="Next scheduled run"
-              description="Next assignment in sequence"
-              action={
-                <Link
-                  className={`${styles.btn} ${styles.btnSecondary} ${styles.btnSm}`}
-                  href={`/driver/assignments/${nextRecord.id}`}
-                >
-                  View run
-                </Link>
-              }
-              padding="normal"
-            >
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <strong className="text-base font-bold text-[var(--dash-ink)] block">
-                    {nextRecord.orderNumber}
-                  </strong>
-                  <span className="text-sm text-[var(--dash-muted)] block mt-0.5">
-                    {nextRecord.pickupCity ?? "Pickup"} → {nextRecord.dropoffCity ?? "Destination"}
-                  </span>
-                </div>
-                <ProtectedStatus
-                  label={nextRecord.statusLabel}
-                  tone={nextRecord.status === "ASSIGNED" ? "warning" : "information"}
+                <ActivityBars
+                  buckets={insight.buckets}
+                  label="Completed assignments by completion date"
                 />
+              )}
+              <p className={s.notice}>{insight.periodLabel}</p>
+            </>
+          ) : (
+            (activity ?? (
+              <p className={s.notice}>Completion activity unavailable.</p>
+            ))
+          )}
+        </article>
+        <article className={`${s.panel} ${s.bluePanel}`}>
+          <div className={s.panelTitle}>
+            <h2>Assignment history</h2>
+            <span className={s.notice}>All recorded runs</span>
+          </div>
+          <DistributionRing
+            items={stages}
+            label="Driver assignment states"
+            unit="records"
+          />
+        </article>
+        <article className={`${s.panel} ${s.yellowPanel}`}>
+          <div>
+            <h2>Work to review</h2>
+            <p className={s.balance}>{mix.offers}</p>
+            <p className={s.notice}>Dispatch offers awaiting a decision</p>
+          </div>
+          <div className={s.metricPair}>
+            <div>
+              <strong>{mix.active}</strong>
+              <span>Accepted active runs</span>
+            </div>
+            <div>
+              <strong>{mix.total}</strong>
+              <span>Recorded assignments</span>
+            </div>
+          </div>
+          <Link
+            className={s.quietButton}
+            style={{ marginTop: 18 }}
+            href="/driver/assignments"
+          >
+            Open assignments ↗
+          </Link>
+        </article>
+      </section>
+      <section
+        className={s.driverWorkGrid}
+        aria-label="Current work and readiness"
+      >
+        <div className={`${s.driverFocus} ${driverStyles.scope}`}>
+          {current && current.status === "ACCEPTED" ? (
+            <DriverActiveRun assignment={current} />
+          ) : current && current.status === "ASSIGNED" ? (
+            <article className={`${s.panel} ${s.bluePanel}`}>
+              <div className={s.panelTitle}>
+                <h2>Offer awaiting your decision</h2>
+                <span className={s.notice}>{current.statusLabel}</span>
               </div>
-            </DashboardCard>
-          </DashboardCol>
-        </DashboardGrid>
-      )}
-      </div>
+              <h3 className={s.runReference}>{current.orderNumber}</h3>
+              <div className={s.routeDetail}>
+                <div>
+                  <span>Collection</span>
+                  <strong>{current.pickupCity ?? "See pickup address"}</strong>
+                </div>
+                <span aria-hidden="true">→</span>
+                <div>
+                  <span>Destination</span>
+                  <strong>
+                    {current.dropoffCity ?? "See delivery address"}
+                  </strong>
+                </div>
+              </div>
+              <p className={s.notice}>
+                Review the route and offer details before accepting or
+                declining.
+              </p>
+              <Link
+                className={s.button}
+                href={`/driver/assignments/${current.id}`}
+              >
+                Review assignment ↗
+              </Link>
+            </article>
+          ) : (
+            <article className={s.panel}>
+              <div className={s.panelTitle}>
+                <h2>{state.label}</h2>
+                <span className={s.stateMark} aria-hidden="true">
+                  ↗
+                </span>
+              </div>
+              <p className={s.notice}>{state.description}</p>
+              <Link className={s.button} href="/driver/availability">
+                Manage availability ↗
+              </Link>
+            </article>
+          )}
+        </div>
+        <aside className={`${s.panel} ${s.darkPanel}`}>
+          <div className={s.panelTitle}>
+            <h2>Dispatch readiness</h2>
+            <Link href="/driver/profile">Profile ↗</Link>
+          </div>
+          {readiness ? (
+            <>
+              <div className={s.readinessCount}>
+                <strong>
+                  {
+                    readiness.checklist.filter(
+                      (item) => item.status === "COMPLETED",
+                    ).length
+                  }
+                  <span> / {readiness.checklist.length}</span>
+                </strong>
+                <span>Requirements satisfied</span>
+              </div>
+              {readiness.blockers.length ? (
+                <ul className={s.readinessList}>
+                  {readiness.blockers.map((item) => (
+                    <li key={item.key}>
+                      <span>{item.message}</span>
+                      <Link href={item.actionHref}>{item.actionLabel} ↗</Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={s.darkNotice}>
+                  {readiness.isDispatchReady
+                    ? "Ready to receive dispatch assignments."
+                    : "Requirements are complete. Check your availability to receive assignments."}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className={s.darkNotice}>
+              Readiness information is unavailable. Review your profile before
+              changing availability.
+            </p>
+          )}
+          <div className={s.driverFacts}>
+            <div>
+              <span>Vehicle</span>
+              <strong>
+                {driver.vehicleType?.replaceAll("_", " ").toLowerCase() ??
+                  "Not assigned"}
+              </strong>
+            </div>
+            <div>
+              <span>Service regions</span>
+              <strong>{driver.serviceRegions.length}</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+      <section className={`${s.panel} ${s.driverQueue}`}>
+        <div className={s.panelTitle}>
+          <h2>Assignment queue</h2>
+          <Link href="/driver/assignments">All assignments ↗</Link>
+        </div>
+        <EditorialTable
+          caption="Six assignments from your prioritized queue"
+          mobileMode="stack"
+          rows={ordered.slice(0, 6)}
+          emptyState={
+            <p className={s.notice}>
+              No assignments yet. Dispatch offers will appear here when assigned
+              to you.
+            </p>
+          }
+          columns={[
+            {
+              id: "reference",
+              header: "Assignment",
+              priority: "primary",
+              cell: (row) => (
+                <Link
+                  className="eo-table-link"
+                  href={`/driver/assignments/${row.id}`}
+                >
+                  {row.orderNumber}
+                </Link>
+              ),
+            },
+            {
+              id: "route",
+              header: "Route",
+              priority: "secondary",
+              cell: (row) =>
+                `${row.pickupCity ?? "Pickup"} → ${row.dropoffCity ?? "Destination"}`,
+            },
+            {
+              id: "state",
+              header: "Assignment state",
+              priority: "primary",
+              cell: (row) => row.statusLabel,
+            },
+            {
+              id: "delivery",
+              header: "Delivery stage",
+              priority: "secondary",
+              cell: (row) => row.orderStatus.replaceAll("_", " ").toLowerCase(),
+            },
+          ]}
+        />
+      </section>
     </DashboardCanvas>
   );
 }

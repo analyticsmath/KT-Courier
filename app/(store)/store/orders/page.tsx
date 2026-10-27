@@ -48,6 +48,7 @@ export default async function StoreOrdersPage() {
       />
       <section className={s.storeStats} aria-label="Order overview"><article className={`${s.panel} ${s.bluePanel}`}><h2>Courier requests</h2><p className={s.balance}>{courierRequests.total}</p><p className={s.notice}>Delivery requests created by your store</p></article><article className={s.panel}><h2>Marketplace work</h2><div className={s.metricPair} style={{marginTop:22}}><div><strong>{summary?.needsPreparation??"—"}</strong><span>In preparation</span></div><div><strong>{summary?.readyForCollection??"—"}</strong><span>Ready for collection</span></div></div></article></section>
       <OperationalPanel
+        accent="blue"
         title="Courier delivery requests"
         description="Open a reference to review its route and delivery progress."
         padding="compact"

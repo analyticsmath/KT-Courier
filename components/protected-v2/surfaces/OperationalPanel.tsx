@@ -6,6 +6,7 @@ type OperationalPanelProps = {
   description?: string;
   action?: React.ReactNode;
   tone?: "default" | "subtle" | "dark";
+  accent?: "blue" | "citrus" | "coral";
   padding?: "compact" | "default" | "spacious";
   className?: string;
 };
@@ -16,11 +17,12 @@ export function OperationalPanel({
   description,
   action,
   tone = "default",
+  accent,
   padding = "default",
   className,
 }: OperationalPanelProps) {
   return (
-    <section className={cn("eo-panel", `eo-panel--${tone}`, `eo-panel--${padding}`, className)}>
+    <section data-accent={accent} className={cn("eo-panel", `eo-panel--${tone}`, `eo-panel--${padding}`, className)}>
       {title || description || action ? (
         <header className="eo-panel__header">
           <div className="min-w-0">{title ? <h2 className="eo-panel__title">{title}</h2> : null}{description ? <p className="eo-panel__description">{description}</p> : null}</div>
@@ -37,16 +39,18 @@ export function MetricTile({
   value,
   description,
   icon,
+  tone = "neutral",
   className,
 }: {
   label: string;
   value: string | number;
   description?: string;
   icon?: React.ReactNode;
+  tone?: "neutral" | "blue" | "citrus" | "coral" | "dark";
   className?: string;
 }) {
   return (
-    <section className={cn("eo-metric-tile", className)}>
+    <section data-metric-tone={tone} className={cn("eo-metric-tile", className)}>
       <div className="eo-metric-tile__head"><p>{label}</p>{icon ? <span aria-hidden="true" className="eo-metric-tile__icon">{icon}</span> : null}</div>
       <strong className="eo-metric-tile__value">{value}</strong>
       {description ? <p className="eo-metric-tile__description">{description}</p> : null}

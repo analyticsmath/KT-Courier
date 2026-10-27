@@ -9,7 +9,7 @@ import { listOrders } from "@/lib/services/orders.service";
 import { listStoreOrderQueue } from "@/lib/store-orders/store-order.service";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
 import type { StoreFulfilmentQueue } from "@/lib/store-presentation/store-fulfilment-priority";
-import { getStoreDashboardInsights, getStoreCourierInsights } from "@/lib/dashboard-insights/store-dashboard-insights";
+import { getStoreDashboardInsights, getStoreCourierInsights, getStoreCourierBreakdown } from "@/lib/dashboard-insights/store-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 
 export const metadata: Metadata = { title: "Store operations" };
@@ -25,7 +25,7 @@ export default async function StoreDashboardPage({
   const period = parseDashboardPeriod((await searchParams).period ?? "12_WEEKS");
 
   const { store, user: storeUser } = await getStoreDashboardData(user.id);
-  const [pickupState, courierRequests, marketplaceQueue, earnings, insight, courierInsight] =
+  const [pickupState, courierRequests, marketplaceQueue, earnings, insight, courierInsight, courierBreakdown] =
     await Promise.all([
       getStorePickupAddress(user.id, "deliveries"),
       listOrders(user, { page: 1, pageSize: 5 }, true),
@@ -47,6 +47,7 @@ export default async function StoreDashboardPage({
         : Promise.resolve(null),
       getStoreDashboardInsights(period),
       getStoreCourierInsights(period),
+      getStoreCourierBreakdown(period),
     ]);
 
   const queue = marketplaceQueue as StoreFulfilmentQueue;
@@ -67,6 +68,7 @@ export default async function StoreDashboardPage({
         pickupState?.pickupAddress ?? pickupState?.store?.addressLine1,
       )}
       payableBalance={earnings?.payableBalance ?? null}
+      courierBreakdown={courierBreakdown}
       courierInsight={courierInsight}
       insight={insight}
       period={period}

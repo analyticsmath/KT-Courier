@@ -26,3 +26,11 @@ export async function getStoreCourierInsights(period: DashboardPeriod) {
     dates: async (gte, lt, take) => (await prisma.order.findMany({ where: { storeId: store.id, createdAt: { gte, lt } }, select: { createdAt: true }, orderBy: { createdAt: "asc" }, take })).map(row => row.createdAt),
   });
 }
+
+/** Aggregate the complete selected cohort; never infer totals from the recent list. */
+export async function getStoreCourierBreakdown(period: DashboardPeriod) {
+  const user=await requireRole(UserRole.STORE);
+  const {store}=await storeAccess(user.id,"orders");
+  const window=dashboardWindow(period);
+  return prisma.order.groupBy({by:["status"],where:{storeId:store.id,createdAt:{gte:window.start,lt:window.end}},_count:{_all:true}});
+}

@@ -68,7 +68,7 @@ export default async function AdminOrdersPage({
         <button className="eo-filter-submit" type="submit">Search</button>
       </form>
     </ProtectedFilterBar>
-    <OperationalPanel title="Order directory" description="Select an order reference to review its complete delivery record.">
+    <OperationalPanel accent="blue" title="Order directory" description="Select an order reference to review its complete delivery record.">
       <EditorialTable
         caption="Courier order queue"
         mobileMode="stack"

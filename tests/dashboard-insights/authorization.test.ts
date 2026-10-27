@@ -4,13 +4,14 @@ const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), requireAdminPagePermissi
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/guards", () => ({ requireRole: mocks.requireRole, requireAdminPagePermission: mocks.requireAdminPagePermission }));
 vi.mock("@/lib/auth/permissions", () => ({ hasPermission: mocks.hasPermission }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { order: { count: mocks.count, findMany: mocks.findMany, groupBy: mocks.groupBy }, store: { count: mocks.count }, deliveryRegion: { findMany: mocks.findMany } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { order: { count: mocks.count, findMany: mocks.findMany, groupBy: mocks.groupBy }, store: { count: mocks.count }, driverProfile: { groupBy: mocks.groupBy }, deliveryRegion: { findMany: mocks.findMany } } }));
 vi.mock("@/lib/services/admin-dispatch.service", () => ({ getDispatchBoardData: mocks.dispatch }));
 vi.mock("@/lib/services/admin-pickup-operations.service", () => ({ listPickupExceptions: mocks.exceptions }));
 vi.mock("@/lib/services/admin-delivery-exceptions.service", () => ({ listDeliveryExceptions: mocks.exceptions }));
 
 vi.mock("@/lib/client-platform/store-access", () => ({ storeAccess: mocks.storeAccess }));
-import { getStoreCourierInsights } from "@/lib/dashboard-insights/store-dashboard-insights";
+import { getDriverDirectoryInsights } from "@/lib/dashboard-insights/driver-directory-insights";
+import { getStoreCourierInsights, getStoreCourierBreakdown } from "@/lib/dashboard-insights/store-dashboard-insights";
 import { getCustomerDashboardInsights, getCustomerDashboardBreakdown } from "@/lib/dashboard-insights/customer-dashboard-insights";
 import { getAdminDesk } from "@/lib/dashboard-insights/admin-desk";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
@@ -69,6 +70,25 @@ describe("dashboard query authority", () => {
     expect(mocks.groupBy.mock.calls.map(call=>call[0].by)).toEqual([["status"],["deliveryType"]]);
     for(const [query] of mocks.groupBy.mock.calls){expect(query.where.createdAt.gte).toBeInstanceOf(Date);expect(query.where.createdAt.lt).toBeInstanceOf(Date);expect(query.where.createdAt.lt-query.where.createdAt.gte).toBeLessThanOrEqual(86400000);}
     expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
+  it("scopes vendor progress aggregates to its authorized store and selected period",async()=>{
+    mocks.requireRole.mockResolvedValue({id:"store-user",role:"STORE"});
+    mocks.storeAccess.mockResolvedValue({store:{id:"owned-store"}});
+    await getStoreCourierBreakdown("7_DAYS");
+    expect(mocks.storeAccess).toHaveBeenCalledWith("store-user","orders");
+    expect(mocks.groupBy.mock.calls[0][0]).toMatchObject({by:["status"],where:{storeId:"owned-store",createdAt:{gte:expect.any(Date),lt:expect.any(Date)}}});
+  });
+  it("reads no fleet aggregates when driver directory permission is denied",async()=>{
+    mocks.requireAdminPagePermission.mockRejectedValue(new Error("denied"));
+    await expect(getDriverDirectoryInsights()).rejects.toThrow("denied");
+    expect(mocks.groupBy).not.toHaveBeenCalled();
+  });
+  it("requires driver directory access before aggregating fleet state",async()=>{
+    mocks.requireAdminPagePermission.mockResolvedValue({id:"admin",role:"ADMIN"});
+    await getDriverDirectoryInsights();
+    expect(mocks.requireAdminPagePermission).toHaveBeenCalledWith(PERMISSIONS.DRIVERS_READ);
+    expect(mocks.groupBy.mock.calls.map(call=>call[0].by)).toEqual([["status"],["availability"]]);
   });
 
 });

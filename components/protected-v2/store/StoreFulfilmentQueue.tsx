@@ -21,11 +21,11 @@ function nextAction(row: StoreFulfilmentQueue["needsReview"][number]) {
   return "View operational record";
 }
 
-export function StoreFulfilmentQueue({ queue, limit, title = "Fulfilment queue", description = "Ordered by the server within each operational stage. Attention and review work is shown first." }: { queue: StoreFulfilmentQueue; limit?: number; title?: string; description?: string }) {
+export function StoreFulfilmentQueue({ queue, limit, title = "Fulfilment queue", description = "Review new orders, prepare accepted orders and manage collections." }: { queue: StoreFulfilmentQueue; limit?: number; title?: string; description?: string }) {
   const rows = getPrioritisedStoreFulfilmentRows(queue, limit);
 
   return <div className={styles.scope}>
-    <OperationalPanel title={title} description={description} padding="compact">
+    <OperationalPanel accent="coral" title={title} description={description} padding="compact">
       {!rows.length ? (
         <ProtectedState
           kind="empty"
