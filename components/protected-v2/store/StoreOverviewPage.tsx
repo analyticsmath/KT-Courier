@@ -1,4 +1,5 @@
 import React from "react";
+import { ActivityIntelligence } from "../studio/ActivityIntelligence";
 import Link from "next/link";
 import {
   DashboardCanvas,
@@ -30,6 +31,7 @@ export interface StoreOverviewPageProps {
   courierInsight?: CountInsight | null;
   period?: DashboardPeriod;
   activity?: React.ReactNode;
+  refreshControl?: React.ReactNode;
 }
 export function StoreOverviewPage({
   storeName,
@@ -43,6 +45,7 @@ export function StoreOverviewPage({
   courierBreakdown,
   period = "12_WEEKS",
   activity,
+  refreshControl,
 }: StoreOverviewPageProps) {
   const summary = getStoreFulfilmentSummary(queue);
   const state = storeAccountState(storeStatus);
@@ -72,6 +75,7 @@ export function StoreOverviewPage({
           <p>Your delivery activity, collections and daily fulfilment.</p>
         </div>
         <div className={s.actions}>
+          {refreshControl}
           <DashboardPeriodControl
             period={period}
             href="/store"
@@ -167,6 +171,12 @@ export function StoreOverviewPage({
           <p>Review customer actions and order issues</p>
         </a>
       </OperationsWorkbench>
+      {courierInsight ? (
+        <ActivityIntelligence
+          insight={courierInsight}
+          unit="courier requests"
+        />
+      ) : null}
       {courierBreakdown ? (
         <DeliveryHealth
           rows={courierBreakdown}

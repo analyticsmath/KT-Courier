@@ -30,3 +30,13 @@ The supplied Task Management reference contributes an asymmetric work area and a
 ## Verification and limits
 
 Dashboard tests, driver presentation tests, lint, TypeScript and the production build were run for this implementation. The browser connector could not access the user's open admin tab in this session. The cloud browser could not reach an isolated local preview. Therefore live visual, narrow-screen and interactive acceptance remain pending; automated checks are not a design score or a claim that every protected route has been individually inspected.
+
+
+## Activity detail and freshness follow-up
+
+- The admin attention query now selects the newest relevant records by `updatedAt DESC`, then creation time and ID. It displays the update time rather than presenting it as the request time.
+- Admin, vendor and driver overviews expose the server check time, manual refresh, and one-minute route refresh. Hidden tabs pause; becoming visible triggers a refresh. Existing client selection and scroll state use Next's route-refresh merge.
+- New analytic panels show cumulative recorded events at bucket end times, equal-duration current/previous totals, and weekday cadence in Johannesburg time. The comparison bar labels are static callouts, not hover or motion effects.
+- Weekday counts reuse the already-authorized bounded date series; they introduce no additional analytics queries. Truncated series withhold cadence and cumulative detail while retaining separately counted totals.
+- Shared operational table headers now use charcoal with white text, with tighter body rows and existing mobile stacking retained.
+- Browser access is still unavailable to this chat. These changes require live visual acceptance once the originating browser context is restored.

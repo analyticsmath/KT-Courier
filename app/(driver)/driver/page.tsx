@@ -1,3 +1,4 @@
+import { WorkspaceRefresh } from "@/components/protected-v2/studio/WorkspaceRefresh";
 import type { Metadata } from "next";
 import { DriverHomePage } from "@/components/protected-v2/driver/DriverHomePage";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
@@ -6,7 +7,10 @@ import { ProtectedState } from "@/components/protected-v2/feedback/ProtectedStat
 import { AccessBoundaryIllustration } from "@/components/protected-v2/illustrations/AccessBoundaryIllustration";
 import { requireRole } from "@/lib/auth/guards";
 import { getDriverProfileByUserId } from "@/lib/services/driver-profile.service";
-import { getDriverProfileIdForUser, listDriverAssignments } from "@/lib/services/driver-assignments.service";
+import {
+  getDriverProfileIdForUser,
+  listDriverAssignments,
+} from "@/lib/services/driver-assignments.service";
 import { evaluateDriverReadiness } from "@/lib/services/driver-readiness.service";
 import { UserRole } from "@/types/db";
 import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
@@ -53,6 +57,7 @@ export default async function DriverDashboardPage({
       assignments={assignments}
       readiness={readiness}
       insight={insight}
+      refreshControl={<WorkspaceRefresh checkedAt={new Date().toISOString()} />}
       period={period}
     />
   );

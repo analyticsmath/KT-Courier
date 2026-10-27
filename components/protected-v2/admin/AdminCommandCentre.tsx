@@ -1,4 +1,5 @@
 import React from "react";
+import { ActivityIntelligence } from "../studio/ActivityIntelligence";
 import Link from "next/link";
 import {
   DashboardCanvas,
@@ -21,9 +22,11 @@ import table from "../dashboard/dashboard.module.css";
 export function AdminCommandCentre({
   desk,
   period,
+  refreshControl,
 }: {
   desk: AdminDesk;
   period: DashboardPeriod;
+  refreshControl?: React.ReactNode;
 }) {
   const insight = desk.insight;
   const statuses = desk.statusMix ?? [];
@@ -68,6 +71,7 @@ export function AdminCommandCentre({
           <p>Delivery performance and the next decisions for your team.</p>
         </div>
         <div className={s.actions}>
+          {refreshControl}
           {desk.ordersAllowed ? (
             <DashboardPeriodControl
               period={period}
@@ -164,7 +168,8 @@ export function AdminCommandCentre({
       </section>
       <OperationsWorkbench
         title="Attention queue"
-        description="Select an order to review its route and open the delivery record."
+        description="Latest updates to orders that need review. Select a record to see its route."
+        dateLabel="Updated"
         emptyTitle={
           desk.attention
             ? "Queue clear. No deliveries require manual review."
@@ -176,7 +181,7 @@ export function AdminCommandCentre({
           origin: row.pickupAddress?.city ?? "Pickup not recorded",
           destination: row.dropoffAddress?.city ?? "Destination not recorded",
           status: presentOrderStatus(row.status).label,
-          date: formatDateTime(row.createdAt),
+          date: formatDateTime(row.updatedAt),
           href: `/admin/orders/${row.id}`,
         }))}
       >
@@ -200,6 +205,7 @@ export function AdminCommandCentre({
           </div>
         )}
       </OperationsWorkbench>
+      {insight ? <ActivityIntelligence insight={insight} /> : null}
       {desk.ordersAllowed && desk.statusMix ? (
         <DeliveryHealth rows={desk.statusMix} />
       ) : null}

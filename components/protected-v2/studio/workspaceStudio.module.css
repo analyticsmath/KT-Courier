@@ -143,3 +143,37 @@
 @media(max-width:767px){.driverWorkGrid{order:1;}.driverAnalytics{order:2;}}
 /* Muted copy must retain normal-text contrast on colored surfaces. */
 .bluePanel :is(.notice,.valueRow span,.barColumn>span,.dataDisclosure){color:#414d62;}
+/* Analytical detail: restrained color, exact values, and static callouts. */
+.intelligence{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(200px,.75fr) minmax(250px,1fr);gap:16px;min-width:0;order:0;}
+.cumulativePanel,.comparisonPanel,.cadencePanel{padding:22px;border-radius:18px;min-width:0;color:#191a1e;}
+.cumulativePanel{background:#fff;border:1px solid #e1e6ef;}
+.comparisonPanel{background:#c7d9ff;}
+.cadencePanel{background:#191a1e;color:#fff;}
+.intelligence h2{font-size:.85rem;font-weight:550;margin:0;line-height:1.4;letter-spacing:-.02em;}
+.intelligence .panelTitle{margin-bottom:10px;flex-wrap:wrap;gap:7px;}
+.chartNote{font-size:.68rem;line-height:1.55;margin:0;color:#4e596b;}
+.cadencePanel .chartNote{color:#c4cad7;}
+.chartChip{display:inline-flex;padding:6px 9px;border:1px solid #e0e6f1;border-radius:20px;white-space:nowrap;font-size:.65rem;}
+.linePlot{width:100%;height:165px;display:block;margin-top:4px;overflow:visible;}
+.chartEmpty{font-size:.76rem;line-height:1.5;min-height:135px;display:flex;align-items:center;color:inherit;}
+.comparisonPlot{display:flex;justify-content:center;gap:24px;height:155px;margin:34px 0 12px;}
+.comparisonPlot>div{width:38%;max-width:85px;display:flex;flex-direction:column;gap:9px;font-size:.68rem;align-items:center;}
+.comparisonTrack{position:relative;display:flex;align-items:end;width:100%;height:115px;border-bottom:1px solid #9db6e5;}
+.comparisonTrack>span{display:block;min-height:0;width:100%;border-radius:9px 9px 0 0;background:#191a1e;}
+.comparisonTrack>span[data-tone="current"]{background:#1768ff;}
+.comparisonTrack>strong{position:absolute;left:50%;transform:translateX(-50%);font-size:.68rem;background:#fff;padding:5px 9px;border-radius:20px;white-space:nowrap;color:#191a1e;font-weight:550;}
+.weekdayPlot{display:flex;gap:10px;justify-content:space-between;align-items:end;height:160px;margin-top:21px;}
+.weekdayPlot>div{flex:1;min-width:0;display:grid;gap:8px;justify-items:center;}
+.weekdayValue{font-size:.66rem;font-variant-numeric:tabular-nums;}
+.weekdayTrack{height:105px;width:100%;max-width:25px;display:flex;align-items:end;border-bottom:1px solid #555c6b;}
+.weekdayTrack>span{width:100%;background:#a8c5ff;border-radius:5px 5px 0 0;}
+.weekdayTrack>span[data-peak]{background:#eaff87;}
+.weekdayPlot strong{font-size:.62rem;color:#c4cad7;font-weight:400;}
+.refreshControl{display:flex;flex-direction:column;gap:5px;align-items:end;}
+.refreshControl>span{font-size:.61rem;color:#626976;line-height:1.4;}
+.refreshControl button{display:inline-flex;min-height:34px;padding:7px 12px;border:1px solid #d9e0eb;border-radius:20px;background:#fff;color:#191a1e;font-size:.7rem;cursor:pointer;}
+.refreshControl button:disabled{cursor:wait;color:#626976;}
+@media(max-width:1180px){.intelligence{grid-template-columns:minmax(0,1.3fr) minmax(200px,1fr);}.cadencePanel{grid-column:1/-1;display:grid;grid-template-columns:1fr 2fr;gap:8px 30px;align-items:center;}.cadencePanel .panelTitle{grid-column:1;}.cadencePanel>p{grid-column:1;}.cadencePanel .weekdayPlot{grid-column:2;grid-row:1/3;margin:0;height:135px;}.cadencePanel .weekdayTrack{height:85px;}}
+@media(max-width:639px){.intelligence{grid-template-columns:minmax(0,1fr);}.cadencePanel{grid-column:auto;display:block;}.cadencePanel .weekdayPlot{height:155px;margin-top:20px;}.cadencePanel .weekdayTrack{height:105px;}.cumulativePanel,.comparisonPanel,.cadencePanel{padding:19px;}.comparisonPlot{gap:36px;}.refreshControl{align-items:start;width:100%;flex-direction:row;align-items:center;justify-content:space-between;gap:12px;}.refreshControl>span{max-width:30ch;}}
+
+.driverWorkGrid~.intelligence{order:4;}

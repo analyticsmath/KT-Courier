@@ -154,3 +154,7 @@ html:has([data-kt-protected-system]){scroll-behavior:auto!important;}
 [data-kt-protected-system].eo-root .eo-driver-availability-option[aria-pressed="true"]{background:#eff8bd;border-color:#c4d77f;box-shadow:none;}
 @media(max-width:639px){[data-kt-protected-system] .eo-panel[data-accent]>.eo-panel__header{padding:14px;margin:0 0 16px;}[data-kt-protected-system].eo-root .eo-driver-stop-sequence{grid-template-columns:1fr;}[data-kt-protected-system].eo-root .eo-driver-active-run{padding:20px;}}
 [data-kt-protected-system] .eo-metric-tile[data-metric-tone="blue"] :is(.eo-metric-tile__head p,.eo-metric-tile__description){color:#414d62;}
+/* Tables read as work surfaces, with a distinct high-contrast header band. */
+[data-kt-protected-system] .eo-table thead th{background:#20242c;color:#fff;font-size:.72rem;font-weight:500;padding:13px 16px;border-color:#343b47;}
+[data-kt-protected-system] .eo-table td{padding:15px 16px;line-height:1.55;}
+[data-kt-protected-system] .eo-table td .eo-table-link{font-weight:600;}

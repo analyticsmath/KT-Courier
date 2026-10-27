@@ -1,3 +1,4 @@
+import { WorkspaceRefresh } from "@/components/protected-v2/studio/WorkspaceRefresh";
 import { requireBusinessPage } from "@/lib/client-platform/business-auth";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -9,7 +10,11 @@ import { listOrders } from "@/lib/services/orders.service";
 import { listStoreOrderQueue } from "@/lib/store-orders/store-order.service";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
 import type { StoreFulfilmentQueue } from "@/lib/store-presentation/store-fulfilment-priority";
-import { getStoreDashboardInsights, getStoreCourierInsights, getStoreCourierBreakdown } from "@/lib/dashboard-insights/store-dashboard-insights";
+import {
+  getStoreDashboardInsights,
+  getStoreCourierInsights,
+  getStoreCourierBreakdown,
+} from "@/lib/dashboard-insights/store-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 
 export const metadata: Metadata = { title: "Store operations" };
@@ -22,33 +27,42 @@ export default async function StoreDashboardPage({
   await requireBusinessPage("/store");
   const user = await getCurrentUser();
   if (!user) redirect("/auth/login");
-  const period = parseDashboardPeriod((await searchParams).period ?? "12_WEEKS");
+  const period = parseDashboardPeriod(
+    (await searchParams).period ?? "12_WEEKS",
+  );
 
   const { store, user: storeUser } = await getStoreDashboardData(user.id);
-  const [pickupState, courierRequests, marketplaceQueue, earnings, insight, courierInsight, courierBreakdown] =
-    await Promise.all([
-      getStorePickupAddress(user.id, "deliveries"),
-      listOrders(user, { page: 1, pageSize: 5 }, true),
-      store
-        ? listStoreOrderQueue(store.id)
-        : Promise.resolve({
-            needsReview: [],
-            customerActionRequired: [],
-            accepted: [],
-            preparing: [],
-            readyForPickup: [],
-            handoffInProgress: [],
-            completedHandoff: [],
-            rejectedOrCancelled: [],
-            reconciliationRequired: [],
-          }),
-      store?.status === "ACTIVE"
-        ? getStoreEarningSummaryForOwner(user.id).catch(() => null)
-        : Promise.resolve(null),
-      getStoreDashboardInsights(period),
-      getStoreCourierInsights(period),
-      getStoreCourierBreakdown(period),
-    ]);
+  const [
+    pickupState,
+    courierRequests,
+    marketplaceQueue,
+    earnings,
+    insight,
+    courierInsight,
+    courierBreakdown,
+  ] = await Promise.all([
+    getStorePickupAddress(user.id, "deliveries"),
+    listOrders(user, { page: 1, pageSize: 5 }, true),
+    store
+      ? listStoreOrderQueue(store.id)
+      : Promise.resolve({
+          needsReview: [],
+          customerActionRequired: [],
+          accepted: [],
+          preparing: [],
+          readyForPickup: [],
+          handoffInProgress: [],
+          completedHandoff: [],
+          rejectedOrCancelled: [],
+          reconciliationRequired: [],
+        }),
+    store?.status === "ACTIVE"
+      ? getStoreEarningSummaryForOwner(user.id).catch(() => null)
+      : Promise.resolve(null),
+    getStoreDashboardInsights(period),
+    getStoreCourierInsights(period),
+    getStoreCourierBreakdown(period),
+  ]);
 
   const queue = marketplaceQueue as StoreFulfilmentQueue;
   return (
@@ -71,6 +85,7 @@ export default async function StoreDashboardPage({
       courierBreakdown={courierBreakdown}
       courierInsight={courierInsight}
       insight={insight}
+      refreshControl={<WorkspaceRefresh checkedAt={new Date().toISOString()} />}
       period={period}
     />
   );

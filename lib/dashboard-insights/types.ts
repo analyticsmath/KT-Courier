@@ -5,12 +5,25 @@ export type ComparisonValue = Readonly<{
   changePercent: number | null;
   direction: "up" | "down" | "flat" | "unavailable";
 }>;
-export type TimeBucket = Readonly<{ start: string; end: string; label: string; value: number }>;
+export type TimeBucket = Readonly<{
+  start: string;
+  end: string;
+  label: string;
+  value: number;
+}>;
 export type DashboardWindow = Readonly<{
-  period: DashboardPeriod; start: Date; end: Date; previousStart: Date; label: string;
+  period: DashboardPeriod;
+  start: Date;
+  end: Date;
+  previousStart: Date;
+  label: string;
 }>;
 export type CountInsight = Readonly<{
-  title: string; definition: string; periodLabel: string;
-  comparison: ComparisonValue; buckets: readonly TimeBucket[];
+  title: string;
+  definition: string;
+  periodLabel: string;
+  comparison: ComparisonValue;
+  buckets: readonly TimeBucket[];
+  weekdayCounts?: readonly { label: string; value: number }[] | null;
   seriesUnavailable: boolean;
 }>;

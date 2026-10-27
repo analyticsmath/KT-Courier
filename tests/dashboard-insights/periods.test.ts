@@ -36,6 +36,7 @@ describe("dashboard period truth", () => {
     const insight = await countInsight(window, "Activity", "Recorded events", { count, dates: async () => Array(10_001).fill(window.start) });
     expect(insight.seriesUnavailable).toBe(true);
     expect(insight.buckets).toEqual([]);
+    expect(insight.weekdayCounts).toBeNull();
     expect(insight.comparison.current).toBe(20_000);
     expect(count).toHaveBeenNthCalledWith(2, window.previousStart, window.start);
   });

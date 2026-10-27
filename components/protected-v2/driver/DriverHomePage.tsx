@@ -1,4 +1,5 @@
 import React from "react";
+import { ActivityIntelligence } from "../studio/ActivityIntelligence";
 import Link from "next/link";
 import type { DriverAssignmentDto } from "@/lib/dto/assignment.dto";
 import type { DriverSelfDto } from "@/lib/dto/driver.dto";
@@ -27,6 +28,7 @@ export interface DriverHomePageProps {
   insight?: CountInsight | null;
   period?: DashboardPeriod;
   activity?: React.ReactNode;
+  refreshControl?: React.ReactNode;
 }
 export function DriverHomePage({
   driver,
@@ -35,6 +37,7 @@ export function DriverHomePage({
   insight,
   period = "7_DAYS",
   activity,
+  refreshControl,
 }: DriverHomePageProps) {
   const ordered = prioritiseDriverAssignments(assignments);
   const state = getDriverOperationalPresentation({
@@ -62,6 +65,7 @@ export function DriverHomePage({
           <p>Current work, dispatch readiness and your completed deliveries.</p>
         </div>
         <div className={s.actions}>
+          {refreshControl}
           <DashboardPeriodControl
             period={period}
             href="/driver"
@@ -307,6 +311,9 @@ export function DriverHomePage({
           ]}
         />
       </section>
+      {insight ? (
+        <ActivityIntelligence insight={insight} unit="completed runs" />
+      ) : null}
     </DashboardCanvas>
   );
 }

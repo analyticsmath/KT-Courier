@@ -91,4 +91,12 @@ describe("dashboard query authority", () => {
     expect(mocks.groupBy.mock.calls.map(call=>call[0].by)).toEqual([["status"],["availability"]]);
   });
 
+ it("requests the most recently updated attention records with stable tie breakers",async()=>{
+    mocks.requireAdminPagePermission.mockResolvedValue({id:"order-admin",role:"ADMIN"});
+    mocks.hasPermission.mockImplementation(async({permissionKey})=>permissionKey===PERMISSIONS.ORDERS_READ);
+    await getAdminDesk("7_DAYS");
+    const query=mocks.findMany.mock.calls.map(([query])=>query).find(query=>query.select?.updatedAt);
+    expect(query).toMatchObject({orderBy:[{updatedAt:"desc"},{createdAt:"desc"},{id:"desc"}],take:7,select:{updatedAt:true}});
+ });
+
 });
