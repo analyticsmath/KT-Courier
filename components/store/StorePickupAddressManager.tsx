@@ -100,6 +100,7 @@ export function StorePickupAddressManager({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [readiness, setReadiness] = useState<{ stage: string; blockers: string[]; outstandingChecks: string[] } | null>(null);
 
   const hasDisplayAddress = !storePickupSetupState(current, legacyAddress).setupRequired;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";
@@ -154,6 +155,7 @@ export function StorePickupAddressManager({
       });
       const data = await res.json() as {
         pickupAddress?: SavedAddressDto;
+        readiness?: { stage: string; blockers: string[]; outstandingChecks: string[] } | null;
         error?: string;
         fields?: Record<string, string>;
       };
@@ -165,6 +167,7 @@ export function StorePickupAddressManager({
       }
 
       setCurrent(data.pickupAddress);
+      setReadiness(data.readiness ?? { stage: "UNVERIFIED", blockers: ["PICKUP_COVERAGE_UNVERIFIED"], outstandingChecks: [] });
       setForm(initialForm(data.pickupAddress, legacyAddress));
       setFormOpen(false);
     } catch {
@@ -199,6 +202,26 @@ export function StorePickupAddressManager({
         <p role="status" className="text-sm text-[var(--kt-text-muted)]">
           Your earlier business address is not yet a confirmed courier collection point. Review the real pickup location below and save it before accepting customer delivery orders.
         </p>
+      )}
+
+      {readiness && !formOpen && (
+        <div role="status" className="rounded-xl border border-[var(--kt-border)] bg-[var(--kt-surface-muted)] px-4 py-3 text-sm">
+          <strong>Collection area check: {readiness.stage === "PICKUP_AREA_READY" ? "Pickup service area recorded" : "Needs further verification"}</strong>
+          <p className="mt-1 text-[var(--kt-text-muted)]">Saving an address does not activate your store. Trading hours, the actual destination road route, seller checks, and checkout still require verification.</p>
+          {readiness.blockers.length ? <ul className="mt-2 list-disc space-y-1 pl-5">
+            {readiness.blockers.map(code => <li key={code}>{
+              ({
+                STORE_CONTACT_MISSING: "Add a store contact email or phone.",
+                PICKUP_ADDRESS_MISSING: "Save a complete collection address.",
+                PICKUP_POSTAL_CODE_MISSING: "Enter a valid four-digit postal code.",
+                PICKUP_MAP_LOCATION_MISSING: "Select an accurate map location.",
+                PICKUP_COVERAGE_UNVERIFIED: "The pickup area could not be independently verified. Check the address or contact operations.",
+                ACTIVE_COURIER_SERVICE_MISSING: "Courier service is not yet active for this pickup area.",
+                STORE_ACCOUNT_PAUSED: "Store account is paused; contact operations.",
+              } as Record<string, string>)[code] ?? "Collection details need administrator review."
+            }</li>)}
+          </ul> : null}
+        </div>
       )}
 
       {error && (

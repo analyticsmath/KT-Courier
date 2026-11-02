@@ -10,6 +10,7 @@ import { formatZodErrors } from "@/lib/validation/auth";
 import { notFound, ok, serverError, tooManyRequests, unauthorized, unprocessable } from "@/lib/api/response";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
+import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
 
 
 export async function GET() {
@@ -61,7 +62,17 @@ export async function PATCH(req: NextRequest) {
   try {
     const pickupAddress = await upsertStorePickupAddress(user.id, parsed.data);
     if (!pickupAddress) return notFound("Store not found.");
-    return ok({ pickupAddress });
+    // A saved address is not evidence of a usable delivery route. Return
+    // immediate, read-only pickup-area diagnostics for the merchant without
+    // failing an already committed save if the mapping provider is down.
+    let readiness = null;
+    try {
+      const savedState = await getStorePickupAddress(user.id, "settings");
+      if (savedState) readiness = await getStorePickupOperationalPreflight(savedState.store.id);
+    } catch {
+      // Report unknown readiness instead of claiming the store is Live.
+    }
+    return ok({ pickupAddress, readiness });
   } catch {
     return serverError();
   }
