@@ -35,12 +35,13 @@ export const PROTECTED_CONTEXTS_BY_ROLE: Readonly<Record<UserRole, readonly Prot
 
 export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] = [
   { id: "customer-overview", label: "Overview", href: "/account", icon: "home", group: "Workspace", exact: true, mobilePriority: 1, contexts: C.CUSTOMER },
-  { id: "customer-request", label: "Request delivery", href: "/account/request-delivery", icon: "plus", group: "Workspace", mobilePriority: 2, contexts: C.CUSTOMER },
-  { id: "customer-orders", label: "My deliveries", href: "/account/orders", icon: "package", group: "Workspace", mobilePriority: 3, contexts: C.CUSTOMER },
-  { id: "customer-wallet", label: "Wallet", href: "/account/wallet", icon: "wallet", group: "Finance", mobilePriority: 4, contexts: C.CUSTOMER },
+  { id: "customer-shop", label: "Shop", href: "/shop", icon: "store", group: "Workspace", mobilePriority: 2, contexts: C.CUSTOMER },
+  { id: "customer-request", label: "Request delivery", href: "/account/request-delivery", icon: "plus", group: "Workspace", mobilePriority: 3, contexts: C.CUSTOMER },
+  { id: "customer-orders", label: "My deliveries", href: "/account/orders", icon: "package", group: "Workspace", mobilePriority: 4, contexts: C.CUSTOMER },
+  { id: "customer-wallet", label: "Wallet", href: "/account/wallet", icon: "wallet", group: "Finance", mobilePriority: 5, contexts: C.CUSTOMER },
   { id: "customer-refunds", label: "Refunds", href: "/account/refunds", icon: "credit-card", group: "Finance", contexts: C.CUSTOMER },
   { id: "customer-addresses", label: "Saved addresses", href: "/account/addresses", icon: "map", group: "Account", contexts: C.CUSTOMER },
-  { id: "customer-notifications", label: "Notifications", href: "/account/notifications", icon: "bell", group: "Account", mobilePriority: 5, contexts: C.CUSTOMER },
+  { id: "customer-notifications", label: "Notifications", href: "/account/notifications", icon: "bell", group: "Account", contexts: C.CUSTOMER },
   { id: "customer-profile", label: "Account settings", href: "/account/profile", icon: "people", group: "Account", contexts: C.CUSTOMER },
   { id: "customer-support", label: "Support", href: "/account/support", icon: "support", group: "Account", contexts: C.CUSTOMER },
 

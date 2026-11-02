@@ -99,7 +99,9 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         {fact("Business email", store.contactEmail || owner?.storeProfile?.businessEmail)}
         {fact("Business phone", store.contactPhone || owner?.storeProfile?.businessPhone)}
         {fact("Address", [store.addressLine1, store.addressLine2, store.city, store.province, store.postalCode, store.country].filter(Boolean).join(", "))}
-        {fact("Default pickup", store.defaultPickupAddressId ? "Configured — verify collection suitability" : "Not configured")}
+        {fact("Default pickup reference", store.defaultPickupAddressId ? "Recorded — inspect checkout pickup selection" : "Not configured")}
+        {fact("Usable saved pickup", store.pickupReadiness.checkoutPickupConfigured ? "Courier pickup recorded" : "Missing or incomplete pickup record")}
+        {fact("Collection evidence gaps", store.pickupReadiness.missing.join("; ") || "No postal/map evidence gaps detected; route and business readiness still require verification")}
         {fact("Store slug", store.slug)}
       </dl>
     </OperationalPanel>

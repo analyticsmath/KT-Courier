@@ -6,6 +6,8 @@ import {
   type AdminStoreListItem,
 } from "@/lib/dto/user.dto";
 import type { StoreStatus } from "@/types/db";
+import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -18,7 +20,7 @@ export interface AdminStoreListOptions {
 }
 
 export interface AdminStoreListResult {
-  data: AdminStoreListItem[];
+  data: (AdminStoreListItem & { pickupReadiness: StoreCollectionEvidenceSummary })[];
   total: number;
 }
 
@@ -46,12 +48,20 @@ export async function listStores(
       skip,
       take: pageSize,
       orderBy: { createdAt: "desc" },
-      include: { ownerUser: true },
+      include: { ownerUser: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
     }),
     prisma.store.count({ where }),
   ]);
 
-  return { data: stores.map(toAdminStoreListItem), total };
+  return {
+    data: stores.map((store) => ({
+      ...toAdminStoreListItem(store),
+      pickupReadiness: describeStoreCollectionEvidence(
+        selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses),
+      ),
+    })),
+    total,
+  };
 }
 
 // ─── Detail ───────────────────────────────────────────────────────────────────
@@ -60,9 +70,9 @@ export async function getStoreDetail(id: string) {
   const store = await prisma.store.findUnique({
     where: { id },
     include: {
-      ownerUser: {
-        include: { storeProfile: true },
-      },
+      ownerUser: { include: { storeProfile: true } },
+      defaultPickupAddress: true,
+      savedAddresses: { where: { type: "PICKUP" } },
     },
   });
   if (!store) return null;
@@ -88,6 +98,9 @@ export async function getStoreDetail(id: string) {
     updatedAt: store.updatedAt,
     orderCount,
     defaultPickupAddressId: store.defaultPickupAddressId,
+    pickupReadiness: describeStoreCollectionEvidence(
+      selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses),
+    ),
     ownerUser: store.ownerUser
       ? {
           id: store.ownerUser.id,

@@ -60,7 +60,10 @@ export function CustomerDashboardHome({
           <span className={role.customerCategory}>YOUR DELIVERY WORKSPACE</span>
           <h1>Welcome back, <em>{firstName}</em></h1>
           <p>Track what’s in motion, review deliveries and request your next pickup.</p>
-          <Link href="/account/request-delivery" className={role.rolePrimaryAction}>Request a delivery <span aria-hidden="true">↗</span></Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/account/request-delivery" className={role.rolePrimaryAction}>Request a delivery <span aria-hidden="true">↗</span></Link>
+            <Link href="/shop" className={`${styles.btn} ${styles.btnSecondary}`}>Shop stores <span aria-hidden="true">↗</span></Link>
+          </div>
         </div>
         <div className={role.customerVisual}>
           <Image src="/media/dashboard/delivery-proof.webp" alt="Courier presenting proof of delivery" width={440} height={320} sizes="(max-width: 780px) 100vw, 360px" loading="eager" priority />
@@ -226,6 +229,10 @@ export function CustomerDashboardHome({
             padding="normal"
           >
             <div className={styles.quickAccessList}>
+              <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/shop">
+                <ProtectedIcon className={styles.quickAccessIcon} name="store" />
+                <span>Shop the marketplace</span>
+              </Link>
               <Link className={`${styles.btn} ${styles.btnDark} justify-start`} href="/account/addresses">
                 <ProtectedIcon className={styles.quickAccessIcon} name="map" />
                 <span>Saved addresses</span>
