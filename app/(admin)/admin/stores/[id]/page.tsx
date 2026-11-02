@@ -49,7 +49,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
     ownerActive: owner?.status === "ACTIVE",
     ownerEmailVerified: Boolean(owner?.emailVerifiedAt),
     hasBusinessContact: Boolean(store.contactEmail || store.contactPhone || owner?.storeProfile?.businessEmail || owner?.storeProfile?.businessPhone),
-    hasPickupAddress: Boolean(store.defaultPickupAddressId),
+    hasPickupAddress: store.pickupReadiness.checkoutPickupConfigured && store.pickupReadiness.missing.length === 0,
     hasApprovedSellerIdentity: Boolean(legalSeller),
     publishedOfferCount,
     storefrontActive: storefront?.publicStatus === "ACTIVE",

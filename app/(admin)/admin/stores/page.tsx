@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: "Store administration" };
 function tone(variant: string): ProtectedStatusTone { return variant === "green" ? "success" : variant === "amber" ? "warning" : variant === "red" ? "danger" : variant === "blue" ? "information" : "neutral"; }
 
 const PAGE_SIZE = 25;
-const STORE_FILTERS = ["PENDING", "ALL", "ACTIVE", "SUSPENDED", "DISABLED"] as const;
+const STORE_FILTERS = ["PENDING", "NO_DEFAULT_PICKUP", "ALL", "ACTIVE", "SUSPENDED", "DISABLED"] as const;
 type StoreFilter = typeof STORE_FILTERS[number];
 
 function filterHref(filter: StoreFilter, page = 1) {
@@ -37,9 +37,9 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const selectedFilter: StoreFilter = STORE_FILTERS.includes(filters.status as StoreFilter) ? filters.status as StoreFilter : "PENDING";
   const requestedPage = Number(filters.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 && (requestedPage - 1) * PAGE_SIZE <= 2_147_483_647 ? requestedPage : 1;
-  const status = selectedFilter === "ALL" ? undefined : selectedFilter as StoreStatus;
+  const status = selectedFilter === "ALL" || selectedFilter === "NO_DEFAULT_PICKUP" ? undefined : selectedFilter as StoreStatus;
   const [{ data: stores, total }, canApprove, canReviewSellerIdentity, canManageRates] = await Promise.all([
-    listStores({ status, page, pageSize: PAGE_SIZE }),
+    listStores({ status, missingDefaultPickup: selectedFilter === "NO_DEFAULT_PICKUP", page, pageSize: PAGE_SIZE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
@@ -47,10 +47,10 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (page > pageCount) redirect(filterHref(selectedFilter, pageCount));
   return <ProtectedPageFrame className="eo-store-directory">
-    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : " in this view"}.`}
+    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : selectedFilter === "NO_DEFAULT_PICKUP" ? " without a saved default collection address" : " in this view"}.`}
       actions={user.role === "SUPER_ADMIN" ? <Link href="/admin/super-admin" className="eo-table-action">Add or manage stores</Link> : undefined} />
     <nav aria-label="Store account status filters" className="eo-filter-chips">
-      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
+      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "NO_DEFAULT_PICKUP" ? "No default pickup" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
     </nav>
     <OperationalPanel title={selectedFilter === "PENDING" ? "Vendor approvals" : "Store directory"} description="Pickup setup warnings identify missing saved collection, postal and map evidence. They are not confirmation that a delivery route, trading hours or marketplace payment is ready. Account approval and checkout remain separate gates."><EditorialTable caption="Store administration directory" mobileMode="stack" rows={stores} emptyState={<ProtectedState kind="empty" title={selectedFilter === "PENDING" ? "No vendor accounts are waiting for approval" : "No stores match this view"} description="New store accounts will appear here when their canonical registration has been completed." />} columns={[
     { id: "store", header: "Store", priority: "primary", cell: (store) => <div className="eo-store-identity"><Link href={`/admin/stores/${encodeURIComponent(store.id)}`}><strong>{store.name}</strong></Link><small>/{store.slug}</small></div> },

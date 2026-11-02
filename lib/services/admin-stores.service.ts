@@ -13,6 +13,7 @@ import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } 
 
 export interface AdminStoreListOptions {
   status?: StoreStatus;
+  missingDefaultPickup?: boolean;
   featured?: boolean;
   search?: string;
   page: number;
@@ -27,11 +28,12 @@ export interface AdminStoreListResult {
 export async function listStores(
   opts: AdminStoreListOptions
 ): Promise<AdminStoreListResult> {
-  const { status, featured, search, page, pageSize } = opts;
+  const { status, missingDefaultPickup, featured, search, page, pageSize } = opts;
   const skip = (page - 1) * pageSize;
 
   const where = {
     ...(status && { status }),
+    ...(missingDefaultPickup ? { defaultPickupAddressId: null } : {}),
     ...(featured !== undefined && { featured }),
     ...(search && {
       OR: [
