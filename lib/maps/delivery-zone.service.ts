@@ -72,7 +72,6 @@ export async function checkDeliveryZone(
     };
   }
 
-  let distanceLimitedMatch: DeliveryZoneCheckResult | null = null;
   for (const region of regions) {
     if (regionBoundaryIssues(region).length) continue;
     if (region.coverageMode === "PROVINCE") continue;
@@ -86,22 +85,21 @@ export async function checkDeliveryZone(
     const radiusKm = Number(region.coverageRadiusKm);
 
     if (distKm <= radiusKm) {
-      const withinMaxDistance = region.maxDistanceKm
-        ? distKm <= Number(region.maxDistanceKm)
-        : null;
+      // Radius defines the geographic pickup/dropoff boundary. maxDistanceKm
+      // limits the VERIFIED pickup-to-dropoff ROAD route, not the distance
+      // between this single address and the region centre. Both quote paths
+      // independently enforce regionRouteLimitKm after provider routing.
+      const withinMaxDistance = true;
 
       const match: DeliveryZoneCheckResult = {
         matched: true,
         regionId: region.id,
         regionName: region.name,
         withinMaxDistance,
-        warningMessage: withinMaxDistance === false
-          ? `This address may exceed the maximum delivery distance for ${region.name}.`
-          : null,
+        warningMessage: null,
         calculationType: "geometric_haversine",
       };
-      if (withinMaxDistance === true) return match;
-      distanceLimitedMatch ??= match;
+      return match;
     }
   }
 
@@ -118,8 +116,6 @@ export async function checkDeliveryZone(
       calculationType: "provider_verified_province",
     };
   }
-  if (distanceLimitedMatch) return distanceLimitedMatch;
-
   return {
     matched: false,
     regionId: null,

@@ -1,4 +1,5 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import type { Address, Store } from "@/types/db";
 import type { StorePickupAddressInput } from "@/lib/validation/address-book";
@@ -32,16 +33,25 @@ export async function getStorePickupAddress(
   const access = await storeAccess(userId, section);
   const store = await prisma.store.findUnique({
     where: { id: access.store.id },
-    include: { defaultPickupAddress: true },
+    include: {
+      defaultPickupAddress: true,
+      // The quote authority already accepts a complete, store-owned saved
+      // PICKUP when a stale default pointer is absent or incomplete.
+      // Use the same selection rule in the vendor workspace.
+      savedAddresses: { where: { type: "PICKUP" }, orderBy: { createdAt: "asc" } },
+    },
   });
 
   if (!store) return null;
 
+  const pickup = selectStorePickupAddress(
+    store.id,
+    store.defaultPickupAddress,
+    store.savedAddresses,
+  );
   return {
     store,
-    pickupAddress: store.defaultPickupAddress
-      ? toSavedAddressDto(store.defaultPickupAddress)
-      : null,
+    pickupAddress: pickup ? toSavedAddressDto(pickup) : null,
   };
 }
 

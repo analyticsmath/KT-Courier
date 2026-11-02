@@ -27,4 +27,17 @@ describe("province-wide operational coverage", () => {
     expect((await checkDeliveryZone(-26, 28)).regionId).toBe("radius");
     expect(mocks.province).not.toHaveBeenCalled();
   });
+  it("does not mistake an address-to-region-centre distance for the configured road-route limit", async () => {
+    // ~22 km from the regional centre, inside a 50 km radius; the 10 km
+    // maximum is enforced later against the pickup-to-dropoff road route.
+    mocks.regions.mockResolvedValue([{ ...province, id: "radius-road-cap", coverageMode: "RADIUS", centerLat: -26, centerLng: 28, coverageRadiusKm: 50, maxDistanceKm: 10 }]);
+    expect(await checkDeliveryZone(-25.8, 28)).toMatchObject({
+      matched: true, regionId: "radius-road-cap", withinMaxDistance: true,
+    });
+    expect(mocks.province).not.toHaveBeenCalled();
+  });
+  it("still excludes addresses outside a region's geometric operating radius", async () => {
+    mocks.regions.mockResolvedValue([{ ...province, id: "radius-road-cap", coverageMode: "RADIUS", centerLat: -26, centerLng: 28, coverageRadiusKm: 5, maxDistanceKm: 50 }]);
+    expect((await checkDeliveryZone(-25.8, 28)).matched).toBe(false);
+  });
 });
