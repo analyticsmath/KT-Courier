@@ -4,6 +4,7 @@
  */
 export type MerchantSavedPickup = Readonly<{
   line1?: string | null;
+  line2?: string | null;
   city?: string | null;
   province?: string | null;
   country?: string | null;
@@ -13,7 +14,7 @@ export type MerchantSavedPickup = Readonly<{
 }>;
 
 export function isMerchantPickupEvidenceComplete(pickup: MerchantSavedPickup | null | undefined): boolean {
-  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || pickup.country?.trim().toLowerCase() !== "south africa") return false;
+  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || (pickup.line2?.trim().length ?? 0) < 2 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || pickup.country?.trim().toLowerCase() !== "south africa") return false;
   if (!/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")) return false;
   const latitude = Number(pickup.latitude);
   const longitude = Number(pickup.longitude);

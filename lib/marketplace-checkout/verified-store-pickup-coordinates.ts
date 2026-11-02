@@ -1,43 +1,59 @@
-import { geocodeSouthAfricanAddress, type GeocodableSouthAfricanAddress, type TrustedCoordinates } from "@/lib/maps/geocode.service";
+import type { GeocodableSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 
-/**
- * Merchant-entered coordinates are only a browser marker, never courier
- * location authority. Verify the saved address using the server map provider
- * before checking coverage or creating a priced courier quote.
- */
 export type StoredMerchantPickup = Readonly<{
-  line1: string;
+  line1?: string | null;
   line2?: string | null;
   city?: string | null;
   province?: string | null;
+  country?: string | null;
   postalCode?: string | null;
+  latitude?: number | string | { toString(): string } | null;
+  longitude?: number | string | { toString(): string } | null;
   placeId?: string | null;
-  latitude?: { toString(): string } | number | null;
-  longitude?: { toString(): string } | number | null;
 }>;
 
+export type VerifiedStorePickupCoordinates = Readonly<{ latitude: number; longitude: number }>;
+export type StorePickupCoordinateResolver = (
+  address: GeocodableSouthAfricanAddress,
+) => Promise<VerifiedStorePickupCoordinates | null>;
+
+/** Verify a merchant-saved map pin; never silently invent a pickup marker. */
 export async function resolveVerifiedStorePickupCoordinates(
-  pickup: StoredMerchantPickup,
-  resolver: (address: GeocodableSouthAfricanAddress) => Promise<TrustedCoordinates | null> = geocodeSouthAfricanAddress,
-): Promise<TrustedCoordinates | null> {
-  if (!pickup.line1?.trim() || !pickup.city?.trim() || !pickup.province?.trim()) return null;
-  // Missing coordinates permit independent forward geocoding. If a saved
-  // marker exists, supply it so a selected Place ID must match provider data.
-  const hasMarker = pickup.latitude != null && pickup.longitude != null;
-  const latitude = hasMarker ? Number(pickup.latitude) : undefined;
-  const longitude = hasMarker ? Number(pickup.longitude) : undefined;
-  if (hasMarker && (!Number.isFinite(latitude) || !Number.isFinite(longitude)
-    || Math.abs(latitude!) > 90 || Math.abs(longitude!) > 180
-    || (latitude === 0 && longitude === 0))) return null;
-  // A Place ID with no marker cannot be verified against the original
-  // selected location: use strict address-based geocoding instead.
+  pickup: StoredMerchantPickup | null | undefined,
+  resolver: StorePickupCoordinateResolver = geocodeSouthAfricanAddress,
+): Promise<VerifiedStorePickupCoordinates | null> {
+  if (
+    !pickup
+    || (pickup.line1?.trim().length ?? 0) < 3
+    || (pickup.line2?.trim().length ?? 0) < 2
+    || (pickup.city?.trim().length ?? 0) < 2
+    || (pickup.province?.trim().length ?? 0) < 2
+    || pickup.country?.trim().toLowerCase() !== "south africa"
+    || !/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")
+    || pickup.latitude == null
+    || pickup.longitude == null
+  ) return null;
+
+  const latitude = Number(pickup.latitude);
+  const longitude = Number(pickup.longitude);
+  if (
+    !Number.isFinite(latitude) || !Number.isFinite(longitude)
+    || latitude < -90 || latitude > 90
+    || longitude < -180 || longitude > 180
+    || (latitude === 0 && longitude === 0)
+  ) return null;
+
   const address: GeocodableSouthAfricanAddress = {
-    line1: pickup.line1,
-    line2: pickup.line2 ?? undefined,
-    city: pickup.city,
-    province: pickup.province,
-    postalCode: pickup.postalCode ?? undefined,
-    ...(hasMarker ? { latitude, longitude, placeId: pickup.placeId ?? undefined } : {}),
+    line1: pickup.line1.trim(),
+    line2: pickup.line2.trim(),
+    city: pickup.city.trim(),
+    province: pickup.province.trim(),
+    postalCode: pickup.postalCode.trim(),
+    country: "South Africa",
+    latitude,
+    longitude,
+    ...(pickup.placeId ? { placeId: pickup.placeId } : {}),
   };
   return resolver(address);
 }

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
 import { evaluateStorePickupPreflight } from "@/lib/admin/store-operational-preflight";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
@@ -23,15 +23,17 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
     },
   });
   if (!store) return null;
-  const pickup = selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses);
+  const pickup = selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses);
   const evidence = describeStoreCollectionEvidence(pickup);
+  const suburbValid = !evidence.missing.includes("Suburb / area missing");
   const postalCodeValid = !evidence.missing.includes("Postal code missing");
   const mapCoordinatesValid = !evidence.missing.includes("Map coordinates missing");
   let area: "NOT_CHECKED" | "COVERED" | "UNVERIFIED" = "NOT_CHECKED";
   let pickupRegionName: string | null = null;
+  let pickupRegionId: string | null = null;
   let matchingServiceCount = 0;
 
-  if (pickup && postalCodeValid && mapCoordinatesValid) {
+  if (pickup && evidence.checkoutPickupConfigured) {
     try {
       const verifiedCoordinates = await resolveVerifiedStorePickupCoordinates(pickup);
       const decision = verifiedCoordinates
@@ -40,6 +42,7 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
       if (decision?.matched && decision.regionId && decision.withinMaxDistance === true) {
         area = "COVERED";
         pickupRegionName = decision.regionName;
+        pickupRegionId = decision.regionId;
         const services = await deliveryCatalog();
         matchingServiceCount = services.filter(
           service => service.active
@@ -63,13 +66,15 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
     ...evaluateStorePickupPreflight({
       status: store.status,
       hasContact: Boolean(store.contactEmail?.trim() || store.contactPhone?.trim()),
-      pickupConfigured: evidence.checkoutPickupConfigured,
+      pickupConfigured: Boolean(pickup) && !evidence.missing.some(item => ["Street address missing", "City missing", "Province missing", "Country not supported"].includes(item)),
+      suburbValid,
       postalCodeValid,
       mapCoordinatesValid,
       area,
       matchingServiceCount,
     }),
     pickupRegionName,
+    pickupRegionId,
     matchingServiceCount,
   };
 }

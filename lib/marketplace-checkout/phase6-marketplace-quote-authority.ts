@@ -54,11 +54,11 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
       const destination = checkout?.addressSnapshot;
       if (!checkout || !group || group.store.status !== "ACTIVE" || !destination) return null;
       if (!pickup?.line1 || !pickup.city || !pickup.province) {
-        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "This store has not configured a complete collection address. Please contact support or choose another store.");
+        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "This store has not configured a complete collection address, including suburb, postal code and a confirmed map location. Please contact support or choose another store.");
       }
       // Even previously saved merchant coordinates are not a trusted location
       // authority. Provider verification binds the selected Place ID and map
-      // marker, or independently geocodes a legacy address.
+      // marker to the complete saved pickup address.
       const pickupCoordinates = await resolveVerifiedStorePickupCoordinates(pickup);
       const destinationCoordinates = coordinates(destination?.protectedCoordinates);
       const serviceAreaReference = input.serviceAreaReference ?? destination?.serviceAreaReference;

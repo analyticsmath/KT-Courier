@@ -68,14 +68,24 @@ export const StoreSignupLocationSchema = AddressInputSchema.extend({
 
 export const StorePickupAddressSchema = AddressInputSchema.extend({
   ...savedNullableFields,
+  line1: z.string().trim().min(3, "Collection street address is required").max(200),
+  line2: z.string().trim().min(2, "Collection suburb or area is required").max(120),
   city: z.string().trim().min(2, "Collection city is required").max(100),
   province: z.string().trim().min(2, "Collection province is required").max(100),
   country: z.string().trim().refine(
     (country) => country.toLowerCase() === "south africa",
     "Only South African collection addresses are currently supported",
   ).default("South Africa"),
+  postalCode: z.string().trim().regex(/^\\d{4}$/, "Enter a valid four-digit South African postal code"),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
   label: labelField,
-}).superRefine(validateCoordinatePair);
+}).superRefine((value, ctx) => {
+  validateCoordinatePair(value, ctx);
+  if (value.latitude === 0 && value.longitude === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["latitude"], message: "Select a precise collection point on the map" });
+  }
+});
 
 export type SavedAddressCreateInput = z.infer<typeof SavedAddressCreateSchema>;
 export type SavedAddressUpdateInput = z.infer<typeof SavedAddressUpdateSchema>;

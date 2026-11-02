@@ -31,7 +31,7 @@ export function normalizeGooglePlaceAddress(place: {
 
   const streetNumber = extractComponent(components, "street_number");
   const route = extractComponent(components, "route");
-  const sublocality = extractComponent(components, "sublocality_level_1") ?? extractComponent(components, "sublocality");
+  const sublocality = extractComponent(components, "sublocality_level_1") ?? extractComponent(components, "sublocality") ?? extractComponent(components, "neighborhood");
   const locality = extractComponent(components, "locality");
   const adminArea2 = extractComponent(components, "administrative_area_level_2");
   const adminArea1 = extractComponent(components, "administrative_area_level_1");
@@ -40,8 +40,9 @@ export function normalizeGooglePlaceAddress(place: {
 
   const line1Parts = [streetNumber, route].filter(Boolean);
   const line1 = line1Parts.length > 0 ? line1Parts.join(" ") : (sublocality ?? "");
+  const line2 = line1Parts.length > 0 && sublocality && city && sublocality.toLowerCase() !== city.toLowerCase() ? sublocality : null;
 
-  const city = locality ?? sublocality ?? adminArea2 ?? null;
+  const city = locality ?? adminArea2 ?? sublocality ?? null;
 
   let lat: number | null = null;
   let lng: number | null = null;
@@ -52,10 +53,10 @@ export function normalizeGooglePlaceAddress(place: {
   }
 
   return {
-    formattedAddress: place.formatted_address ?? [line1, city, adminArea1, postalCode, country].filter(Boolean).join(", "),
+    formattedAddress: place.formatted_address ?? [line1, line2, city, adminArea1, postalCode, country].filter(Boolean).join(", "),
     placeId: place.place_id ?? null,
     line1: line1 || (place.formatted_address ?? ""),
-    line2: null,
+    line2,
     city,
     province: adminArea1,
     postalCode,
@@ -84,7 +85,7 @@ export function validateAddressDto(addr: Partial<AddressDto>): AddressValidation
 // ─── Build a human-readable address summary ───────────────────────────────────
 
 export function buildAddressSummary(addr: Partial<AddressDto>): string {
-  const parts = [addr.line1, addr.city, addr.province].filter(Boolean);
+  const parts = [addr.line1, addr.line2, addr.city, addr.province].filter(Boolean);
   if (parts.length > 0) return parts.join(", ");
   return addr.formattedAddress ?? "—";
 }

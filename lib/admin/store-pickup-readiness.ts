@@ -1,37 +1,32 @@
-/** Read-only evidence for the administrator's store setup queue.
- * A configured pickup is not proof that a delivery route or payment is available.
- */
-export type StoreCollectionEvidence = Readonly<{
-  postalCode?: string | null;
-  latitude?: number | string | { toString(): string } | null;
-  longitude?: number | string | { toString(): string } | null;
-}>;
+import type { StorePickupAddressCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 
 export type StoreCollectionEvidenceSummary = Readonly<{
   checkoutPickupConfigured: boolean;
   missing: readonly string[];
 }>;
 
-function mappedCoordinate(value: StoreCollectionEvidence["latitude"], min: number, max: number): boolean {
-  if (value == null || String(value).trim() === "") return false;
-  const number = Number(value);
-  return Number.isFinite(number) && number >= min && number <= max;
+function validCoordinatePair(address: StorePickupAddressCandidate): boolean {
+  if (address.latitude == null || address.longitude == null) return false;
+  const latitude = Number(address.latitude);
+  const longitude = Number(address.longitude);
+  return Number.isFinite(latitude) && Number.isFinite(longitude)
+    && latitude >= -90 && latitude <= 90
+    && longitude >= -180 && longitude <= 180
+    && (latitude !== 0 || longitude !== 0);
 }
 
+/** Evidence only: this does not establish delivery coverage or a buyer route. */
 export function describeStoreCollectionEvidence(
-  selectedPickup: StoreCollectionEvidence | null | undefined,
+  pickup: StorePickupAddressCandidate | null | undefined,
 ): StoreCollectionEvidenceSummary {
-  if (!selectedPickup) {
-    return { checkoutPickupConfigured: false, missing: ["Saved collection address missing"] };
-  }
+  if (!pickup) return { checkoutPickupConfigured: false, missing: ["Saved collection address missing"] };
   const missing: string[] = [];
-  if (!/^\d{4}$/.test(selectedPickup.postalCode?.trim() ?? "")) {
-    missing.push("Postal code missing");
-  }
-  if (!mappedCoordinate(selectedPickup.latitude, -90, 90)
-    || !mappedCoordinate(selectedPickup.longitude, -180, 180)
-    || (Number(selectedPickup.latitude) === 0 && Number(selectedPickup.longitude) === 0)) {
-    missing.push("Map coordinates missing");
-  }
-  return { checkoutPickupConfigured: true, missing };
+  if ((pickup.line1?.trim().length ?? 0) < 3) missing.push("Street address missing");
+  if ((pickup.line2?.trim().length ?? 0) < 2) missing.push("Suburb / area missing");
+  if ((pickup.city?.trim().length ?? 0) < 2) missing.push("City missing");
+  if ((pickup.province?.trim().length ?? 0) < 2) missing.push("Province missing");
+  if (pickup.country?.trim().toLowerCase() !== "south africa") missing.push("Country not supported");
+  if (!/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")) missing.push("Postal code missing");
+  if (!validCoordinatePair(pickup)) missing.push("Map coordinates missing");
+  return { checkoutPickupConfigured: missing.length === 0, missing };
 }

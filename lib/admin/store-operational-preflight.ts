@@ -1,11 +1,9 @@
-/** A read-only preflight for merchant pickup eligibility, not a go-live permit.
- * Actual customer destinations, trading hours, approval and payment still
- * require independent evidence before claiming that checkout works.
- */
+/** A read-only preflight for merchant pickup eligibility, not a go-live permit. */
 export type StorePickupPreflightFacts = Readonly<{
   status: string;
   hasContact: boolean;
   pickupConfigured: boolean;
+  suburbValid: boolean;
   postalCodeValid: boolean;
   mapCoordinatesValid: boolean;
   area: "NOT_CHECKED" | "COVERED" | "UNVERIFIED";
@@ -34,9 +32,10 @@ export function evaluateStorePickupPreflight(facts: StorePickupPreflightFacts): 
   if (!facts.hasContact) blockers.push("STORE_CONTACT_MISSING");
   if (!facts.pickupConfigured) blockers.push("PICKUP_ADDRESS_MISSING");
   else {
+    if (!facts.suburbValid) blockers.push("PICKUP_SUBURB_MISSING");
     if (!facts.postalCodeValid) blockers.push("PICKUP_POSTAL_CODE_MISSING");
     if (!facts.mapCoordinatesValid) blockers.push("PICKUP_MAP_LOCATION_MISSING");
-    if (blockers.length === 0) {
+    if (facts.suburbValid && facts.postalCodeValid && facts.mapCoordinatesValid) {
       if (facts.area !== "COVERED") blockers.push("PICKUP_COVERAGE_UNVERIFIED");
       else if (!Number.isSafeInteger(facts.matchingServiceCount) || facts.matchingServiceCount <= 0) blockers.push("ACTIVE_COURIER_SERVICE_MISSING");
     }

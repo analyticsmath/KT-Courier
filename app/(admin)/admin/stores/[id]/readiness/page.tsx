@@ -15,6 +15,7 @@ const BLOCKER_LABELS: Record<string, string> = {
   STORE_ACCOUNT_PAUSED: "Store account is paused or disabled.",
   STORE_CONTACT_MISSING: "Add the store's business email or phone.",
   PICKUP_ADDRESS_MISSING: "Save a complete courier collection address in the store's own account.",
+  PICKUP_SUBURB_MISSING: "Add the pickup suburb or area.",
   PICKUP_POSTAL_CODE_MISSING: "Add a valid four-digit postal code to the collection address.",
   PICKUP_MAP_LOCATION_MISSING: "Confirm the collection location on the map.",
   PICKUP_COVERAGE_UNVERIFIED: "The saved pickup is not confirmed within enabled coverage. Review regions and geocoding.",
