@@ -7,6 +7,7 @@ import {
 } from "@/lib/dto/user.dto";
 import type { StoreStatus } from "@/types/db";
 import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
 import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
 
 // ─── List ─────────────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ const database = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absen
 const enabled = process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" && database.hostname === "127.0.0.1" && database.pathname === "/kt_launch_test";
 async function user(role: "CUSTOMER" | "STORE" = "CUSTOMER") { return prisma.user.create({ data: { email: `address-${randomUUID()}@example.test`, role, status: "ACTIVE" } }); }
 const pin = { line1: "12 Main Road", country: "South Africa", latitude: -26.2134567, longitude: 28.0523456, placeId: "selected-place", formattedAddress: "12 Main Road, Johannesburg, South Africa" };
+const pickupPin = { ...pin, line2: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196" };
 
 describe.skipIf(!enabled)("dashboard address persistence in isolated PostgreSQL", () => {
   it("saves and reloads the exact dropoff point with seven-decimal precision", async () => {
@@ -44,15 +45,15 @@ describe.skipIf(!enabled)("dashboard address persistence in isolated PostgreSQL"
   });
   it("persists the store pickup point and clears it when changed to an unmapped address", async () => {
     const owner = await user("STORE"); await prisma.store.create({ data: { ownerUserId: owner.id, name: "Isolated pin store", slug: `pin-store-${randomUUID()}`, status: "ACTIVE" } });
-    const saved = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse({
-      ...pin, city: "Johannesburg", province: "Gauteng",
-    }));
+    const saved = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse(pickupPin));
     expect(saved).toMatchObject({ latitude: pin.latitude, longitude: pin.longitude });
     expect((await getStorePickupAddress(owner.id))?.pickupAddress).toMatchObject({ id: saved!.id, latitude: pin.latitude });
-    const updated = await upsertStorePickupAddress(owner.id, StorePickupAddressSchema.parse({
-      line1: "New manual pickup", city: "Johannesburg", province: "Gauteng",
-      latitude: null, longitude: null, placeId: null,
-    }));
-    expect(updated).toMatchObject({ id: saved!.id, latitude: null, longitude: null, placeId: null });
+    expect(() => StorePickupAddressSchema.parse({
+      line1: "New manual pickup", line2: "Sandton", city: "Johannesburg", province: "Gauteng",
+      postalCode: "2196", country: "South Africa", latitude: null, longitude: null, placeId: null,
+    })).toThrow();
+    expect((await getStorePickupAddress(owner.id))?.pickupAddress).toMatchObject({
+      id: saved!.id, latitude: pin.latitude, longitude: pin.longitude, placeId: pin.placeId,
+    });
   });
 });

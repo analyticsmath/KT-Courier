@@ -53,11 +53,11 @@ export function completeStorePickupAddress(address: StorePickupAddressCandidate 
 }
 
 /** Returns the store's own pickup record even when incomplete, so it can be repaired. */
-export function selectStorePickupCandidate(
+export function selectStorePickupCandidate<T extends StorePickupAddressCandidate>(
   storeId: string,
-  defaultPickupAddress: StorePickupAddressCandidate | null | undefined,
-  savedAddresses: readonly StorePickupAddressCandidate[],
-): StorePickupAddressCandidate | null {
+  defaultPickupAddress: T | null | undefined,
+  savedAddresses: readonly T[],
+): T | null {
   const candidates = [defaultPickupAddress, ...savedAddresses].filter(
     (address): address is StorePickupAddressCandidate =>
       Boolean(address && address.storeId === storeId && address.type === "PICKUP"),

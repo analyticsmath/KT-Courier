@@ -23,16 +23,20 @@ export async function resolveVerifiedStorePickupCoordinates(
   pickup: StoredMerchantPickup | null | undefined,
   resolver: StorePickupCoordinateResolver = geocodeSouthAfricanAddress,
 ): Promise<VerifiedStorePickupCoordinates | null> {
+  const line1 = pickup?.line1?.trim();
+  const line2 = pickup?.line2?.trim();
+  const city = pickup?.city?.trim();
+  const province = pickup?.province?.trim();
+  const postalCode = pickup?.postalCode?.trim();
   if (
-    !pickup
-    || (pickup.line1?.trim().length ?? 0) < 3
-    || (pickup.line2?.trim().length ?? 0) < 2
-    || (pickup.city?.trim().length ?? 0) < 2
-    || (pickup.province?.trim().length ?? 0) < 2
-    || pickup.country?.trim().toLowerCase() !== "south africa"
-    || !/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")
-    || pickup.latitude == null
-    || pickup.longitude == null
+    !line1 || line1.length < 3
+    || !line2 || line2.length < 2
+    || !city || city.length < 2
+    || !province || province.length < 2
+    || pickup?.country?.trim().toLowerCase() !== "south africa"
+    || !/^\d{4}$/.test(postalCode ?? "")
+    || pickup?.latitude == null
+    || pickup?.longitude == null
   ) return null;
 
   const latitude = Number(pickup.latitude);
@@ -45,11 +49,11 @@ export async function resolveVerifiedStorePickupCoordinates(
   ) return null;
 
   const address: GeocodableSouthAfricanAddress = {
-    line1: pickup.line1.trim(),
-    line2: pickup.line2.trim(),
-    city: pickup.city.trim(),
-    province: pickup.province.trim(),
-    postalCode: pickup.postalCode.trim(),
+    line1,
+    line2,
+    city,
+    province,
+    postalCode,
     country: "South Africa",
     suburb: pickup.line2.trim(),
     requireSuburbAndPostalMatch: true,
