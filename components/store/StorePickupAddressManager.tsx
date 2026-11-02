@@ -134,7 +134,7 @@ export function StorePickupAddressManager({
       setSaving(false);
       return;
     }
-    if (!/^\\d{4}$/.test(form.address.postalCode?.trim() ?? "")) {
+    if (!/^\d{4}$/.test(form.address.postalCode?.trim() ?? "")) {
       setFieldErrors({ postalCode: "Enter a valid four-digit South African postal code." });
       setSaving(false);
       return;

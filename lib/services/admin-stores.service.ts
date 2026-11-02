@@ -163,7 +163,7 @@ export async function adminUpdateStore(
 
 export class StoreActivationReadinessError extends Error {
   constructor(readonly blockers: readonly string[]) {
-    super("Store approval is blocked until the collection address and pickup service-area checks pass.");
+    super(`Store approval is blocked until the collection address and pickup service-area checks pass: ${blockers.join(", ")}.`);
     this.name = "StoreActivationReadinessError";
   }
 }

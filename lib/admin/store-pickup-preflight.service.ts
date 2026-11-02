@@ -42,7 +42,7 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
       if (decision?.matched && decision.regionId && decision.withinMaxDistance === true) {
         area = "COVERED";
         pickupRegionName = decision.regionName;
-        pickupRegionId = decision.regionId;
+        pickupRegionId = decision.regionId ?? null;
         const services = await deliveryCatalog();
         matchingServiceCount = services.filter(
           service => service.active

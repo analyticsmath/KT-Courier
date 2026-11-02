@@ -51,7 +51,7 @@ export async function PATCH(
     return ok({ id: updated.id, status: updated.status });
   } catch (error) {
     if (error instanceof StoreActivationReadinessError) {
-      return unprocessable(error.message, { blockers: error.blockers });
+      return unprocessable(`${error.message} ${error.blockers.join(", ")}`);
     }
     return serverError();
   }

@@ -76,7 +76,7 @@ export const StorePickupAddressSchema = AddressInputSchema.extend({
     (country) => country.toLowerCase() === "south africa",
     "Only South African collection addresses are currently supported",
   ).default("South Africa"),
-  postalCode: z.string().trim().regex(/^\\d{4}$/, "Enter a valid four-digit South African postal code"),
+  postalCode: z.string().trim().regex(/^\d{4}$/, "Enter a valid four-digit South African postal code"),
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
   label: labelField,
