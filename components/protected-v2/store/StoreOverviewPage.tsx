@@ -204,8 +204,8 @@ export function StoreOverviewPage({
               <strong>Collection point</strong>
               <span>
                 {pickupConfigured
-                  ? "Pickup address saved"
-                  : "Add a pickup address"}
+                  ? "Collection details saved — coverage to be verified"
+                  : "Complete the collection address"}
               </span>
             </li>
           </ul>

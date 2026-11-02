@@ -6,6 +6,7 @@ import { StoreOverviewPage } from "@/components/protected-v2/store/StoreOverview
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getStoreDashboardData } from "@/lib/services/stores.service";
 import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
+import { isMerchantPickupEvidenceComplete } from "@/lib/store-presentation/merchant-pickup-evidence";
 import { listOrders } from "@/lib/services/orders.service";
 import { listStoreOrderQueue } from "@/lib/store-orders/store-order.service";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
@@ -78,9 +79,7 @@ export default async function StoreDashboardPage({
         dropoffCity: order.dropoffCity,
         createdAt: order.createdAt,
       }))}
-      pickupConfigured={Boolean(
-        pickupState?.pickupAddress ?? pickupState?.store?.addressLine1,
-      )}
+      pickupConfigured={isMerchantPickupEvidenceComplete(pickupState?.pickupAddress)}
       payableBalance={earnings?.payableBalance ?? null}
       courierBreakdown={courierBreakdown}
       courierInsight={courierInsight}

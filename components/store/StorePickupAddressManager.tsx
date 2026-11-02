@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { SavedAddressDto } from "@/lib/services/customer-addresses.service";
 import { storePickupSetupState } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { isMerchantPickupEvidenceComplete } from "@/lib/store-presentation/merchant-pickup-evidence";
 
 interface LegacyPickupAddress {
   storeName?: string | null;
@@ -102,6 +103,7 @@ export function StorePickupAddressManager({
 
   const hasDisplayAddress = !storePickupSetupState(current, legacyAddress).setupRequired;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";
+  const hasCompleteEvidence = isMerchantPickupEvidenceComplete(current);
 
   function openForm() {
     setForm(initialForm(current, legacyAddress));
@@ -188,9 +190,9 @@ export function StorePickupAddressManager({
         )}
       </div>
 
-      {current && !hasDisplayAddress && (
+      {current && !hasCompleteEvidence && (
         <p role="status" className="text-sm text-[var(--kt-text-muted)]">
-          This saved collection address is incomplete. Please confirm its city and province and save it again before customers can request courier delivery.
+          This pickup address is not fully configured for marketplace delivery. Confirm the street, city, province, four-digit postal code and precise map location before customers order from the store. Delivery coverage and the actual route are checked separately.
         </p>
       )}
       {!current && legacyAddress?.line1 && (
