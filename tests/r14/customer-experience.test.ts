@@ -52,13 +52,17 @@ describe("R14 customer account experience", () => {
     const customer = projectProtectedNavigation("CUSTOMER", new Set());
     expect(customer.mobileNavigation.map((item) => item.href)).toEqual([
       "/account",
+      "/shop",
       "/account/request-delivery",
       "/account/orders",
       "/account/wallet",
-      "/account/notifications",
     ]);
     for (const item of PROTECTED_NAVIGATION_REGISTRY.filter((item) => item.contexts.includes("CUSTOMER"))) {
       if (item.href === "/account") continue;
+      if (item.href === "/shop") {
+        expect(existsSync(path.join(root, "app/(public)/shop/page.tsx"))).toBe(true);
+        continue;
+      }
       expect(existsSync(path.join(root, "app/(account)/account", item.href.replace("/account/", ""), "page.tsx"))).toBe(true);
     }
   });

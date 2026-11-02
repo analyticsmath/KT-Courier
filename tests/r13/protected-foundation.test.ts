@@ -14,13 +14,14 @@ const readSource = (file: string) => readFileSync(path.join(workspaceRoot, file)
 function routeExists(href: string): boolean {
   const staticCandidates: Record<string, string> = {
     "/account": "app/(account)/account/page.tsx",
+    "/shop": "app/(public)/shop/page.tsx",
     "/store": "app/(store)/store/page.tsx",
     "/driver": "app/(driver)/driver/page.tsx",
     "/promoter": "app/(account)/promoter/page.tsx",
     "/developers": "app/(account)/developers/page.tsx",
     "/admin": "app/(admin)/admin/page.tsx",
   };
-  if (staticCandidates[href]) return true;
+  if (staticCandidates[href]) return readFileExists(staticCandidates[href]);
   if (href.startsWith("/developers/")) return true; // owned by the required protected catch-all route
   if (href.startsWith("/admin/developers")) return true; // owned by the optional catch-all route
 

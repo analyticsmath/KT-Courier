@@ -92,38 +92,17 @@ export function ActivityIntelligence({
                     stroke="#fff"
                     strokeWidth="2"
                   />
-                  <rect
-                    x={Math.max(20, last.x - 43)}
-                    y={Math.max(1, last.y - 30)}
-                    width="54"
-                    height="22"
-                    rx="11"
-                    fill="#191a1e"
-                  />
-                  <text
-                    x={Math.max(20, last.x - 43) + 27}
-                    y={Math.max(1, last.y - 30) + 15}
-                    textAnchor="middle"
-                    fill="#fff"
-                    fontSize="10"
-                  >
-                    {last.value}
-                  </text>
+                  <title>{`Cumulative total: ${last.value.toLocaleString("en-ZA")}`}</title>
                 </>
               ) : null}
-              <text x="20" y="155" fontSize="10" fill="#545d6c">
-                {formatter.format(new Date(start))}
-              </text>
-              <text
-                x="380"
-                y="155"
-                textAnchor="end"
-                fontSize="10"
-                fill="#545d6c"
-              >
-                {last?.label}
-              </text>
             </svg>
+            <p className={s.chartNote}>
+              <span>{formatter.format(new Date(start))}</span>
+              {" · "}
+              <strong>{last?.value.toLocaleString("en-ZA") ?? 0} {unit}</strong>
+              {" · "}
+              <span>{last?.label}</span>
+            </p>
             <details className={s.dataDisclosure}>
               <summary>View cumulative data</summary>
               <table>
