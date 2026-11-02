@@ -58,15 +58,19 @@ export function selectStorePickupCandidate<T extends StorePickupAddressCandidate
   defaultPickupAddress: T | null | undefined,
   savedAddresses: readonly T[],
 ): T | null {
-  const candidates = [defaultPickupAddress, ...savedAddresses].filter(
-    (address): address is StorePickupAddressCandidate =>
-      Boolean(address && address.storeId === storeId && address.type === "PICKUP"),
-  );
-  const unique = candidates.filter((address, index) =>
-    candidates.findIndex((candidate) =>
+  const candidates: T[] = [];
+  if (defaultPickupAddress) candidates.push(defaultPickupAddress);
+  for (const candidate of savedAddresses ?? []) candidates.push(candidate);
+
+  const unique: T[] = [];
+  for (const candidate of candidates) {
+    if (candidate.storeId !== storeId || candidate.type !== "PICKUP") continue;
+    const alreadyIncluded = unique.some((address) =>
       address.id && candidate.id ? address.id === candidate.id : address === candidate,
-    ) === index,
-  );
+    );
+    if (!alreadyIncluded) unique.push(candidate);
+  }
+
   return unique.find(completeStorePickupAddress)
     ?? unique.find(hasCorePickupAddress)
     ?? unique.find((address) => address.id === defaultPickupAddress?.id)
