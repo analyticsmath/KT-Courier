@@ -39,7 +39,7 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
         const services = await deliveryCatalog();
         matchingServiceCount = services.filter(
           service => service.active
-            && service.provinces.includes(pickup.province ?? "")
+            && service.provinces.some(province => province === pickup.province)
             && (!service.regionIds.length || service.regionIds.includes(decision.regionId!)),
         ).length;
       } else {
