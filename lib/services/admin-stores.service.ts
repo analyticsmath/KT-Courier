@@ -6,7 +6,8 @@ import {
   type AdminStoreListItem,
 } from "@/lib/dto/user.dto";
 import type { StoreStatus } from "@/types/db";
-import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
 import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
@@ -33,7 +34,6 @@ export async function listStores(
 
   const where = {
     ...(status && { status }),
-    ...(missingDefaultPickup ? { defaultPickupAddressId: null } : {}),
     ...(featured !== undefined && { featured }),
     ...(search && {
       OR: [
@@ -47,8 +47,7 @@ export async function listStores(
   const [stores, total] = await Promise.all([
     prisma.store.findMany({
       where,
-      skip,
-      take: pageSize,
+      ...(missingDefaultPickup ? {} : { skip, take: pageSize }),
       orderBy: { createdAt: "desc" },
       include: { ownerUser: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
     }),
@@ -56,13 +55,17 @@ export async function listStores(
   ]);
 
   return {
-    data: stores.map((store) => ({
-      ...toAdminStoreListItem(store),
-      pickupReadiness: describeStoreCollectionEvidence(
-        selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses),
-      ),
-    })),
-    total,
+    data: (() => {
+      const mapped = stores.map((store) => ({
+        ...toAdminStoreListItem(store),
+        pickupReadiness: describeStoreCollectionEvidence(
+          selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses),
+        ),
+      }));
+      const filtered = missingDefaultPickup ? mapped.filter((store) => !store.pickupReadiness.checkoutPickupConfigured) : mapped;
+      return missingDefaultPickup ? filtered.slice(skip, skip + pageSize) : filtered;
+    })(),
+    total: missingDefaultPickup ? stores.filter((store) => !describeStoreCollectionEvidence(selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses)).checkoutPickupConfigured).length : total,
   };
 }
 
@@ -101,7 +104,7 @@ export async function getStoreDetail(id: string) {
     orderCount,
     defaultPickupAddressId: store.defaultPickupAddressId,
     pickupReadiness: describeStoreCollectionEvidence(
-      selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses),
+      selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses),
     ),
     ownerUser: store.ownerUser
       ? {
@@ -158,11 +161,24 @@ export async function adminUpdateStore(
   });
 }
 
+export class StoreActivationReadinessError extends Error {
+  constructor(readonly blockers: readonly string[]) {
+    super("Store approval is blocked until the collection address and pickup service-area checks pass.");
+    this.name = "StoreActivationReadinessError";
+  }
+}
+
 export async function setStoreStatus(
   id: string,
   status: StoreStatus,
   audit?: { actorUserId: string; reason?: string },
 ) {
+  if (status === "ACTIVE") {
+    const readiness = await getStorePickupOperationalPreflight(id);
+    if (!readiness || readiness.blockers.length > 0) {
+      throw new StoreActivationReadinessError(readiness?.blockers ?? ["STORE_NOT_FOUND"]);
+    }
+  }
   // Status, visibility and the reason shown to the vendor must commit together.
   return prisma.$transaction(async (tx) => {
     const before = await tx.store.findUniqueOrThrow({

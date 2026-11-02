@@ -41,7 +41,7 @@ function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
   return {
     formattedAddress:
       address.formattedAddress ??
-      [address.line1, address.city, address.province, address.postalCode, address.country]
+      [address.line1, address.line2, address.city, address.province, address.postalCode, address.country]
         .filter(Boolean)
         .join(", "),
     placeId: address.placeId,
@@ -59,7 +59,7 @@ function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
 function legacyToValue(address?: LegacyPickupAddress): AddressAutocompleteValue | null {
   if (!address?.line1) return null;
   return {
-    formattedAddress: [address.line1, address.city, address.province, address.postalCode, address.country ?? "South Africa"]
+    formattedAddress: [address.line1, address.line2, address.city, address.province, address.postalCode, address.country ?? "South Africa"]
       .filter(Boolean)
       .join(", "),
     placeId: null,
@@ -85,8 +85,8 @@ function initialForm(address: SavedAddressDto | null, legacy?: LegacyPickupAddre
 }
 
 function displaySummary(address: SavedAddressDto | null, legacy?: LegacyPickupAddress): string {
-  if (address) return [address.line1, address.city, address.province].filter(Boolean).join(", ");
-  if (legacy?.line1) return [legacy.line1, legacy.city, legacy.province].filter(Boolean).join(", ");
+  if (address) return [address.line1, address.line2, address.city, address.province, address.postalCode].filter(Boolean).join(", ");
+  if (legacy?.line1) return [legacy.line1, legacy.line2, legacy.city, legacy.province, legacy.postalCode].filter(Boolean).join(", ");
   return "";
 }
 
@@ -126,6 +126,23 @@ export function StorePickupAddressManager({
 
     if (!form.address?.city?.trim() || !form.address?.province?.trim()) {
       setError("A complete collection city and province are required for customer delivery quotes. Please select a precise pickup address.");
+      setSaving(false);
+      return;
+    }
+    if (!form.address.line2?.trim()) {
+      setFieldErrors({ line2: "Enter the pickup suburb or area." });
+      setSaving(false);
+      return;
+    }
+    if (!/^\\d{4}$/.test(form.address.postalCode?.trim() ?? "")) {
+      setFieldErrors({ postalCode: "Enter a valid four-digit South African postal code." });
+      setSaving(false);
+      return;
+    }
+    const latitude = Number(form.address.latitude);
+    const longitude = Number(form.address.longitude);
+    if (form.address.latitude == null || form.address.longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 || (latitude === 0 && longitude === 0)) {
+      setFieldErrors({ mapLocation: "Select the precise collection point on the map." });
       setSaving(false);
       return;
     }
@@ -195,7 +212,7 @@ export function StorePickupAddressManager({
 
       {current && !hasCompleteEvidence && (
         <p role="status" className="text-sm text-[var(--kt-text-muted)]">
-          This pickup address is not fully configured for marketplace delivery. Confirm the street, city, province, four-digit postal code and precise map location before customers order from the store. Delivery coverage and the actual route are checked separately.
+          This pickup address is not fully configured for marketplace delivery. Confirm the street, suburb, city, province, four-digit postal code and precise map location before customers order from the store. Delivery coverage and the actual route are checked separately.
         </p>
       )}
       {!current && legacyAddress?.line1 && (
@@ -213,6 +230,7 @@ export function StorePickupAddressManager({
               ({
                 STORE_CONTACT_MISSING: "Add a store contact email or phone.",
                 PICKUP_ADDRESS_MISSING: "Save a complete collection address.",
+                PICKUP_SUBURB_MISSING: "Enter the pickup suburb or area.",
                 PICKUP_POSTAL_CODE_MISSING: "Enter a valid four-digit postal code.",
                 PICKUP_MAP_LOCATION_MISSING: "Select an accurate map location.",
                 PICKUP_COVERAGE_UNVERIFIED: "The pickup area could not be independently verified. Check the address or contact operations.",
@@ -296,6 +314,41 @@ export function StorePickupAddressManager({
               onAccessNotesChange={(value) => setForm((currentForm) => ({ ...currentForm, accessNotes: value }))}
               error={fieldErrors.line1 ?? fieldErrors["address.line1"]}
             />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="store_pickup_suburb">Suburb / area</Label>
+                <Input
+                  id="store_pickup_suburb"
+                  value={form.address?.line2 ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setForm((currentForm) => ({ ...currentForm, address: currentForm.address ? { ...currentForm.address, line2: value } : currentForm.address }));
+                    setFieldErrors((current) => ({ ...current, line2: "" }));
+                  }}
+                  placeholder="e.g. Sandton"
+                  disabled={!form.address}
+                  error={fieldErrors.line2}
+                />
+                <p className="mt-1 text-xs text-[var(--kt-text-muted)]">Use access notes for unit, gate or collection instructions.</p>
+              </div>
+              <div>
+                <Label htmlFor="store_pickup_postal">Postal code</Label>
+                <Input
+                  id="store_pickup_postal"
+                  value={form.address?.postalCode ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setForm((currentForm) => ({ ...currentForm, address: currentForm.address ? { ...currentForm.address, postalCode: value } : currentForm.address }));
+                    setFieldErrors((current) => ({ ...current, postalCode: "" }));
+                  }}
+                  placeholder="4-digit postal code"
+                  disabled={!form.address}
+                  error={fieldErrors.postalCode}
+                />
+              </div>
+            </div>
+            {fieldErrors.mapLocation ? <p role="alert" className="text-sm text-red-600">{fieldErrors.mapLocation}</p> : null}
+            <p className="text-xs text-[var(--kt-text-muted)]">Select a precise map location. Typing a street address without confirming its map pin is not sufficient for courier collection.</p>
 
             <div className="flex items-center gap-3">
               <Button variant="primary" size="sm" onClick={savePickupAddress} disabled={saving}>

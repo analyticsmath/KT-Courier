@@ -46,7 +46,7 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
       {message ? <p role="status" aria-live="polite" className="text-sm">{message}</p> : null}
       <label className="flex items-start gap-3 text-sm">
         <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="mt-1" />
-        <span>I have reviewed this vendor’s registration and owner details. I understand that account activation does not approve seller identity, individual products, COD, or paid campaigns.</span>
+        <span>I have reviewed this vendor’s registration and owner details. I understand approval is blocked until pickup-area readiness passes; trading hours, buyer routes, seller identity, products, COD and campaigns remain separate checks.</span>
       </label>
       <Button type="button" disabled={busy || !reviewed} onClick={() => void approve()}>
         {busy ? "Approving…" : "Approve vendor account"}

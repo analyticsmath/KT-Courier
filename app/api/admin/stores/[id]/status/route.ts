@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
-import { getStoreDetail, setStoreStatus } from "@/lib/services/admin-stores.service";
+import { getStoreDetail, setStoreStatus, StoreActivationReadinessError } from "@/lib/services/admin-stores.service";
 import {
   ok,
   notFound,
@@ -49,7 +49,10 @@ export async function PATCH(
     });
 
     return ok({ id: updated.id, status: updated.status });
-  } catch {
+  } catch (error) {
+    if (error instanceof StoreActivationReadinessError) {
+      return unprocessable(error.message, { blockers: error.blockers });
+    }
     return serverError();
   }
 }

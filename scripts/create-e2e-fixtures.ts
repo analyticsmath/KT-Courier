@@ -32,8 +32,8 @@ async function upsertStore(email: string, slug: string, name: string, passwordHa
   });
   const address = await prisma.address.upsert({
     where: { id: `${slug}-pickup-address` },
-    update: {},
-    create: { id: `${slug}-pickup-address`, storeId: store.id, type: AddressType.PICKUP, label: "E2E default pickup", line1: "10 E2E Pickup Road", city: "Johannesburg", province: "Gauteng", country: "South Africa", latitude: -26.2041, longitude: 28.0473, isDefault: true },
+    update: { line2: "Central", postalCode: "2001", latitude: -26.2041, longitude: 28.0473 },
+    create: { id: `${slug}-pickup-address`, storeId: store.id, type: AddressType.PICKUP, label: "E2E default pickup", line1: "10 E2E Pickup Road", line2: "Central", city: "Johannesburg", province: "Gauteng", postalCode: "2001", country: "South Africa", latitude: -26.2041, longitude: 28.0473, isDefault: true },
   });
   await prisma.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: address.id } });
   return { user, store };

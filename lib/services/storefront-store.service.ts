@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 
 /** Builds the privacy-minimised store read projection. Store contact/address fields are intentionally absent. */
 export async function rebuildStorefrontStoreDocument(storeId: string, transaction?: Prisma.TransactionClient): Promise<void> {
@@ -7,7 +8,7 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`);
     const store = await tx.store.findUnique({
       where: { id: storeId },
-      select: { id: true, slug: true, name: true, status: true, updatedAt: true },
+      select: { id: true, slug: true, name: true, status: true, updatedAt: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
     });
     if (!store) return;
 
@@ -31,7 +32,8 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO") ?? storeMedia.find((m) => m.purpose === "BRAND_LOGO");
     const heroAsset = storeMedia.find((m) => m.purpose === "STORE_HERO");
 
-    const active = store.status === "ACTIVE" && store.name.trim().length > 0 && documents.length > 0;
+    const pickupConfigured = Boolean(selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses));
+    const active = store.status === "ACTIVE" && store.name.trim().length > 0 && documents.length > 0 && pickupConfigured;
     await tx.storefrontStoreDocument.upsert({
       where: { storeId },
       create: {

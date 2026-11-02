@@ -1,5 +1,5 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
-import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { selectStorePickupCandidate, selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import type { Address, Store } from "@/types/db";
 import type { StorePickupAddressInput } from "@/lib/validation/address-book";
@@ -44,7 +44,7 @@ export async function getStorePickupAddress(
 
   if (!store) return null;
 
-  const pickup = selectStorePickupAddress(
+  const pickup = selectStorePickupCandidate(
     store.id,
     store.defaultPickupAddress,
     store.savedAddresses,

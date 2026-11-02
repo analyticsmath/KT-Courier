@@ -26,7 +26,7 @@ function authority(pickup: unknown = address, status = "ACTIVE") {
 beforeEach(() => { geocode.mockReset(); geocode.mockResolvedValue(point); });
 it("reverifies a complete saved pickup with an explicit suburb, postal code and map marker", async () => {
   const evidence = await authority().resolveEvidence(input);
-  expect(geocode).toHaveBeenCalledWith(expect.objectContaining({ line1: address.line1, suburb: address.line2, city: address.city, province: address.province, postalCode: address.postalCode, latitude: address.latitude, longitude: address.longitude }));
+  expect(geocode).toHaveBeenCalledWith(expect.objectContaining({ line1: address.line1, line2: address.line2, city: address.city, province: address.province, postalCode: address.postalCode, latitude: address.latitude, longitude: address.longitude }));
   expect(evidence?.phase6Request).toMatchObject({ quoteInput: { pickupAddress: point } });
 });
 it("reverifies a saved browser map marker before pricing any merchant delivery", async () => {
