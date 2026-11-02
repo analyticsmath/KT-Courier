@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { normalizeGooglePlaceAddress } from "@/lib/maps/address-normalizer";
 const config = { serverKey: "server-test-key", geocodeApiUrl: "https://maps.googleapis.com/maps/api/geocode/json", regionBias: "za", routesApiUrl: "https://routes.googleapis.com/directions/v2:computeRoutes" };
 const address = { line1: "158 Civic Boulevard", city: "Johannesburg", province: "Gauteng" };
 const component = (name: string, type: string, short_name = name) => ({ long_name: name, short_name, types: [type] });
@@ -22,4 +23,17 @@ describe("forward geocoding must preserve the requested address identity", () =>
     expect(await geocodeSouthAfricanAddress(address, config)).toEqual({ latitude: -26.1906, longitude: 28.0391 });
   });
   it("refuses multiple conflicting location results", async () => { provider([good, { ...good, geometry: { ...good.geometry, location: { lat: -26.2, lng: 28.1 } } }]); expect(await geocodeSouthAfricanAddress(address, config)).toBeNull(); });
+  it("preserves a distinct Google sublocality as the pickup suburb", () => {
+    const normalized = normalizeGooglePlaceAddress({
+      formatted_address: "158 Civic Boulevard, Rosebank, Johannesburg, 2196, South Africa",
+      address_components: [
+        component("158", "street_number"), component("Civic Boulevard", "route"),
+        component("Rosebank", "sublocality_level_1"), component("Johannesburg", "locality"),
+        component("Gauteng", "administrative_area_level_1"), component("2196", "postal_code"),
+        component("South Africa", "country"),
+      ],
+      geometry: { location: { lat: -26.15, lng: 28.04 } },
+    });
+    expect(normalized).toMatchObject({ line1: "158 Civic Boulevard", line2: "Rosebank", city: "Johannesburg", postalCode: "2196" });
+  });
 });

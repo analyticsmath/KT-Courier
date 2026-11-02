@@ -3,7 +3,7 @@ import { evaluateStorePickupPreflight, type StorePickupPreflightFacts } from "@/
 
 const ready: StorePickupPreflightFacts = {
   status: "ACTIVE", hasContact: true, pickupConfigured: true,
-  postalCodeValid: true, mapCoordinatesValid: true, area: "COVERED", matchingServiceCount: 1,
+  suburbValid: true, postalCodeValid: true, mapCoordinatesValid: true, area: "COVERED", matchingServiceCount: 1,
 };
 
 describe("admin store collection and pickup-area preflight", () => {
@@ -18,8 +18,8 @@ describe("admin store collection and pickup-area preflight", () => {
   it("retains onboarding status without pretending a pending store is live", () => {
     expect(evaluateStorePickupPreflight({ ...ready, status: "PENDING", pickupConfigured: false, area: "NOT_CHECKED", matchingServiceCount: 0 }).stage).toBe("DRAFT");
   });
-  it("reports missing postal and map evidence before coverage", () => {
-    expect(evaluateStorePickupPreflight({ ...ready, postalCodeValid: false, mapCoordinatesValid: false, area: "NOT_CHECKED", matchingServiceCount: 0 }).blockers).toEqual(["PICKUP_POSTAL_CODE_MISSING", "PICKUP_MAP_LOCATION_MISSING"]);
+  it("reports missing suburb, postal and map evidence before coverage", () => {
+    expect(evaluateStorePickupPreflight({ ...ready, suburbValid: false, postalCodeValid: false, mapCoordinatesValid: false, area: "NOT_CHECKED", matchingServiceCount: 0 }).blockers).toEqual(["PICKUP_SUBURB_MISSING", "PICKUP_POSTAL_CODE_MISSING", "PICKUP_MAP_LOCATION_MISSING"]);
   });
   it("separates unverified pickup coverage from inactive courier service", () => {
     expect(evaluateStorePickupPreflight({ ...ready, area: "UNVERIFIED", matchingServiceCount: 0 }).blockers).toEqual(["PICKUP_COVERAGE_UNVERIFIED"]);

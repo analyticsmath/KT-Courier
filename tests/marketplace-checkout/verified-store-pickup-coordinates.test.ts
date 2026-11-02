@@ -3,8 +3,10 @@ import { resolveVerifiedStorePickupCoordinates } from "@/lib/marketplace-checkou
 
 const address = {
   line1: "123 Market Road",
+  line2: "Sandton",
   city: "Johannesburg",
   province: "Gauteng",
+  country: "South Africa",
   postalCode: "2000",
   placeId: "ChIJ123456789",
   latitude: { toString: () => "-26.202" },
@@ -30,11 +32,10 @@ describe("merchant pickup coordinates require trusted provider verification", ()
     expect(await resolveVerifiedStorePickupCoordinates(address, resolver)).toBeNull();
     expect(resolver).toHaveBeenCalledTimes(1);
   });
-  it("may independently geocode a legacy street address with no marker", async () => {
+  it("rejects a pickup without a saved map marker even if a provider could geocode its street", async () => {
     const resolver = vi.fn().mockResolvedValue({ latitude: -26.2041, longitude: 28.0473 });
-    expect(await resolveVerifiedStorePickupCoordinates({ ...address, latitude: null, longitude: null }, resolver))
-      .toEqual({ latitude: -26.2041, longitude: 28.0473 });
-    expect(resolver.mock.calls[0][0]).not.toHaveProperty("placeId");
+    expect(await resolveVerifiedStorePickupCoordinates({ ...address, latitude: null, longitude: null }, resolver)).toBeNull();
+    expect(resolver).not.toHaveBeenCalled();
   });
   it("does not query the provider for invalid coordinates or an incomplete street address", async () => {
     const resolver = vi.fn();
@@ -43,6 +44,8 @@ describe("merchant pickup coordinates require trusted provider verification", ()
       { ...address, latitude: "0", longitude: "0" },
       { ...address, city: "" },
       { ...address, province: "" },
+      { ...address, line2: "" },
+      { ...address, postalCode: "" },
     ]) {
       expect(await resolveVerifiedStorePickupCoordinates(pickup, resolver)).toBeNull();
     }
