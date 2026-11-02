@@ -28,9 +28,25 @@ it("resolves a persisted legacy pickup address without inventing coordinates", a
   expect(geocode).toHaveBeenCalledWith({ line1: address.line1, line2: undefined, city: address.city, province: address.province, postalCode: address.postalCode });
   expect(evidence?.phase6Request).toMatchObject({ quoteInput: { pickupAddress: point } });
 });
-it("keeps existing coordinate evidence without another provider request", async () => {
-  expect(await authority({ ...address, ...point }).resolveEvidence(input)).not.toBeNull();
-  expect(geocode).not.toHaveBeenCalled();
+it("reverifies a saved browser map marker before pricing any merchant delivery", async () => {
+  const providerPoint = { latitude: -26.102, longitude: 28.052 };
+  geocode.mockResolvedValue(providerPoint);
+  const evidence = await authority({ ...address, ...point, placeId: "ChIJmerchantlocation" }).resolveEvidence(input);
+  expect(geocode).toHaveBeenCalledWith(expect.objectContaining({
+    line1: address.line1,
+    city: address.city,
+    province: address.province,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    placeId: "ChIJmerchantlocation",
+  }));
+  expect(evidence?.phase6Request).toMatchObject({ quoteInput: { pickupAddress: providerPoint } });
+});
+it("rejects saved map coordinates when the provider cannot independently verify them", async () => {
+  geocode.mockResolvedValue(null);
+  await expect(authority({ ...address, ...point }).resolveEvidence(input))
+    .rejects.toThrow("collection address could not be verified");
+  expect(geocode).toHaveBeenCalledTimes(1);
 });
 it("blocks missing collection addresses with an actionable message", async () => {
   await expect(authority(null).resolveEvidence(input)).rejects.toThrow("complete collection address");
