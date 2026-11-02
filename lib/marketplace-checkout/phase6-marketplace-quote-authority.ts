@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { MarketplaceDeliveryQuoteInput, MarketplaceDeliveryQuoteResult, Phase6MarketplaceQuoteAuthority, Phase6MarketplaceQuoteEvidence } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { createMarketplaceMatrixQuote } from "./matrix-quote.service";
-import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 import { selectStorePickupAddress } from "./store-pickup-selection";
+import { resolveVerifiedStorePickupCoordinates } from "./verified-store-pickup-coordinates";
 
 type Coordinates = Readonly<{ latitude: number; longitude: number }>;
 type Phase6Request = Readonly<{
@@ -56,12 +56,10 @@ export function createPhase6MarketplaceQuoteAuthority(database: any = prisma): P
       if (!pickup?.line1 || !pickup.city || !pickup.province) {
         throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "This store has not configured a complete collection address. Please contact support or choose another store.");
       }
-      // Imported store addresses may predate coordinate capture. Resolve their
-      // persisted address through the same server authority as customer addresses.
-      // Never substitute a default pin or accept client-supplied store coordinates.
-      const pickupCoordinates = pickup?.latitude !== null && pickup?.latitude !== undefined && pickup?.longitude !== null && pickup?.longitude !== undefined
-        ? coordinates({ latitude: Number(pickup.latitude), longitude: Number(pickup.longitude) })
-        : await geocodeSouthAfricanAddress({ line1: pickup.line1, line2: pickup.line2 ?? undefined, city: pickup.city, province: pickup.province, postalCode: pickup.postalCode ?? undefined });
+      // Even previously saved merchant coordinates are not a trusted location
+      // authority. Provider verification binds the selected Place ID and map
+      // marker, or independently geocodes a legacy address.
+      const pickupCoordinates = await resolveVerifiedStorePickupCoordinates(pickup);
       const destinationCoordinates = coordinates(destination?.protectedCoordinates);
       const serviceAreaReference = input.serviceAreaReference ?? destination?.serviceAreaReference;
       if (!pickupCoordinates) {

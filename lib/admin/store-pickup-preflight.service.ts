@@ -4,10 +4,11 @@ import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readin
 import { evaluateStorePickupPreflight } from "@/lib/admin/store-operational-preflight";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
+import { resolveVerifiedStorePickupCoordinates } from "@/lib/marketplace-checkout/verified-store-pickup-coordinates";
 
 /**
- * This read-only operation does not modify store status, geocode addresses,
- * create a quote, approve a seller, or make a customer payment.
+ * This read-only operation does not modify store status, persist geocoding
+ * results, create a quote, approve a seller, or make a customer payment.
  */
 export async function getStorePickupOperationalPreflight(storeId: string) {
   const store = await prisma.store.findUnique({
@@ -32,8 +33,11 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
 
   if (pickup && postalCodeValid && mapCoordinatesValid) {
     try {
-      const decision = await checkDeliveryZone(Number(pickup.latitude), Number(pickup.longitude));
-      if (decision.matched && decision.regionId && decision.withinMaxDistance === true) {
+      const verifiedCoordinates = await resolveVerifiedStorePickupCoordinates(pickup);
+      const decision = verifiedCoordinates
+        ? await checkDeliveryZone(verifiedCoordinates.latitude, verifiedCoordinates.longitude)
+        : null;
+      if (decision?.matched && decision.regionId && decision.withinMaxDistance === true) {
         area = "COVERED";
         pickupRegionName = decision.regionName;
         const services = await deliveryCatalog();
