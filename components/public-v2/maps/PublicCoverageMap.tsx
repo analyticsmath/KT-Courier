@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { indexPublicCoverageMapRegions } from "@/lib/public-coverage/indexed-map-regions";
 import { loadPublicGoogleMaps, isGoogleMapsLoaded } from "./google-public-loader";
 import styles from "./public-maps.module.css";
 
@@ -102,9 +103,9 @@ export function PublicCoverageMap({
     () => !process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY
   );
 
-  const validRegions = regions.filter(
-    (r) => typeof r.centerLat === "number" && typeof r.centerLng === "number"
-  );
+  // Keep the source indexes: province-wide regions can have no centre pin.
+  // Memoise this list so map initialisation does not repeat on every render.
+  const validRegions = useMemo(() => indexPublicCoverageMapRegions(regions), [regions]);
 
   // Initialize Map
   useEffect(() => {
@@ -115,10 +116,10 @@ export function PublicCoverageMap({
     const initMap = () => {
       if (!mapContainerRef.current || typeof google === "undefined") return;
 
-      const defaultCenter =
-        validRegions.length > 0 && validRegions[0].centerLat && validRegions[0].centerLng
-          ? { lat: validRegions[0].centerLat, lng: validRegions[0].centerLng }
-          : { lat: -26.2041, lng: 28.0473 }; // Johannesburg default center
+      const firstPinnedRegion = validRegions[0]?.region;
+      const defaultCenter = firstPinnedRegion
+        ? { lat: firstPinnedRegion.centerLat!, lng: firstPinnedRegion.centerLng! }
+        : { lat: -26.2041, lng: 28.0473 }; // Johannesburg default centre
 
       const map = new google.maps.Map(mapContainerRef.current, {
         center: defaultCenter,
@@ -166,11 +167,11 @@ export function PublicCoverageMap({
 
     const bounds = new google.maps.LatLngBounds();
 
-    validRegions.forEach((region, idx) => {
+    validRegions.forEach(({ region, index }) => {
       const pos = { lat: region.centerLat!, lng: region.centerLng! };
       bounds.extend(pos);
 
-      const isSelected = idx === selectedIndex;
+      const isSelected = index === selectedIndex;
 
       // Marker
       const marker = new google.maps.Marker({
@@ -189,7 +190,7 @@ export function PublicCoverageMap({
 
       if (interactive && onSelectIndex) {
         marker.addListener("click", () => {
-          onSelectIndex(idx);
+          onSelectIndex(index);
         });
       }
 
@@ -212,11 +213,13 @@ export function PublicCoverageMap({
     });
 
     // Center on selected region or fit bounds
-    const activeRegion = validRegions[selectedIndex] ?? validRegions[0];
-    if (activeRegion && activeRegion.centerLat && activeRegion.centerLng) {
-      map.panTo({ lat: activeRegion.centerLat, lng: activeRegion.centerLng });
+    const selectedPin = validRegions.find((item) => item.index === selectedIndex)?.region;
+    if (selectedPin) {
+      map.panTo({ lat: selectedPin.centerLat!, lng: selectedPin.centerLng! });
       map.setZoom(11);
     } else if (validRegions.length > 1) {
+      // An unpinned province-wide region has no single centre: show the bounds
+      // instead of panning to a different region's pin.
       map.fitBounds(bounds, 40);
     }
   }, [mapReady, selectedIndex, validRegions, interactive, onSelectIndex]);
@@ -235,7 +238,7 @@ export function PublicCoverageMap({
           </div>
 
           <ul className={styles.regionCoordsList}>
-            {regions.slice(0, 6).map((region, idx) => {
+            {regions.map((region, idx) => {
               const isSelected = idx === selectedIndex;
               return (
                 <li
