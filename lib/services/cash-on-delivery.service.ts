@@ -1,3 +1,4 @@
+import { isHighRiskCashPolicyEvidence } from "@/lib/settings/high-risk-region-policy";
 import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -45,6 +46,9 @@ export async function createCashOnDeliveryObligation(input: {
 }
 
 export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma.TransactionClient, input: { orderId: string; paymentId?: string; policyMode: "FULL_COD" | "DEPOSIT_PLUS_COD"; authoritativePayable: string; digitalRequired: string; digitalPaid?: string; policyEvidence?: unknown }) {
+  if (isHighRiskCashPolicyEvidence(input.policyEvidence)) {
+    throw new CashOnDeliveryError("HIGH_RISK_CASH_RESTRICTED", "Cash cannot be committed for a high-risk parcel pickup or drop-off area.");
+  }
   const payable = money(input.authoritativePayable); const digitalRequired = money(input.digitalRequired); const digitalPaid = money(input.digitalPaid ?? "0"); const cashObligation = payable.sub(digitalRequired);
   if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired) ||
       (input.policyMode === "FULL_COD" && (!digitalRequired.isZero() || !digitalPaid.isZero())))

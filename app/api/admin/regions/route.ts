@@ -23,6 +23,7 @@ const CreateRegionSchema = z.object({
   active: z.boolean().default(true),
   coverageMode: z.enum(["RADIUS", "PROVINCE"]).default("RADIUS"),
   pricingEnabled: z.boolean().default(true),
+  highRisk: z.boolean().default(false),
   city: z.string().trim().max(100).optional(),
   province: z.string().trim().max(100).nullable().optional(),
   centerLat: z.number().min(-90).max(90).nullable().optional(),

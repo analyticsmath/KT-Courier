@@ -137,8 +137,9 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     { key: "platform.contact_phone", label: "Contact Phone", type: "STRING", value: "+27 11 403 1000" },
     { key: "platform.country", label: "Country Code", type: "STRING", value: "ZA" },
     { key: "platform.currency", label: "Platform Currency", type: "STRING", value: "ZAR" },
-    { key: "pricing.vat.enabled", label: "VAT Enabled", type: "BOOLEAN", value: true },
+    { key: "pricing.vat.enabled", label: "VAT Enabled", type: "BOOLEAN", value: false },
     { key: "pricing.vat.rate", label: "VAT Rate", type: "NUMBER", value: 0.15 },
+    { key: "delivery.high_risk_region_ids", label: "High-risk delivery regions", type: "JSON", value: [] },
     { key: "dispatch.max_radius_km", label: "Max Dispatch Radius", type: "NUMBER", value: 35 },
     { key: "dispatch.auto_assign_timeout_seconds", label: "Auto Assign Timeout", type: "NUMBER", value: 45 },
   ];
@@ -146,7 +147,8 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
   for (const s of settings) {
     await prisma.systemSetting.upsert({
       where: { key: s.key },
-      update: { label: s.label, type: s.type as any, value: s.value },
+      // Seed only creates defaults and refreshes metadata; never overwrite live owner settings.
+      update: { label: s.label, type: s.type as any },
       create: { key: s.key, label: s.label, type: s.type as any, value: s.value },
     });
   }

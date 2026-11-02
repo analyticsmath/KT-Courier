@@ -1,6 +1,11 @@
 import { Prisma, type PaymentMethodPolicy } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { BankInstructionsSchema } from "@/lib/client-platform/driver-cash.service";
+import {
+  HIGH_RISK_REGION_IDS_SETTING_KEY,
+  hasHighRiskRegion,
+  parseHighRiskRegionIds,
+} from "@/lib/settings/high-risk-region-policy";
 export type PaymentPolicyContext = Readonly<{
   businessModuleId?: string | null;
   storeId?: string | null;
@@ -9,6 +14,8 @@ export type PaymentPolicyContext = Readonly<{
   orderType?: string | null;
   provinces?: readonly string[];
   regionId?: string | null;
+  originRegionId?: string | null;
+  destinationRegionId?: string | null;
   orderId?: string | null;
 }>;
 export class PaymentPolicyError extends Error {
@@ -142,6 +149,21 @@ export async function resolvePaymentBreakdown(
     );
   const p = await resolvePaymentPolicy(input, input.now, db),
     mode = p.mode === "DIGITAL" ? "DIGITAL_ONLY" : p.mode;
+  let highRiskRegionIds: string[] = [];
+  if (mode !== "DIGITAL_ONLY" && input.orderType?.startsWith("PARCEL_")) {
+    const setting = await db.systemSetting?.findUnique({
+      where: { key: HIGH_RISK_REGION_IDS_SETTING_KEY },
+      select: { type: true, value: true },
+    });
+    if (setting) {
+      const parsed = setting.type === "JSON" ? parseHighRiskRegionIds(setting.value) : null;
+      if (!parsed) throw new PaymentPolicyError("HIGH_RISK_POLICY_UNAVAILABLE", "Cash payment is temporarily unavailable because area-risk settings could not be verified.");
+      highRiskRegionIds = parsed;
+    }
+    if (hasHighRiskRegion(input.originRegionId, input.destinationRegionId ?? input.regionId, highRiskRegionIds)) {
+      throw new PaymentPolicyError("HIGH_RISK_CASH_RESTRICTED", "Cash payment is unavailable when the pickup or drop-off area is marked high risk.");
+    }
+  }
   if (mode !== "DIGITAL_ONLY") {
     // A personal courier booking has no store. The only store-less cash policy
     // is an explicitly scoped, approved FULL_COD parcel policy. Never treat a
@@ -239,6 +261,9 @@ export async function resolvePaymentBreakdown(
       depositAmount: p.depositAmount?.toFixed(2) ?? null,
       depositPercent: p.depositPercent?.toString() ?? null,
       maximumCodAmount: p.maximumCodAmount?.toFixed(2) ?? null,
+      originRegionId: input.originRegionId ?? null,
+      destinationRegionId: input.destinationRegionId ?? input.regionId ?? null,
+      highRiskRegionIdsAtDecision: highRiskRegionIds,
     },
   });
 }

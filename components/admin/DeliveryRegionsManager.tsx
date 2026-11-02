@@ -43,6 +43,7 @@ interface RegionFormState {
   displayOrder: string;
   active: boolean;
   pricingEnabled: boolean;
+  highRisk: boolean;
 }
 
 const EMPTY_FORM: RegionFormState = {
@@ -63,6 +64,7 @@ const EMPTY_FORM: RegionFormState = {
   // measured boundaries, operating capacity and price eligibility are reviewed.
   active: false,
   pricingEnabled: false,
+  highRisk: false,
 };
 
 function dtoToForm(dto: DeliveryRegionDto): RegionFormState {
@@ -82,6 +84,7 @@ function dtoToForm(dto: DeliveryRegionDto): RegionFormState {
     displayOrder: dto.displayOrder.toString(),
     active: dto.active,
     pricingEnabled: dto.pricingEnabled,
+    highRisk: dto.highRisk,
   };
 }
 
@@ -139,6 +142,7 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
       description: form.description.trim() || undefined,
       active: form.active,
       pricingEnabled: form.pricingEnabled,
+      highRisk: form.highRisk,
       ...(editId ? { expectedUpdatedAt: new Date(regions.find((r) => r.id === editId)!.updatedAt).toISOString() } : {}),
       city: form.city.trim() || undefined,
       province: form.province.trim() || null,
@@ -226,6 +230,10 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
 
           <div className="space-y-4">
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.pricingEnabled} onChange={(e) => setField("pricingEnabled", e.target.checked)} />Pricing enabled</label>
+            <label className="flex items-start gap-2 rounded-lg border border-[var(--kt-soft-border)] p-3">
+              <input type="checkbox" className="mt-1" checked={form.highRisk} onChange={(e) => setField("highRisk", e.target.checked)} />
+              <span><span className="block text-sm font-semibold">High-risk area</span><span className="block text-xs text-[var(--kt-text-muted)]">Disable cash for parcel pickup or drop-off in this region. Digital payment remains available.</span></span>
+            </label>
             <div>
               <Label htmlFor="rg_coverage_mode">Coverage boundary</Label>
               <select id="rg_coverage_mode" value={form.coverageMode} onChange={(e) => setField("coverageMode", e.target.value as RegionFormState["coverageMode"])} className="w-full rounded border p-2">
@@ -414,6 +422,7 @@ export function DeliveryRegionsManager({ initialRegions }: DeliveryRegionsManage
                     <p className="text-sm font-bold text-[var(--kt-ink-navy)]">{region.name}</p>
                     <StatusBadge active={region.active} />
                     <span>{region.pricingEnabled ? "Pricing enabled" : "Pricing disabled"}</span>
+                    <span className={region.highRisk ? "text-xs font-semibold text-red-700" : "text-xs text-[var(--kt-text-muted)]"}>{region.highRisk ? "High risk · cash disabled" : "Standard risk"}</span>
                   </div>
                   <p className="text-xs text-[var(--kt-text-muted)] font-mono mb-2">{region.slug}</p>
                   {region.boundaryIssues?.length ? <p role="status" className="text-sm">Boundaries required: {region.boundaryIssues.join(", ")}</p> : <p className="text-sm">Boundaries supplied</p>}

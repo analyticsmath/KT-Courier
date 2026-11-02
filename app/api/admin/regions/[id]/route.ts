@@ -17,6 +17,7 @@ const UpdateRegionSchema = z.object({
   active: z.boolean().optional(),
   coverageMode: z.enum(["RADIUS", "PROVINCE"]).optional(),
   pricingEnabled: z.boolean().optional(),
+  highRisk: z.boolean().optional(),
   expectedUpdatedAt: z.iso.datetime(),
   city: z.string().trim().max(100).optional(),
   province: z.string().trim().max(100).nullable().optional(),

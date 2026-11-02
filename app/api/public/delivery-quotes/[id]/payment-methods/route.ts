@@ -55,6 +55,8 @@ export async function GET(
             input?.dropoffAddress?.province,
           ].filter((v): v is string => !!v),
           regionId: q.destinationRegionId,
+          originRegionId: q.originRegionId,
+          destinationRegionId: q.destinationRegionId,
           authoritativeTotal: q.total.toFixed(2),
         });
         if (b.mode === "FULL_COD") {
@@ -67,7 +69,11 @@ export async function GET(
         }
       } catch (e) {
         if (!(e instanceof PaymentPolicyError)) throw e;
-        if (e.code === "COD_LIMIT_EXCEEDED") {
+        if (e.code === "HIGH_RISK_CASH_RESTRICTED") {
+          cod = { ...cod, reasonCode: "HIGH_RISK_AREA", message: e.message };
+        } else if (e.code === "HIGH_RISK_POLICY_UNAVAILABLE") {
+          cod = { ...cod, reasonCode: "HIGH_RISK_POLICY_UNAVAILABLE", message: "Cash is temporarily unavailable while area-risk configuration is verified." };
+        } else if (e.code === "COD_LIMIT_EXCEEDED") {
           cod = { ...cod, reasonCode: "LIMIT_EXCEEDED", message: "This delivery exceeds the current cash payment limit." };
         } else if (["COD_PRODUCTION_APPROVAL_REQUIRED", "COD_REMITTANCE_NOT_CONFIGURED"].includes(e.code)) {
           cod = { ...cod, reasonCode: "APPROVAL_PENDING", message: "Cash on delivery is awaiting the required operational approval." };

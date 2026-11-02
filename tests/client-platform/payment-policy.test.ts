@@ -82,6 +82,41 @@ beforeEach(() => {
   db.deliveryServiceDefinition.findFirst.mockResolvedValue({ stableKey: "CLIENT_STANDARD" });
 });
 describe("scoped cash payment policies", () => {
+  it.each([
+    ["pickup", "risk-origin", "safe-destination", "risk-origin"],
+    ["drop-off", "safe-origin", "risk-destination", "risk-destination"],
+  ])("blocks parcel cash when the %s region is high risk", async (_label, originRegionId, destinationRegionId, markedRegionId) => {
+    db.systemSetting.findUnique.mockResolvedValue({ type: "JSON", value: [markedRegionId] });
+    await expect(resolvePaymentBreakdown({
+      storeId: base.storeId,
+      orderType: "PARCEL_DOCUMENT",
+      originRegionId,
+      destinationRegionId,
+      authoritativeTotal: "100.00",
+    })).rejects.toMatchObject({ code: "HIGH_RISK_CASH_RESTRICTED" });
+  });
+  it("fails closed when high-risk region configuration is malformed", async () => {
+    db.systemSetting.findUnique.mockResolvedValue({ type: "JSON", value: "not-an-array" });
+    await expect(resolvePaymentBreakdown({
+      storeId: base.storeId,
+      orderType: "PARCEL_DOCUMENT",
+      originRegionId: "origin",
+      destinationRegionId: "destination",
+      authoritativeTotal: "100.00",
+    })).rejects.toMatchObject({ code: "HIGH_RISK_POLICY_UNAVAILABLE" });
+  });
+  it("keeps digital-only parcel payment available in a high-risk area", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, mode: "DIGITAL" }]);
+    const result = await resolvePaymentBreakdown({
+      storeId: base.storeId,
+      orderType: "PARCEL_DOCUMENT",
+      originRegionId: "risk-origin",
+      destinationRegionId: "risk-destination",
+      authoritativeTotal: "100.00",
+    });
+    expect(result.mode).toBe("DIGITAL_ONLY");
+    expect(db.systemSetting.findUnique).not.toHaveBeenCalled();
+  });
   it("rejects reversed effective windows and expired activation", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...base, deliveryServiceId: input.deliveryServiceId, provinceScope: input.provinces }]);
     expect(PaymentConfigurationSchema.safeParse({ ...input, effectiveFrom: "2030-01-02T00:00:00Z", effectiveTo: "2030-01-01T00:00:00Z" }).success).toBe(false);
@@ -354,10 +389,12 @@ describe("scoped cash payment policies", () => {
       const args = { orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
         provinces: ["Gauteng"], authoritativeTotal: "179.00" };
       await expect(resolvePaymentBreakdown(args)).rejects.toMatchObject({ code: "COD_REMITTANCE_NOT_CONFIGURED" });
-      db.systemSetting.findUnique.mockResolvedValue({
-        value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
-        updatedAt: date,
-      });
+      db.systemSetting.findUnique.mockImplementation(async (args: { where: { key: string } }) =>
+        args.where.key === "client_cash_deposit_bank" ? {
+          value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
+          updatedAt: date,
+        } : null,
+      );
       expect(await resolvePaymentBreakdown(args)).toMatchObject({
         mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "179.00",
       });
@@ -372,10 +409,12 @@ describe("scoped cash payment policies", () => {
       maximumCodAmount: new Prisma.Decimal("300.00") };
     db.paymentMethodPolicy.findUnique.mockResolvedValue(draft);
     db.paymentMethodPolicy.findMany.mockResolvedValue([draft]);
-    db.systemSetting.findUnique.mockResolvedValue({
-      value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
-      updatedAt: new Date("2026-10-15T10:00:00.000Z"),
-    });
+    db.systemSetting.findUnique.mockImplementation(async (args: { where: { key: string } }) =>
+      args.where.key === "client_cash_deposit_bank" ? {
+        value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
+        updatedAt: new Date("2026-10-15T10:00:00.000Z"),
+      } : null,
+    );
     db.adminActivityLog.findFirst.mockResolvedValue({ actorUserId: "bank-author" });
     await approvePaymentConfiguration(actor, {
       policyId: draft.id, expectedVersion: 1, remittanceVerified: true,

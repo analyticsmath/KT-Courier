@@ -3,9 +3,15 @@ import { Prisma } from "@prisma/client";
 const database = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { systemSetting: { findMany: database.findMany } } }));
 import { getPricingConfiguration } from "@/lib/pricing/config";
+import { SYSTEM_SETTING_CATALOG } from "@/lib/settings/catalog";
 function settings(values: Record<string, unknown>) { database.findMany.mockResolvedValue(Object.entries(values).map(([key, value]) => ({ key, value }))); }
 beforeEach(() => { vi.clearAllMocks(); });
 describe("canonical JSON pricing settings", () => {
+  it("defaults parcel VAT off and exposes an editable numeric rate", () => {
+    expect(SYSTEM_SETTING_CATALOG["pricing.vat.enabled"].safeDefault).toBe(false);
+    expect(SYSTEM_SETTING_CATALOG["pricing.vat.rate"].type).toBe("NUMBER");
+    expect(SYSTEM_SETTING_CATALOG["pricing.vat.rate"].safeDefault).toBe(0.15);
+  });
   it.each([[true, 0.15, 20], ["true", "0.1500", "20"]])("reads current JSON values and legacy string values", async (enabled, rate, ttl) => {
     settings({ "pricing.vat.enabled": enabled, "pricing.vat.rate": rate, "pricing.quote_ttl_minutes": ttl });
     const config = await getPricingConfiguration();

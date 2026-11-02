@@ -103,6 +103,8 @@ export async function createOrder(
                 input.dropoffAddress.province,
               ].filter((v): v is string => !!v),
               regionId: quote.destinationRegionId,
+              originRegionId: quote.originRegionId,
+              destinationRegionId: quote.destinationRegionId,
               authoritativeTotal: quote.total.toFixed(2),
             },
             tx,
