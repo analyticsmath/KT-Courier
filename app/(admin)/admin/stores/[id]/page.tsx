@@ -91,6 +91,10 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
           <p className="text-xs text-[var(--kt-text-muted)]">Draft creation, independent approval, activation, and any subscription restrictions remain server-authoritative.</p>
         </div>}
     </OperationalPanel>
+    <OperationalPanel title="Collection and courier preflight" description="Check this store's saved courier pickup against active operating coverage. This does not certify an end-to-end destination route or marketplace payment.">
+      <p className="text-sm">The preflight identifies missing pickup configuration, mapping, covered pickup regions and active courier-service support.</p>
+      <Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4" href={`/admin/stores/${encodeURIComponent(id)}/readiness`}>Run operational pickup preflight</Link>
+    </OperationalPanel>
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
       <dl className="grid gap-4 sm:grid-cols-2">
         {fact("Registered store name", store.name)}
