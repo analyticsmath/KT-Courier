@@ -24,7 +24,12 @@ describe("merchant pickup coordinates require trusted provider verification", ()
       latitude: -26.202,
       longitude: 28.041,
       line1: "123 Market Road",
+      line2: "Sandton",
       province: "Gauteng",
+      postalCode: "2000",
+      country: "South Africa",
+      suburb: "Sandton",
+      requireSuburbAndPostalMatch: true,
     }));
   });
   it("fails closed when the mapping provider cannot confirm the selected point", async () => {

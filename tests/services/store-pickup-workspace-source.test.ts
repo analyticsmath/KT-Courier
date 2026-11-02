@@ -8,8 +8,8 @@ import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
 
 const pickup = {
   id: "saved-1", storeId: "store-1", type: "PICKUP", line1: "120 Market Street",
-  city: "Johannesburg", province: "Gauteng", country: "South Africa",
-  isDefault: false,
+  line2: "Sandton", city: "Johannesburg", province: "Gauteng", country: "South Africa",
+  postalCode: "2196", latitude: -26.1, longitude: 28.05, isDefault: false,
 };
 
 beforeEach(() => {
@@ -54,5 +54,11 @@ describe("vendor pickup source matches marketplace checkout pickup selection", (
       savedAddresses: [pickup],
     });
     expect((await getStorePickupAddress("merchant-1"))?.pickupAddress).toEqual({ ...pickup, id: "configured" });
+  });
+
+  it("returns an owned incomplete pickup for seller remediation when no complete pickup exists", async () => {
+    const incomplete = { ...pickup, id: "incomplete", line2: null, postalCode: null, latitude: null, longitude: null };
+    mocks.findUnique.mockResolvedValue({ id: "store-1", defaultPickupAddress: incomplete, savedAddresses: [incomplete] });
+    expect((await getStorePickupAddress("merchant-1"))?.pickupAddress).toEqual(incomplete);
   });
 });

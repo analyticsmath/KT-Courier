@@ -23,6 +23,18 @@ describe("forward geocoding must preserve the requested address identity", () =>
     expect(await geocodeSouthAfricanAddress(address, config)).toEqual({ latitude: -26.1906, longitude: 28.0391 });
   });
   it("refuses multiple conflicting location results", async () => { provider([good, { ...good, geometry: { ...good.geometry, location: { lat: -26.2, lng: 28.1 } } }]); expect(await geocodeSouthAfricanAddress(address, config)).toBeNull(); });
+  it("requires provider-confirmed suburb and postal identity for store pickup verification", async () => {
+    const complete = { ...good, address_components: [
+      ...good.address_components,
+      component("Sandton", "sublocality_level_1"),
+      component("2196", "postal_code"),
+    ] };
+    const pickup = { ...address, line2: "Sandton", suburb: "Sandton", postalCode: "2196", country: "South Africa", placeId: "ChIJ123456789", latitude: -26.1906, longitude: 28.0391, requireSuburbAndPostalMatch: true };
+    provider([complete]);
+    expect(await geocodeSouthAfricanAddress(pickup, config)).toEqual({ latitude: -26.1906, longitude: 28.0391 });
+    provider([good]);
+    expect(await geocodeSouthAfricanAddress(pickup, config)).toBeNull();
+  });
   it("preserves a distinct Google sublocality as the pickup suburb", () => {
     const normalized = normalizeGooglePlaceAddress({
       formatted_address: "158 Civic Boulevard, Rosebank, Johannesburg, 2196, South Africa",

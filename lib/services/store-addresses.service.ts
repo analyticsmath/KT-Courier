@@ -1,5 +1,5 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
-import { selectStorePickupCandidate, selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import type { Address, Store } from "@/types/db";
 import type { StorePickupAddressInput } from "@/lib/validation/address-book";

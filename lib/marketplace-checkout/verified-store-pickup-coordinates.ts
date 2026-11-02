@@ -51,6 +51,8 @@ export async function resolveVerifiedStorePickupCoordinates(
     province: pickup.province.trim(),
     postalCode: pickup.postalCode.trim(),
     country: "South Africa",
+    suburb: pickup.line2.trim(),
+    requireSuburbAndPostalMatch: true,
     latitude,
     longitude,
     ...(pickup.placeId ? { placeId: pickup.placeId } : {}),

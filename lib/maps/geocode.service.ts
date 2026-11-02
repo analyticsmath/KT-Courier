@@ -27,9 +27,12 @@ export type GeocodableSouthAfricanAddress = Readonly<{
   city: string;
   province: string;
   postalCode?: string;
+  country?: string;
   placeId?: string;
   latitude?: number;
   longitude?: number;
+  /** Apply strict locality checks to a merchant pickup, not every buyer address. */
+  requireSuburbAndPostalMatch?: boolean;
 }>;
 
 export type TrustedCoordinates = Readonly<{
@@ -179,6 +182,18 @@ export async function geocodeSouthAfricanAddress(
     const components = result.address_components ?? [];
     if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return rejectForwardGeocode("GEOCODE_COUNTRY_MISMATCH");
     if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return rejectForwardGeocode("GEOCODE_PROVINCE_MISMATCH");
+    if (address.country && normalizedCity(address.country) !== "south africa") return rejectForwardGeocode("GEOCODE_COUNTRY_MISMATCH");
+    if (address.requireSuburbAndPostalMatch) {
+      const requestedSuburb = normalizedCity(address.suburb ?? address.line2 ?? "");
+      const suburbMatches = components.some(component =>
+        component.types?.some(type => ["sublocality_level_1", "sublocality_level_2", "sublocality", "neighborhood"].includes(type))
+        && normalizedCity(component.long_name ?? "") === requestedSuburb,
+      );
+      if (!requestedSuburb || !suburbMatches) return rejectForwardGeocode("GEOCODE_SUBURB_MISMATCH");
+      const requestedPostalCode = address.postalCode?.trim() ?? "";
+      const providerPostalCode = components.find(component => component.types?.includes("postal_code"))?.long_name?.trim();
+      if (!/^\\d{4}$/.test(requestedPostalCode) || providerPostalCode !== requestedPostalCode) return rejectForwardGeocode("GEOCODE_POSTAL_CODE_MISMATCH");
+    }
     const city = normalizedCity(address.city);
     const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
     if (!address.placeId && !cityMatches) return rejectForwardGeocode("GEOCODE_CITY_MISMATCH");

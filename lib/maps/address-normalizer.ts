@@ -31,18 +31,24 @@ export function normalizeGooglePlaceAddress(place: {
 
   const streetNumber = extractComponent(components, "street_number");
   const route = extractComponent(components, "route");
-  const sublocality = extractComponent(components, "sublocality_level_1") ?? extractComponent(components, "sublocality") ?? extractComponent(components, "neighborhood");
+  const sublocality = extractComponent(components, "sublocality_level_1")
+    ?? extractComponent(components, "sublocality_level_2")
+    ?? extractComponent(components, "sublocality")
+    ?? extractComponent(components, "neighborhood");
   const locality = extractComponent(components, "locality");
   const adminArea2 = extractComponent(components, "administrative_area_level_2");
+  const adminArea3 = extractComponent(components, "administrative_area_level_3");
   const adminArea1 = extractComponent(components, "administrative_area_level_1");
   const postalCode = extractComponent(components, "postal_code");
   const country = extractComponent(components, "country") ?? "South Africa";
 
   const line1Parts = [streetNumber, route].filter(Boolean);
   const line1 = line1Parts.length > 0 ? line1Parts.join(" ") : (sublocality ?? "");
-  const line2 = line1Parts.length > 0 && sublocality && city && sublocality.toLowerCase() !== city.toLowerCase() ? sublocality : null;
-
-  const city = locality ?? adminArea2 ?? sublocality ?? null;
+  const city = locality ?? adminArea2 ?? adminArea3 ?? sublocality ?? null;
+  const line2 = line1Parts.length > 0 && sublocality && city
+    && sublocality.trim().toLocaleLowerCase("en-ZA") !== city.trim().toLocaleLowerCase("en-ZA")
+    ? sublocality
+    : null;
 
   let lat: number | null = null;
   let lng: number | null = null;
