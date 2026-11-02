@@ -1,10 +1,10 @@
 {
   "summary": {
-    "totalRoutes": 772,
+    "totalRoutes": 773,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 671,
-    "permissionGatedRoutes": 527,
+    "authenticatedRoutes": 672,
+    "permissionGatedRoutes": 528,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 220,
     "generatedAt": "2026-10-26T23:56:27.076Z"
@@ -7762,6 +7762,26 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/stores/[id]/readiness/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "stores.read"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "GET requires the stores.read administrator permission; the handler resolves the requested store from a validated admin session. This read-only response does not authorize store activation."
+    },
+    {
       "routePath": "app/api/admin/stores/[id]/route.ts",
       "httpMethods": [
         "GET",
@@ -10558,7 +10578,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure/ready/route.ts",
+      "routePath": "app/api/infrastructure_ready/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -10573,7 +10593,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure_ready/route.ts",
+      "routePath": "app/api/infrastructure/ready/route.ts",
       "httpMethods": [
         "GET"
       ],
