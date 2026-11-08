@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { driverCashSummary } from "@/lib/client-platform/driver-cash.service";
+import { cashOperationErrorMessage } from "@/lib/client-platform/cash-operation-error";
 type Summary = Awaited<ReturnType<typeof driverCashSummary>>;
 export function DriverCash({ summary }: { summary: Summary }) {
   const router = useRouter();
@@ -86,11 +87,9 @@ export function DriverCash({ summary }: { summary: Summary }) {
       );
       router.refresh();
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "The cash operation could not be saved.",
-      );
+      // A dropped HTTP response does not imply that the financial command
+      // failed. Keep the same receipt reference and operation ID for replay.
+      setError(cashOperationErrorMessage(e));
     } finally {
       setBusy(null);
     }
@@ -268,7 +267,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
           <p>No deposits submitted yet.</p>
         )}
       </section>
-      {error && <p role="alert">{error}</p>}
+      {error && <p id="driver-cash-operation-error" role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
     </div>
   );

@@ -75,7 +75,7 @@ for (const width of [1440, 390]) test(`native synthetic COD deposit, custody and
   });
   const sendDeposit = () => page.getByRole("button", { name: /Submit R .* deposit/ }).click();
   await sendDeposit();
-  await expect(page.getByRole("alert")).toContainText("could not");
+  await expect(page.locator("#driver-cash-operation-error")).toContainText("could not");
   await page.unroute("**/api/driver/cash");
   expect(droppedResponse).toBe(true);
   expect((await codState(f.order.id)).deposits).toHaveLength(1);
