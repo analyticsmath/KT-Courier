@@ -5,6 +5,31 @@ import { cancelMarketplaceCheckout } from "@/lib/marketplace-checkout/checkout-c
 describe("marketplace checkout runtime services", () => {
   const adapter = createMarketplaceDeliveryQuoteAdapter({ resolvePhase6Evidence: async () => ({ fee: "15.00", currency: "ZAR", publicReference: "quote", version: "v1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area", serviceLevel: null }) });
   it("uses authoritative quote evidence and exact review totals", async () => { const review = await revalidateMarketplaceCheckout({ checkoutId: "checkout-id", checkoutReference: "checkout", serviceAreaReference: "area", reviewVersion: 2, commissionPolicyVersion: "commission-v1", quoteAdapter: adapter, groups: [{ storeReference: "store", pickupLocationReference: "pickup", fulfilmentMode: "COURIER_DELIVERY", lines: [{ lineReference: "line", storeReference: "store", offerReference: "offer", variantReference: "variant", quantity: 2, priceVersion: "old", publicationVersion: "pub", baseUnitPrice: "10.00", modifierUnitTotal: "1.00", lineTotal: "22.00" }] }], resolveLine: async (line) => ({ ...line, available: true, modifierValid: true }) }); expect(review.status).toBe("READY_FOR_REVIEW"); expect(review.grandTotal).toBe("37.00"); });
+  it("preserves exact large ZAR totals in quote/review without double rounding", async () => {
+    const quote = createMarketplaceDeliveryQuoteAdapter({
+      resolvePhase6Evidence: async () => ({
+        fee: "0.01", currency: "ZAR", publicReference: "quote-large",
+        version: "v2", expiresAt: new Date(Date.now() + 60_000),
+        serviceabilityReference: "area", serviceLevel: null,
+      }),
+    });
+    const review = await revalidateMarketplaceCheckout({
+      checkoutId: "large-checkout", checkoutReference: "large-checkout",
+      serviceAreaReference: "area", reviewVersion: 3, commissionPolicyVersion: "v1",
+      quoteAdapter: quote,
+      groups: [{ storeReference: "large-store", pickupLocationReference: "pickup",
+        fulfilmentMode: "COURIER_DELIVERY",
+        lines: [{ lineReference: "large-line", storeReference: "large-store",
+          offerReference: "offer", variantReference: "variant", quantity: 1,
+          priceVersion: "v1", publicationVersion: "pub",
+          baseUnitPrice: "90071992547409.93", modifierUnitTotal: "0.01",
+          lineTotal: "90071992547409.94",
+        }],
+      }],
+      resolveLine: async (line) => ({ ...line, available: true, modifierValid: true }),
+    });
+    expect(review.grandTotal).toBe("90071992547409.95");
+  });
   it("rejects obsolete acknowledgement evidence", () => expect(() => acknowledgeMarketplaceCheckoutReview({ currentReviewVersion: 2, reviewVersion: 1, currentFingerprint: "a", commercialFingerprint: "a", currentGrandTotal: "1.00", grandTotal: "1.00", termsVersion: "t", privacyVersion: "p", refundPolicyReferences: ["r"] })).toThrow());
   it("does not cancel an uncertain payment", async () => { const result = await cancelMarketplaceCheckout({ transaction: async (work) => work(), lockCheckout: async () => ({ id: "checkout", status: "PAYMENT_PENDING", paymentStatus: "PROCESSING", paymentOutcomeKnown: false, reservationId: "reservation" }), releaseReservation: async () => {}, cancelCheckout: async () => {}, openUncertainPaymentCase: async () => {} }, { checkoutReference: "checkout", operationId: "operation-cancel-1" }); expect(result).toEqual({ status: "PAYMENT_PENDING", authoritative: false }); });
 });

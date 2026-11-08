@@ -84,8 +84,12 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
     }
   }
 
-  const preDiscountCents = Number(parseZarToCents(merchandiseSubtotal)) + Number(parseZarToCents(modifierSubtotal)) + Number(parseZarToCents(deliveryFeeTotal));
-  const grandTotal = centsToZar(String(Math.max(0, preDiscountCents - Number(parseZarToCents(promotionDiscount)))));
+  const preDiscountCents = BigInt(parseZarToCents(merchandiseSubtotal)) + BigInt(parseZarToCents(modifierSubtotal)) + BigInt(parseZarToCents(deliveryFeeTotal));
+  const discountCents = BigInt(parseZarToCents(promotionDiscount));
+  if (discountCents > preDiscountCents || preDiscountCents - discountCents > 999999999999999999n) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout monetary totals are invalid. Review the order again.");
+  }
+  const grandTotal = centsToZar((preDiscountCents - discountCents).toString());
 
   assertCheckoutTotals({ merchandiseSubtotal, modifierSubtotal, deliveryFeeTotal, promotionDiscount, grandTotal });
   const blocking = changes.some((change) => ["OUT_OF_STOCK", "OFFER_WITHDRAWN", "STORE_UNAVAILABLE", "MODIFIER_CHANGED", "NOT_SERVICEABLE", "QUANTITY_REDUCED", "PRICE_INCREASE"].includes(change.type));
