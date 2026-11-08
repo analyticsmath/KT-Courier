@@ -14,6 +14,9 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreStatusConfig } from "@/lib/constants/statuses";
 import { listStores } from "@/lib/services/admin-stores.service";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
+import { getStoreOperationsSnapshot } from "@/lib/services/admin-store-operations.service";
+import { StoreOperationsPanel } from "@/components/admin/StoreOperationsPanel";
+import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 import type { StoreStatus } from "@/types/db";
 
 export const metadata: Metadata = { title: "Store administration" };
@@ -31,19 +34,21 @@ function filterHref(filter: StoreFilter, page = 1) {
   return query ? `/admin/stores?${query}` : "/admin/stores";
 }
 
-export default async function AdminStoresPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string }> }) {
+export default async function AdminStoresPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string; period?: string }> }) {
   const user = await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const filters = await searchParams;
   const selectedFilter: StoreFilter = STORE_FILTERS.includes(filters.status as StoreFilter) ? filters.status as StoreFilter : "PENDING";
   const requestedPage = Number(filters.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 && (requestedPage - 1) * PAGE_SIZE <= 2_147_483_647 ? requestedPage : 1;
   const status = selectedFilter === "ALL" || selectedFilter === "NO_DEFAULT_PICKUP" ? undefined : selectedFilter as StoreStatus;
-  const [{ data: stores, total }, canApprove, canReviewSellerIdentity, canManageRates] = await Promise.all([
+  const [{ data: stores, total }, canApprove, canReviewSellerIdentity, canManageRates, canReadOrderReports] = await Promise.all([
     listStores({ status, missingDefaultPickup: selectedFilter === "NO_DEFAULT_PICKUP", page, pageSize: PAGE_SIZE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
+    hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.ORDERS_READ }),
   ]);
+  const metrics = canReadOrderReports ? await getStoreOperationsSnapshot(user, parseDashboardPeriod(filters.period)) : null;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (page > pageCount) redirect(filterHref(selectedFilter, pageCount));
   return <ProtectedPageFrame className="eo-store-directory">
@@ -52,6 +57,9 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
     <nav aria-label="Store account status filters" className="eo-filter-chips">
       {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "NO_DEFAULT_PICKUP" ? "No default pickup" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
     </nav>
+    {metrics && <OperationalPanel title="Store operations report">
+      <StoreOperationsPanel snapshot={metrics} statusFilter={selectedFilter} />
+    </OperationalPanel>}
     <OperationalPanel title={selectedFilter === "PENDING" ? "Vendor approvals" : "Store directory"} description="Pickup setup warnings identify missing saved collection, postal and map evidence. They are not confirmation that a delivery route, trading hours or marketplace payment is ready. Account approval and checkout remain separate gates."><EditorialTable caption="Store administration directory" mobileMode="stack" rows={stores} emptyState={<ProtectedState kind="empty" title={selectedFilter === "PENDING" ? "No vendor accounts are waiting for approval" : "No stores match this view"} description="New store accounts will appear here when their canonical registration has been completed." />} columns={[
     { id: "store", header: "Store", priority: "primary", cell: (store) => <div className="eo-store-identity"><Link href={`/admin/stores/${encodeURIComponent(store.id)}`}><strong>{store.name}</strong></Link><small>/{store.slug}</small></div> },
     { id: "owner", header: "Owner & contact", priority: "secondary", cell: (store) => <div className="eo-store-contact"><span>{store.ownerUser?.email ? <>{store.ownerUser.email.split("@")[0]}<wbr />@{store.ownerUser.email.split("@").slice(1).join("@")}</> : "Owner unavailable"}</span><small>{store.contactName ?? "Contact not supplied"}</small></div> },

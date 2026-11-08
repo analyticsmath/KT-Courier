@@ -4,15 +4,18 @@ import {
   readBankInstructions,
 } from "@/lib/client-platform/driver-cash.service";
 import { CashDepositReview } from "@/components/forms/CashDepositReview";
+import { DailyCashReconciliation } from "@/components/admin/DailyCashReconciliation";
+import { getDailyDriverCashReconciliation } from "@/lib/client-platform/driver-cash-reconciliation-dashboard.service";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 export const metadata = { title: "Cash deposits" };
 export default async function Page() {
   const u = await requireAdminPagePermission("cod_operations.manage", "/admin");
-  const [deposits, bank] = await Promise.all([
+  const [deposits, bank, daily] = await Promise.all([
     listCashDeposits(u),
     readBankInstructions(),
+    getDailyDriverCashReconciliation(u),
   ]);
   return (
     <ProtectedPageFrame>
@@ -21,6 +24,9 @@ export default async function Page() {
         title="Cash deposits"
         description="Manage official bank details, share them with drivers and reconcile verified deposits or cash physically handed over."
       />
+      <OperationalPanel title="Cash exposure and daily settlement">
+        <DailyCashReconciliation overview={daily} />
+      </OperationalPanel>
       <OperationalPanel title="Deposit verification">
         <CashDepositReview deposits={deposits} bank={bank} />
       </OperationalPanel>
