@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { assertAdvertisingProductionReady } from "@/lib/advertising/production-lock";
@@ -8,6 +9,7 @@ import {
 import type { StoreStatus } from "@/types/db";
 import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
+import { currentStoreCertificationFacts, requireCurrentStoreCheckoutCertification, type StoreCertificationFacts } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
@@ -173,18 +175,28 @@ export async function setStoreStatus(
   status: StoreStatus,
   audit?: { actorUserId: string; reason?: string },
 ) {
+  let certificationFacts: StoreCertificationFacts | null = null;
   if (status === "ACTIVE") {
     const readiness = await getStorePickupOperationalPreflight(id);
     if (!readiness || readiness.blockers.length > 0) {
       throw new StoreActivationReadinessError(readiness?.blockers ?? ["STORE_NOT_FOUND"]);
     }
+    certificationFacts = await currentStoreCertificationFacts(id);
   }
   // Status, visibility and the reason shown to the vendor must commit together.
   return prisma.$transaction(async (tx) => {
+    // Serialize approval with an owner changing the checkout-owned pickup pin.
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${id} FOR UPDATE`);
     const before = await tx.store.findUniqueOrThrow({
       where: { id },
       select: { name: true, status: true },
     });
+    // Legacy ACTIVE accounts are not blindly delisted; every NEW transition
+    // into Live requires independent approval of current staging evidence.
+    if (status === "ACTIVE" && before.status !== "ACTIVE") {
+      if (!certificationFacts) throw new StoreActivationReadinessError(["CHECKOUT_CERTIFICATION_REQUIRED"]);
+      await requireCurrentStoreCheckoutCertification(tx, id, certificationFacts);
+    }
     const updated = await tx.store.update({
       where: { id },
       data: { status, ...(status !== "ACTIVE" ? { featured: false } : {}) },

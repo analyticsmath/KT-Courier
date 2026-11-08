@@ -4,6 +4,13 @@ import { edgeRewrites, resolveEdgeOrigin } from "./lib/deployment/edge-routing";
 // Evaluated before build/route discovery: unregistered previews cannot deploy.
 const edgeOrigin = resolveEdgeOrigin(process.env);
 
+// React's development tooling requires eval. It is never permitted in deployed
+// production headers, even when a contradictory test flag is supplied.
+const disposableBrowserDebugging = process.env.NODE_ENV !== "production"
+  && process.env.KT_RUNTIME_ENV === "e2e"
+  && process.env.KT_NETWORK_DISABLED === "true"
+  && process.env.KT_E2E_PAYSTACK_ACCEPTANCE === "true";
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -13,7 +20,7 @@ const securityHeaders = [
       "object-src 'none'",
       "frame-ancestors 'none'",
       "form-action 'self'",
-      "script-src 'self' 'unsafe-inline' https://*.googleapis.com https://maps.gstatic.com",
+      "script-src 'self' 'unsafe-inline'" + (disposableBrowserDebugging ? " 'unsafe-eval'" : "") + " https://*.googleapis.com https://maps.gstatic.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",

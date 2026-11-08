@@ -183,6 +183,13 @@ export async function upsertStorePickupAddress(
     });
     // A stale ACTIVE storefront document must never keep accepting sales after
     // the certified collection point has moved. Projection refresh is atomic.
+    if (locationChanged) {
+      // Revoke stale checkout evidence even if the store is already pending.
+      await tx.storeCheckoutCertification.updateMany({
+        where: { storeId: store.id, status: "APPROVED" },
+        data: { status: "REVOKED", revision: { increment: 1 } },
+      });
+    }
     if (revokeLiveStatus) await rebuildStorefrontStoreDocument(store.id, tx);
 
     await tx.adminActivityLog.create({

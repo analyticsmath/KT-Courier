@@ -541,6 +541,7 @@ model PasswordResetToken {
 }
 
 model Store {
+  checkoutCertification          StoreCheckoutCertification?
   employeeMemberships            StoreEmployeeMembership[]
   platformConversations          PlatformConversation[]
   deliveryReviews                DeliveryReview[]
@@ -605,6 +606,32 @@ model Store {
   @@index([slug])
   @@index([status])
   @@index([featured])
+}
+
+/// A two-reviewer, time-limited go-live permit for a specific store pickup,
+/// operational region and delivery-service revision. Evidence references are
+/// held for audit: they are never treated as verified provider payment objects.
+model StoreCheckoutCertification {
+  id                         String    @id @default(cuid())
+  storeId                    String    @unique
+  store                      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  pickupAddressId            String
+  pickupFingerprint          String
+  coverageRegionId           String
+  serviceSignature           String
+  routeEvidenceReference     String
+  checkoutEvidenceReference  String
+  preparedByUserId           String
+  approvedByUserId           String?
+  status                     String    @default("PENDING_REVIEW")
+  reviewNote                 String?
+  preparedAt                 DateTime  @default(now())
+  approvedAt                 DateTime?
+  expiresAt                  DateTime
+  revision                   Int       @default(0)
+
+  @@index([status, expiresAt])
+  @@index([preparedByUserId])
 }
 
 enum StoreSellerLegalIdentityStatus {
