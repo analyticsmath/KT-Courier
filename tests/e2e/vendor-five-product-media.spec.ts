@@ -7,6 +7,8 @@ import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-pay
 import { login } from "./fixtures/auth";
 import { canonicalDriverDeliveryJourney } from "./fixtures/driver-delivery";
 import { createDisposableNewVendorCommission } from "@/scripts/e2e-checkout-authorities";
+import { prepareStoreCheckoutCertification, approveStoreCheckoutCertification } from "@/lib/admin/store-checkout-certification.service";
+import { createHash } from "node:crypto";
 
 test("new vendor verifies, creates five products with ten images, publishes, sells and delivers through persisted chat", async ({ page }, info) => {
   test.setTimeout(900_000);
@@ -55,7 +57,38 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   expect(await pendingInventory.json()).toEqual({ locations: [] });
   expect((await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } })).status()).toBe(403);
   expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
+  // A newly registered merchant must configure its actual checkout-owned
+  // pickup before admin approval; never bypass the Live pickup safety gate.
+  // All addresses, users and receipts in this test are isolated synthetic
+  // fixtures. They are not real merchant/payout/payment certifications.
+  const pickup = await page.request.patch("/api/store/pickup-address", { headers, data: {
+    label: "Synthetic pickup", contactName: "Synthetic vendor owner", contactPhone: "0821112233",
+    line1: "10 E2E Pickup Road", line2: "Central", city: "Johannesburg",
+    province: "Gauteng", postalCode: "2001", country: "South Africa",
+    latitude: -26.2041, longitude: 28.0473,
+  } }); expect(pickup.status(), await pickup.text()).toBe(200);
   await login(page, "superadmin@ktcouriers.local");
+  const blocked = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } });
+  expect(blocked.status()).toBe(422);
+  expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
+  // Two distinct preprovisioned reviewers register synthetic staging receipts
+  // against the exact pickup fingerprint. This is isolated acceptance evidence,
+  // not a production route or authentic consumer payment.
+  const preparer = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
+  const reviewer = await prisma.user.findUniqueOrThrow({ where: { email: "disposable-checkout-reviewer@example.test" } });
+  expect(preparer.id).not.toBe(reviewer.id);
+  const syntheticRouteRef = `synthetic-route-${tag}-jhb`;
+  const syntheticCheckoutRef = `synthetic-checkout-${tag}-paystack`;
+  const certification = await prepareStoreCheckoutCertification(store.id, preparer.id, {
+    routeEvidenceReference: syntheticRouteRef,
+    routeEvidenceDigest: createHash("sha256").update(syntheticRouteRef).digest("hex"),
+    checkoutEvidenceReference: syntheticCheckoutRef,
+    checkoutEvidenceDigest: createHash("sha256").update(syntheticCheckoutRef).digest("hex"),
+    reviewNote: "Disposable synthetic vendor approval for end-to-end catalog and marketplace tests only; not live receipt authority.",
+  });
+  expect(certification.status).toBe("PENDING_REVIEW");
+  const certified = await approveStoreCheckoutCertification(store.id, reviewer.id, certification.revision);
+  expect(certified.status).toBe("APPROVED");
   const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } }); expect(approval.status(), await approval.text()).toBe(200);
   const categoryName = `Synthetic accessories ${tag}`;
   const category = await page.request.post("/api/admin/catalog/categories", { headers, data: { name: categoryName, slug: `synthetic-accessories-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() } }); expect(category.status(), await category.text()).toBe(201);
@@ -88,9 +121,6 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(1);
   await createDisposableNewVendorCommission(store.id);
   await login(page, email);
-  // Known synthetic coordinates are structural deterministic-map input, not
-  // real Google Maps, physical GPS or provider/device acceptance evidence.
-  const pickup = await page.request.patch("/api/store/pickup-address", { headers, data: { label: "Synthetic pickup", contactName: "Synthetic vendor owner", contactPhone: "0821112233", line1: "10 E2E Pickup Road", city: "Johannesburg", province: "Gauteng", postalCode: "2001", country: "South Africa", latitude: -26.2041, longitude: 28.0473 } }); expect(pickup.status(), await pickup.text()).toBe(200);
   await page.goto("/store/catalog/inventory"); await page.getByLabel("Stock location name", { exact: true }).fill("Synthetic stockroom");
   const locationPath = "**/api/store/catalog/inventory/locations";
   let stockCommand: Record<string, unknown> = {};
