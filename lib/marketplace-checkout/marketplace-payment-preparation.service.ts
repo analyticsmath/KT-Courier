@@ -17,13 +17,29 @@ export type MarketplacePaymentPreparationResult = Readonly<{
     | null;
   replayed: boolean;
 }>;
+
 export interface MarketplacePaymentOrchestrator {
-  prepareMarketplacePayment(input: Readonly<{ checkoutId: string; checkoutReference: string; customerUserId: string | null; guestAccessTokenHash: string | null; payerEmail: string; amount: string; currency: "ZAR"; commercialFingerprint: string; operationId: string }>): Promise<MarketplacePaymentPreparationResult>;
+  prepareMarketplacePayment(input: Readonly<{
+    checkoutId: string; checkoutReference: string; customerUserId: string | null;
+    guestAccessTokenHash: string | null; payerEmail: string; amount: string; currency: "ZAR";
+    commercialFingerprint: string; operationId: string;
+  }>): Promise<MarketplacePaymentPreparationResult>;
+  /** Resume the EXISTING canonical payment, not a new financial intent. */
+  resumeMarketplaceProviderAction?(input: Readonly<{
+    paymentId: string; paymentReference: string; payerEmail: string;
+    operationId: string; guestCheckoutEvidence: boolean;
+  }>): Promise<MarketplacePaymentPreparationResult["providerAction"]>;
 }
 
-/** Phase 10 → 11 adapter; Phase 20 only maps trusted checkout evidence. */
+/** Provider I/O happens OUTSIDE the canonical Payment service's DB transaction. */
 export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplacePaymentOrchestrator {
   return Object.freeze({
+    async resumeMarketplaceProviderAction(input: Readonly<{
+      paymentId: string; paymentReference: string; payerEmail: string;
+      operationId: string; guestCheckoutEvidence: boolean;
+    }>) {
+      return prepareMarketplacePaystackCustomerAction(input);
+    },
     async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand) {
       const payment = await preparePhase10MarketplacePayment({ ...input });
       if (isLocalFullFlowAllowed()) {
@@ -31,7 +47,7 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
           paymentReference: payment.publicReference,
           paymentId: payment.id,
           amount: payment.amount,
-          currency: "ZAR",
+          currency: "ZAR" as const,
           providerAction: null,
           replayed: payment.replayed,
         });
@@ -40,51 +56,118 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
         paymentId: payment.id,
         paymentReference: payment.publicReference,
         payerEmail: input.payerEmail,
-        operationId: `${input.operationId}:paystack`,
+        operationId: input.operationId + ":paystack",
         guestCheckoutEvidence: !input.customerUserId,
       });
-      return Object.freeze({ paymentReference: payment.publicReference, paymentId: payment.id, amount: payment.amount, currency: "ZAR", providerAction, replayed: payment.replayed });
+      return Object.freeze({
+        paymentReference: payment.publicReference, paymentId: payment.id,
+        amount: payment.amount, currency: "ZAR" as const, providerAction, replayed: payment.replayed,
+      });
     },
   });
 }
+
+/** A READ-ONLY preflight. The canonical Payment service owns its own short
+ * serializable PostgreSQL transaction, lock, reservation and payment identity.
+ * An outer transaction across the remote Paystack call would be unsafe.
+ */
 export type MarketplacePaymentPreparationRepository = Readonly<{
-  transaction<T>(work: () => Promise<T>): Promise<T>;
-  lockCheckout(reference: string): Promise<{ id: string; publicReference: string; customerUserId: string | null; guestAccessTokenHash: string | null; status: string; grandTotal: string; digitalRequired?: string; cashRequired?: string; currency: string; acceptedFingerprint: string | null; reservationActive?: boolean; payment?: { id: string; publicReference: string; amount: string; currency: string; fingerprint?: string | null; providerAction?: Readonly<{ type: "REDIRECT_GET"; endpoint: string }> | null } | null } | null>;
-  linkPayment(checkoutId: string, paymentId: string): Promise<void>;
-  transitionCheckout(checkoutId: string, status: "PAYMENT_PENDING"): Promise<void>;
+  readCheckout(reference: string): Promise<{
+    id: string; publicReference: string; customerUserId: string | null;
+    guestAccessTokenHash: string | null; status: string; grandTotal: string;
+    digitalRequired?: string; cashRequired?: string; currency: string;
+    acceptedFingerprint: string | null; reservationActive?: boolean;
+    payment?: {
+      id: string; publicReference: string; amount: string; currency: string;
+      fingerprint?: string | null; status?: string; latestAttemptNumber?: number;
+      providerAction?: Readonly<{ type: "REDIRECT_GET"; endpoint: string }> | null;
+    } | null;
+  } | null>;
 }>;
 
-export async function prepareMarketplaceCheckoutPayment(repository: MarketplacePaymentPreparationRepository, orchestrator: MarketplacePaymentOrchestrator, input: Readonly<{ checkoutReference: string; payerEmail: string; operationId: string; testApproval?: { approved: true } }>): Promise<MarketplacePaymentPreparationResult> {
-  return repository.transaction(async () => {
-    const checkout = await repository.lockCheckout(input.checkoutReference);
-    if (!checkout || !["RESERVED", "PAYMENT_PREPARING", "PAYMENT_PENDING"].includes(checkout.status) || !checkout.acceptedFingerprint || checkout.currency !== "ZAR" || checkout.reservationActive === false) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A reserved accepted checkout is required before payment preparation.");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.payerEmail) || input.payerEmail.length > 254) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A valid payer email is required.");
-    if (checkout.payment) {
-      if (checkout.payment.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || checkout.payment.currency !== "ZAR" || (checkout.payment.fingerprint && checkout.payment.fingerprint !== checkout.acceptedFingerprint)) throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Existing payment belongs to different checkout evidence.");
-      return Object.freeze({ paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id, amount: (checkout.digitalRequired ?? checkout.grandTotal), currency: "ZAR", providerAction: checkout.payment.providerAction ?? null, replayed: true });
+export async function prepareMarketplaceCheckoutPayment(
+  repository: MarketplacePaymentPreparationRepository,
+  orchestrator: MarketplacePaymentOrchestrator,
+  input: Readonly<{ checkoutReference: string; payerEmail: string; operationId: string; testApproval?: { approved: true } }>,
+): Promise<MarketplacePaymentPreparationResult> {
+  const checkout = await repository.readCheckout(input.checkoutReference);
+  if (!checkout || !["RESERVED", "PAYMENT_PREPARING", "PAYMENT_PENDING"].includes(checkout.status)
+    || !checkout.acceptedFingerprint || checkout.currency !== "ZAR" || checkout.reservationActive === false) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A reserved accepted checkout is required before payment preparation.");
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.payerEmail) || input.payerEmail.length > 254) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A valid payer email is required.");
+  }
+
+  const payable = checkout.digitalRequired ?? checkout.grandTotal;
+  const assertEffectiveFulfilmentPolicy = async () => {
+    if (input.testApproval?.approved || isLocalFullFlowAllowed()) return;
+    await assertNewMarketplacePaymentPolicyReady(async () => {
+      const now = new Date();
+      return prisma.storeOrderOperationalPolicy.findFirst({
+        where: {
+          status: "ACTIVE", effectiveFrom: { lte: now },
+          OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+        },
+        select: { id: true },
+      });
+    });
+  };
+  if (checkout.payment) {
+    if (checkout.payment.amount !== payable || checkout.payment.currency !== "ZAR"
+      || (checkout.payment.fingerprint && checkout.payment.fingerprint !== checkout.acceptedFingerprint)) {
+      throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Existing payment belongs to different checkout evidence.");
     }
-    // The real checkout, reservation, payer binding, and replay surfaces have
-    // been resolved before the source validation gate blocks external execution.
-    assertMarketplaceCheckoutProductionReady("PAYMENT", input.testApproval);
-    // A successful customer capture must never create an unfulfillable store
-    // order. Existing payment replays are handled above without another charge.
-    // Local isolated fixtures may bypass this real production policy lookup.
-    if (!input.testApproval?.approved && !isLocalFullFlowAllowed()) {
-      await assertNewMarketplacePaymentPolicyReady(async () => {
-        const now = new Date();
-        return prisma.storeOrderOperationalPolicy.findFirst({
-          where: {
-            status: "ACTIVE",
-            effectiveFrom: { lte: now },
-            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
-          },
-          select: { id: true },
-        });
+    if (checkout.payment.providerAction || input.testApproval?.approved || isLocalFullFlowAllowed()) {
+      return Object.freeze({
+        paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id, amount: payable,
+        currency: "ZAR", providerAction: checkout.payment.providerAction ?? null, replayed: true,
       });
     }
-    const prepared = await orchestrator.prepareMarketplacePayment({ checkoutId: checkout.id, checkoutReference: checkout.publicReference, customerUserId: checkout.customerUserId, guestAccessTokenHash: checkout.guestAccessTokenHash, payerEmail: input.payerEmail, amount: (checkout.digitalRequired ?? checkout.grandTotal), currency: "ZAR", commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId });
-    if (prepared.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || prepared.currency !== "ZAR") throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Payment provider preparation returned mismatched commercial evidence.");
-    await repository.linkPayment(checkout.id, prepared.paymentId); await repository.transitionCheckout(checkout.id, "PAYMENT_PENDING");
-    return prepared;
+
+    // A crash between canonical payment creation and provider initialization
+    // leaves ONE Payment in CREATED with zero attempts. It is safe to reserve
+    // a provider attempt only for that same Payment and only while held.
+    if (checkout.payment.status === "CREATED" && checkout.payment.latestAttemptNumber === 0
+      && checkout.reservationActive === true && orchestrator.resumeMarketplaceProviderAction) {
+      assertMarketplaceCheckoutProductionReady("PAYMENT");
+      await assertEffectiveFulfilmentPolicy();
+      const providerAction = await orchestrator.resumeMarketplaceProviderAction({
+        paymentId: checkout.payment.id, paymentReference: checkout.payment.publicReference,
+        payerEmail: input.payerEmail, operationId: input.operationId + ":paystack",
+        guestCheckoutEvidence: !checkout.customerUserId,
+      });
+      if (!providerAction) {
+        throw new MarketplaceCheckoutError("PAYMENT_PREPARATION_BLOCKED",
+          "Payment provider authorization is pending. No further payment has been created.");
+      }
+      return Object.freeze({
+        paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id,
+        amount: payable, currency: "ZAR", providerAction, replayed: true,
+      });
+    }
+    // If a provider attempt is UNKNOWN or in flight, never create another
+    // one or return a fake success with a missing Paystack redirect.
+    throw new MarketplaceCheckoutError("PAYMENT_PREPARATION_BLOCKED",
+      "The existing payment is awaiting provider confirmation. Check payment status before retrying.");
+  }
+
+  assertMarketplaceCheckoutProductionReady("PAYMENT", input.testApproval);
+  await assertEffectiveFulfilmentPolicy();
+  const prepared = await orchestrator.prepareMarketplacePayment({
+    checkoutId: checkout.id, checkoutReference: checkout.publicReference,
+    customerUserId: checkout.customerUserId, guestAccessTokenHash: checkout.guestAccessTokenHash,
+    payerEmail: input.payerEmail, amount: payable, currency: "ZAR",
+    commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId,
   });
+  if (prepared.amount !== payable || prepared.currency !== "ZAR") {
+    throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT",
+      "Payment provider preparation returned mismatched commercial evidence.");
+  }
+  // No unconditional checkout or Payment writes after provider I/O!
+  // The canonical preparation service atomically linked the payment and
+  // marked the held checkout as PAYMENT_PENDING under its own row lock.
+  // Repeating those writes here could RESURRECT a concurrently cancelled
+  // checkout or overwrite authoritative provider transitions.
+  return prepared;
 }

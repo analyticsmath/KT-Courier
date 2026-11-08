@@ -31,7 +31,7 @@ describe("marketplace deposit COD commercial and funding flow", () => {
   });
   it("charges and replays the digital allocation while retaining the full commercial total", async () => {
     const checkout = { id: "checkout-1", publicReference: "checkout-ref", customerUserId: "customer-1", guestAccessTokenHash: null, status: "RESERVED", grandTotal: "200.00", digitalRequired: "100.00", cashRequired: "100.00", currency: "ZAR", acceptedFingerprint: "frozen", reservationActive: true, payment: null as null | { id: string; publicReference: string; amount: string; currency: string } };
-    const repository: MarketplacePaymentPreparationRepository = { transaction: work => work(), lockCheckout: async () => checkout, linkPayment: async () => {}, transitionCheckout: async () => {} };
+    const repository: MarketplacePaymentPreparationRepository = { readCheckout: async () => checkout };
     const provider = vi.fn(async (input: { amount: string }) => ({ paymentId: "payment-1", paymentReference: "PAY-1", amount: input.amount, currency: "ZAR" as const, providerAction: null, replayed: false }));
     const command = { checkoutReference: "checkout-ref", payerEmail: "customer@example.test", operationId: "cod-charge-1", testApproval: { approved: true as const } };
     await expect(prepareMarketplaceCheckoutPayment(repository, { prepareMarketplacePayment: provider }, command)).resolves.toMatchObject({ amount: "100.00" });
