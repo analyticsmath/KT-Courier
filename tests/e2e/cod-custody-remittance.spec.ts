@@ -57,9 +57,33 @@ for (const width of [1440, 390]) test(`native synthetic COD deposit, custody and
   await page.getByLabel("Bank deposit slip (required)", { exact: true }).setInputFiles({
     name: "SYNTHETIC-NO-BANK-DEPOSIT-1.png", mimeType: "image/png", buffer: proof1,
   });
+  // The server commits the receipt but its HTTP response is lost. A retry
+  // must reuse the original upload and operation, without duplicate money.
+  let uploadedProofs = 0;
+  const countProof = (response: import("@playwright/test").Response) => {
+    if (response.url().endsWith("/api/driver/private-media")
+      && response.request().method() === "POST" && response.status() === 201) uploadedProofs++;
+  };
+  page.on("response", countProof);
+  let droppedResponse = false;
+  await page.route("**/api/driver/cash", async route => {
+    if (route.request().method() !== "POST" || droppedResponse) return route.continue();
+    const committed = await route.fetch();
+    expect(committed.status(), await committed.text()).toBe(201);
+    droppedResponse = true;
+    await route.abort("failed");
+  });
+  const sendDeposit = () => page.getByRole("button", { name: /Submit R .* deposit/ }).click();
+  await sendDeposit();
+  await expect(page.getByRole("alert")).toContainText("could not");
+  await page.unroute("**/api/driver/cash");
+  expect(droppedResponse).toBe(true);
+  expect((await codState(f.order.id)).deposits).toHaveLength(1);
   const depositResponse = page.waitForResponse(response => response.url().endsWith("/api/driver/cash") && response.request().method() === "POST");
-  await page.getByRole("button", { name: `Submit R ${collected.cod.cashCollected.toFixed(2)} deposit`, exact: true }).click();
+  await sendDeposit();
   const deposited = await depositResponse; expect(deposited.status(), await deposited.text()).toBe(201);
+  expect(uploadedProofs).toBe(1);
+  page.off("response", countProof);
   const pending = await codState(f.order.id); expect(pending.deposits).toHaveLength(1); expect(pending.deposits[0].status).toBe("PENDING"); expect(pending.journals).toEqual(collected.journals); expect(pending.cod.cashReconciled.isZero()).toBe(true);
   const initialId = pending.deposits[0].id;
   const usedProof = await prisma.privateMediaObject.findUniqueOrThrow({

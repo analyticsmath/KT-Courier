@@ -11,7 +11,12 @@ export function DriverCash({ summary }: { summary: Summary }) {
   const [busy, setBusy] = useState<string | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
-  const operations = useRef(new Map<string, { payload: string; id: string }>());
+  // A network-lost response must replay the SAME bank receipt identity.
+  // A replacement file (even with the same filename) starts a new command.
+  const operations = useRef(new Map<string, {
+    payload: string; id: string;
+    proofDigest?: string; proofReference?: string;
+  }>());
   const [remittanceChoice, setRemittanceChoice] = useState<Record<string, "BANK_DEPOSIT" | "IN_PERSON">>({});
   const [copied, setCopied] = useState("");
   async function send(
@@ -37,15 +42,31 @@ export function DriverCash({ summary }: { summary: Summary }) {
             || !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(proofFile.type)) {
           throw Error("Upload a JPEG, PNG, WebP or PDF deposit slip of no more than 10 MB.");
         }
-        const fileBody = new FormData();
-        fileBody.append("purpose", "DRIVER_CASH_DEPOSIT_RECEIPT");
-        fileBody.append("file", proofFile);
-        const upload = await fetch("/api/driver/private-media", { method: "POST", body: fileBody });
-        const media = await upload.json();
-        if (!upload.ok || typeof media.publicReference !== "string") {
-          throw Error(media.error ?? "The deposit slip upload failed. No remittance was submitted.");
+        // File metadata alone is not proof identity: two different deposits
+        // may have the same filename and length. Hash the actual bytes.
+        const digest = Array.from(new Uint8Array(
+          await crypto.subtle.digest("SHA-256", await proofFile.arrayBuffer()),
+        )).map(byte => byte.toString(16).padStart(2, "0")).join("");
+        if (op.proofDigest && op.proofDigest !== digest) {
+          op = { payload: encoded, id: crypto.randomUUID(), proofDigest: digest };
+          operations.current.set(key, op);
         }
-        submission.privateMediaReference = media.publicReference;
+        op.proofDigest = digest;
+        if (!op.proofReference) {
+          const fileBody = new FormData();
+          fileBody.append("purpose", "DRIVER_CASH_DEPOSIT_RECEIPT");
+          fileBody.append("file", proofFile);
+          const upload = await fetch("/api/driver/private-media", { method: "POST", body: fileBody });
+          const media = await upload.json();
+          if (!upload.ok || typeof media.publicReference !== "string") {
+            throw Error(media.error ?? "The deposit slip upload failed. No remittance was submitted.");
+          }
+          // Retain the source-owned reference until a confirmed command
+          // response; retry cannot manufacture a second receipt.
+          op.proofReference = media.publicReference;
+        }
+        if (!op.proofReference) throw Error("Deposit slip upload was not confirmed.");
+        submission.privateMediaReference = op.proofReference;
       }
       const response = await fetch(url, {
         method: "POST",
