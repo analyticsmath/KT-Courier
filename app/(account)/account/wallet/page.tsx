@@ -1,6 +1,7 @@
 import { customerRefundWalletDisplayState } from "@/lib/services/customer-wallet-presentation";
 import { listCustomerRecentPayments } from "@/lib/services/customer-recent-payments.service";
 import { EditorialTable, MetricTile, OperationalPanel, ProtectedState } from "@/components/protected-v2";
+import { CustomerLoyaltyWalletPanel } from "@/components/customer/CustomerLoyaltyWalletPanel";
 import { CustomerAction, CustomerPage } from "@/components/protected-v2/customer/CustomerPresentation";
 import { formatCustomerDateTime, formatCustomerMoney } from "@/lib/customer-presentation/customer-order-presentation";
 import { requireAuth } from "@/lib/auth/guards";
@@ -16,7 +17,7 @@ export default async function CustomerWalletPage() {
 
   const walletState = customerRefundWalletDisplayState(wallet);
   return (
-    <CustomerPage eyebrow="Customer funds" title="Wallet" description="Source-backed refund credits held for your account in ZAR.">
+    <CustomerPage eyebrow="Customer funds" title="Wallet" description="Your ZAR customer wallet, refunds and independently verified loyalty rewards.">
       {walletState !== "AVAILABLE" ? (
         <ProtectedState
           kind={walletState === "EMPTY" ? "empty" : "unavailable"}
@@ -27,7 +28,7 @@ export default async function CustomerWalletPage() {
         />
       ) : <>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <MetricTile label="Available balance" value={formatCustomerMoney(wallet.availableBalance, wallet.currency)} description="Refund credits available in this read-only wallet" />
+          <MetricTile label="Available balance" value={formatCustomerMoney(wallet.availableBalance, wallet.currency)} description="Ledger-backed refund and reward credits" />
           <MetricTile label="Refunds being held" value={formatCustomerMoney(wallet.refundHeldBalance, wallet.currency)} description="Reserved refunds are not spendable" />
         </div>
         <OperationalPanel title="Recent wallet activity" action={<CustomerAction href="/account/wallet/transactions">View all activity</CustomerAction>}>
@@ -44,6 +45,7 @@ export default async function CustomerWalletPage() {
           />
         </OperationalPanel>
       </>}
+      <CustomerLoyaltyWalletPanel />
       <OperationalPanel title="Recent payments" description="Actual parcel and marketplace payment records, separate from your refund-credit wallet. Test transactions are identified as sandbox payments.">
         <EditorialTable
           caption="Recent payments"
@@ -60,7 +62,7 @@ export default async function CustomerWalletPage() {
           ]}
         />
       </OperationalPanel>
-      <OperationalPanel title="Wallet boundary"><p className="text-sm leading-6 text-[var(--eo-text-secondary)]">This wallet is read-only. It cannot be topped up, transferred, withdrawn, or used at checkout in the current product state.</p></OperationalPanel>
+      <OperationalPanel title="Wallet boundary"><p className="text-sm leading-6 text-[var(--eo-text-secondary)]">Your wallet may receive qualifying refunds and redeemed loyalty credits. It cannot currently be topped up, transferred, withdrawn, or used at parcel or marketplace checkout.</p></OperationalPanel>
     </CustomerPage>
   );
 }
