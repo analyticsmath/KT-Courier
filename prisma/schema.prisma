@@ -14757,8 +14757,8 @@ model CustomerLoyaltyEarning {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  account   CustomerLoyaltyAccount  @relation(fields: [userId], references: [userId], onDelete: Restrict)
-  payment   Payment                 @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  account   CustomerLoyaltyAccount  @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyEarning_account_fkey")
+  payment   Payment                 @relation(fields: [paymentId], references: [id], onDelete: Restrict, map: "CustomerLoyaltyEarning_payment_fkey")
   movements CustomerLoyaltyMovement[]
 
   @@index([userId, createdAt])
@@ -14777,8 +14777,8 @@ model CustomerLoyaltyRedemption {
   journalId            String   @unique
   createdAt            DateTime @default(now())
 
-  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict)
-  journal LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyRedemption_account_fkey")
+  journal LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict, map: "CustomerLoyaltyRedemption_journal_fkey")
 
   @@unique([userId, operationId])
   @@index([userId, createdAt])
@@ -14795,8 +14795,8 @@ model CustomerLoyaltyMovement {
   policySnapshot       Json
   createdAt            DateTime @default(now())
 
-  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict)
-  earning CustomerLoyaltyEarning @relation(fields: [paymentId], references: [paymentId], onDelete: Restrict)
+  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyMovement_account_fkey")
+  earning CustomerLoyaltyEarning @relation(fields: [paymentId], references: [paymentId], onDelete: Restrict, map: "CustomerLoyaltyMovement_earning_fkey")
 
   @@unique([paymentId, revision])
   @@index([userId, createdAt])
