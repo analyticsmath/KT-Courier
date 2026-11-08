@@ -7,7 +7,7 @@
     "permissionGatedRoutes": 532,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 222,
-    "generatedAt": "2026-11-08T05:18:35.176Z"
+    "generatedAt": "2026-11-08T06:15:46.860Z"
   },
   "serverActions": [],
   "routes": [
@@ -3638,7 +3638,7 @@
         "cod_operations.manage"
       ],
       "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
