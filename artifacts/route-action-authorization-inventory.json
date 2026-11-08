@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 780,
+    "totalRoutes": 781,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 679,
-    "permissionGatedRoutes": 532,
+    "authenticatedRoutes": 680,
+    "permissionGatedRoutes": 533,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 222,
-    "generatedAt": "2026-11-08T06:15:46.860Z"
+    "rateLimitedRoutes": 223,
+    "generatedAt": "2026-11-08T21:34:55.936Z"
   },
   "serverActions": [],
   "routes": [
@@ -8431,6 +8431,23 @@
         "users.read"
       ],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/users/[id]/wallet-credit/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",

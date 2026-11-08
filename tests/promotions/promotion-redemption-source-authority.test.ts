@@ -28,8 +28,8 @@ const payment = () => ({
     type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR",
     totalDebits: money("50.00"), totalCredits: money("50.00"),
     entries: [
-      { direction: "DEBIT", amount: money("50.00"), account: { code: "PLATFORM-CASH-CLEARING-ZAR" } },
-      { direction: "CREDIT", amount: money("50.00"), account: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" } },
+      { direction: "DEBIT", amount: money("50.00"), account: { code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET" } },
+      { direction: "CREDIT", amount: money("50.00"), account: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY" } },
     ],
   },
 });
