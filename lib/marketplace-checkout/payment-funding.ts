@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { MarketplaceCheckoutError } from "./errors";
+import { isCanonicalExternalPaymentReceipt } from "@/lib/payments/canonical-external-receipt";
 
 /** Provider status alone is insufficient: the same verified receipt must credit
  * the platform's held funds for precisely the digital allocation. */
@@ -8,12 +9,12 @@ export function assertMarketplaceDigitalReceipt(payment: unknown, required: stri
     status?: string; amount?: Prisma.Decimal; currency?: string; subjectType?: string;
     successfulAttempt?: { id?: string; status?: string; amount?: Prisma.Decimal } | null;
     successWebhookEvent?: { processingStatus?: string; signatureVerified?: boolean; merchantVerified?: boolean; amountVerified?: boolean; providerDataVerified?: boolean } | null;
-    successLedgerJournal?: { type?: string; currency?: string; totalDebits?: Prisma.Decimal; totalCredits?: Prisma.Decimal; entries?: { direction: string; amount: Prisma.Decimal; account: { code: string } }[] } | null;
+    successLedgerJournal?: { type?: string; currency?: string; totalDebits?: Prisma.Decimal; totalCredits?: Prisma.Decimal; entries?: { direction: string; amount: Prisma.Decimal; account: { code: string; purpose: string; category: string } }[] } | null;
   } | null;
   const r = p?.successLedgerJournal, w = p?.successWebhookEvent;
   const expected = new Prisma.Decimal(required);
-  const credited = r?.entries?.filter(e => e.direction === "CREDIT" && e.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR").reduce((sum,e) => sum.add(e.amount),new Prisma.Decimal(0));
-  if (!p || p.subjectType !== "MARKETPLACE_CHECKOUT" || p.status !== "SUCCEEDED" || p.currency !== "ZAR" || !p.amount?.equals(expected) || p.successfulAttempt?.status !== "SUCCEEDED" || !w || w.processingStatus !== "APPLIED" || !w.signatureVerified || !w.merchantVerified || !w.amountVerified || !w.providerDataVerified || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(expected) || !r.totalCredits?.equals(expected) || !credited?.equals(expected)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+  const funded = r?.entries && isCanonicalExternalPaymentReceipt({ amount: expected, entries: r.entries });
+  if (!p || p.subjectType !== "MARKETPLACE_CHECKOUT" || p.status !== "SUCCEEDED" || p.currency !== "ZAR" || !p.amount?.equals(expected) || p.successfulAttempt?.status !== "SUCCEEDED" || !w || w.processingStatus !== "APPLIED" || !w.signatureVerified || !w.merchantVerified || !w.amountVerified || !w.providerDataVerified || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(expected) || !r.totalCredits?.equals(expected) || !funded) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
 }
 export const marketplaceDigitalReceiptInclude = {
   successfulAttempt: true,

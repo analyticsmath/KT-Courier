@@ -8,7 +8,7 @@ import { assertCanonicalMarketplaceSettlement, settleMarketplaceStoreOrder, type
 
 const d = (v: string) => new Prisma.Decimal(v);
 const split = { version: "marketplace-payment-v1" as const, mode: "DEPOSIT_PLUS_COD" as const, authoritativeTotal: "200.00", digitalRequired: "100.00", cashRequired: "100.00", policyId: "policy-1", policyVersion: 1, policyEvidence: {} };
-const receipt = () => ({ status: "SUCCEEDED", subjectType: "MARKETPLACE_CHECKOUT", currency: "ZAR", amount: d("100.00"), successfulAttempt: { status: "SUCCEEDED" }, successWebhookEvent: { processingStatus: "APPLIED", signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true }, successLedgerJournal: { type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR", totalDebits: d("100.00"), totalCredits: d("100.00"), entries: [{ direction: "CREDIT", amount: d("100.00"), account: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" } }] } });
+const receipt = () => ({ status: "SUCCEEDED", subjectType: "MARKETPLACE_CHECKOUT", currency: "ZAR", amount: d("100.00"), successfulAttempt: { status: "SUCCEEDED" }, successWebhookEvent: { processingStatus: "APPLIED", signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true }, successLedgerJournal: { type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR", totalDebits: d("100.00"), totalCredits: d("100.00"), entries: [{ direction: "DEBIT", amount: d("100.00"), account: { code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET" } }, { direction: "CREDIT", amount: d("100.00"), account: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY" } }] } });
 const policyDb = (mode = "DEPOSIT_PLUS_COD") => ({ paymentMethodPolicy: { findMany: vi.fn().mockResolvedValue([{ id: "policy-1", versionNumber: 1, mode, storeId: "store-1", status: "ACTIVE", effectiveFrom: new Date(0), depositPercent: d("0.5"), maximumCodAmount: d("1000.00") }]) }, store: { findUnique: vi.fn().mockResolvedValue({ status: "ACTIVE", ownerUser: { status: "ACTIVE", emailVerifiedAt: new Date() } }) } });
 const context = { storeId: "store-1", total: "101.01", fulfilmentMode: "COURIER_DELIVERY", groupCount: 1 };
 
@@ -51,6 +51,27 @@ describe("marketplace deposit COD commercial and funding flow", () => {
     const paid = receipt(); expect(() => assertMarketplaceDigitalReceipt(paid,"100.00")).not.toThrow();
     paid.successLedgerJournal.entries[0].amount = d("99.99"); expect(() => assertMarketplaceDigitalReceipt(paid,"100.00")).toThrow();
     expect(() => assertMarketplaceDigitalReceipt(receipt(),"200.00")).toThrow();
+  });
+  it("rejects a forged or diverted provider clearing debit even when the journal appears balanced", () => {
+    const forged = receipt();
+    forged.successLedgerJournal.entries[0].account.code = "PLATFORM-UNRELATED-ASSET-ZAR";
+    expect(() => assertMarketplaceDigitalReceipt(forged, "100.00")).toThrow();
+    const wrongCategory = receipt();
+    wrongCategory.successLedgerJournal.entries[0].account.category = "LIABILITY";
+    expect(() => assertMarketplaceDigitalReceipt(wrongCategory, "100.00")).toThrow();
+    const wrongHeldPurpose = receipt();
+    wrongHeldPurpose.successLedgerJournal.entries[1].account.purpose = "AVAILABLE";
+    expect(() => assertMarketplaceDigitalReceipt(wrongHeldPurpose, "100.00")).toThrow();
+    const diverted = receipt();
+    diverted.successLedgerJournal.entries[1].amount = d("1.00");
+    diverted.successLedgerJournal.entries.push({
+      direction: "CREDIT", amount: d("99.00"),
+      account: { code: "PLATFORM-UNRELATED-HELD-ZAR", purpose: "HELD", category: "LIABILITY" },
+    });
+    expect(() => assertMarketplaceDigitalReceipt(diverted, "100.00")).toThrow();
+    const tooMany = receipt();
+    tooMany.successLedgerJournal.entries.push({ ...tooMany.successLedgerJournal.entries[0] });
+    expect(() => assertMarketplaceDigitalReceipt(tooMany, "100.00")).toThrow();
   });
   it("verifies driver custody and bank journals cannot be borrowed from another order", async () => {
     const entry = (code: string, direction: string) => ({ account: { code }, direction, amount: d("100.00") });
