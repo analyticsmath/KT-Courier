@@ -2,7 +2,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
 import { loadCustomerRewardPolicy } from "@/lib/rewards/customer-reward-configuration";
-import { earnedCustomerPoints } from "@/lib/rewards/customer-reward-policy";
+import {
+  centsToZar, earnedCustomerPoints, remainingEligibleCustomerLoyaltyCents,
+} from "@/lib/rewards/customer-reward-policy";
 import { reconcileLoyaltyPointBalance } from "@/lib/rewards/customer-loyalty-reconciliation";
 
 /** Reconcile trusted, completed parcel payments into NON-MONETARY points.
@@ -98,7 +100,11 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
     const revision = (prior?.revision ?? 0) + 1;
     const data = {
       recognizedPoints: expected, pointsPerZar,
-      eligibleBasisAmount: payment.amount.sub(order.pricingTaxAmount).sub(refunded),
+      eligibleBasisAmount: new Prisma.Decimal(centsToZar(remainingEligibleCustomerLoyaltyCents({
+        providerPaidZar: payment.amount.toFixed(2),
+        vatZar: order.pricingTaxAmount.toFixed(2),
+        refundedProviderZar: refunded.toFixed(2),
+      }))),
       vatAmount: order.pricingTaxAmount, refundedAmount: refunded, revision,
     };
     if (prior) await tx.customerLoyaltyEarning.update({ where: { paymentId }, data });

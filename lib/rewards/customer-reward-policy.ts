@@ -64,6 +64,33 @@ export function validateCustomerRewardPolicy(policy: CustomerRewardPolicy): Cust
   return Object.freeze({ ...policy });
 }
 
+/**
+ * Only the externally funded, non-VAT amount remaining after refunds earns
+ * points. Refunds ordinarily include VAT, so subtracting both original VAT
+ * and the gross refund double-counts VAT and rejects valid full refunds.
+ * Allocate original VAT proportionally to the remaining captured principal,
+ * rounding VAT cents half-up; this never creates points from refunded tax.
+ */
+export function remainingEligibleCustomerLoyaltyCents(input: Readonly<{
+  providerPaidZar: string;
+  vatZar: string;
+  refundedProviderZar: string;
+}>): bigint {
+  const paid = zarToCents(input.providerPaidZar);
+  const vat = zarToCents(input.vatZar);
+  const refunded = zarToCents(input.refundedProviderZar);
+  if (vat > paid || refunded > paid) {
+    throw new Error("VAT or refunds exceed verified external funding.");
+  }
+  if (paid === 0n || refunded === paid) return 0n;
+  const remainingGross = paid - refunded;
+  const remainingVat = (vat * remainingGross + paid / 2n) / paid;
+  if (remainingVat > remainingGross) {
+    throw new Error("Remaining VAT exceeds externally funded amount.");
+  }
+  return remainingGross - remainingVat;
+}
+
 export function earnedCustomerPoints(input: Readonly<{
   /** Captured ZAR from card/EFT, excluding wallet-funded payment. */
   providerPaidZar: string;
@@ -80,14 +107,13 @@ export function earnedCustomerPoints(input: Readonly<{
   if (!Number.isSafeInteger(input.pointsPerZar) || input.pointsPerZar < 0 || input.pointsPerZar > 1000) {
     throw new Error("Invalid loyalty points conversion rate.");
   }
-  const paid = zarToCents(input.providerPaidZar);
-  const vat = zarToCents(input.vatZar);
-  const refunded = zarToCents(input.refundedProviderZar);
-  if (vat > paid || refunded > paid || vat + refunded > paid) {
-    throw new Error("VAT and refunds exceed verified external funding.");
-  }
+  const eligibleCents = remainingEligibleCustomerLoyaltyCents({
+    providerPaidZar: input.providerPaidZar,
+    vatZar: input.vatZar,
+    refundedProviderZar: input.refundedProviderZar,
+  });
   if (!input.paymentVerified || !input.orderCompleted) return 0n;
-  return ((paid - vat - refunded) / 100n) * BigInt(input.pointsPerZar);
+  return (eligibleCents / 100n) * BigInt(input.pointsPerZar);
 }
 
 export function loyaltyWalletConversion(input: Readonly<{

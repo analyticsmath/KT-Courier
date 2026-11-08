@@ -5,7 +5,7 @@ import { SYSTEM_SETTING_CATALOG } from "@/lib/settings/catalog";
 import {
   centsToZar, DEFAULT_CUSTOMER_REWARD_POLICY, earnedCustomerPoints,
   firstStoreWelcomeDiscount, loyaltyWalletConversion,
-  ordinaryReferralReward, validateCustomerRewardPolicy, zarToCents,
+  remainingEligibleCustomerLoyaltyCents, ordinaryReferralReward, validateCustomerRewardPolicy, zarToCents,
 } from "@/lib/rewards/customer-reward-policy";
 
 describe("owner-controlled Phase 3 customer incentives", () => {
@@ -58,10 +58,20 @@ describe("owner-controlled Phase 3 customer incentives", () => {
     expect(earnedCustomerPoints(evidence)).toBe(100n);
     expect(earnedCustomerPoints({ ...evidence, paymentVerified: false })).toBe(0n);
     expect(earnedCustomerPoints({ ...evidence, orderCompleted: false })).toBe(0n);
-    expect(earnedCustomerPoints({ ...evidence, refundedProviderZar: "50.01" })).toBe(50n);
+    expect(earnedCustomerPoints({ ...evidence, refundedProviderZar: "50.01" })).toBe(51n);
     expect(earnedCustomerPoints({ ...evidence, providerPaidZar: "0.00", vatZar: "0.00" })).toBe(0n);
     expect(earnedCustomerPoints({ ...evidence, pointsPerZar: 2 })).toBe(200n);
-    expect(() => earnedCustomerPoints({ ...evidence, refundedProviderZar: "102.00" })).toThrow();
+    // A refund includes the original VAT portion; full and almost-full
+    // refunds are valid and must never leave positive spendable points.
+    expect(earnedCustomerPoints({ ...evidence, refundedProviderZar: "102.00" })).toBe(0n);
+    expect(earnedCustomerPoints({ ...evidence, refundedProviderZar: "102.99" })).toBe(0n);
+    expect(remainingEligibleCustomerLoyaltyCents({
+      ...evidence, refundedProviderZar: "102.99",
+    })).toBe(0n);
+    expect(remainingEligibleCustomerLoyaltyCents({
+      ...evidence, refundedProviderZar: "50.01",
+    })).toBe(5195n);
+    expect(() => earnedCustomerPoints({ ...evidence, refundedProviderZar: "103.00" })).toThrow();
     expect(() => earnedCustomerPoints({ ...evidence, vatZar: "103.00" })).toThrow();
   });
 
