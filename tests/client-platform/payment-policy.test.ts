@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import { Prisma } from "@prisma/client";
+import { INITIAL_HIGH_RISK_AREAS } from "@/lib/settings/high-risk-area-policy";
 import type { AuthenticatedUser } from "@/types/domain";
 const db = vi.hoisted(() => ({
   paymentMethodPolicy: {
@@ -355,10 +356,23 @@ describe("scoped cash payment policies", () => {
     })).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
   });
 
+  // Production cash requests must include independently mapped localities and
+  // the complete high-risk policy; missing geographic evidence fails closed.
+  const safeLocalities = {
+    originLocality: { city: "Johannesburg", suburb: "Rosebank", province: "Gauteng" },
+    destinationLocality: { city: "Johannesburg", suburb: "Bryanston", province: "Gauteng" },
+  };
+  const areaSettings = (key: string) => key === "delivery.high_risk_region_ids"
+    ? { type: "JSON", value: [] }
+    : key === "delivery.high_risk_areas"
+      ? { type: "JSON", value: INITIAL_HIGH_RISK_AREAS }
+      : null;
+
   it("requires documented independent approval before production 100% cash checkout", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("KT_RUNTIME_ENV", "production");
     try {
+      db.systemSetting.findUnique.mockImplementation(async (input: { where: { key: string } }) => areaSettings(input.where.key));
       db.paymentMethodPolicy.findMany.mockResolvedValue([{
         ...base, createdByUserId: "author", storeId: null,
         orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
@@ -368,7 +382,7 @@ describe("scoped cash payment policies", () => {
       }]);
       await expect(resolvePaymentBreakdown({
         orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
-        provinces: ["Gauteng"], authoritativeTotal: "179.00",
+        provinces: ["Gauteng"], authoritativeTotal: "179.00", ...safeLocalities,
       })).rejects.toMatchObject({ code: "COD_PRODUCTION_APPROVAL_REQUIRED" });
     } finally { vi.unstubAllEnvs(); }
   });
@@ -378,6 +392,7 @@ describe("scoped cash payment policies", () => {
     vi.stubEnv("KT_RUNTIME_ENV", "production");
     try {
       const date = new Date("2026-10-15T10:00:00.000Z");
+      db.systemSetting.findUnique.mockImplementation(async (input: { where: { key: string } }) => areaSettings(input.where.key));
       db.paymentMethodPolicy.findMany.mockResolvedValue([{
         ...base, createdByUserId: "author", storeId: null,
         orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
@@ -387,13 +402,13 @@ describe("scoped cash payment policies", () => {
           remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Bank receipt within 24 hours" },
       }]);
       const args = { orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
-        provinces: ["Gauteng"], authoritativeTotal: "179.00" };
+        provinces: ["Gauteng"], authoritativeTotal: "179.00", ...safeLocalities };
       await expect(resolvePaymentBreakdown(args)).rejects.toMatchObject({ code: "COD_REMITTANCE_NOT_CONFIGURED" });
       db.systemSetting.findUnique.mockImplementation(async (args: { where: { key: string } }) =>
         args.where.key === "client_cash_deposit_bank" ? {
           value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
           updatedAt: date,
-        } : null,
+        } : areaSettings(args.where.key),
       );
       expect(await resolvePaymentBreakdown(args)).toMatchObject({
         mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "179.00",

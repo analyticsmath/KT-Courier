@@ -168,7 +168,10 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         const scope = await db.marketplaceCheckout.findUnique({ where: { id: checkout.id }, include: { addressSnapshot: true } });
         const pickup = await db.store.findUnique({ where: { id: stored.storeId }, include: { defaultPickupAddress: true } });
         const total = group.lines.reduce((sum, line) => sum.add(line.lineTotal), new Prisma.Decimal(reviewedQuote?.deliveryFee ?? 0)).toFixed(2);
-        return { storeId: stored.storeId, plan: await resolveMarketplacePaymentPlan({ storeId: stored.storeId, orderType: "STORE", deliveryServiceId: quote?.deliveryType, deliveryServiceKey: quote?.deliveryType, regionId: quote?.destinationRegionId, provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))], total, fulfilmentMode: group.fulfilmentMode, groupCount: authority.length, promotionDiscount: result.promotionDiscount }, db) };
+        return { storeId: stored.storeId, plan: await resolveMarketplacePaymentPlan({ storeId: stored.storeId, orderType: "STORE", deliveryServiceId: quote?.deliveryType, deliveryServiceKey: quote?.deliveryType, regionId: quote?.destinationRegionId,
+          originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
+          destinationLocality: { city: scope?.addressSnapshot?.city, suburb: scope?.addressSnapshot?.suburb, province: scope?.addressSnapshot?.province },
+          provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))], total, fulfilmentMode: group.fulfilmentMode, groupCount: authority.length, promotionDiscount: result.promotionDiscount }, db) };
       }));
       const digitalRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.digitalRequired), new Prisma.Decimal(0)).toFixed(2);
       const cashRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.cashRequired), new Prisma.Decimal(0)).toFixed(2);

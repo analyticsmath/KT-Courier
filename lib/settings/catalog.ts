@@ -1,4 +1,5 @@
 import { SystemSettingType } from "@/types/db";
+import { INITIAL_HIGH_RISK_AREAS } from "@/lib/settings/high-risk-area-policy";
 
 export type SettingSensitivity = "PUBLIC" | "INTERNAL";
 export type SettingMutability = "MUTABLE" | "READ_ONLY";
@@ -44,6 +45,7 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "welcome.store.valid_days": mutable("welcome.store.valid_days", SystemSettingType.NUMBER, 7, { minimum: 1, maximum: 365 }),
   "welcome.store.minimum_order_zar": mutable("welcome.store.minimum_order_zar", SystemSettingType.NUMBER, 0, { minimum: 0, maximum: 1000000 }),
   "delivery.high_risk_region_ids": mutable("delivery.high_risk_region_ids", SystemSettingType.JSON, "[]"),
+  "delivery.high_risk_areas": mutable("delivery.high_risk_areas", SystemSettingType.JSON, JSON.stringify(INITIAL_HIGH_RISK_AREAS)),
   "pricing.quote_ttl_minutes": mutable("pricing.quote_ttl_minutes", SystemSettingType.STRING, "15"),
   "dispatch.assignment_offer_ttl_minutes": mutable("dispatch.assignment_offer_ttl_minutes", SystemSettingType.STRING, "10"),
   "dispatch.policy_version": mutable("dispatch.policy_version", SystemSettingType.STRING, "dispatch-v1"),

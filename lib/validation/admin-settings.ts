@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SystemSettingType } from "@/types/db";
 import { getSystemSettingDefinition } from "@/lib/settings/catalog";
+import { parseHighRiskAreas } from "@/lib/settings/high-risk-area-policy";
 
 // Keys that must never be stored in SystemSetting (enforced server-side).
 export const FORBIDDEN_SETTING_KEYS = [
@@ -62,17 +63,20 @@ export function validateSettingValue(
       if (value === "false") return { ok: true, value: false };
       return { ok: false, error: "Value must be true or false." };
 
-    case SystemSettingType.JSON:
-      if (typeof value === "object" && value !== null) return { ok: true, value };
+    case SystemSettingType.JSON: {
+      let parsed: unknown = value;
       if (typeof value === "string") {
-        try {
-          const parsed = JSON.parse(value);
-          return { ok: true, value: parsed };
-        } catch {
-          return { ok: false, error: "Value must be valid JSON." };
-        }
+        try { parsed = JSON.parse(value); }
+        catch { return { ok: false, error: "Value must be valid JSON." }; }
       }
+      if (key === "delivery.high_risk_areas") {
+        const riskAreas = parseHighRiskAreas(parsed);
+        if (!riskAreas) return { ok: false, error: "Each high-risk area requires unique ID, named locations, area notes, and enabled status." };
+        return { ok: true, value: riskAreas };
+      }
+      if (typeof parsed === "object" && parsed !== null) return { ok: true, value: parsed };
       return { ok: false, error: "Value must be a valid JSON object." };
+    }
 
     default:
       return { ok: false, error: "Unknown setting type." };
