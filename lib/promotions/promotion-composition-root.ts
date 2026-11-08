@@ -100,6 +100,14 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
     evaluate: async (input: PromotionEvaluationInput) => {
       assertPromotionsProductionReady('EVALUATION');
       const evaluatorDeps: PromotionEvaluationDependencies = {
+        fetchPriorCompletedOrdersCount: async (customerUserId: string) =>
+          prisma.marketplaceOrder.count({
+            where: {
+              customerUserId,
+              status: 'CONFIRMED',
+              payment: { status: 'SUCCEEDED', successLedgerJournalId: { not: null } },
+            },
+          }),
         fetchActiveCampaignVersions: async (now: Date) => {
           const activeVersions = await prisma.promotionCampaignVersion.findMany({
             where: {

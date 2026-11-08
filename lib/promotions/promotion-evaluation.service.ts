@@ -103,6 +103,8 @@ export interface PromotionEvaluationResult {
 export interface PromotionEvaluationDependencies {
   fetchActiveCampaignVersions(now: Date): Promise<CampaignVersionCandidate[]>;
   fetchCouponCampaignVersion?(codeHmac: string): Promise<CampaignVersionCandidate | null>;
+  // The first-order rule may only use verified historical paid-order state.
+  fetchPriorCompletedOrdersCount?(customerUserId: string): Promise<number>;
 }
 
 export async function evaluateMarketplacePromotions(
@@ -126,10 +128,18 @@ export async function evaluateMarketplacePromotions(
     }
   }
 
+  // Unavailable authoritative history must fail closed, never default to zero.
+  const needsHistory = candidates.some(candidate =>
+    candidate.eligibilityRules.some(rule => rule.rule === 'FIRST_MARKETPLACE_ORDER'));
+  let priorCompletedOrdersCount = Number.MAX_SAFE_INTEGER;
+  if (needsHistory && input.customerUserId && deps.fetchPriorCompletedOrdersCount) {
+    const count = await deps.fetchPriorCompletedOrdersCount(input.customerUserId);
+    if (Number.isSafeInteger(count) && count >= 0) priorCompletedOrdersCount = count;
+  }
   const eligibilityContext: EligibilityContext = {
     userId: input.customerUserId,
     isGuest: !input.customerUserId,
-    priorCompletedOrdersCount: 0, // Simplified for this stub
+    priorCompletedOrdersCount,
     hasActiveSubscription: !!input.subscriptionBenefitEvidence,
     deliveryRegion: input.deliveryQuotes[0]?.deliveryRegion || '',
     deliveryServiceType: input.deliveryQuotes[0]?.deliveryServiceType || '',
