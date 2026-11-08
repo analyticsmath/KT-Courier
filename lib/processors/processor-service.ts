@@ -59,6 +59,10 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "reconcile-customer-parcel-loyalty": async ({ mode, batchSize }) => {
+    const { runCustomerParcelLoyaltyBatch } = await import("@/lib/rewards/customer-loyalty-batch");
+    return runCustomerParcelLoyaltyBatch({ mode, batchSize });
+  },
   "reconcile-expired-dispatch": async ({ mode, batchSize }) => {
     if (mode === "DRY_RUN") {
       const candidates = await prisma.orderAssignment.findMany({
