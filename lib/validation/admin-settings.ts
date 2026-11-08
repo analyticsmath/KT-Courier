@@ -35,10 +35,24 @@ export function validateSettingValue(
       return { ok: true, value: normalized };
 
     case SystemSettingType.NUMBER: {
-      const n = typeof value === "string" ? parseFloat(value) : value;
-      if (typeof n !== "number" || isNaN(n)) return { ok: false, error: "Value must be a number." };
+      // parseFloat("10junk") silently accepts malformed commercial settings.
+      // Refuse partial parses, exponent overflow and nonfinite numeric JSON.
+      const trimmed = typeof value === "string" ? value.trim() : "";
+      const n = typeof value === "string"
+        ? (/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(trimmed) ? Number(trimmed) : NaN)
+        : value;
+      if (typeof n !== "number" || !Number.isFinite(n)) return { ok: false, error: "Value must be a finite number." };
       if (definition?.minimum !== undefined && n < definition.minimum) return { ok: false, error: "Value is below the approved setting range." };
       if (definition?.maximum !== undefined && n > definition.maximum) return { ok: false, error: "Value is above the approved setting range." };
+      if (key === "loyalty.conversion_points" || key === "welcome.store.valid_days" || key === "loyalty.points_per_zar") {
+        if (!Number.isSafeInteger(n)) return { ok: false, error: "This setting must be a whole number." };
+      }
+      if (key?.startsWith("welcome.store.") || key?.startsWith("loyalty.") || key === "referral.reward_zar") {
+        const decimalText = typeof value === "string" ? trimmed : n.toString();
+        if (/e/i.test(decimalText) || (decimalText.split(".")[1]?.length ?? 0) > 2) {
+          return { ok: false, error: "Commercial amounts must use no more than two decimal places." };
+        }
+      }
       return { ok: true, value: n };
     }
 

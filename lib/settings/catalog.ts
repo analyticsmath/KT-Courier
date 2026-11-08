@@ -34,6 +34,15 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   // Seller merchandise taxes come from approved seller tax evidence, never here.
   "pricing.marketplace_vat.enabled": mutable("pricing.marketplace_vat.enabled", SystemSettingType.BOOLEAN, false),
   "pricing.marketplace_vat.rate": mutable("pricing.marketplace_vat.rate", SystemSettingType.NUMBER, 0.15, { minimum: 0, maximum: 1 }),
+  // Phase 3 commercial defaults are owner-editable. These amounts are policy
+  // snapshots, not permission to post cash or rewards without a qualifying order.
+  "loyalty.points_per_zar": mutable("loyalty.points_per_zar", SystemSettingType.NUMBER, 1, { minimum: 0, maximum: 1000 }),
+  "loyalty.conversion_points": mutable("loyalty.conversion_points", SystemSettingType.NUMBER, 100, { minimum: 1, maximum: 1000000 }),
+  "loyalty.conversion_wallet_zar": mutable("loyalty.conversion_wallet_zar", SystemSettingType.NUMBER, 2, { minimum: 0, maximum: 10000 }),
+  "referral.reward_zar": mutable("referral.reward_zar", SystemSettingType.NUMBER, 5, { minimum: 0, maximum: 1000 }),
+  "welcome.store.discount_zar": mutable("welcome.store.discount_zar", SystemSettingType.NUMBER, 50, { minimum: 0, maximum: 100000 }),
+  "welcome.store.valid_days": mutable("welcome.store.valid_days", SystemSettingType.NUMBER, 7, { minimum: 1, maximum: 365 }),
+  "welcome.store.minimum_order_zar": mutable("welcome.store.minimum_order_zar", SystemSettingType.NUMBER, 0, { minimum: 0, maximum: 1000000 }),
   "delivery.high_risk_region_ids": mutable("delivery.high_risk_region_ids", SystemSettingType.JSON, "[]"),
   "pricing.quote_ttl_minutes": mutable("pricing.quote_ttl_minutes", SystemSettingType.STRING, "15"),
   "dispatch.assignment_offer_ttl_minutes": mutable("dispatch.assignment_offer_ttl_minutes", SystemSettingType.STRING, "10"),
