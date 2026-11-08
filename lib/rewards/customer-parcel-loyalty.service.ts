@@ -6,6 +6,7 @@ import {
   centsToZar, earnedCustomerPoints, remainingEligibleCustomerLoyaltyCents,
 } from "@/lib/rewards/customer-reward-policy";
 import { reconcileLoyaltyPointBalance } from "@/lib/rewards/customer-loyalty-reconciliation";
+import { isCanonicalCustomerPaymentReceipt } from "@/lib/rewards/customer-financial-evidence";
 
 /** Reconcile trusted, completed parcel payments into NON-MONETARY points.
  * Caller supplies identifiers only; money, refund, webhook and ledger
@@ -44,16 +45,18 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
     const totalEntryAmount = (direction: "DEBIT" | "CREDIT") => journal?.entries
       .filter(entry => entry.direction === direction)
       .reduce((total, entry) => total.plus(entry.amount), new Prisma.Decimal(0)) ?? new Prisma.Decimal(0);
-    const hasHeldCredit = journal?.entries.some(entry => entry.direction === "CREDIT"
-      && entry.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"
-      && entry.account.category === "LIABILITY");
+    // Only full-value clearing-to-held receipts can produce loyalty. A
+    // partial or rerouted held credit is not provider-funding evidence.
+    const hasCanonicalFunding = journal
+      ? isCanonicalCustomerPaymentReceipt({ amount: payment.amount, entries: journal.entries })
+      : false;
     const attempt = payment.successfulAttempt;
     if (payment.status !== "SUCCEEDED" || !payment.providerConfirmedAt || !payment.succeededAt
       || !journal || journal.type !== "EXTERNAL_PAYMENT_RECEIPT"
       || journal.currency !== payment.currency || journal.correlationId !== payment.publicReference
       || !journal.totalDebits.equals(payment.amount) || !journal.totalCredits.equals(payment.amount)
       || !totalEntryAmount("DEBIT").equals(payment.amount) || !totalEntryAmount("CREDIT").equals(payment.amount)
-      || !hasHeldCredit
+      || !hasCanonicalFunding
       || !webhook || webhook.paymentId !== paymentId || webhook.processingStatus !== "APPLIED"
       || webhook.provider !== payment.provider || !webhook.sourceAddressVerified
       || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified
