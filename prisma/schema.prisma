@@ -3131,6 +3131,7 @@ enum LedgerAccountPurpose {
   SUBSCRIPTION_DEFERRED_REVENUE
   SUBSCRIPTION_TAX_PAYABLE
   MANAGED_MARKETING_TAX_PAYABLE
+  CUSTOMER_LOYALTY_REWARDS_EXPENSE
 }
 
 enum LedgerAccountCategory {
@@ -3171,6 +3172,7 @@ enum LedgerJournalType {
   SUBSCRIPTION_INVOICE_SETTLEMENT
   SUBSCRIPTION_REVENUE_RECOGNITION
   SUBSCRIPTION_REFUND_REVERSAL
+  CUSTOMER_LOYALTY_CONVERSION
 }
 
 enum LedgerEntryDirection {
@@ -3287,6 +3289,7 @@ model LedgerJournal {
   createdBy                       User?                                 @relation("LedgerJournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   originalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
   reversalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal")
+  loyaltyRedemption                CustomerLoyaltyRedemption?
   successfulForPayment            Payment?                              @relation("PaymentSuccessLedgerJournal")
   webhookEvent                    PaymentWebhookEvent?                  @relation("WebhookLedgerJournal")
   withdrawalReserve               WithdrawalRequest?                    @relation("WithdrawalReserveLedgerJournal")
@@ -14737,6 +14740,7 @@ model CustomerLoyaltyAccount {
   user      User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
   earnings  CustomerLoyaltyEarning[]
   movements CustomerLoyaltyMovement[]
+  redemptions CustomerLoyaltyRedemption[]
 
   @@index([availablePoints])
 }
@@ -14757,6 +14761,26 @@ model CustomerLoyaltyEarning {
   payment   Payment                 @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   movements CustomerLoyaltyMovement[]
 
+  @@index([userId, createdAt])
+}
+
+// Points and spendable customer wallet credit must move atomically.
+model CustomerLoyaltyRedemption {
+  id                   String   @id @default(cuid())
+  userId               String
+  operationId          String
+  pointsRedeemed       BigInt
+  availablePointsAfter BigInt
+  walletCreditAmount   Decimal  @db.Decimal(18, 2)
+  pointsRequired       Int
+  walletRateAmount     Decimal  @db.Decimal(18, 2)
+  journalId            String   @unique
+  createdAt            DateTime @default(now())
+
+  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict)
+  journal LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, operationId])
   @@index([userId, createdAt])
 }
 

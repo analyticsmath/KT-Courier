@@ -40,6 +40,7 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "loyalty.points_per_zar": mutable("loyalty.points_per_zar", SystemSettingType.NUMBER, 1, { minimum: 0, maximum: 1000 }),
   "loyalty.conversion_points": mutable("loyalty.conversion_points", SystemSettingType.NUMBER, 100, { minimum: 1, maximum: 1000000 }),
   "loyalty.conversion_wallet_zar": mutable("loyalty.conversion_wallet_zar", SystemSettingType.NUMBER, 2, { minimum: 0, maximum: 10000 }),
+  "loyalty.conversion_enabled": mutable("loyalty.conversion_enabled", SystemSettingType.BOOLEAN, false),
   "referral.reward_zar": mutable("referral.reward_zar", SystemSettingType.NUMBER, 5, { minimum: 0, maximum: 1000 }),
   "welcome.store.discount_zar": mutable("welcome.store.discount_zar", SystemSettingType.NUMBER, 50, { minimum: 0, maximum: 100000 }),
   "welcome.store.valid_days": mutable("welcome.store.valid_days", SystemSettingType.NUMBER, 7, { minimum: 1, maximum: 365 }),

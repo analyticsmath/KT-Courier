@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 779,
+    "totalRoutes": 780,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 678,
+    "authenticatedRoutes": 679,
     "permissionGatedRoutes": 532,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 221,
-    "generatedAt": "2026-11-08T04:38:06.943Z"
+    "rateLimitedRoutes": 222,
+    "generatedAt": "2026-11-08T05:13:53.218Z"
   },
   "serverActions": [],
   "routes": [
@@ -73,6 +73,26 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/account/loyalty/redeem/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE",
+        "DRIVER",
+        "ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/account/loyalty/route.ts",
       "httpMethods": [
         "GET"
@@ -86,7 +106,7 @@
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
-      "idempotencyEnforced": false,
+      "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",

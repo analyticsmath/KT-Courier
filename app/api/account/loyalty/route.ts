@@ -1,11 +1,11 @@
+import { SystemSettingType } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { unauthorized, forbidden, ok, serverError } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
 import { loadCustomerRewardPolicy } from "@/lib/rewards/customer-reward-configuration";
 
-/** Customer-scoped, read-only view of the independently verified point ledger.
- * No wallet payout or points conversion is enabled until a balanced ZAR
- * journal can be committed atomically with the point redemption.
+/** Private ledger-backed points, rewards and conversion receipts. Wallet
+ * conversion remains OFF until the owner deliberately enables the setting.
  */
 export async function GET() {
   const customer = await getCurrentUser();
@@ -14,7 +14,7 @@ export async function GET() {
     return forbidden("Loyalty balances are available only to active customer accounts.");
   }
   try {
-    const [account, policy] = await Promise.all([
+    const [account, policy, conversionSetting] = await Promise.all([
       prisma.customerLoyaltyAccount.findUnique({
         where: { userId: customer.id },
         include: {
@@ -22,9 +22,17 @@ export async function GET() {
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: 50,
           },
+          redemptions: {
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 50,
+          },
         },
       }),
       loadCustomerRewardPolicy(),
+      prisma.systemSetting.findUnique({
+        where: { key: "loyalty.conversion_enabled" },
+        select: { type: true, value: true },
+      }),
     ]);
     const response = ok({
       currency: "ZAR",
@@ -36,8 +44,16 @@ export async function GET() {
       conversion: {
         pointsRequired: policy.conversionPoints,
         walletRand: policy.conversionWalletZar,
-        enabled: false,
+        enabled: conversionSetting?.type === SystemSettingType.BOOLEAN && conversionSetting.value === true,
       },
+      redemptions: (account?.redemptions ?? []).map(redemption => ({
+        reference: redemption.id,
+        operationId: redemption.operationId,
+        pointsRedeemed: redemption.pointsRedeemed.toString(),
+        availablePointsAfter: redemption.availablePointsAfter.toString(),
+        walletCreditZar: redemption.walletCreditAmount.toFixed(2),
+        occurredAt: redemption.createdAt.toISOString(),
+      })),
       movements: (account?.movements ?? []).map(movement => ({
         reference: movement.id,
         changePoints: movement.deltaPoints.toString(),
