@@ -66,7 +66,10 @@ describe("new vendor publication through canonical commands", { timeout: 90_000 
     expect(await prisma.catalogProduct.count({ where: { sourceStoreId: f.store.id, status: "ACTIVE", publicationStatus: "PUBLISHED" } })).toBe(5);
     expect(await prisma.catalogMediaAsset.count({ where: { ownerStoreId: f.store.id, status: "READY", privacyInspectionPassed: true } })).toBe(10);
     expect(await prisma.catalogInventoryLevel.findMany({ where: { locationId: (await prisma.inventoryLocation.findUniqueOrThrow({ where: { publicReference: f.location.publicReference } })).id }, select: { onHand: true, reserved: true, available: true } })).toEqual(Array.from({ length: 5 }, () => ({ onHand: 7, reserved: 0, available: 7 })));
-    expect(await prisma.storefrontStoreDocument.findUniqueOrThrow({ where: { storeId: f.store.id } })).toMatchObject({ publicStatus: "ACTIVE", publishedOfferCount: 5 });
+    // Publishing valid products does not certify a store with no owned, verified
+    // collection address. Product documents may exist while the store remains
+    // unpurchasable, as required by the go-Live pickup/checkout policy.
+    expect(await prisma.storefrontStoreDocument.findUniqueOrThrow({ where: { storeId: f.store.id } })).toMatchObject({ publicStatus: "INELIGIBLE", publishedOfferCount: 5 });
     expect(await prisma.storefrontCategoryDocument.count({ where: { categoryId: { in: f.categories.map(category => category.id) }, productCount: { gt: 0 } } })).toBe(2);
   });
   it("refuses unreviewed offers, stale facts and vendor publication without activating anything", async () => {

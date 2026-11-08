@@ -1,10 +1,27 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Phase 20 delegates remain dynamic. */
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import { centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import { resolveAndAssertMarketplaceCheckoutOperation } from "@/lib/marketplace-checkout/composition-root";
 import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CheckoutOwner, CheckoutOperation } from "@/lib/marketplace-checkout/checkout.service";
 import { getMarketplaceCheckoutForOwner } from "@/lib/marketplace-checkout/checkout.service";
+
+/**
+ * Monetary values from authoritative quotes or Prisma DECIMAL(18, 2) fields.
+ * Never convert to IEEE-754 Number while calculating payable checkout totals.
+ */
+export function sumMarketplaceDeliveryAmounts(amounts: readonly (string | Prisma.Decimal)[]): string {
+  const cents = amounts.reduce<bigint>((total, amount) => {
+    const value = typeof amount === "string" ? amount : amount instanceof Prisma.Decimal && amount.decimalPlaces() <= 2 ? amount.toFixed(2) : "";
+    if (!/^(?:0|[1-9]\d*)\.\d{2}$/.test(value)) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "An authoritative checkout amount is invalid.");
+    }
+    return total + BigInt(parseZarToCents(value));
+  }, 0n);
+  return centsToZar(cents.toString());
+}
 
 export type DeliverySelectionInput = {
   reference: string;
@@ -83,10 +100,11 @@ export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySe
         throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The selected delivery quote is stale or does not match authoritative evidence.");
       }
 
-      const merchandise = Number(group.merchandiseSubtotal ?? 0);
-      const modifiers = Number(group.modifierSubtotal ?? 0);
-      const fee = Number(quote.fee);
-      const groupTotal = (merchandise + modifiers + fee).toFixed(2);
+      const groupTotal = sumMarketplaceDeliveryAmounts([
+        group.merchandiseSubtotal ?? "0.00",
+        group.modifierSubtotal ?? "0.00",
+        quote.fee,
+      ]);
 
       await (prisma as any).marketplaceCheckoutStoreGroup.update({
         where: { id: group.id },
@@ -107,10 +125,10 @@ export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySe
       where: { checkoutId: checkout.id },
     });
 
-    const feeTotal = updatedGroups.reduce((acc: number, g: any) => acc + Number(g.deliveryFee ?? 0), 0).toFixed(2);
-    const merchTotal = updatedGroups.reduce((acc: number, g: any) => acc + Number(g.merchandiseSubtotal ?? 0), 0).toFixed(2);
-    const modTotal = updatedGroups.reduce((acc: number, g: any) => acc + Number(g.modifierSubtotal ?? 0), 0).toFixed(2);
-    const grandTotal = (Number(merchTotal) + Number(modTotal) + Number(feeTotal)).toFixed(2);
+    const feeTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.deliveryFee ?? "0.00"));
+    const merchTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.merchandiseSubtotal ?? "0.00"));
+    const modTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.modifierSubtotal ?? "0.00"));
+    const grandTotal = sumMarketplaceDeliveryAmounts([merchTotal, modTotal, feeTotal]);
 
     const updatedCheckout = await checkouts.update({
       where: { id: checkout.id },

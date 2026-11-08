@@ -192,7 +192,7 @@ export async function geocodeSouthAfricanAddress(
       if (!requestedSuburb || !suburbMatches) return rejectForwardGeocode("GEOCODE_SUBURB_MISMATCH");
       const requestedPostalCode = address.postalCode?.trim() ?? "";
       const providerPostalCode = components.find(component => component.types?.includes("postal_code"))?.long_name?.trim();
-      if (!/^\\d{4}$/.test(requestedPostalCode) || providerPostalCode !== requestedPostalCode) return rejectForwardGeocode("GEOCODE_POSTAL_CODE_MISMATCH");
+      if (!/^\d{4}$/.test(requestedPostalCode) || providerPostalCode !== requestedPostalCode) return rejectForwardGeocode("GEOCODE_POSTAL_CODE_MISMATCH");
     }
     const city = normalizedCity(address.city);
     const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
