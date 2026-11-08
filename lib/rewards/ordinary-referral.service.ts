@@ -86,7 +86,8 @@ export async function getOrdinaryReferralCode(owner: OrdinaryReferralOwner) {
  * supplied by the HTTP caller. Promoter programme codes are not touched.
  */
 export async function createOrdinaryReferralCode(owner: OrdinaryReferralOwner) {
-  return withLedgerRetry(() => prisma.$transaction(async db => {
+  try {
+    return await withLedgerRetry(() => prisma.$transaction(async db => {
     const resolved = await resolveOwner(db, owner);
     const lock = 'ordinary-referral:' + resolved.ownerType + ':' + resolved.ownerId;
     await db.$queryRawUnsafe("SELECT 1::integer AS locked FROM pg_advisory_xact_lock(hashtextextended($1, 0))", lock);
@@ -107,7 +108,16 @@ export async function createOrdinaryReferralCode(owner: OrdinaryReferralOwner) {
       select: { code: true },
     });
     return { code: created.code, replayed: false };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+  } catch (error) {
+    // The unique owner/program index is authoritative if another transaction
+    // wins after our snapshot was taken. Resolve its code using a FRESH read,
+    // never reusing the failed serializable transaction's stale snapshot.
+    if ((error as { code?: string })?.code !== "P2002") throw error;
+    const winner = await getOrdinaryReferralCode(owner);
+    if (!winner) throw error;
+    return { code: winner.code, replayed: true };
+  }
 }
 
 /** Call only inside creation of the NEW target User's signup transaction.

@@ -60,6 +60,10 @@ describe("ordinary signup referral on a real isolated PostgreSQL database", () =
     expect(await prisma.referralCode.count({
       where: { ownerType: 'CUSTOMER', ownerId: ownerUserId },
     })).toBe(1);
+    await expect(prisma.referralCode.create({ data: {
+      ownerType: 'CUSTOMER', ownerId: ownerUserId, code: 'KTR-' + 'A'.repeat(24),
+      metadata: { program: 'ORDINARY_REFERRAL_V1' }, isActive: true,
+    } })).rejects.toThrow();
     const storeOwner = { userId: storeUserId, ownerType: 'STORE' as const, storeId };
     const storeIssued = await createOrdinaryReferralCode(storeOwner);
     storeCode = storeIssued.code;
