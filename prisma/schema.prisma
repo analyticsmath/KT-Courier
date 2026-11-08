@@ -183,6 +183,7 @@ model User {
   conversationMemberships              PlatformConversationMember[]
   conversationMessages                 PlatformConversationMessage[]
   deliveryReviews                      DeliveryReview[]
+  driverReviews                        DriverReview[]
   businessSupportAccesses              BusinessSupportAccess[]
   id                                   String                              @id @default(cuid())
   email                                String                              @unique
@@ -387,6 +388,7 @@ model UserPermission {
 }
 
 model DriverProfile {
+  driverReviews                DriverReview[]
   cashDeposits                DriverCashDeposit[]
   cashLimitAmount             Decimal                     @default(1000.00) @db.Decimal(18, 2)
   cashLimitRevision           Int                         @default(0)
@@ -705,6 +707,7 @@ model Order {
   platformConversations        PlatformConversation[]
   driverCashDeposits           DriverCashDeposit[]
   deliveryReview               DeliveryReview?
+  driverReview                 DriverReview?
   id                           String                               @id @default(cuid())
   orderNumber                  String                               @unique
   source                       OrderSource
@@ -14569,6 +14572,24 @@ model DeliveryReview {
 
   @@index([authorUserId, createdAt])
   @@index([storeId, createdAt])
+}
+
+/// A real post-delivery rating of the completing courier. Kept distinct from
+/// store/product and parcel delivery-experience reviews. One review per order.
+model DriverReview {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  authorUserId    String
+  driverProfileId String
+  rating          Int
+  body            String
+  createdAt       DateTime      @default(now())
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  author          User          @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  driver          DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+
+  @@index([driverProfileId, createdAt])
+  @@index([authorUserId, createdAt])
 }
 
 model DriverCashDeposit {
