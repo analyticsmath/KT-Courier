@@ -30,6 +30,10 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "orders.max_parcel_count": mutable("orders.max_parcel_count", SystemSettingType.NUMBER, 10, { minimum: 1, maximum: 100 }),
   "pricing.vat.enabled": mutable("pricing.vat.enabled", SystemSettingType.BOOLEAN, false),
   "pricing.vat.rate": mutable("pricing.vat.rate", SystemSettingType.NUMBER, 0.15, { minimum: 0, maximum: 1 }),
+  // Marketplace VAT is a separately authorized platform delivery-fee switch.
+  // Seller merchandise taxes come from approved seller tax evidence, never here.
+  "pricing.marketplace_vat.enabled": mutable("pricing.marketplace_vat.enabled", SystemSettingType.BOOLEAN, false),
+  "pricing.marketplace_vat.rate": mutable("pricing.marketplace_vat.rate", SystemSettingType.NUMBER, 0.15, { minimum: 0, maximum: 1 }),
   "delivery.high_risk_region_ids": mutable("delivery.high_risk_region_ids", SystemSettingType.JSON, "[]"),
   "pricing.quote_ttl_minutes": mutable("pricing.quote_ttl_minutes", SystemSettingType.STRING, "15"),
   "dispatch.assignment_offer_ttl_minutes": mutable("dispatch.assignment_offer_ttl_minutes", SystemSettingType.STRING, "10"),

@@ -45,7 +45,7 @@ export async function createMarketplaceMatrixQuote(owner: { ownerType: PricingQu
   const negotiatedRate = selectedService && parcelClassification.sizeClass
     ? await activePersonalizedDeliveryRate({ ownerType: "STORE", ownerId: owner.storeId }, selectedService.stableKey, parcelClassification.sizeClass)
     : null;
-  const configuration = await getPricingConfiguration();
+  const configuration = await getPricingConfiguration("MARKETPLACE");
   const snapshot = pricingInputSnapshot(input);
   const courier = selectedService ? calculateMarketplaceCourierTariff({ service: selectedService, parcel: parcelClassification, distanceMeters: route.route.distanceMeters, durationSeconds: route.route.durationSeconds, regionContext: { origin: byId.get(zones[0].regionId!)!, destination: byId.get(zones[1].regionId!)! }, tax: configuration.tax, negotiatedRate }) : null;
   const subtotal = courier?.calculation.subtotal ?? new Prisma.Decimal(tariff!.fee);
