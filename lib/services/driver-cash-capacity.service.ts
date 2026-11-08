@@ -41,22 +41,33 @@ export async function assertDriverCashCapacityForAssignment(tx: CashTx, driverId
   const requested = Prisma.Decimal.max(cod.cashObligation.sub(cod.cashCollected), new Prisma.Decimal(0));
   if (requested.isZero()) return;
   const { limit, held } = await driverAndHeld(tx, driverId);
+  const reserved = await reservedOtherCashAssignments(tx, driverId, orderId);
+  rejectIfOverCap(held, reserved, requested, limit);
+}
+
+/** The same pending-assignment exposure is relevant at offer and collection.
+ * Exclude the order currently being processed so its obligation is counted
+ * exactly once, as `requested`, rather than as both requested and reserved.
+ */
+async function reservedOtherCashAssignments(tx: CashTx, driverId: string, orderId: string): Promise<Prisma.Decimal> {
   const assigned = await tx.orderAssignment.findMany({
     where: { driverProfileId: driverId, status: { in: ["ASSIGNED", "ACCEPTED"] }, orderId: { not: orderId } },
     select: { order: { select: { cashOnDelivery: { select: { cashObligation: true, cashCollected: true, status: true } } } } },
   });
-  const reserved = assigned.reduce((sum, row) => {
+  return assigned.reduce((sum, row) => {
     const previous = row.order.cashOnDelivery;
     if (!previous || ["CANCELLED", "RECONCILED"].includes(previous.status)) return sum;
     return sum.add(Prisma.Decimal.max(previous.cashObligation.sub(previous.cashCollected), new Prisma.Decimal(0)));
   }, new Prisma.Decimal(0));
-  rejectIfOverCap(held, reserved, requested, limit);
 }
 
-/** Defense in depth: a legacy assignment cannot collect above its driver's limit. */
-export async function assertDriverCashCapacityForCollection(tx: CashTx, driverId: string, requestedAmount: Prisma.Decimal): Promise<void> {
+/** Defense in depth: cash collection must respect other outstanding offers.
+ * Locking the driver row serializes this check with concurrent assignments.
+ */
+export async function assertDriverCashCapacityForCollection(tx: CashTx, driverId: string, orderId: string, requestedAmount: Prisma.Decimal): Promise<void> {
   const { limit, held } = await driverAndHeld(tx, driverId);
-  rejectIfOverCap(held, new Prisma.Decimal(0), requestedAmount, limit);
+  const reserved = await reservedOtherCashAssignments(tx, driverId, orderId);
+  rejectIfOverCap(held, reserved, requestedAmount, limit);
 }
 
 /** The limit is audited and protected against stale admin form submissions. */

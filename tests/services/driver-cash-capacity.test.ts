@@ -32,7 +32,23 @@ describe("strict cash-in-hand driver limits", () => {
   });
   it("rejects collection beyond the cap even when a legacy assignment bypassed normal offers", async () => {
     const tx = fixture({ held: "999.99" });
-    await expect(assertDriverCashCapacityForCollection(tx as never, "driver", new Prisma.Decimal("0.02"))).rejects.toBeInstanceOf(DriverCashLimitError);
+    await expect(assertDriverCashCapacityForCollection(tx as never, "driver", "current-order", new Prisma.Decimal("0.02"))).rejects.toBeInstanceOf(DriverCashLimitError);
+  });
+  it("rejects collection when held cash plus other active cash assignments would exceed the limit", async () => {
+    const tx = fixture({ held: "900.00", prior: "100.00", limit: "1000.00" });
+    await expect(assertDriverCashCapacityForCollection(tx as never, "driver", "current-order", new Prisma.Decimal("25.00")))
+      .rejects.toMatchObject({
+        code: "DRIVER_CASH_LIMIT_EXCEEDED", held: "900.00", reserved: "100.00",
+        requested: "25.00", limit: "1000.00",
+      });
+    expect(tx.orderAssignment.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ orderId: { not: "current-order" } }),
+    }));
+  });
+  it("allows collecting an assigned order exactly at the remaining driver cash limit", async () => {
+    const tx = fixture({ held: "700.00", prior: "200.00", limit: "1000.00" });
+    await expect(assertDriverCashCapacityForCollection(tx as never, "driver", "current-order", new Prisma.Decimal("100.00")))
+      .resolves.toBeUndefined();
   });
   it("a zero limit disables cash handling, not online delivery", async () => {
     const tx = fixture({ amount: "1.00", limit: "0.00" });

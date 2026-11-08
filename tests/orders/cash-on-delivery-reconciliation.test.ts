@@ -28,6 +28,7 @@ vi.mock("@/lib/db/prisma", () => {
     driverProfile: {
       findUnique: vi.fn(async () => ({ id: "drv_001", status: "ACTIVE", cashLimitAmount: new Prisma.Decimal("1000.00") })),
     },
+    orderAssignment: { findMany: vi.fn(async () => []) },
     cashOnDeliveryReconciliation: { findUnique: vi.fn(async () => null) },
     cashOnDeliveryEvent: { findUnique: vi.fn(async () => null) },
     cashOnDelivery: {
