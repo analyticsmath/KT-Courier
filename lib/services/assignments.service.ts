@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
+import { assertDriverCashCapacityForAssignment } from "@/lib/services/driver-cash-capacity.service";
 import { OrderAssignmentStatus, OrderAssignmentEventType, DriverStatus } from "@/types/db";
 import type { PrismaClient } from "@prisma/client";
 import {
@@ -144,6 +145,8 @@ export async function createAssignmentInTx(
   if (!readiness.dispatchEligible) {
     throw new Error("Payment is not ledger-confirmed for this courier order. Dispatch is blocked.");
   }
+  // Cash exposure cannot be bypassed by an availability override.
+  await assertDriverCashCapacityForAssignment(tx, params.driverProfileId, params.orderId);
   const assignment = await tx.orderAssignment.create({
     data: {
       orderId: params.orderId,

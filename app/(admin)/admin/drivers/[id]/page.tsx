@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DriverDetailsConsole } from "@/components/admin/DriverDetailsConsole";
+import { DriverCashLimitEditor } from "@/components/admin/DriverCashLimitEditor";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedContentGrid, ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
@@ -20,17 +21,18 @@ function driverTone(status: string) { return status === "ACTIVE" ? "success" as 
 export default async function AdminDriverDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAdminPagePermission(PERMISSIONS.DRIVERS_READ);
   const { id } = await params;
-  const [driver, canUpdate, canManageStatus, canManageRegions] = await Promise.all([
+  const [driver, canUpdate, canManageStatus, canManageRegions, canManageCash] = await Promise.all([
     getDriverDetail(id),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DRIVERS_UPDATE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DRIVERS_STATUS_MANAGE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DRIVERS_REGIONS_MANAGE }),
+    hasPermission({ userId: user.id, role: user.role, permissionKey: "cod_operations.manage" }),
   ]);
   if (!driver) notFound();
   const fullConsole = canUpdate && canManageStatus && canManageRegions;
 
   if (fullConsole) {
-    const [allRegions, rawLogs, readiness, rawAssignments] = await Promise.all([
+    const [allRegions, rawLogs, readiness, rawAssignments, cashLimit] = await Promise.all([
       listDeliveryRegions(),
       prisma.adminActivityLog.findMany({ where: { entityType: "Driver", entityId: id }, include: { actorUser: { select: { email: true, name: true } } }, orderBy: { createdAt: "desc" } }),
       evaluateDriverReadiness(id).catch(() => null),
@@ -55,6 +57,7 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
           },
         },
       }).catch(() => []),
+      canManageCash ? prisma.driverProfile.findUnique({ where: { id }, select: { cashLimitAmount: true, cashLimitRevision: true } }) : null,
     ]);
 
     const recentAssignments = rawAssignments.map((a) => ({
@@ -86,6 +89,10 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
             readiness={readiness}
             recentAssignments={recentAssignments}
           />
+          {canManageCash && cashLimit && <OperationalPanel title="Driver cash custody limit">
+            <DriverCashLimitEditor driverId={id} initialAmount={cashLimit.cashLimitAmount.toFixed(2)}
+              initialRevision={cashLimit.cashLimitRevision} />
+          </OperationalPanel>}
       </ProtectedPageFrame>
     );
   }

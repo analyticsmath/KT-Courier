@@ -18,6 +18,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
     key: string,
     url: string,
     payload: Record<string, string>,
+    proofFile?: File,
   ) {
     setBusy(key);
     setError("");
@@ -29,10 +30,27 @@ export function DriverCash({ summary }: { summary: Summary }) {
       operations.current.set(key, op);
     }
     try {
+      const submission = { ...payload };
+      if (payload.remittanceMethod === "BANK_DEPOSIT") {
+        if (!proofFile) throw Error("Upload your bank deposit slip before submitting.");
+        if (proofFile.size <= 0 || proofFile.size > 10 * 1024 * 1024
+            || !["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(proofFile.type)) {
+          throw Error("Upload a JPEG, PNG, WebP or PDF deposit slip of no more than 10 MB.");
+        }
+        const fileBody = new FormData();
+        fileBody.append("purpose", "DRIVER_CASH_DEPOSIT_RECEIPT");
+        fileBody.append("file", proofFile);
+        const upload = await fetch("/api/driver/private-media", { method: "POST", body: fileBody });
+        const media = await upload.json();
+        if (!upload.ok || typeof media.publicReference !== "string") {
+          throw Error(media.error ?? "The deposit slip upload failed. No remittance was submitted.");
+        }
+        submission.privateMediaReference = media.publicReference;
+      }
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, operationId: op.id }),
+        body: JSON.stringify({ ...submission, operationId: op.id }),
       });
       const body = await response.json();
       if (!response.ok)
@@ -71,6 +89,14 @@ export function DriverCash({ summary }: { summary: Summary }) {
           </div>
         ))}
       </dl>
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Cash assignment limit</h2>
+        <div className="rounded-xl border border-[var(--kt-border)] bg-white p-5 text-sm">
+          <p>Approved limit: <strong>R {summary.cashCapacity.limit}</strong> · Available capacity: <strong>R {summary.cashCapacity.remaining}</strong></p>
+          <p className="mt-2">Cash in custody: R {summary.cashCapacity.held} · Reserved for offered deliveries: R {summary.cashCapacity.reserved} · Total exposure: R {summary.cashCapacity.exposure}</p>
+          {summary.cashCapacity.atLimit && <p role="status" className="mt-2 font-semibold text-[var(--kt-red)]">Cash limit reached. No new COD delivery may be assigned until the bank deposit is independently verified and reconciled.</p>}
+        </div>
+      </section>
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-[var(--kt-brand-navy)]">Return collected cash to KT Couriers</h2>
         {bank ? (
@@ -153,7 +179,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
                       amount: order.cashCollected,
                       bankReference: String(data.get("bankReference") ?? ""),
                       remittanceMethod: remittanceChoice[order.orderId] ?? "BANK_DEPOSIT",
-                    });
+                    }, data.get("depositProof") instanceof File ? data.get("depositProof") as File : undefined);
                   }}
                 >
                   <fieldset className="space-y-2"><legend className="text-sm font-semibold text-[var(--kt-brand-navy)]">How will you return this cash?</legend><div className="flex flex-wrap gap-3">
@@ -175,6 +201,15 @@ export function DriverCash({ summary }: { summary: Summary }) {
                       maxLength={120}
                     />
                   </div>
+                  {(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "BANK_DEPOSIT" && (
+                    <div className="max-w-xl">
+                      <Label htmlFor={`proof-${order.orderId}`}>Bank deposit slip (required)</Label>
+                      <input id={`proof-${order.orderId}`} name="depositProof" type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+                        required className="mt-2 block w-full rounded-lg border border-[var(--kt-border)] bg-white p-3 text-sm" />
+                      <p className="mt-2 text-xs text-[var(--kt-text-soft)]">Stored privately. Only you and authorised KT cash reviewers can open this evidence. Max 10 MB.</p>
+                    </div>
+                  )}
                   <p className="text-sm leading-6 text-[var(--kt-text-soft)]">{(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "IN_PERSON" ? "Enter an agreed handover reference. Your cash remains in custody until an authorised administrator physically receives and confirms it." : "Use the real bank transaction reference. Your cash remains in custody until KT Couriers verifies bank receipt."}</p>
                   <Button type="submit" disabled={busy !== null} loading={busy === `deposit:${order.orderId}`}>
                     {(remittanceChoice[order.orderId] ?? "BANK_DEPOSIT") === "IN_PERSON" ? `Request handover of R ${order.cashCollected}` : `Submit R ${order.cashCollected} deposit`}
@@ -204,6 +239,7 @@ export function DriverCash({ summary }: { summary: Summary }) {
                   {new Date(d.createdAt).toLocaleDateString()}
                 </time>
               </p>
+              {d.proofReference && <a className="mt-2 block text-sm underline" href={`/api/private-media/${encodeURIComponent(d.proofReference)}`}>View your private bank deposit receipt</a>}
               {d.reviewNote && <p className="mt-2 text-sm">{d.reviewNote}</p>}
             </article>
           ))

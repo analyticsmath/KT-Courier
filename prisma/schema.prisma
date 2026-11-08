@@ -388,6 +388,8 @@ model UserPermission {
 
 model DriverProfile {
   cashDeposits                DriverCashDeposit[]
+  cashLimitAmount             Decimal                     @default(1000.00) @db.Decimal(18, 2)
+  cashLimitRevision           Int                         @default(0)
   id                          String                      @id @default(cuid())
   userId                      String                      @unique
   displayName                 String?
@@ -1292,6 +1294,7 @@ model PrivateMediaObject {
   version                          Int                               @default(1)
   createdAt                        DateTime                          @default(now())
   updatedAt                        DateTime                          @updatedAt
+  cashDepositProof                 DriverCashDeposit?                @relation("DriverCashDepositProof")
   driverDocument                   DriverDocument?                   @relation("DriverDocumentPrivateMedia")
   vehicleDocument                  VehicleDocument?                  @relation("VehicleDocumentPrivateMedia")
   vehicleMedia                     VehicleMedia?                     @relation("VehicleMediaPrivateMedia")
@@ -1608,6 +1611,7 @@ enum PrivateMediaPurpose {
   DRIVER_IDENTITY_DOCUMENT
   DRIVER_LICENCE
   DRIVER_PROFILE_PHOTO
+  DRIVER_CASH_DEPOSIT_RECEIPT
   VEHICLE_REGISTRATION
   VEHICLE_LICENCE_DISC
   VEHICLE_INSURANCE
@@ -14548,6 +14552,8 @@ model DriverCashDeposit {
   // Legacy deposits default to bank transfer. Physical handover needs separate evidence.
   remittanceMethod String        @default("BANK_DEPOSIT")
   bankReference    String
+  privateMediaObjectId String? @unique
+  privateMediaObject PrivateMediaObject? @relation("DriverCashDepositProof", fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
   operationId      String        @unique
   status           String        @default("PENDING")
   reviewedByUserId String?

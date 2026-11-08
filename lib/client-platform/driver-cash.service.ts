@@ -18,9 +18,13 @@ export const DepositSchema = z
       ),
     bankReference: z.string().trim().min(4).max(120),
     remittanceMethod: z.enum(["BANK_DEPOSIT", "IN_PERSON"]).optional(),
+    privateMediaReference: z.string().regex(/^PMO-[0-9a-f-]{36}$/i).optional(),
     operationId: z.string().regex(/^[A-Za-z0-9_-]{12,100}$/),
   })
-  .strict();
+  .strict()
+  .refine(v => (v.remittanceMethod ?? "BANK_DEPOSIT") === "IN_PERSON" || Boolean(v.privateMediaReference), {
+    path: ["privateMediaReference"], message: "Upload the original deposit slip before submitting the bank remittance.",
+  });
 export const DepositReviewSchema = z
   .object({
     decision: z.enum(["CONFIRM", "REJECT"]),
@@ -51,6 +55,7 @@ async function activeDriver(userId: string) {
     select: {
       id: true,
       status: true,
+      cashLimitAmount: true,
       user: { select: { role: true, status: true } },
     },
   });
@@ -149,7 +154,7 @@ export async function driverCashSummary(userId: string) {
       { order: { currentDriverProfileId: driver.id } },
     ],
   };
-  const [collected, custody, rows, actionableRows, deposits, bankInstructions] =
+  const [collected, custody, rows, actionableRows, deposits, bankInstructions, assignedCash] =
     await Promise.all([
       prisma.cashOnDelivery.aggregate({
         where: { collectorDriverId: driver.id },
@@ -192,6 +197,7 @@ export async function driverCashSummary(userId: string) {
           remittanceMethod: true,
           status: true,
           reviewNote: true,
+          privateMediaObject: { select: { publicReference: true, status: true } },
           createdAt: true,
           reviewedAt: true,
         },
@@ -199,6 +205,14 @@ export async function driverCashSummary(userId: string) {
         take: 100,
       }),
       readBankInstructions(),
+      // An accepted/offered cash delivery consumes the same cap as currency
+      // physically held. Never show misleading free capacity by omitting it.
+      prisma.orderAssignment.findMany({
+        where: { driverProfileId: driver.id, status: { in: ["ASSIGNED", "ACCEPTED"] } },
+        select: { order: { select: { cashOnDelivery: {
+          select: { cashObligation: true, cashCollected: true, status: true },
+        } } } },
+      }),
     ]);
   // Combine actionable work with recent history using order identity, without
   // displaying duplicate records or altering the authoritative aggregate sums.
@@ -221,7 +235,23 @@ export async function driverCashSummary(userId: string) {
       })
     : [];
   const remittedOrderIds = new Set(activeRemittances.map((r) => r.orderId));
+  const cashLimit = driver.cashLimitAmount ?? new Prisma.Decimal("1000.00");
+  const heldAmount = custody._sum.currentBalance ?? new Prisma.Decimal(0);
+  const reservedAmount = assignedCash.reduce((sum, assignment) => {
+    const cod = assignment.order.cashOnDelivery;
+    if (!cod || ["CANCELLED", "RECONCILED"].includes(cod.status)) return sum;
+    return sum.add(Prisma.Decimal.max(cod.cashObligation.sub(cod.cashCollected), new Prisma.Decimal(0)));
+  }, new Prisma.Decimal(0));
+  const exposure = heldAmount.add(reservedAmount);
   return {
+    cashCapacity: {
+      limit: cashLimit.toFixed(2),
+      held: heldAmount.toFixed(2),
+      reserved: reservedAmount.toFixed(2),
+      exposure: exposure.toFixed(2),
+      remaining: Prisma.Decimal.max(cashLimit.sub(exposure), new Prisma.Decimal(0)).toFixed(2),
+      atLimit: exposure.greaterThanOrEqualTo(cashLimit),
+    },
     totals: {
       collected: (
         collected._sum.cashCollected ?? new Prisma.Decimal(0)
@@ -255,6 +285,8 @@ export async function driverCashSummary(userId: string) {
     })),
     deposits: deposits.map((d) => ({
       ...d,
+      proofReference: d.privateMediaObject?.publicReference ?? null,
+      privateMediaObject: undefined,
       amount: d.amount.toFixed(2),
       createdAt: d.createdAt.toISOString(),
       reviewedAt: d.reviewedAt?.toISOString() ?? null,
@@ -287,7 +319,9 @@ export async function submitDriverDeposit(
           prior.orderId !== input.orderId ||
           !prior.amount.equals(amount) ||
           prior.bankReference !== input.bankReference ||
-          prior.remittanceMethod !== method
+          prior.remittanceMethod !== method ||
+          (method === "BANK_DEPOSIT" && prior.privateMediaObjectId !==
+            (await tx.privateMediaObject.findUnique({ where: { publicReference: input.privateMediaReference! }, select: { id: true } }))?.id)
         )
           throw new PlatformError(
             "DEPOSIT_OPERATION_CONFLICT",
@@ -317,8 +351,31 @@ export async function submitDriverDeposit(
         );
       if (await tx.driverCashDeposit.findFirst({ where: { orderId: input.orderId, status: { in: ["PENDING", "PROCESSING", "CONFIRMED"] } } }))
         throw new PlatformError("CASH_DEPOSIT_ALREADY_SUBMITTED", "This delivery already has a deposit awaiting review or confirmed receipt.", 409);
+      let proofId: string | null = null;
+      if (method === "BANK_DEPOSIT") {
+        const proof = await tx.privateMediaObject.findUnique({
+          where: { publicReference: input.privateMediaReference! },
+          select: {
+            id: true, ownerType: true, ownerId: true, purpose: true,
+            status: true, detectedMimeType: true, byteSize: true, checksum: true,
+            createdByUserId: true,
+          },
+        });
+        if (!proof || proof.ownerType !== "DRIVER" || proof.ownerId !== driver.id
+          || proof.createdByUserId !== userId || proof.purpose !== "DRIVER_CASH_DEPOSIT_RECEIPT"
+          || proof.status !== "READY" || !proof.checksum || !proof.byteSize || !proof.detectedMimeType) {
+          throw new PlatformError("DEPOSIT_PROOF_NOT_VERIFIED",
+            "Upload a valid bank deposit slip to your private driver documents before submitting.", 422);
+        }
+        const used = await tx.driverCashDeposit.findFirst({ where: { privateMediaObjectId: proof.id }, select: { id: true } });
+        if (used) throw new PlatformError("DEPOSIT_PROOF_REUSED", "This deposit slip was already submitted for another deposit.", 409);
+        proofId = proof.id;
+      }
       const row = await tx.driverCashDeposit.create({
-        data: { ...input, amount, remittanceMethod: method, driverProfileId: driver.id },
+        data: {
+          orderId: input.orderId, bankReference: input.bankReference, operationId: input.operationId,
+          amount, remittanceMethod: method, driverProfileId: driver.id, privateMediaObjectId: proofId,
+        },
         select: { id: true, status: true },
       });
       await tx.adminActivityLog.create({
@@ -335,6 +392,8 @@ export async function submitDriverDeposit(
             orderId: input.orderId,
             driverProfileId: driver.id,
             amount: amount.toFixed(2),
+            proofId,
+            proofValidated: method === "BANK_DEPOSIT",
           },
         },
       });
@@ -388,6 +447,19 @@ export async function reviewDriverDeposit(
         throw new PlatformError("HANDOVER_RECEIPT_NOT_VERIFIED", "Confirm only after actually receiving and counting the cash in person.", 422);
       if (row.remittanceMethod !== "IN_PERSON" && !input.bankReceiptVerified)
         throw new PlatformError("BANK_RECEIPT_NOT_VERIFIED", "Confirm only after independently verifying the deposited funds on the bank statement.", 422);
+      // Legacy deposits are grandfathered for independent bank-statement review.
+      // New uploaded evidence must remain available and untampered through confirmation.
+      if (row.remittanceMethod === "BANK_DEPOSIT" && row.privateMediaObjectId) {
+        const proof = await tx.privateMediaObject.findUnique({
+          where: { id: row.privateMediaObjectId },
+          select: { status: true, purpose: true, ownerType: true, ownerId: true, checksum: true },
+        });
+        if (!proof || !["READY", "RETAINED"].includes(proof.status) ||
+            proof.purpose !== "DRIVER_CASH_DEPOSIT_RECEIPT" || proof.ownerType !== "DRIVER" ||
+            proof.ownerId !== row.driverProfileId || !proof.checksum) {
+          throw new PlatformError("DEPOSIT_PROOF_UNAVAILABLE", "The linked bank receipt is unavailable or no longer valid. Escalate to finance review.", 409);
+        }
+      }
     }
     if (row.status === "CONFIRMED" && input.decision === "CONFIRM") return row;
     if (row.status === "REJECTED" && input.decision === "REJECT") return row;
@@ -488,6 +560,7 @@ export async function listCashDeposits(user: AuthenticatedUser) {
   const related = {
     driver: { select: { driverCode: true, displayName: true } },
     order: { select: { orderNumber: true } },
+    privateMediaObject: { select: { publicReference: true, status: true } },
   } as const;
   // A recent-history limit must never hide unreviewed deposits. Prioritize
   // oldest pending finance work, then include recent completed/rejected history.
@@ -513,6 +586,8 @@ export async function listCashDeposits(user: AuthenticatedUser) {
     amount: r.amount.toFixed(2),
     bankReference: r.bankReference,
     remittanceMethod: r.remittanceMethod,
+    proofReference: r.privateMediaObject?.publicReference ?? null,
+    proofAvailable: r.privateMediaObject?.status === "READY",
     status: r.status,
     note: r.reviewNote,
     createdAt: r.createdAt.toISOString(),

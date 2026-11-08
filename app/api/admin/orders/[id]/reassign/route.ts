@@ -7,6 +7,7 @@ import { checkIpRateLimit, RATE_LIMITS, getClientIp } from "@/lib/security/rate-
 import { DispatchReassignSchema } from "@/lib/validation/assignment";
 import { reassignDispatchOrder } from "@/lib/services/dispatch-assignment.service";
 import { DispatchError } from "@/lib/dispatch/errors";
+import { DriverCashLimitError } from "@/lib/services/driver-cash-capacity.service";
 
 export async function POST(
   req: NextRequest,
@@ -48,6 +49,7 @@ export async function POST(
     const assignment = await reassignDispatchOrder(user.id, orderId, parsed.data);
     return ok({ assignmentId: assignment.id, status: assignment.status, version: assignment.version, expiresAt: assignment.expiresAt });
   } catch (err) {
+    if (err instanceof DriverCashLimitError) return conflict(err.message);
     if (err instanceof DispatchError) return conflict(err.message);
     console.error("[admin/orders/[id]/reassign POST]", err);
     return serverError();

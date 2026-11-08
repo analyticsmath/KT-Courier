@@ -53,7 +53,7 @@ function assertUpload(input: PrivateMediaUploadInput): string {
 }
 
 function assertPurposeOwner(ownerType: PrivateMediaOwnerType, purpose: PrivateMediaPurpose): void {
-  const driverPurposes = new Set<PrivateMediaPurpose>(["DRIVER_IDENTITY_DOCUMENT", "DRIVER_LICENCE", "DRIVER_PROFILE_PHOTO"]);
+  const driverPurposes = new Set<PrivateMediaPurpose>(["DRIVER_IDENTITY_DOCUMENT", "DRIVER_LICENCE", "DRIVER_PROFILE_PHOTO", "DRIVER_CASH_DEPOSIT_RECEIPT"]);
   const vehiclePurposes = new Set<PrivateMediaPurpose>(["VEHICLE_REGISTRATION", "VEHICLE_LICENCE_DISC", "VEHICLE_INSURANCE", "VEHICLE_COMPLIANCE_IMAGE"]);
   if (ownerType === "DRIVER" && driverPurposes.has(purpose)) return;
   if (ownerType === "VEHICLE" && vehiclePurposes.has(purpose)) return;
@@ -164,6 +164,12 @@ export class PrivateMediaService {
     const canDelete = ownsRecord || await hasPermission({ userId: input.actor.userId, role: input.actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_DELETE });
     if (!canDelete) throw new PrivateMediaPolicyError("PRIVATE_MEDIA_FORBIDDEN", 403, "You cannot delete this private media.");
     if (record.status === PrivateMediaStatus.DELETED) return this.safeMetadata(record);
+    // An attached cash receipt supports a financial custody and reconciliation
+    // audit. Ordinary self-service deletion cannot destroy active ledger evidence.
+    if (record.purpose === PrivateMediaPurpose.DRIVER_CASH_DEPOSIT_RECEIPT) {
+      const linked = await prisma.driverCashDeposit.findFirst({ where: { privateMediaObjectId: record.id }, select: { id: true } });
+      if (linked) throw new PrivateMediaPolicyError("DEPOSIT_PROOF_FINANCIAL_HOLD", 409, "This document is associated with a cash remittance. Request a governed retention review before deletion.");
+    }
     await prisma.privateMediaObject.update({ where: { id: record.id }, data: { status: PrivateMediaStatus.DELETE_REQUESTED, deleteRequestedAt: new Date(), version: { increment: 1 } } });
     try {
       await (record.storageProvider === CLOUDINARY_PRIVATE_IMAGE_CODE ? createCloudinaryPrivateImageStorageAdapter() : this.storage).delete(record.storageKey);
@@ -238,6 +244,14 @@ export class PrivateMediaService {
     if (ownerType === PrivateMediaOwnerType.PROOF_OF_DELIVERY &&
         (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN) &&
         await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.ORDERS_READ })) return true;
+    // Cash receipts are private finance evidence: only the owning driver and
+    // independently authorized COD finance reviewers may read them.
+    if (ownerType === PrivateMediaOwnerType.DRIVER && purpose === PrivateMediaPurpose.DRIVER_CASH_DEPOSIT_RECEIPT) {
+      const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });
+      if (owner?.userId === actor.userId) return true;
+      return (actor.role === UserRole.ADMIN || actor.role === UserRole.SUPER_ADMIN)
+        && await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: "cod_operations.manage" });
+    }
     if (actor.role === UserRole.SUPER_ADMIN || await hasPermission({ userId: actor.userId, role: actor.role, permissionKey: PERMISSIONS.PRIVATE_MEDIA_READ })) return true;
     if (ownerType === PrivateMediaOwnerType.DRIVER) {
       const owner = await prisma.driverProfile.findUnique({ where: { id: ownerId }, select: { userId: true } });

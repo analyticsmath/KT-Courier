@@ -7,7 +7,7 @@ import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-medi
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { parseBoundedMultipartRequest } from "@/lib/security/bounded-upload";
 
-const driverPurposes = new Set<PrivateMediaPurpose>(["DRIVER_IDENTITY_DOCUMENT", "DRIVER_LICENCE", "DRIVER_PROFILE_PHOTO"]);
+const driverPurposes = new Set<PrivateMediaPurpose>(["DRIVER_IDENTITY_DOCUMENT", "DRIVER_LICENCE", "DRIVER_PROFILE_PHOTO", "DRIVER_CASH_DEPOSIT_RECEIPT"]);
 const vehiclePurposes = new Set<PrivateMediaPurpose>(["VEHICLE_REGISTRATION", "VEHICLE_LICENCE_DISC", "VEHICLE_INSURANCE", "VEHICLE_COMPLIANCE_IMAGE"]);
 
 function failure(error: unknown) {

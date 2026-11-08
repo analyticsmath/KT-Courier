@@ -143,6 +143,12 @@ export function CashDepositReview({
               <time className="text-sm" dateTime={d.createdAt}>
                 {new Date(d.createdAt).toLocaleString()}
               </time>
+              {d.proofReference && d.proofAvailable && (
+                <a className="text-sm font-semibold underline" href={`/api/private-media/${encodeURIComponent(d.proofReference)}`}>Review uploaded bank-deposit slip</a>
+              )}
+              {d.remittanceMethod === "BANK_DEPOSIT" && !d.proofReference && (
+                <p role="status" className="text-sm text-[var(--kt-red)]">Legacy deposit without an uploaded slip. Independently verify cleared bank funds and record the exception before confirmation.</p>
+              )}
               {d.note && <p>{d.note}</p>}
               {["PENDING", "PROCESSING"].includes(d.status) && (
                 <form

@@ -19,6 +19,7 @@ const db = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   driverProfile: { findUnique: vi.fn() },
+  cashOnDelivery: { findUnique: vi.fn() },
   orderAssignmentEvent: { create: vi.fn() },
   orderOperationalEvent: { create: vi.fn() },
   adminActivityLog: { create: vi.fn() },
@@ -79,6 +80,7 @@ describe("dispatch assignment system actor attribution", () => {
       user: { role: "DRIVER", status: "ACTIVE" },
     });
     db.orderAssignment.count.mockResolvedValue(0);
+    db.cashOnDelivery.findUnique.mockResolvedValue(null);
     complianceMocks.evaluateDispatchComplianceEvidence.mockReturnValue({ eligible: true });
     eligibilityMocks.evaluateDriverEligibility.mockReturnValue({ eligible: true, reasons: [] });
     evidenceMocks.createDispatchCandidateEvaluationInTx.mockResolvedValue({ evaluationId: "eval-1" });
