@@ -6,8 +6,8 @@
     "authenticatedRoutes": 676,
     "permissionGatedRoutes": 531,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 220,
-    "generatedAt": "2026-10-26T23:56:27.076Z"
+    "rateLimitedRoutes": 221,
+    "generatedAt": "2026-11-08T01:52:36.554Z"
   },
   "serverActions": [],
   "routes": [
@@ -68,9 +68,9 @@
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
-      "originProtection": "READ_ONLY_AND_MUTATION_VALIDATION",
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Customer-only signed session; submitDriverReview verifies order ownership, completed final driver, and unique review."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/account/profile/route.ts",
@@ -404,7 +404,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "cod_operations.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -422,7 +424,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "cod_operations.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -440,7 +444,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "cod_operations.manage"
+      ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -1742,7 +1748,7 @@
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Requires both financial custody and driver update permission; serializable driver-row limit and revision check."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/admin/drivers/[id]/documents/[docId]/route.ts",
@@ -1803,7 +1809,7 @@
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Requires both permissions, contract evidence and optimistic revision; no compensation mutation."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/admin/drivers/[id]/regions/route.ts",
@@ -3819,7 +3825,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "cod_operations.manage"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -7287,7 +7295,11 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "store_orders.read",
+        "store_order_policies.manage",
+        "store_order_policies.approve"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
@@ -7305,7 +7317,9 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [],
+      "requiredPermissions": [
+        "store_orders.reconcile"
+      ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -7814,16 +7828,16 @@
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
-        "stores.read",
         "stores.approve",
-        "orders.read"
+        "orders.read",
+        "stores.read"
       ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
-      "originProtection": "ENFORCED_ON_MUTATIONS",
+      "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "GET requires stores.read; POST/PATCH require stores.approve and orders.read; distinct preparer and approver; fingerprint and SHA digest authority."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/admin/stores/[id]/featured/route.ts",
@@ -7863,7 +7877,7 @@
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "GET requires the stores.read administrator permission; the handler resolves the requested store from a validated admin session. This read-only response does not authorize store activation."
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
       "routePath": "app/api/admin/stores/[id]/route.ts",
