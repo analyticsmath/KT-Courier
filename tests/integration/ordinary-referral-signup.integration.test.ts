@@ -5,6 +5,7 @@ import {
   bindOrdinaryReferralAtSignup, createOrdinaryReferralCode, getOrdinaryReferralCode,
 } from "@/lib/rewards/ordinary-referral.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
+import { inspectOrdinaryReferralEligibility } from "@/lib/rewards/ordinary-referral-eligibility.service";
 
 describe("ordinary signup referral on a real isolated PostgreSQL database", () => {
   const ids: string[] = [];
@@ -95,5 +96,21 @@ describe("ordinary signup referral on a real isolated PostgreSQL database", () =
     expect(await prisma.ledgerJournal.count({
       where: { sourceReference: { startsWith: 'ORDINARY_REFERRAL:' } },
     })).toBe(0);
+  });
+
+  it("does not treat signup or an unverified account as an earned paid referral", async () => {
+    const pending = await prisma.referralEvent.findFirstOrThrow({
+      where: { targetUserId: firstCustomerId, source: 'ORDINARY_SIGNUP' },
+      select: { id: true },
+    });
+    expect(await inspectOrdinaryReferralEligibility(pending.id)).toMatchObject({
+      eligible: false, reason: 'INELIGIBLE_REFERRAL', qualifyingPaymentId: null,
+    });
+    await prisma.user.update({
+      where: { id: firstCustomerId }, data: { status: 'ACTIVE' },
+    });
+    expect(await inspectOrdinaryReferralEligibility(pending.id)).toMatchObject({
+      eligible: false, reason: 'NO_SUCCESSFUL_PAYMENT', qualifyingPaymentId: null,
+    });
   });
 });

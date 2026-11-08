@@ -93,6 +93,9 @@ describe("ordinary referral signup authority and anti-abuse", () => {
     mocks.userFindUnique.mockResolvedValueOnce({ id: "new-user", role: "CUSTOMER", email: "new@example.test", phone: "0711111111" });
     await expect(bindOrdinaryReferralAtSignup(tx as never, { code, targetUserId: "new-user", targetType: "CUSTOMER" }))
       .rejects.toMatchObject({ code: "SELF_REFERRAL" });
+    mocks.userFindUnique.mockResolvedValueOnce({ id: "new-user", role: "CUSTOMER", email: "new@example.test", phone: "+27 71 111 1111" });
+    await expect(bindOrdinaryReferralAtSignup(tx as never, { code, targetUserId: "new-user", targetType: "CUSTOMER" }))
+      .rejects.toMatchObject({ code: "SELF_REFERRAL" });
     expect(mocks.eventCreate).not.toHaveBeenCalled();
   });
 

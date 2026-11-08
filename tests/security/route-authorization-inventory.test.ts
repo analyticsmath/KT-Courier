@@ -130,6 +130,18 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     });
   });
 
+  it("records dual finance/customer permissions for the read-only referral evidence API", () => {
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const route = artifact.routes.find((entry: { routePath: string }) =>
+      entry.routePath === "app/api/admin/referrals/[id]/eligibility/route.ts");
+    expect(route).toMatchObject({
+      httpMethods: ["GET"],
+      requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: expect.arrayContaining(["customers.read", "finance.read"]),
+      rateLimitingApplied: true,
+    });
+  });
+
   it("keeps the dispatch recovery route inventory truthful (method, role, permission, protections, idempotency)", () => {
     const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const entry = content.routes.find((r: any) => r.routePath === "app/api/admin/dispatch/recover/route.ts");

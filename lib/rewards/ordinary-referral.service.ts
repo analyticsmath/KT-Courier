@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import { sameReferralPhone } from "./ordinary-referral-phone";
 
 export const ORDINARY_REFERRAL_PROGRAM = "ORDINARY_REFERRAL_V1";
 export const ORDINARY_REFERRAL_SOURCE = "ORDINARY_SIGNUP";
@@ -158,8 +159,7 @@ export async function bindOrdinaryReferralAtSignup(
       }).then(row => row?.ownerUser ?? null);
   if (!referrer || referrer.id === target.id ||
       referrer.email.toLowerCase() === target.email.toLowerCase() ||
-      (target.phone && referrer.phone &&
-       target.phone.replace(/\D/g, "") === referrer.phone.replace(/\D/g, ""))) {
+      sameReferralPhone(target.phone, referrer.phone)) {
     throw new OrdinaryReferralError("SELF_REFERRAL", "Referral attribution is not eligible.");
   }
   const previous = await db.referralEvent.findFirst({

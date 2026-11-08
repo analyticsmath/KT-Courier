@@ -29,3 +29,31 @@ Do not treat these APIs or database receipts as a financial launch approval.
 5. Certify exact-source application/browser/database tests and independently approve production financial settings and provider contract.
 
 The existing engineering release register contains nine open or validation-blocked launch gates. None are marked implemented by this work. Do not merge main or deploy to Railway/Vercel while required gates remain unresolved.
+
+
+## Source-backed payment eligibility continuation (read-only)
+
+The admin GET endpoint /api/admin/referrals/[id]/eligibility requires both
+customers.read and finance.read and returns an explicit non-authorization
+response. It never posts referral money, advances referral status, or bypasses
+a release/finance gate. The code is intended to underpin the future audited
+R5 payout processor, not authorize it.
+
+Validation uses the first successful source payment from the actual referred
+account, and checks exact full-value provider clearing/held double-entry
+journals, linked verified webhooks, signatures, source addresses, merchant
+and attempt identity, real PRODUCTION (not sandbox) environment, no refund
+reservation/completion or payment dispute, and completed delivery. Courier
+COD must be fully reconciled. Marketplace orders must be fully digitally paid
+with every store group settled and physically delivered. Orders without
+complete financial and fulfilment evidence remain ineligible.
+
+The referrer identity is rechecked at inspection time; phone aliases in
+South African +27 / 0027 / local 0 formats are treated as the same number.
+Any completed payment predating original referral attribution fails closed.
+Tests cover negative forged/partial money receipts, sandbox evidence,
+refund/dispute, split-cash, incomplete multi-store delivery and owner access.
+
+**NO monetary disbursement has been implemented**: posting, reversal/debt,
+store-spend and customer-spend remain release-blocking work, and operator
+approval is required before real R5 wallet credit.
