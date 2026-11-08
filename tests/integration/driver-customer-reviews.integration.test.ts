@@ -80,7 +80,18 @@ describe("real courier reviews are exclusively for customer-owned completed deli
       id: admin.id, role: "SUPER_ADMIN", status: "ACTIVE", email: admin.email, name: null,
     } as never);
     expect(report.recent).toEqual(expect.arrayContaining([
-      expect.objectContaining({ driverId: driver.id, orderNumber: order.orderNumber, rating: 5 }),
+      expect.objectContaining({ driverId: driver.id, customerId: customer.id, orderNumber: order.orderNumber, rating: 5 }),
     ]));
+    const specific = await getAdminDriverReviewOverview({
+      id: admin.id, role: "SUPER_ADMIN", status: "ACTIVE", email: admin.email, name: null,
+    } as never, { orderNumber: order.orderNumber, driverId: driver.id, customerId: customer.id, rating: 5, page: 1 });
+    expect(specific.filteredTotal).toBe(1);
+    expect(specific.recent).toHaveLength(1);
+    expect(specific.recent[0]).toMatchObject({ customerId: customer.id, driverId: driver.id, orderNumber: order.orderNumber });
+    const mismatch = await getAdminDriverReviewOverview({
+      id: admin.id, role: "SUPER_ADMIN", status: "ACTIVE", email: admin.email, name: null,
+    } as never, { orderNumber: order.orderNumber, rating: 1 });
+    expect(mismatch.filteredTotal).toBe(0);
+    expect(mismatch.recent).toHaveLength(0);
   });
 });
