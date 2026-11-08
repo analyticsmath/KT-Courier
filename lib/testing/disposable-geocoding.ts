@@ -2,7 +2,18 @@ import { isDisposableBrowserValidationAllowed } from "./safe-postgres-validator"
 import type { GeocodableSouthAfricanAddress, TrustedCoordinates } from "@/lib/maps/geocode.service";
 
 export function southAfricanAddressQuery(address: GeocodableSouthAfricanAddress): string {
-  return [address.line1, address.line2, address.suburb, address.city, address.province, address.postalCode, "South Africa"].filter((value): value is string => Boolean(value?.trim())).map((value) => value.trim()).join(", ");
+  // A canonical store PICKUP persists its suburb in Address.line2. The
+  // verifier also supplies suburb=line2 for strict locality matching.
+  // Appending both produces "Central, Central", rejecting legitimate
+  // provider evidence and every exact-address disposable browser fixture.
+  const line2 = address.line2?.trim();
+  const suburb = address.suburb?.trim();
+  const normalized = (value: string | undefined) => value?.replace(/\s+/g, " ").toLocaleLowerCase("en-ZA");
+  return [
+    address.line1, line2,
+    suburb && normalized(suburb) !== normalized(line2) ? suburb : undefined,
+    address.city, address.province, address.postalCode, "South Africa",
+  ].filter((value): value is string => Boolean(value?.trim())).map(value => value.trim()).join(", ");
 }
 
 /** Undefined selects the real provider. Null is an explicit fixture rejection. */
