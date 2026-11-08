@@ -118,6 +118,18 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     });
   });
 
+  it("limits ordinary referrals to authenticated customer and store owners", () => {
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const referral = artifact.routes.find((row: { routePath: string }) =>
+      row.routePath === "app/api/account/referrals/route.ts");
+    expect(referral).toMatchObject({
+      httpMethods: ["GET", "POST"],
+      requiredRoles: ["CUSTOMER", "STORE"],
+      rateLimitingApplied: true,
+      bolaOwnershipValidated: true,
+    });
+  });
+
   it("keeps the dispatch recovery route inventory truthful (method, role, permission, protections, idempotency)", () => {
     const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const entry = content.routes.find((r: any) => r.routePath === "app/api/admin/dispatch/recover/route.ts");

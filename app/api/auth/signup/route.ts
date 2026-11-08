@@ -23,6 +23,7 @@ import { deliverSecurityEmail } from "@/lib/notifications/security-email-deliver
 import { checkAuthRateLimit, checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
+import { bindOrdinaryReferralAtSignup, OrdinaryReferralError } from "@/lib/rewards/ordinary-referral.service";
 import { issuePendingVerificationOtp } from "@/lib/notifications/pending-verification-otp";
 import {
   shouldQueueSecurityEmail,
@@ -205,6 +206,17 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // The optional ordinary customer/store attribution is bound atomically
+      // to the new account. It cannot be switched after signup, and it does
+      // not create a monetary reward without a verified first paid order.
+      if (data.accountType !== "DRIVER" && data.referralCode) {
+        await bindOrdinaryReferralAtSignup(tx, {
+          code: data.referralCode,
+          targetUserId: newUser.id,
+          targetType: data.accountType,
+        });
+      }
+
       const code = generateOtpCode();
       const otp = await tx.otpCode.create({
         data: {
@@ -246,6 +258,12 @@ export async function POST(req: NextRequest) {
     })
     .catch((error: unknown) => { transactionFailure = error; return null; });
 
+  if (!result && transactionFailure instanceof OrdinaryReferralError) {
+    return NextResponse.json(
+      { error: "The referral code is invalid or unavailable." },
+      { status: 422, headers: { "Cache-Control": "no-store" } },
+    );
+  }
   if (!result) return signupTransactionFailureResponse(transactionFailure, { securityEmailQueueFailed });
 
   let deliveryPending = false;

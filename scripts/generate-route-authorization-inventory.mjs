@@ -202,6 +202,13 @@ for (const file of routeFiles) {
     requiredRoles = ["CUSTOMER"];
   }
 
+  // Ordinary referral codes are shared between precisely two account roles.
+  // Store ownership is checked against the authenticated owner, not the
+  // caller-supplied store ID. Other account APIs retain their original scope.
+  if (relPath === "app/api/account/referrals/route.ts") {
+    requiredRoles = ["CUSTOMER", "STORE"];
+  }
+
   // Detect Idempotency. An `idempotencyKey` that the route declares optional/nullable is NOT
   // enforcement (callers may omit it and the mutation is then never deduplicated), so it does not
   // count unless another mandatory token (operationId / clientMutationId) is also present.

@@ -33,6 +33,8 @@ export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = safeAuthReturnUrl(searchParams.get("returnUrl"));
+  const ordinaryReferral = searchParams.get("ref")?.trim().toUpperCase() ?? "";
+  const referralCode = /^KTR-[A-F0-9]{24}$/.test(ordinaryReferral) ? ordinaryReferral : null;
   const invitationToken=searchParams.get("invite");
   const invitedStoreName=searchParams.get("storeName")||"";
   const invitedEmail=searchParams.get("email")||"";
@@ -60,6 +62,7 @@ export function SignupForm() {
       accountType === "customer"
         ? {
             accountType: "CUSTOMER",
+            ...(referralCode ? { referralCode } : {}),
             fullName: form.get("full_name") as string,
             email: form.get("email") as string,
             phone: form.get("phone") as string,
@@ -77,6 +80,7 @@ export function SignupForm() {
             }
           : {
               accountType: "STORE",
+              ...(referralCode ? { referralCode } : {}),
               ...(invitationToken?{inviteToken:invitationToken}:{}),
               storeName: form.get("business_name") as string,
               contactPerson: form.get("contact_person") as string,
