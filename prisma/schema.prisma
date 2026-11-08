@@ -3132,6 +3132,7 @@ enum LedgerAccountPurpose {
   SUBSCRIPTION_TAX_PAYABLE
   MANAGED_MARKETING_TAX_PAYABLE
   CUSTOMER_LOYALTY_REWARDS_EXPENSE
+  PLATFORM_PROMOTION_EXPENSE
 }
 
 enum LedgerAccountCategory {
@@ -6234,7 +6235,7 @@ model PromotionReservation {
 
   /// Committed promotion use after payment confirmation.
 
-  @@unique([operationId])
+  @@unique([operationId, campaignVersionId], map: "PromotionReservation_operation_campaign_key")
   @@index([campaignVersionId])
   @@index([promotionCodeId])
   @@index([checkoutId])
@@ -6274,7 +6275,7 @@ model PromotionRedemption {
 
   /// Exact line/store-level allocation evidence for financial tracing.
 
-  @@unique([operationId])
+  @@index([operationId])
   @@index([campaignVersionId])
   @@index([promotionCodeId])
   @@index([reservationId])

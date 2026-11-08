@@ -144,7 +144,7 @@ export const FOUNDATION_PLATFORM_LEDGER_ACCOUNTS = [
   },
   {
     code: "PLATFORM-PROMOTION-EXPENSE-ZAR",
-    purpose: "SUSPENSE",
+    purpose: "PLATFORM_PROMOTION_EXPENSE",
     category: "EXPENSE",
     currency: "ZAR",
     allowNegative: false,

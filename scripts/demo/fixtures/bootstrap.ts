@@ -167,7 +167,7 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     { code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY" },
     { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY" },
     { code: "PLATFORM-COMMISSION-REVENUE-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE" },
-    { code: "PLATFORM-PROMOTION-EXPENSE-ZAR", purpose: "SUSPENSE", category: "EXPENSE" },
+    { code: "PLATFORM-PROMOTION-EXPENSE-ZAR", purpose: "PLATFORM_PROMOTION_EXPENSE", category: "EXPENSE" },
   ];
 
   for (const la of ledgerAccountDefs) {

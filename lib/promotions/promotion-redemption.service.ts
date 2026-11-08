@@ -7,6 +7,9 @@ import type { LineAllocationEvidence } from './promotion-allocation-policy';
 import { createPlatformSubsidyJournal, type PromotionJournalIntent } from './promotion-ledger-policy';
 import { postLedgerJournalWithinTransaction } from '@/lib/services/ledger-posting.service';
 import { lockBudgets, lockCampaignVersions } from './promotion-repositories';
+import { ensureWalletForOwnerInTx, ensureLedgerAccountInTx } from '@/lib/services/wallet-account.service';
+import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from '@/lib/marketplace-checkout/payment-funding';
+import { PROMOTION_ACCOUNT_CODES } from '@/lib/promotions/promotion-ledger-policy';
 
 export interface RedemptionCommitInput {
   checkoutId: string;
@@ -50,55 +53,20 @@ type PrismaTransactionClient = Parameters<Parameters<import('@prisma/client').Pr
 const cuid = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
 async function getOrCreatePromotionLedgerAccounts(tx: PrismaTransactionClient) {
-  // Find or create platform wallet
-  let platformWallet = await tx.wallet.findUnique({
-    where: { ownerType_ownerId_currency: { ownerType: 'PLATFORM', ownerId: 'platform', currency: 'ZAR' } }
+  // Use canonical ledger purposes, account codes and a single platform wallet.
+  // Never create a second HELD-purpose account or allow negative customer
+  // liabilities: doing so breaks the existing marketplace settlement ledger.
+  const wallet = await ensureWalletForOwnerInTx(tx, {
+    ownerType: 'PLATFORM', ownerId: 'platform', currency: 'ZAR',
   });
-  if (!platformWallet) {
-    platformWallet = await tx.wallet.create({
-      data: {
-        ownerType: 'PLATFORM',
-        ownerId: 'platform',
-        currency: 'ZAR',
-        status: 'ACTIVE'
-      }
-    });
-  }
-
-  // Ensure Platform Promotion Expense account exists
-  let platformExpenseAccount = await tx.ledgerAccount.findFirst({
-    where: { code: 'PLATFORM_PROMOTION_EXPENSE' }
+  const platformExpenseAccount = await ensureLedgerAccountInTx(tx, {
+    walletId: wallet.id, code: PROMOTION_ACCOUNT_CODES.PLATFORM_EXPENSE,
+    purpose: 'PLATFORM_PROMOTION_EXPENSE', category: 'EXPENSE', currency: 'ZAR',
   });
-  if (!platformExpenseAccount) {
-    platformExpenseAccount = await tx.ledgerAccount.create({
-      data: {
-        walletId: platformWallet.id,
-        code: 'PLATFORM_PROMOTION_EXPENSE',
-        purpose: 'AVAILABLE',
-        category: 'EXPENSE',
-        currency: 'ZAR',
-        allowNegative: true
-      }
-    });
-  }
-
-  // Ensure Customer Funds Held account exists
-  let customerHeldAccount = await tx.ledgerAccount.findFirst({
-    where: { code: 'CUSTOMER_FUNDS_HELD' }
+  const customerHeldAccount = await ensureLedgerAccountInTx(tx, {
+    walletId: wallet.id, code: PROMOTION_ACCOUNT_CODES.CUSTOMER_FUNDS_HELD,
+    purpose: 'HELD', category: 'LIABILITY', currency: 'ZAR',
   });
-  if (!customerHeldAccount) {
-    customerHeldAccount = await tx.ledgerAccount.create({
-      data: {
-        walletId: platformWallet.id,
-        code: 'CUSTOMER_FUNDS_HELD',
-        purpose: 'HELD',
-        category: 'LIABILITY',
-        currency: 'ZAR',
-        allowNegative: true
-      }
-    });
-  }
-
   return { platformExpenseAccount, customerHeldAccount };
 }
 
@@ -108,6 +76,40 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
   if (input.paymentStatus !== 'SUCCEEDED') {
     throw new Error('Payment status must be SUCCEEDED');
   }
+  if (input.reservationIds.length === 0
+    || new Set(input.reservationIds).size !== input.reservationIds.length) {
+    throw new Error('Promotion commitment requires distinct reservation evidence.');
+  }
+
+  // Never treat the caller's paymentStatus as proof of funds. Require the
+  // canonical settled marketplace order, its accepted checkout fingerprint
+  // and the provider-verified receipt with the matching held-funds ledger.
+  const [checkout, marketplaceOrder, payment] = await Promise.all([
+    tx.marketplaceCheckout.findUnique({ where: { id: input.checkoutId } }),
+    tx.marketplaceOrder.findUnique({ where: { id: input.marketplaceOrderId } }),
+    tx.payment.findUnique({
+      where: { id: input.paymentId },
+      include: marketplaceDigitalReceiptInclude,
+    }),
+  ]);
+  if (!checkout || !marketplaceOrder || !payment
+    || marketplaceOrder.checkoutId !== input.checkoutId
+    || marketplaceOrder.paymentId !== input.paymentId
+    || marketplaceOrder.status !== 'CONFIRMED'
+    || marketplaceOrder.customerUserId !== checkout.customerUserId
+    || checkout.reviewVersion !== input.checkoutReviewVersion
+    || !checkout.acceptedFingerprint
+    || checkout.acceptedFingerprint !== input.acknowledgementFingerprint
+    || checkout.acceptedFingerprint !== marketplaceOrder.commercialFingerprint
+    || !checkout.reviewAcceptedAt
+    || payment.marketplaceCheckoutId !== input.checkoutId
+    || (payment.marketplaceOrderId && payment.marketplaceOrderId !== input.marketplaceOrderId)
+    || !marketplaceOrder.cashRequired.isZero()
+    || !marketplaceOrder.digitalRequired.equals(checkout.digitalRequired ?? checkout.grandTotal)
+    || !payment.amount.equals(marketplaceOrder.digitalRequired)) {
+    throw new Error('Promotion commitment needs source-owned accepted checkout, order and digital funding evidence.');
+  }
+  assertMarketplaceDigitalReceipt(payment, marketplaceOrder.digitalRequired.toFixed(2));
 
   // 1. Idempotency Check
   const existingRedemptions = await tx.promotionRedemption.findMany({
@@ -115,8 +117,15 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
   });
 
   if (existingRedemptions.length > 0) {
-    if (existingRedemptions[0].requestHash !== input.requestHash) {
-      throw new Error(`Conflict: Replay of operation ${input.operationId} with different hash.`);
+    if (existingRedemptions.length !== input.reservationIds.length
+      || existingRedemptions.some(row =>
+        row.requestHash !== input.requestHash
+        || row.checkoutId !== input.checkoutId
+        || row.marketplaceOrderId !== input.marketplaceOrderId
+        || row.status !== 'COMMITTED'
+        || !input.reservationIds.includes(row.reservationId)
+      )) {
+      throw new Error('Conflict: Promotion commitment replay does not match its financial source.');
     }
     return {
       redemptions: existingRedemptions.map(r => ({
@@ -150,6 +159,21 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
 
   if (reservations.length !== sortedResIds.length) {
     throw new Error('One or more reservations not found');
+  }
+  if (reservations.length !== input.frozenEvaluation.applied.length
+    || reservations.some(row => {
+      const approved = input.frozenEvaluation.applied.find(
+        promotion => promotion.campaignVersionId === row.campaignVersionId,
+      );
+      return row.checkoutId !== input.checkoutId
+        || row.checkoutReviewVersion !== input.checkoutReviewVersion
+        || row.customerUserId !== marketplaceOrder.customerUserId
+        || !approved
+        || !new Decimal(row.reservedDiscountAmount).equals(approved.calculatedDiscount)
+        || !new Decimal(row.reservedPlatformFunding).equals(approved.platformFunding)
+        || !new Decimal(row.reservedStoreFunding).equals(approved.storeFunding);
+    })) {
+    throw new Error('Promotion reservations differ from the source-owned accepted checkout.');
   }
 
   // Lock Campaign Versions in stable order

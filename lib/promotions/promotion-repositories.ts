@@ -204,7 +204,7 @@ export const PromotionRedemptionRepo = {
     return tx.promotionRedemption.findUnique({ where: { publicReference: ref } });
   },
   async findByOperationId(operationId: string, tx: Prisma.TransactionClient = prisma) {
-    return tx.promotionRedemption.findUnique({ where: { operationId } });
+    return tx.promotionRedemption.findMany({ where: { operationId } });
   },
   async create(data: Prisma.PromotionRedemptionUncheckedCreateInput, tx: Prisma.TransactionClient = prisma) {
     return tx.promotionRedemption.create({ data });

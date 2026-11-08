@@ -53,78 +53,114 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
   // 1. Lock Checkout
   await lockCheckout(input.checkoutId, tx);
 
-  // 2. Lock Customer for first-order check (if customerUserId is set)
-  if (input.customerUserId) {
-    await lockCustomer(input.customerUserId, tx);
-    
-    // Check if any applied promotion has first order eligibility rule
-    const hasFirstOrderRule = input.appliedPromotions.some(p => {
-      return input.evaluationResult.applied.some(app => app.campaignVersionId === p.campaignVersionId);
-    });
+  // Preserve the checkout -> customer -> campaign lock order. Two concurrent
+  // first-order reservations for the same customer cannot both win.
+  if (input.customerUserId) await lockCustomer(input.customerUserId, tx);
 
-    if (hasFirstOrderRule) {
-      // Query completed orders count for user in database
-      const priorOrdersCount = await tx.marketplaceOrder.count({
-        where: { customerUserId: input.customerUserId } // any order counts towards first-order completion check
-      });
-
-      // Query active first-order reservation claims
-      const activeReservationsCount = await tx.promotionReservation.count({
-        where: {
-          customerUserId: input.customerUserId,
-          status: 'RESERVED',
-          campaignVersion: {
-            eligibility: {
-              some: {
-                rule: 'FIRST_MARKETPLACE_ORDER'
-              }
-            }
-          }
-        }
-      });
-
-      if (priorOrdersCount > 0 || activeReservationsCount > 0) {
-        throw new Error('Customer is ineligible for first-order promotion.');
-      }
-    }
+  const campaignVersionIds = input.appliedPromotions.map(p => p.campaignVersionId);
+  if (!input.operationId.trim() || !input.requestHash.trim()
+    || new Set(campaignVersionIds).size !== campaignVersionIds.length
+    || input.evaluationResult.applied.length !== input.appliedPromotions.length
+    || input.appliedPromotions.some(applied => {
+      const evaluated = input.evaluationResult.applied.find(
+        candidate => candidate.campaignVersionId === applied.campaignVersionId,
+      );
+      return !evaluated
+        || !evaluated.calculatedDiscount.equals(applied.calculatedDiscount)
+        || !evaluated.platformFunding.equals(applied.platformFunding)
+        || !evaluated.storeFunding.equals(applied.storeFunding);
+    })) {
+    throw new Error('Promotion reservation does not match evaluated checkout evidence.');
   }
 
-  // 3. Check for idempotency replay
-  const existingRecords = await tx.promotionReservation.findMany({
-    where: { operationId: input.operationId }
+  // Replay is checked BEFORE first-order claims, otherwise the original
+  // reservation blocks its own idempotent retry. The operation receipt owns
+  // idempotency; one command may legitimately reserve multiple campaigns.
+  const operation = await tx.promotionOperation.findUnique({
+    where: { operationId: input.operationId },
   });
-
-  if (existingRecords.length > 0) {
-    if (existingRecords[0].requestHash !== input.requestHash) {
-      throw new Error(`Conflict: Replay of operation ${input.operationId} with different hash.`);
+  const existingRecords = await tx.promotionReservation.findMany({
+    where: { operationId: input.operationId },
+    orderBy: { campaignVersionId: 'asc' },
+  });
+  if (operation || existingRecords.length > 0) {
+    if (!operation || operation.operationType !== 'RESERVATION'
+      || operation.requestHash !== input.requestHash
+      || existingRecords.length !== campaignVersionIds.length
+      || existingRecords.some(record =>
+        record.requestHash !== input.requestHash
+        || record.checkoutId !== input.checkoutId
+        || record.checkoutReviewVersion !== input.checkoutReviewVersion
+        || record.customerUserId !== (input.customerUserId ?? null)
+        || !campaignVersionIds.includes(record.campaignVersionId)
+        || record.status !== 'RESERVED'
+        || record.expiresAt <= input.now
+      )) {
+      throw new Error('Conflict: Promotion reservation operation belongs to different, expired or changed checkout evidence.');
     }
     return {
-      reservationIds: existingRecords.map((r) => r.id),
-      reservations: existingRecords.map(r => ({
-        id: r.id,
-        publicReference: r.publicReference,
-        campaignVersionId: r.campaignVersionId,
-        promotionCodeId: r.promotionCodeId,
-        checkoutId: r.checkoutId,
-        checkoutReviewVersion: r.checkoutReviewVersion,
-        customerUserId: r.customerUserId,
-        status: 'RESERVED',
-        reservedDiscountAmount: new Decimal(r.reservedDiscountAmount),
-        reservedPlatformFunding: new Decimal(r.reservedPlatformFunding),
-        reservedStoreFunding: new Decimal(r.reservedStoreFunding),
-        expiresAt: r.expiresAt,
-        operationId: r.operationId,
-        requestHash: r.requestHash,
+      reservationIds: existingRecords.map(record => record.id),
+      reservations: existingRecords.map(record => ({
+        id: record.id,
+        publicReference: record.publicReference,
+        campaignVersionId: record.campaignVersionId,
+        promotionCodeId: record.promotionCodeId,
+        checkoutId: record.checkoutId,
+        checkoutReviewVersion: record.checkoutReviewVersion,
+        customerUserId: record.customerUserId,
+        status: 'RESERVED' as const,
+        reservedDiscountAmount: new Decimal(record.reservedDiscountAmount),
+        reservedPlatformFunding: new Decimal(record.reservedPlatformFunding),
+        reservedStoreFunding: new Decimal(record.reservedStoreFunding),
+        expiresAt: record.expiresAt,
+        operationId: record.operationId,
+        requestHash: record.requestHash,
       })),
       frozenEvaluation: input.evaluationResult,
       operationId: input.operationId,
-      expiresAt: existingRecords[0].expiresAt,
+      expiresAt: existingRecords[0]?.expiresAt ?? new Date(input.now.getTime() + RESERVATION_TTL_MS),
     };
   }
 
-  // 4. Lock campaign versions in stable order
-  const campaignVersionIds = input.appliedPromotions.map(p => p.campaignVersionId);
+  // Inspect *persisted campaign rules*, not the caller's applied list. The
+  // previous comparison was true for every applied campaign and incorrectly
+  // disabled all repeat-customer discounts.
   await lockCampaignVersions(campaignVersionIds, tx);
+  const hasFirstOrderRule = campaignVersionIds.length > 0 && await tx.promotionCampaignVersion.count({
+    where: {
+      id: { in: campaignVersionIds },
+      eligibility: { some: { rule: 'FIRST_MARKETPLACE_ORDER' } },
+    },
+  }) > 0;
+  if (hasFirstOrderRule) {
+    if (!input.customerUserId) throw new Error('First-order promotions require an authenticated customer.');
+    const [paidPriorOrders, priorOfferUses, outstandingClaims] = await Promise.all([
+      tx.marketplaceOrder.count({
+        where: {
+          customerUserId: input.customerUserId,
+          status: 'CONFIRMED',
+          payment: { status: 'SUCCEEDED', successLedgerJournalId: { not: null } },
+        },
+      }),
+      tx.promotionRedemption.count({
+        where: {
+          customerUserId: input.customerUserId,
+          campaignVersion: { eligibility: { some: { rule: 'FIRST_MARKETPLACE_ORDER' } } },
+        },
+      }),
+      tx.promotionReservation.count({
+        where: {
+          customerUserId: input.customerUserId,
+          status: 'RESERVED',
+          expiresAt: { gt: input.now },
+          campaignVersion: { eligibility: { some: { rule: 'FIRST_MARKETPLACE_ORDER' } } },
+        },
+      }),
+    ]);
+    if (paidPriorOrders || priorOfferUses || outstandingClaims) {
+      throw new Error('Customer already has a paid marketplace order or a first-order promotion claim.');
+    }
+  }
 
   // 5. Look up and Lock codes in stable order
   const codes = await tx.promotionCode.findMany({
