@@ -194,16 +194,26 @@ for (const file of routeFiles) {
     requiredRoles = ["CUSTOMER"];
   }
 
+  // The loyalty API routes require active customer sessions; do not infer
+  // generic multi-role access from the /account/ URL prefix.
+  if (relPath.startsWith("app/api/account/loyalty/") &&
+      content.includes('customer.role !== "CUSTOMER"') &&
+      content.includes('customer.status !== "ACTIVE"')) {
+    requiredRoles = ["CUSTOMER"];
+  }
+
   // Detect Idempotency. An `idempotencyKey` that the route declares optional/nullable is NOT
   // enforcement (callers may omit it and the mutation is then never deduplicated), so it does not
   // count unless another mandatory token (operationId / clientMutationId) is also present.
   const idempotencyKeyDeclaredOptional =
     /\bidempotencyKey\s*\?\s*:/.test(content) ||
     /\bidempotencyKey\s*:\s*z\.[^\n]*\.(optional|nullish)\(\)/.test(content);
-  const hasIdempotency =
+  const hasMutation = methods.some(method => !["GET", "HEAD", "OPTIONS"].includes(method));
+  const hasIdempotency = hasMutation && (
     content.includes("operationId") ||
     (content.includes("idempotencyKey") && !idempotencyKeyDeclaredOptional) ||
-    content.includes("clientMutationId");
+    content.includes("clientMutationId")
+  );
   // This delegated handler performs scoped origin/rate checks and binds its
   // mandatory operationId to the canonical CSV receipt, not the route wrapper.
   const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");

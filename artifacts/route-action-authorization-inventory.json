@@ -7,7 +7,7 @@
     "permissionGatedRoutes": 532,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 222,
-    "generatedAt": "2026-11-08T05:13:53.218Z"
+    "generatedAt": "2026-11-08T05:18:35.176Z"
   },
   "serverActions": [],
   "routes": [
@@ -79,10 +79,7 @@
       ],
       "authorizationMechanism": "AUTHENTICATED_SESSION",
       "requiredRoles": [
-        "CUSTOMER",
-        "STORE",
-        "DRIVER",
-        "ADMIN"
+        "CUSTOMER"
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": true,
@@ -99,14 +96,11 @@
       ],
       "authorizationMechanism": "AUTHENTICATED_SESSION",
       "requiredRoles": [
-        "CUSTOMER",
-        "STORE",
-        "DRIVER",
-        "ADMIN"
+        "CUSTOMER"
       ],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
-      "idempotencyEnforced": true,
+      "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
