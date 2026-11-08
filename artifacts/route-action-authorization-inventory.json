@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 777,
+    "totalRoutes": 779,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 676,
-    "permissionGatedRoutes": 531,
+    "authenticatedRoutes": 678,
+    "permissionGatedRoutes": 532,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 221,
-    "generatedAt": "2026-11-08T01:52:36.554Z"
+    "generatedAt": "2026-11-08T04:38:06.943Z"
   },
   "serverActions": [],
   "routes": [
@@ -69,6 +69,26 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/account/loyalty/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION",
+      "requiredRoles": [
+        "CUSTOMER",
+        "STORE",
+        "DRIVER",
+        "ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -2438,6 +2458,26 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/loyalty/leaderboard/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "customers.read"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
