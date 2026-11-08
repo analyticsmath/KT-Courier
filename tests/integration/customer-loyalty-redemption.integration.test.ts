@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
+import { getCustomerWalletSummary, listCustomerWalletTransactions } from "@/lib/services/customer-wallet.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 import {
   CustomerLoyaltyRedemptionError,
@@ -80,6 +81,20 @@ describe("customer points conversion: immutable real-ZAR double-entry and concur
       }) }),
     ]));
     expect((await prisma.customerLoyaltyAccount.findUniqueOrThrow({ where: { userId } })).availablePoints).toBe(250n);
+    // A reward credit may be the first reason this customer has a wallet.
+    // Its available balance must be visible even when no refund ever created
+    // the independent CUSTOMER_REFUND_HELD ledger account.
+    const visible = await getCustomerWalletSummary(userId);
+    expect(visible).toMatchObject({
+      availableBalance: "2.00", refundHeldBalance: "0.00",
+      provisioned: true, readable: true, spendingEnabled: false,
+    });
+    const activity = await listCustomerWalletTransactions(userId, { page: 1, pageSize: 5 });
+    expect(activity.data).toHaveLength(1);
+    expect(activity.data[0]).toMatchObject({
+      direction: "CREDIT", amount: "2.00", type: "CUSTOMER_LOYALTY_CONVERSION",
+    });
+
 
     await expect(redeemCustomerLoyaltyPoints({ ...command, points: "200" })).rejects.toMatchObject({
       code: "IDEMPOTENCY_CONFLICT",
@@ -102,6 +117,9 @@ describe("customer points conversion: immutable real-ZAR double-entry and concur
       where: { purpose: "CUSTOMER_WALLET_AVAILABLE", wallet: { ownerId: userId, ownerType: "CUSTOMER" } },
     });
     expect(account.currentBalance.toFixed(2)).toBe("6.00");
+    expect((await getCustomerWalletSummary(userId)).availableBalance).toBe("6.00");
+    expect((await listCustomerWalletTransactions(userId, { page: 1, pageSize: 5 })).pagination.total).toBe(2);
+
   });
 
   it("refuses malformed numbers, non-block redemptions and suspended users", async () => {

@@ -41,7 +41,10 @@ export async function getCustomerWalletSummary(customerUserId: string) {
     currency: "ZAR" as const,
     availableBalance: available?.currentBalance.toFixed(2) ?? "0.00",
     refundHeldBalance: held?.currentBalance.toFixed(2) ?? "0.00",
-    provisioned: Boolean(wallet && available && held),
+    // Loyalty conversion can post its available-credit liability before any
+    // refund has ever created the separate held-refund account. Hiding this
+    // wallet until a refund arrives would conceal real redeemed funds.
+    provisioned: Boolean(wallet && available),
     readable: wallet?.status === "ACTIVE" && available?.status === "ACTIVE",
     spendingEnabled: false,
   });

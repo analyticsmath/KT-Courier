@@ -21,10 +21,10 @@ export default async function CustomerWalletPage() {
       {walletState !== "AVAILABLE" ? (
         <ProtectedState
           kind={walletState === "EMPTY" ? "empty" : "unavailable"}
-          title={walletState === "EMPTY" ? "No refund credits yet" : "Wallet records are unavailable"}
+          title={walletState === "EMPTY" ? "No wallet credits yet" : "Wallet records are unavailable"}
           description={walletState === "EMPTY"
-            ? "Your refund-credit wallet is created when a qualifying refund needs to be recorded. Payments are listed below separately."
-            : "Your provisioned refund-credit wallet cannot be read right now. Please contact support."}
+            ? "Your wallet appears when a qualifying refund or redeemed loyalty credit is recorded. Payments are listed separately."
+            : "Your wallet records cannot be read right now. Please contact support."}
         />
       ) : <>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -46,7 +46,7 @@ export default async function CustomerWalletPage() {
         </OperationalPanel>
       </>}
       <CustomerLoyaltyWalletPanel />
-      <OperationalPanel title="Recent payments" description="Actual parcel and marketplace payment records, separate from your refund-credit wallet. Test transactions are identified as sandbox payments.">
+      <OperationalPanel title="Recent payments" description="Actual parcel and marketplace payment records, separate from your customer wallet. Test transactions are identified as sandbox payments.">
         <EditorialTable
           caption="Recent payments"
           mobileMode="stack"
