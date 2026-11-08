@@ -18,7 +18,11 @@ export function sumMarketplaceDeliveryAmounts(amounts: readonly (string | Prisma
     if (!/^(?:0|[1-9]\d*)\.\d{2}$/.test(value)) {
       throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "An authoritative checkout amount is invalid.");
     }
-    return total + BigInt(parseZarToCents(value));
+    const next = total + BigInt(parseZarToCents(value));
+    if (next > 999999999999999999n) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "An authoritative checkout amount exceeds the supported ZAR limit.");
+    }
+    return next;
   }, 0n);
   return centsToZar(cents.toString());
 }
@@ -35,102 +39,139 @@ export type DeliverySelectionInput = {
   }>;
 };
 
+/** Generate network-bound route quotes before opening a short database transaction.
+ * The subsequent row lock and optimistic version check prevent partially saved
+ * multi-store selections, and the operation receipt commits with the totals.
+ */
 export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySelectionInput): Promise<any> {
   const composition = resolveAndAssertMarketplaceCheckoutOperation("DELIVERY_QUOTE");
+  const ownerWhere = input.owner.type === "CUSTOMER"
+    ? { customerUserId: input.owner.userId }
+    : { guestAccessTokenHash: input.owner.guestTokenHash };
+  const checkout = await prisma.marketplaceCheckout.findFirst({
+    where: { publicReference: input.reference, ...ownerWhere },
+    include: { storeGroups: { include: { lines: true } }, addressSnapshot: true },
+  });
+  if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
 
-  return withSerializableRetry(async () => {
-    const checkouts = (prisma as any).marketplaceCheckout;
-    const checkout = await checkouts.findFirst({
-      where: {
-        publicReference: input.reference,
-        ...(input.owner.type === "CUSTOMER" ? { customerUserId: input.owner.userId } : { guestAccessTokenHash: input.owner.guestTokenHash }),
-      },
-      include: {
-        storeGroups: {
-          include: { lines: true },
-        },
-        addressSnapshot: true,
+  // Replay checks precede the version check: a successful command increments
+  // that version and must still replay safely after a lost HTTP response.
+  const previous = await prisma.marketplaceCheckoutOperation.findUnique({
+    where: { checkoutId_operationId: { checkoutId: checkout.id, operationId: input.operation.operationId } },
+  });
+  if (previous) {
+    if (previous.requestHash !== input.operation.requestHash || previous.type !== "DELIVERY_OPTIONS") {
+      throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Operation ID reused with different checkout evidence.");
+    }
+    return getMarketplaceCheckoutForOwner(input.reference, input.owner);
+  }
+  if (checkout.version !== input.operation.expectedVersion) {
+    throw new MarketplaceCheckoutError("CHECKOUT_VERSION_CONFLICT", "Checkout changed. Refresh and try again.");
+  }
+  const editable = ["CREATED", "VALIDATING", "CHANGES_REQUIRED", "READY_FOR_REVIEW"];
+  if (!editable.includes(checkout.status)) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout is not in an editable delivery selection state.");
+  }
+  const serviceArea = checkout.addressSnapshot?.serviceAreaReference;
+  if (!serviceArea) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A validated delivery destination address is required before selecting delivery options.");
+  }
+
+  const selectionsMap = new Map((input.selections ?? []).map(selection => [selection.storeReference, selection]));
+  const quoted: Array<{
+    id: string;
+    storeId: string;
+    data: {
+      deliveryQuoteReference: string;
+      deliveryQuoteVersion: string;
+      deliveryQuoteExpiresAt: Date;
+      serviceabilityReference: string;
+      deliveryFee: string;
+      groupTotal: string;
+      status: "READY";
+    };
+  }> = [];
+  for (const group of checkout.storeGroups) {
+    const selection = selectionsMap.get(group.storeId);
+    const quote = await composition.deliveryQuotes.quoteStoreGroup({
+      checkoutReference: checkout.publicReference,
+      storeReference: group.storeId,
+      pickupLocationReference: group.pickupLocationReference ?? group.storeId,
+      serviceAreaReference: serviceArea,
+      fulfilmentMode: selection?.fulfilmentMode ?? group.fulfilmentMode,
+      lineCount: group.lines.length,
+      courierServiceKey: input.courierServiceKey,
+    });
+    if (!quote || quote.currency !== "ZAR" || !quote.publicReference || !quote.version
+      || quote.serviceabilityReference !== serviceArea || !(quote.expiresAt instanceof Date)
+      || !Number.isFinite(quote.expiresAt.getTime()) || quote.expiresAt <= new Date()) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", `Delivery quote is unavailable for store ${group.storeId}.`);
+    }
+    if (selection && selection.quoteReference !== quote.publicReference) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The selected delivery quote is stale or does not match authoritative evidence.");
+    }
+    quoted.push({
+      id: group.id,
+      storeId: group.storeId,
+      data: {
+        deliveryQuoteReference: quote.publicReference,
+        deliveryQuoteVersion: quote.version,
+        deliveryQuoteExpiresAt: quote.expiresAt,
+        serviceabilityReference: quote.serviceabilityReference,
+        deliveryFee: quote.fee,
+        groupTotal: sumMarketplaceDeliveryAmounts([
+          group.merchandiseSubtotal ?? "0.00",
+          group.modifierSubtotal ?? "0.00",
+          quote.fee,
+        ]),
+        status: "READY",
       },
     });
+  }
 
-    if (!checkout) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
-    if (checkout.version !== input.operation.expectedVersion) {
-      throw new MarketplaceCheckoutError("CHECKOUT_VERSION_CONFLICT", "Checkout changed. Refresh and try again.");
-    }
-    if (!["CREATED", "VALIDATING", "CHANGES_REQUIRED", "READY_FOR_REVIEW"].includes(checkout.status)) {
-      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout is not in an editable delivery selection state.");
-    }
-
-    // Check operation replay
-    const op = await (prisma as any).marketplaceCheckoutOperation.findUnique({
+  await withSerializableRetry(() => prisma.$transaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${checkout.id} FOR UPDATE`);
+    const current = await tx.marketplaceCheckout.findFirst({
+      where: { id: checkout.id, ...ownerWhere },
+      include: { storeGroups: true, addressSnapshot: true },
+    });
+    if (!current) throw new MarketplaceCheckoutError("CHECKOUT_ACCESS_DENIED", "Checkout is unavailable.");
+    const replay = await tx.marketplaceCheckoutOperation.findUnique({
       where: { checkoutId_operationId: { checkoutId: checkout.id, operationId: input.operation.operationId } },
     });
-    if (op) {
-      if (op.requestHash !== input.operation.requestHash) {
-        throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Operation ID reused with different request hash.");
+    if (replay) {
+      if (replay.requestHash !== input.operation.requestHash || replay.type !== "DELIVERY_OPTIONS") {
+        throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Operation ID reused with different checkout evidence.");
       }
-      return getMarketplaceCheckoutForOwner(input.reference, input.owner);
+      return;
+    }
+    if (current.version !== input.operation.expectedVersion) {
+      throw new MarketplaceCheckoutError("CHECKOUT_VERSION_CONFLICT", "Checkout changed. Refresh and try again.");
+    }
+    if (!editable.includes(current.status)) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout is not in an editable delivery selection state.");
+    }
+    const currentArea = current.addressSnapshot?.serviceAreaReference;
+    if (currentArea !== serviceArea
+      || current.storeGroups.length !== quoted.length
+      || current.storeGroups.some(group => !quoted.some(item => item.id === group.id && item.storeId === group.storeId))) {
+      throw new MarketplaceCheckoutError("CHECKOUT_VERSION_CONFLICT", "Checkout groups or destination changed. Refresh and try again.");
     }
 
-    const serviceArea = checkout.addressSnapshot?.serviceAreaReference ?? checkout.addressServiceAreaReference;
-    if (!serviceArea) {
-      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A validated delivery destination address is required before selecting delivery options.");
+    if (quoted.some(item => item.data.deliveryQuoteExpiresAt <= new Date())) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A delivery quote expired before its selection could be saved. Refresh and try again.");
     }
-
-    const selectionsMap = new Map((input.selections ?? []).map((s) => [s.storeReference, s]));
-
-    // Generate/verify quotes for each store group
-    for (const group of checkout.storeGroups) {
-      const selection = selectionsMap.get(group.storeId);
-      const quote = await composition.deliveryQuotes.quoteStoreGroup({
-        checkoutReference: checkout.publicReference,
-        storeReference: group.storeId,
-        pickupLocationReference: group.pickupLocationReference ?? group.storeId,
-        serviceAreaReference: serviceArea,
-        fulfilmentMode: selection?.fulfilmentMode ?? group.fulfilmentMode,
-        lineCount: group.lines.length,
-        courierServiceKey: input.courierServiceKey,
-      });
-
-      if (!quote || quote.currency !== "ZAR" || !quote.publicReference) {
-        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", `Delivery quote is unavailable for store ${group.storeId}.`);
-      }
-
-      if (selection && selection.quoteReference !== quote.publicReference) {
-        throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "The selected delivery quote is stale or does not match authoritative evidence.");
-      }
-
-      const groupTotal = sumMarketplaceDeliveryAmounts([
-        group.merchandiseSubtotal ?? "0.00",
-        group.modifierSubtotal ?? "0.00",
-        quote.fee,
-      ]);
-
-      await (prisma as any).marketplaceCheckoutStoreGroup.update({
-        where: { id: group.id },
-        data: {
-          deliveryQuoteReference: quote.publicReference,
-          deliveryQuoteVersion: quote.version,
-          deliveryQuoteExpiresAt: quote.expiresAt,
-          serviceabilityReference: quote.serviceabilityReference,
-          deliveryFee: quote.fee,
-          groupTotal,
-          status: "READY",
-        },
-      });
+    for (const item of quoted) {
+      await tx.marketplaceCheckoutStoreGroup.update({ where: { id: item.id }, data: item.data });
     }
-
-    // Refresh groups to compute totals
-    const updatedGroups = await (prisma as any).marketplaceCheckoutStoreGroup.findMany({
+    const updatedGroups = await tx.marketplaceCheckoutStoreGroup.findMany({
       where: { checkoutId: checkout.id },
     });
-
-    const feeTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.deliveryFee ?? "0.00"));
-    const merchTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.merchandiseSubtotal ?? "0.00"));
-    const modTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map((g: any) => g.modifierSubtotal ?? "0.00"));
+    const feeTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map(group => group.deliveryFee ?? "0.00"));
+    const merchTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map(group => group.merchandiseSubtotal ?? "0.00"));
+    const modTotal = sumMarketplaceDeliveryAmounts(updatedGroups.map(group => group.modifierSubtotal ?? "0.00"));
     const grandTotal = sumMarketplaceDeliveryAmounts([merchTotal, modTotal, feeTotal]);
-
-    const updatedCheckout = await checkouts.update({
+    const updated = await tx.marketplaceCheckout.update({
       where: { id: checkout.id },
       data: {
         deliveryFeeTotal: feeTotal,
@@ -141,17 +182,16 @@ export async function selectMarketplaceCheckoutDeliveryOptions(input: DeliverySe
         version: { increment: 1 },
       },
     });
-
-    await (prisma as any).marketplaceCheckoutOperation.create({
+    await tx.marketplaceCheckoutOperation.create({
       data: {
         checkoutId: checkout.id,
         operationId: input.operation.operationId,
         requestHash: input.operation.requestHash,
         type: "DELIVERY_OPTIONS",
-        response: { selected: true, version: updatedCheckout.version },
+        response: { selected: true, version: updated.version },
       },
     });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 
-    return getMarketplaceCheckoutForOwner(input.reference, input.owner);
-  });
+  return getMarketplaceCheckoutForOwner(input.reference, input.owner);
 }

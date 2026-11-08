@@ -5,7 +5,8 @@ import { sumMarketplaceDeliveryAmounts } from "@/lib/marketplace-checkout/delive
 describe("marketplace delivery selection exact monetary arithmetic", () => {
   it("adds multiple ZAR amounts without binary floating point drift", () => {
     expect(sumMarketplaceDeliveryAmounts(["0.10", "0.20", "0.30"])).toBe("0.60");
-    expect(sumMarketplaceDeliveryAmounts(["9999999999999999.99", "0.01"])).toBe("10000000000000000.00");
+    expect(sumMarketplaceDeliveryAmounts(["9999999999999999.98", "0.01"])).toBe("9999999999999999.99");
+    expect(() => sumMarketplaceDeliveryAmounts(["9999999999999999.99", "0.01"])).toThrow(/supported ZAR limit/i);
     expect(sumMarketplaceDeliveryAmounts([new Prisma.Decimal("7.02"), "0.08", "35.00"])).toBe("42.10");
   });
 
