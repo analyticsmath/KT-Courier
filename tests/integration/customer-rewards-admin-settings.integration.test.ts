@@ -50,6 +50,17 @@ describe("Phase 3 reward settings are editable, validated and applied to eligibi
     expect("error" in await updateSettingValue(actorId, "welcome.store.discount_zar", 65.25)).toBe(false);
     expect("error" in await updateSettingValue(actorId, "welcome.store.minimum_order_zar", 90)).toBe(false);
     expect("error" in await updateSettingValue(actorId, "welcome.store.valid_days", 9)).toBe(false);
+    const forbidden = await updateSettingValue("missing-administrator", "referral.reward_zar", 999);
+    expect(forbidden).toMatchObject({ error: expect.any(String) });
+    expect((await loadCustomerRewardPolicy()).referralRewardZar).toBe("5.00");
+    const audited = await prisma.adminActivityLog.findFirstOrThrow({
+      where: { actorUserId: actorId, entityType: "SystemSetting" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(audited.metadata).toMatchObject({
+      previousValueDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      newValueDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     const edited = await loadCustomerRewardPolicy();
     expect(edited.firstStoreDiscountZar).toBe("65.25");
     expect(edited.firstStoreMinimumZar).toBe("90.00");
