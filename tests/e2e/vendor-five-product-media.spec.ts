@@ -57,6 +57,24 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   expect(await pendingInventory.json()).toEqual({ locations: [] });
   expect((await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } })).status()).toBe(403);
   expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
+  // Pending merchant submits identity before activation. Independent admin
+  // approval follows activation; neither replaces checkout certification.
+  await login(page, email);
+  await page.goto("/store/profile");
+  const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
+  await seller.locator('input[name="identityVersion"]').fill(`synthetic-${tag}-v1`);
+  await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
+  await seller.getByRole("combobox", { name: "VAT registration status", exact: true }).selectOption("NOT_REGISTERED");
+  await seller.getByRole("combobox", { name: "Receipt classification", exact: true }).selectOption("RECEIPT");
+  const utcDate = new Date().toISOString().slice(0, 16);
+  await seller.getByLabel("Effective from (UTC)", { exact: true }).fill(utcDate);
+  await seller.getByLabel("Supplied evidence reference", { exact: true }).fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL");
+  await seller.getByLabel("I confirm these are the supplied seller details and evidence for review.", { exact: true }).check();
+  const sellerSubmitted = page.waitForResponse(response => response.url().endsWith("/api/store/seller-identity") && response.request().method() === "POST");
+  await seller.getByRole("button", { name: "Submit seller identity", exact: true }).click(); const pendingSeller = await sellerSubmitted; expect(pendingSeller.status(), await pendingSeller.text()).toBe(201);
+  expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(0);
+  expect((await page.request.post(`/api/admin/stores/${store.id}/seller-identity`, { headers, data: {} })).status()).toBe(403);
+  // The owner saves the mapped pickup before staging certification or Live.
   // A newly registered merchant must configure its actual checkout-owned
   // pickup before admin approval; never bypass the Live pickup safety gate.
   // All addresses, users and receipts in this test are isolated synthetic
@@ -95,21 +113,8 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   const createdCategory = (await category.json()).category;
   const mappedType = await prisma.productTypeDefinition.findFirstOrThrow({ where: { name: "Smartphone", status: "ACTIVE" } });
   await prisma.catalogCategoryProductType.create({ data: { categoryId: createdCategory.id, productTypeDefinitionId: mappedType.id, isPrimary: true } });
-  await login(page, email);
-  await page.goto("/store/profile");
-  const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
-  await seller.locator('input[name="identityVersion"]').fill(`synthetic-${tag}-v1`);
-  await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
-  await seller.getByRole("combobox", { name: "VAT registration status", exact: true }).selectOption("NOT_REGISTERED");
-  await seller.getByRole("combobox", { name: "Receipt classification", exact: true }).selectOption("RECEIPT");
-  const utcDate = new Date().toISOString().slice(0, 16);
-  await seller.getByLabel("Effective from (UTC)", { exact: true }).fill(utcDate);
-  await seller.getByLabel("Supplied evidence reference", { exact: true }).fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL");
-  await seller.getByLabel("I confirm these are the supplied seller details and evidence for review.", { exact: true }).check();
-  const sellerSubmitted = page.waitForResponse(response => response.url().endsWith("/api/store/seller-identity") && response.request().method() === "POST");
-  await seller.getByRole("button", { name: "Submit seller identity", exact: true }).click(); const pendingSeller = await sellerSubmitted; expect(pendingSeller.status(), await pendingSeller.text()).toBe(201);
-  expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(0);
-  expect((await page.request.post(`/api/admin/stores/${store.id}/seller-identity`, { headers, data: {} })).status()).toBe(403);
+  // Admin seller-identity review requires an ACTIVE store; owner submission
+  // was recorded while PENDING and is independently audited.
   await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/stores/${store.id}/seller-identity`);
   const sellerReview = page.getByRole("region", { name: "Independent seller identity review", exact: true });
   await sellerReview.getByLabel("Seller review reason", { exact: true }).fill("Synthetic independent seller review only");
