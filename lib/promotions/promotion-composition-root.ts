@@ -46,6 +46,13 @@ function mapEligibilityRule(
       return { rule: rule.rule, allowlistUserIds: [...allowlistUserIds] };
     case 'CUSTOMER_REGION':
       return { rule: rule.rule, region: rule.ruleValue ?? undefined };
+    case 'FIRST_MARKETPLACE_ORDER': {
+      if (rule.ruleValue === null) return { rule: rule.rule };
+      // Existing campaign rules without a deadline remain first-order only.
+      // Invalid configured deadlines explicitly fail closed as zero days.
+      const days = /^[1-9]\d{0,3}$/.test(rule.ruleValue) ? Number(rule.ruleValue) : 0;
+      return { rule: rule.rule, signupWithinDays: days > 0 && days <= 3650 ? days : 0 };
+    }
     case 'MINIMUM_ELIGIBLE_SPEND':
       return rule.ruleValue ? { rule: rule.rule, minimumSpendAmount: new Prisma.Decimal(rule.ruleValue) } : { rule: rule.rule };
     case 'SERVICE_TYPE':
@@ -100,6 +107,11 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
     evaluate: async (input: PromotionEvaluationInput) => {
       assertPromotionsProductionReady('EVALUATION');
       const evaluatorDeps: PromotionEvaluationDependencies = {
+        fetchCustomerSignupAt: async (customerUserId: string) =>
+          (await prisma.user.findUnique({
+            where: { id: customerUserId },
+            select: { createdAt: true },
+          }))?.createdAt ?? null,
         fetchPriorCompletedOrdersCount: async (customerUserId: string) =>
           prisma.marketplaceOrder.count({
             where: {
