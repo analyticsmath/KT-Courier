@@ -1,10 +1,10 @@
 {
   "summary": {
-    "totalRoutes": 773,
+    "totalRoutes": 777,
     "totalServerActions": 0,
     "publicRoutes": 98,
-    "authenticatedRoutes": 672,
-    "permissionGatedRoutes": 528,
+    "authenticatedRoutes": 676,
+    "permissionGatedRoutes": 531,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 220,
     "generatedAt": "2026-10-26T23:56:27.076Z"
@@ -53,6 +53,24 @@
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/account/driver-reviews/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "AUTHENTICATED_SESSION",
+      "requiredRoles": [
+        "CUSTOMER"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "READ_ONLY_AND_MUTATION_VALIDATION",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Customer-only signed session; submitDriverReview verifies order ownership, completed final driver, and unique review."
     },
     {
       "routePath": "app/api/account/profile/route.ts",
@@ -1706,6 +1724,27 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/drivers/[id]/cash-limit/route.ts",
+      "httpMethods": [
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "drivers.update",
+        "cod_operations.manage"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Requires both financial custody and driver update permission; serializable driver-row limit and revision check."
+    },
+    {
       "routePath": "app/api/admin/drivers/[id]/documents/[docId]/route.ts",
       "httpMethods": [
         "PATCH"
@@ -1744,6 +1783,27 @@
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/drivers/[id]/engagement/route.ts",
+      "httpMethods": [
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "drivers.update",
+        "drivers.status.manage"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Requires both permissions, contract evidence and optimistic revision; no compensation mutation."
     },
     {
       "routePath": "app/api/admin/drivers/[id]/regions/route.ts",
@@ -7742,6 +7802,30 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/stores/[id]/checkout-certification/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "stores.read",
+        "stores.approve",
+        "orders.read"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_ON_MUTATIONS",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "GET requires stores.read; POST/PATCH require stores.approve and orders.read; distinct preparer and approver; fingerprint and SHA digest authority."
+    },
+    {
       "routePath": "app/api/admin/stores/[id]/featured/route.ts",
       "httpMethods": [
         "PATCH"
@@ -10578,7 +10662,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure_ready/route.ts",
+      "routePath": "app/api/infrastructure/ready/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -10593,7 +10677,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure/ready/route.ts",
+      "routePath": "app/api/infrastructure_ready/route.ts",
       "httpMethods": [
         "GET"
       ],

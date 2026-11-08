@@ -15,7 +15,9 @@ type Certification = {
   preparedByUserId: string;
   approvedByUserId: string | null;
   routeEvidenceReference: string;
+  routeEvidenceDigest: string | null;
   checkoutEvidenceReference: string;
+  checkoutEvidenceDigest: string | null;
 } | null;
 
 export function StoreCheckoutCertificationPanel({
@@ -71,8 +73,10 @@ export function StoreCheckoutCertificationPanel({
       <dl className="grid gap-3 sm:grid-cols-2 text-sm">
         <div><dt>Certification status</dt><dd className="font-bold">{status.replaceAll("_", " ")}</dd></div>
         <div><dt>Revision</dt><dd>{revision}</dd></div>
-        {initial?.routeEvidenceReference ? <div><dt>Route receipt</dt><dd className="break-all">{initial.routeEvidenceReference}</dd></div> : null}
-        {initial?.checkoutEvidenceReference ? <div><dt>Checkout receipt</dt><dd className="break-all">{initial.checkoutEvidenceReference}</dd></div> : null}
+        {initial?.routeEvidenceReference ? <div><dt>Route receipt</dt><dd className="break-all">{initial.routeEvidenceReference}</dd>
+          <dd className="break-all text-xs">SHA-256: {initial.routeEvidenceDigest ?? "Legacy receipt without retained digest"}</dd></div> : null}
+        {initial?.checkoutEvidenceReference ? <div><dt>Checkout receipt</dt><dd className="break-all">{initial.checkoutEvidenceReference}</dd>
+          <dd className="break-all text-xs">SHA-256: {initial.checkoutEvidenceDigest ?? "Legacy receipt without retained digest"}</dd></div> : null}
         {initial?.expiresAt ? <div><dt>Valid until</dt><dd>{new Date(initial.expiresAt).toLocaleDateString("en-ZA")}</dd></div> : null}
       </dl>
       {status !== "APPROVED" ? (

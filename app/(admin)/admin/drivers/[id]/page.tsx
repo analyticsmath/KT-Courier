@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DriverDetailsConsole } from "@/components/admin/DriverDetailsConsole";
 import { DriverCashLimitEditor } from "@/components/admin/DriverCashLimitEditor";
+import { DriverEngagementEditor } from "@/components/admin/DriverEngagementEditor";
 import { ProtectedStatus } from "@/components/protected-v2/feedback/ProtectedStatus";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { ProtectedContentGrid, ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
@@ -32,7 +33,7 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
   const fullConsole = canUpdate && canManageStatus && canManageRegions;
 
   if (fullConsole) {
-    const [allRegions, rawLogs, readiness, rawAssignments, cashLimit] = await Promise.all([
+    const [allRegions, rawLogs, readiness, rawAssignments, cashLimit, engagement] = await Promise.all([
       listDeliveryRegions(),
       prisma.adminActivityLog.findMany({ where: { entityType: "Driver", entityId: id }, include: { actorUser: { select: { email: true, name: true } } }, orderBy: { createdAt: "desc" } }),
       evaluateDriverReadiness(id).catch(() => null),
@@ -58,6 +59,10 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
         },
       }).catch(() => []),
       canManageCash ? prisma.driverProfile.findUnique({ where: { id }, select: { cashLimitAmount: true, cashLimitRevision: true } }) : null,
+      prisma.driverProfile.findUnique({ where: { id }, select: {
+        engagementType: true, engagementContractReference: true,
+        engagementEffectiveFrom: true, engagementRevision: true,
+      } }),
     ]);
 
     const recentAssignments = rawAssignments.map((a) => ({
@@ -89,6 +94,17 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
             readiness={readiness}
             recentAssignments={recentAssignments}
           />
+          {engagement && <OperationalPanel title="Freelance or salaried contract classification"
+            description="The driver engagement decision is independently audited. No payment rate or payroll rule is inferred from an employment type.">
+            <DriverEngagementEditor driverId={id} initial={{
+              engagementType: engagement.engagementType,
+              engagementContractReference: engagement.engagementContractReference,
+              engagementEffectiveFrom: engagement.engagementEffectiveFrom
+                ? new Date(engagement.engagementEffectiveFrom.getTime() + 2 * 60 * 60 * 1000).toISOString().slice(0, 10)
+                : null,
+              engagementRevision: engagement.engagementRevision,
+            }} />
+          </OperationalPanel>}
           {canManageCash && cashLimit && <OperationalPanel title="Driver cash custody limit">
             <DriverCashLimitEditor driverId={id} initialAmount={cashLimit.cashLimitAmount.toFixed(2)}
               initialRevision={cashLimit.cashLimitRevision} />

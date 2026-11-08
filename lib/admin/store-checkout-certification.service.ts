@@ -125,8 +125,14 @@ export async function prepareStoreCheckoutCertification(
       throw new StoreCertificationError("STORE_PICKUP_CHANGED", "Store or pickup changed; repeat staging checks.");
     }
     const prior = await tx.storeCheckoutCertification.findUnique({ where: { storeId } });
-    if (prior?.status === "APPROVED") {
-      throw new StoreCertificationError("CERTIFICATION_ALREADY_APPROVED", "Existing approval must first be revoked.");
+    // A current approved certificate must not be overwritten. Expired or
+    // pre-digest legacy certificates require a fresh, independent two-person
+    // review; otherwise an old approval would permanently block recovery.
+    if (prior?.status === "APPROVED"
+        && prior.expiresAt > new Date()
+        && /^[a-f0-9]{64}$/.test(prior.routeEvidenceDigest ?? "")
+        && /^[a-f0-9]{64}$/.test(prior.checkoutEvidenceDigest ?? "")) {
+      throw new StoreCertificationError("CERTIFICATION_ALREADY_APPROVED", "A current approved certification must first be revoked.");
     }
     const expiresAt = new Date(Date.now() + 30 * 86400_000);
     const cert = await tx.storeCheckoutCertification.upsert({
@@ -135,7 +141,9 @@ export async function prepareStoreCheckoutCertification(
         storeId, pickupAddressId: facts.pickupAddressId, pickupFingerprint: facts.pickupFingerprint,
         coverageRegionId: facts.coverageRegionId, serviceSignature: facts.serviceSignature,
         routeEvidenceReference: evidence.routeEvidenceReference,
+        routeEvidenceDigest: evidence.routeEvidenceDigest,
         checkoutEvidenceReference: evidence.checkoutEvidenceReference,
+        checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
         preparedByUserId: preparerId, status: "PENDING_REVIEW", expiresAt,
         reviewNote: evidence.reviewNote,
       },
@@ -143,7 +151,9 @@ export async function prepareStoreCheckoutCertification(
         pickupAddressId: facts.pickupAddressId, pickupFingerprint: facts.pickupFingerprint,
         coverageRegionId: facts.coverageRegionId, serviceSignature: facts.serviceSignature,
         routeEvidenceReference: evidence.routeEvidenceReference,
+        routeEvidenceDigest: evidence.routeEvidenceDigest,
         checkoutEvidenceReference: evidence.checkoutEvidenceReference,
+        checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
         preparedByUserId: preparerId, approvedByUserId: null, approvedAt: null,
         status: "PENDING_REVIEW", expiresAt, reviewNote: evidence.reviewNote,
         revision: { increment: 1 },
@@ -179,7 +189,10 @@ export async function approveStoreCheckoutCertification(
       throw new StoreCertificationError("INDEPENDENT_REVIEWER_REQUIRED",
         "The person submitting checkout evidence cannot approve it.");
     }
-    if (cert.expiresAt <= new Date() || !certificationMatchesFacts(cert, facts)) {
+    if (cert.expiresAt <= new Date() ||
+        !/^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? "") ||
+        !/^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? "") ||
+        !certificationMatchesFacts(cert, facts)) {
       throw new StoreCertificationError("CERTIFICATION_STALE", "Pickup, courier service or region changed.");
     }
     const updated = await tx.storeCheckoutCertification.update({
@@ -205,7 +218,10 @@ export async function requireCurrentStoreCheckoutCertification(
   if (!cert || cert.status !== "APPROVED" ||
       !cert.approvedAt || !cert.approvedByUserId ||
       cert.approvedByUserId === cert.preparedByUserId ||
-      cert.expiresAt <= new Date() || pickup.id !== facts.pickupAddressId ||
+      cert.expiresAt <= new Date() ||
+      !/^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? "") ||
+      !/^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? "") ||
+      pickup.id !== facts.pickupAddressId ||
       fingerprint !== facts.pickupFingerprint || !certificationMatchesFacts(cert, facts)) {
     throw new StoreCertificationError("CHECKOUT_CERTIFICATION_REQUIRED",
       "Independent current staging route and paid-checkout certification is required before Live.");

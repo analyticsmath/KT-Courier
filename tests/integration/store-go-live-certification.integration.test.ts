@@ -64,6 +64,13 @@ describe("independent store Live certificate at a locked current pickup", () => 
       approvedByUserId: "admin-two",
     } });
     expect(certificationMatchesFacts(cert, facts)).toBe(true);
+    // Legacy records without persisted receipt digests cannot become Live.
+    await expect(prisma.$transaction(tx => requireCurrentStoreCheckoutCertification(tx, store.id, facts)))
+      .rejects.toMatchObject({ code: "CHECKOUT_CERTIFICATION_REQUIRED" });
+    await prisma.storeCheckoutCertification.update({ where: { id: cert.id }, data: {
+      routeEvidenceDigest: "a".repeat(64),
+      checkoutEvidenceDigest: "b".repeat(64),
+    } });
     await expect(prisma.$transaction(tx => requireCurrentStoreCheckoutCertification(tx, store.id, facts)))
       .resolves.toBeUndefined();
     await expect(prisma.$transaction(tx => requireCurrentStoreCheckoutCertification(tx, store.id, {

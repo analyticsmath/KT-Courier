@@ -47,7 +47,8 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       where: { storeId: id }, select: {
         status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
         preparedByUserId: true, approvedByUserId: true,
-        routeEvidenceReference: true, checkoutEvidenceReference: true,
+        routeEvidenceReference: true, routeEvidenceDigest: true,
+        checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
       },
     }) : Promise.resolve(null),
   ]);

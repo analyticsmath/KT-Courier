@@ -392,6 +392,12 @@ model DriverProfile {
   cashDeposits                DriverCashDeposit[]
   cashLimitAmount             Decimal                     @default(1000.00) @db.Decimal(18, 2)
   cashLimitRevision           Int                         @default(0)
+  // Contract classification is informational until a separate, approved
+  // remuneration policy has been versioned and linked to earnings.
+  engagementType              DriverEngagementType?
+  engagementContractReference String?
+  engagementEffectiveFrom     DateTime?
+  engagementRevision          Int                         @default(0)
   id                          String                      @id @default(cuid())
   userId                      String                      @unique
   displayName                 String?
@@ -622,7 +628,9 @@ model StoreCheckoutCertification {
   coverageRegionId           String
   serviceSignature           String
   routeEvidenceReference     String
+  routeEvidenceDigest        String?
   checkoutEvidenceReference  String
+  checkoutEvidenceDigest     String?
   preparedByUserId           String
   approvedByUserId           String?
   status                     String    @default("PENDING_REVIEW")
@@ -1563,6 +1571,11 @@ enum SystemSettingType {
   NUMBER
   BOOLEAN
   JSON
+}
+
+enum DriverEngagementType {
+  FREELANCE
+  SALARIED
 }
 
 enum DriverStatus {

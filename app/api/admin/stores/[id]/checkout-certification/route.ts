@@ -43,7 +43,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     where: { storeId: id },
     select: {
       status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
-      routeEvidenceReference: true, checkoutEvidenceReference: true,
+      routeEvidenceReference: true, routeEvidenceDigest: true,
+      checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
       pickupAddressId: true, coverageRegionId: true, reviewNote: true,
       preparedByUserId: true, approvedByUserId: true,
     },
