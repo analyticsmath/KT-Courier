@@ -31,6 +31,24 @@ const dangerousPatterns = [
 ];
 const approvedDestructiveOperations = [
   {
+    migration: "20261108161000_promotion_multi_campaign_idempotency",
+    label: "DROP INDEX",
+    statement: /^\s*DROP\s+INDEX\s+IF\s+EXISTS\s+"PromotionReservation_operationId_key"\s*;\s*$/i,
+    // The same transaction first builds the composite UNIQUE identity. This
+    // exact redundant single-column unique index can then be retired without
+    // any interval that permits duplicate campaign reservation rows.
+    reason: "Replaces only the obsolete single-campaign unique index after the compound unique index is built transactionally.",
+  },
+  {
+    migration: "20261108161000_promotion_multi_campaign_idempotency",
+    label: "DROP INDEX",
+    statement: /^\s*DROP\s+INDEX\s+IF\s+EXISTS\s+"PromotionRedemption_operationId_key"\s*;\s*$/i,
+    // Operation-level replay authority remains the unique PromotionOperation
+    // row. A new index on redemption.operationId is built in the same
+    // transaction before retiring this incompatible one-redemption constraint.
+    reason: "Preserves operation lookup before removing only the obsolete one-redemption index; the command authority stays unique.",
+  },
+  {
     migration: "20261008180000_store_earning_bounded_adjustment_evidence",
     label: "DROP CONSTRAINT",
     statement: /^\s*ALTER\s+TABLE\s+"StoreEarning"\s+DROP\s+CONSTRAINT\s+"StoreEarning_terminal_evidence_check"\s*;\s*$/i,
