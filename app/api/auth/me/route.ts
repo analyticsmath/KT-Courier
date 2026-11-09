@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 export async function GET() {
   const session = await getCurrentUser();
   if (!session) {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   }
 
   const user = await prisma.user.findUnique({
@@ -24,7 +24,7 @@ export async function GET() {
   });
 
   if (!user) {
-    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401, headers: { "Cache-Control": "private, no-store" } });
   }
 
   // Return only safe fields — never passwordHash, tokenHash, OTP data
@@ -38,5 +38,5 @@ export async function GET() {
     emailVerifiedAt: user.emailVerifiedAt,
     lastLoginAt: user.lastLoginAt,
     createdAt: user.createdAt,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
