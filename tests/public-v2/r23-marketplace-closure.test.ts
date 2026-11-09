@@ -55,7 +55,12 @@ describe("R23 Category and Storefront Data-Binding Closure", () => {
       const values = typeof queryObj === "object" && queryObj !== null && "values" in queryObj && Array.isArray((queryObj as Record<string, unknown>).values) ? ((queryObj as Record<string, unknown>).values as unknown[]) : [];
       const valuesString = values.map(String).join(" ");
 
-      if (sqlText.includes("StorefrontCategoryDocument")) {
+      // The publication predicate joins store and certification tables, so
+      // substring tests can return store rows for a product query.
+      // Match the first FROM: it identifies the primary query projection.
+      const sourceTable = sqlText.match(/\bFROM\s+"(StorefrontCategoryDocument|StorefrontStoreDocument|StorefrontProductDocument)"/)?.[1];
+
+      if (sourceTable === "StorefrontCategoryDocument") {
         if (valuesString.includes("non-existent-category-slug-999") || valuesString.includes("999")) {
           return [];
         }
@@ -65,7 +70,7 @@ describe("R23 Category and Storefront Data-Binding Closure", () => {
         return CANONICAL_MOCK_CATEGORIES;
       }
 
-      if (sqlText.includes("StorefrontStoreDocument")) {
+      if (sourceTable === "StorefrontStoreDocument") {
         if (valuesString.includes("archived-fashion-outlet")) {
           return [CANONICAL_MOCK_STORES[1]!];
         }
@@ -75,7 +80,7 @@ describe("R23 Category and Storefront Data-Binding Closure", () => {
         return CANONICAL_MOCK_STORES;
       }
 
-      if (sqlText.includes("StorefrontProductDocument")) {
+      if (sourceTable === "StorefrontProductDocument") {
         if (valuesString.includes("nonexistentproductqueryxyz123")) {
           return [];
         }
