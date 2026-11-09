@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-const f = vi.hoisted(() => ({ create: vi.fn(), submit: vi.fn(), approve: vi.fn(), activate: vi.fn() }));
+const f = vi.hoisted(() => ({ create: vi.fn(), submit: vi.fn(), approve: vi.fn(), activate: vi.fn(), certify: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: {
   user: { findUniqueOrThrow: async () => ({ id: "maker" }), create: async () => ({ id: "checker" }) },
   deliveryRegion: { findUniqueOrThrow: async () => ({ id: "region" }) },
@@ -11,7 +11,7 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: {
     line2: "Central", city: "Johannesburg", province: "Gauteng", postalCode: "2001",
     country: "South Africa", latitude: -26.2041, longitude: 28.0473, placeId: "disposable-map-evidence",
   }) },
-  storeCheckoutCertification: { create: vi.fn() },
+  storeCheckoutCertification: { create: f.certify },
   storeSellerLegalIdentity: { create: vi.fn() },
 } }));
 vi.mock("@/lib/client-platform/delivery.service", () => ({ saveDeliveryConfiguration: vi.fn() }));
@@ -28,6 +28,23 @@ describe("browser checkout fulfilment prerequisite", () => {
     vi.stubEnv("DATABASE_URL", "postgresql://kt_phase75_e2e:disposable@localhost/kt_phase75_e2e");
     f.create.mockResolvedValue({ publicReference: "disposable-fulfilment" });
     await createDisposableCheckoutAuthorities();
+    // A fixture must meet the same pickup-backed certification shape that
+    // production checkout requires; fake approvals must never skip that gate.
+    expect(f.certify).toHaveBeenCalledTimes(2);
+    const certificates = f.certify.mock.calls.map(([call]) => call.data);
+    expect(new Set(certificates.map((certificate) => certificate.storeId))).toEqual(
+      new Set(["e2e-store", "e2e-other-store"]),
+    );
+    for (const certificate of certificates) {
+      expect(certificate).toEqual(expect.objectContaining({
+        pickupAddressId: expect.any(String),
+        pickupFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+        status: "APPROVED",
+        preparedByUserId: "maker",
+        approvedByUserId: "checker",
+      }));
+      expect(certificate.preparedByUserId).not.toBe(certificate.approvedByUserId);
+    }
     expect(f.create).toHaveBeenCalledWith(expect.objectContaining({ substitutionMode: "CUSTOMER_APPROVAL_REQUIRED", effectiveFrom: new Date("2026-01-01") }));
     expect(f.submit).toHaveBeenCalledWith("disposable-fulfilment");
     expect(f.approve).toHaveBeenCalledWith({ publicReference: "disposable-fulfilment", approvedByUserId: "checker" });
