@@ -71,3 +71,12 @@ The verified UI source in `components/forms/PublicDeliveryQuoteForm.tsx` booked 
 The booking now selects the next page through `lib/client-platform/parcel-booking-navigation.ts`: `DIGITAL_ONLY` goes immediately to `/orders/:orderNumber/payment` **only after the canonical booking API succeeds**; approved `FULL_COD` remains on order details. If an older API response lacks an order number, it safely falls back to the order detail route. The existing payment page requires authentication and verifies order ownership; this client-side redirect performs no charge and never interprets a Paystack browser return as proof of payment.
 
 The targeted routing, privacy and prefill tests now pass **23/23** across four test files; targeted ESLint and isolated-workspace TypeScript check pass. A complete Paystack test-mode checkout and signed webhook verification on the exact GitHub branch build remain release requirements.
+
+
+## 8. High-risk cash choice parity (9 November continuation)
+
+Source discrepancy: the customer-visible `GET /api/public/delivery-quotes/[id]/payment-methods` previously invoked `resolvePaymentBreakdown` with only province/region IDs. The final `createOrder` booking implementation included `originLocality` and `destinationLocality` (city, suburb/line2, province). Consequently, the options screen could invite the user to choose cash for a locality that would fail the booking gate.
+
+The GET endpoint now passes **the authoritative quote's stored pickup and dropoff locality**, not untrusted query parameters, into exactly the same cash policy. Cash remains unavailable for high-risk or ambiguous areas (existing policy). Focused test `tests/api/parcel-payment-methods.test.ts` asserts exact locality forwarding and a high-risk cash-denial result while retaining digital checkout.
+
+Verification: **27/27** targeted tests across five files passed, isolated TypeScript noEmit and focused ESLint passed. This verifies aligned code paths, not the live admin high-risk area set or an end-to-end approved COD cash collection.
