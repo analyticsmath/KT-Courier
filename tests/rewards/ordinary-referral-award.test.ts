@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const m = vi.hoisted(() => ({
   transaction: vi.fn(), findOperator: vi.fn(), findEvent: vi.fn(), findStore: vi.fn(),
@@ -136,10 +137,24 @@ describe("verified ordinary first-paid-order referral wallet award", () => {
     m.findEvent.mockResolvedValue({
       ...event(), status: "REWARDED", metadata: updateCall.data.metadata,
     });
+    const original = m.post.mock.calls[0]![1];
     m.findJournal.mockResolvedValue({
       id: "journal-1", reference: "LJ-1",
-      sourceReference: m.post.mock.calls[0]![1].sourceReference,
-      idempotencyKey: m.post.mock.calls[0]![1].idempotencyKey,
+      sourceReference: original.sourceReference,
+      idempotencyKey: original.idempotencyKey,
+      metadata: original.metadata,
+      type: "GENERAL", currency: "ZAR",
+      totalDebits: new Prisma.Decimal("5.00"), totalCredits: new Prisma.Decimal("5.00"),
+      entries: [
+        { direction: "DEBIT", amount: new Prisma.Decimal("5.00"), account: {
+          purpose: "PLATFORM_PROMOTION_EXPENSE", category: "EXPENSE",
+          wallet: { ownerType: "PLATFORM", ownerId: "platform" },
+        } },
+        { direction: "CREDIT", amount: new Prisma.Decimal("5.00"), account: {
+          purpose: "CUSTOMER_WALLET_AVAILABLE", category: "LIABILITY",
+          wallet: { ownerType: "CUSTOMER", ownerId: "referrer-1" },
+        } },
+      ],
     });
     m.post.mockClear();
     const replay = await awardVerifiedOrdinaryReferral(command());
@@ -148,6 +163,14 @@ describe("verified ordinary first-paid-order referral wallet award", () => {
     expect(m.inspect).toHaveBeenCalledTimes(1);
 
     await expect(awardVerifiedOrdinaryReferral({ ...command(), operationId: "different-operation-2" }))
+      .rejects.toMatchObject({ code: "EVIDENCE_CONFLICT" });
+    expect(m.post).not.toHaveBeenCalled();
+
+    const legitimate = await m.findJournal.mock.results[0]?.value;
+    expect(legitimate).toBeDefined();
+    const altered = { ...legitimate, totalCredits: new Prisma.Decimal("500.00") };
+    m.findJournal.mockResolvedValueOnce(altered);
+    await expect(awardVerifiedOrdinaryReferral(command()))
       .rejects.toMatchObject({ code: "EVIDENCE_CONFLICT" });
     expect(m.post).not.toHaveBeenCalled();
   });
@@ -161,6 +184,8 @@ describe("verified ordinary first-paid-order referral wallet award", () => {
   it("refuses malformed operation IDs, cancelled events, absent store owner and zero-rate awards", async () => {
     await expect(awardVerifiedOrdinaryReferral({ ...command(), operationId: "x" }))
       .rejects.toBeInstanceOf(OrdinaryReferralAwardError);
+    await expect(awardVerifiedOrdinaryReferral({ ...command(), operationId: undefined as unknown as string }))
+      .rejects.toMatchObject({ code: "INVALID_EVENT" });
     m.findEvent.mockResolvedValueOnce({ ...event(), status: "CANCELLED" });
     await expect(awardVerifiedOrdinaryReferral(command())).rejects.toMatchObject({ code: "NOT_ELIGIBLE" });
     m.findEvent.mockResolvedValueOnce({

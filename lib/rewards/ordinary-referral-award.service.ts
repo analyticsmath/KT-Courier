@@ -43,6 +43,7 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
   operationId: string;
 }>) {
   if (!input.actorUserId || !input.referralEventId || input.referralEventId.length > 200 ||
+      typeof input.operationId !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9:_-]{7,95}$/.test(input.operationId)) {
     throw new OrdinaryReferralAwardError("INVALID_EVENT", "An operator and referral event are required.");
   }
@@ -75,11 +76,39 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
       }
       const journal = await tx.ledgerJournal.findUnique({
         where: { id: existingJournalId },
-        select: { id: true, reference: true, sourceReference: true, idempotencyKey: true },
+        include: { entries: { include: { account: { include: { wallet: true } } } } },
       });
-      if (!journal || journal.sourceReference !== `ORDINARY_REFERRAL:${digest}` ||
-          journal.idempotencyKey !== key) {
-        throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward journal does not belong to this referral.");
+      const credited = journal?.entries.find(entry => entry.direction === "CREDIT");
+      const charged = journal?.entries.find(entry => entry.direction === "DEBIT");
+      const ownerType = event.referralCode.ownerType;
+      const ownerId = event.referralCode.ownerId;
+      const expectedPurpose = ownerType === "CUSTOMER" ? "CUSTOMER_WALLET_AVAILABLE"
+        : ownerType === "STORE" ? "STORE_REFERRAL_WALLET_AVAILABLE" : null;
+      const amount = typeof existing.rewardAmountZar === "string"
+        && /^\d+\.\d{2}$/.test(existing.rewardAmountZar)
+        ? new Prisma.Decimal(existing.rewardAmountZar) : null;
+      const source = record(journal?.metadata);
+      if (!journal || !amount || !amount.gt(0) || !expectedPurpose ||
+          journal.sourceReference !== `ORDINARY_REFERRAL:${digest}` ||
+          journal.idempotencyKey !== key || journal.type !== "GENERAL" ||
+          journal.currency !== "ZAR" || journal.entries.length !== 2 ||
+          !journal.totalDebits.equals(amount) || !journal.totalCredits.equals(amount) ||
+          !credited || credited.account.purpose !== expectedPurpose ||
+          credited.account.category !== "LIABILITY" ||
+          credited.account.wallet.ownerType !== ownerType ||
+          credited.account.wallet.ownerId !== ownerId ||
+          !credited.amount.equals(amount) ||
+          !charged || charged.account.purpose !== "PLATFORM_PROMOTION_EXPENSE" ||
+          charged.account.category !== "EXPENSE" ||
+          charged.account.wallet.ownerType !== "PLATFORM" ||
+          charged.account.wallet.ownerId !== "platform" ||
+          !charged.amount.equals(amount) ||
+          existing.recipientOwnerType !== ownerType || existing.recipientOwnerId !== ownerId ||
+          source.category !== "ORDINARY_REFERRAL_AWARD" ||
+          source.referralEventId !== event.id ||
+          source.qualifyingPaymentId !== existing.qualifyingPaymentId ||
+          source.rewardOperationDigest !== operationDigest) {
+        throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward ledger evidence does not match the referral.");
       }
       return Object.freeze({
         status: "REPLAYED" as const,
