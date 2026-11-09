@@ -5,7 +5,7 @@ const f = vi.hoisted(() => ({ identity: vi.fn(), user: vi.fn(), lock: vi.fn(), o
 vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => unknown) => work({ $queryRaw: f.lock, user: { findUnique: f.identity, findUniqueOrThrow: f.user, update: f.update }, otpCode: { findFirst: f.otp, updateMany: f.consume }, session: { create: f.session }, notificationEventIntent: { upsert: f.welcome } }) } }));
 beforeEach(() => {
   vi.resetAllMocks(); f.identity.mockResolvedValue({ id: "account" }); f.lock.mockResolvedValue([{ id: "account" }]);
-  f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status: "PENDING_VERIFICATION", emailVerifiedAt: null });
+  f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status: "PENDING_VERIFICATION", emailVerifiedAt: null, passwordHash: "existing-hash" });
   f.otp.mockResolvedValue({ id: "otp", expiresAt: new Date(Date.now() + 60_000) }); f.consume.mockResolvedValue({ count: 1 });
 });
 describe("email verification eligibility and atomic session boundary (T1 doubles)", () => {
@@ -38,5 +38,13 @@ describe("email verification eligibility and atomic session boundary (T1 doubles
     f.user.mockResolvedValue({ id: "account", role: "CUSTOMER", status: "ACTIVE", emailVerifiedAt: new Date() });
     expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: true });
     expect(f.welcome).not.toHaveBeenCalled();
+  });
+  it("tells a verified imported account to set a password without creating one from an unverified signup", async () => {
+    f.user.mockResolvedValue({ id: "account", role: "STORE", status: "PENDING_VERIFICATION", emailVerifiedAt: null, passwordHash: null });
+    expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: true, role: "STORE", requiresPasswordSetup: true });
+    expect(f.update.mock.calls[0][0].data).not.toHaveProperty("passwordHash");
+  });
+  it("does not ask an account with a password to set one again", async () => {
+    expect(await verifyAccountEmail("owned@example.test", "123456")).toMatchObject({ ok: true, requiresPasswordSetup: false });
   });
 });

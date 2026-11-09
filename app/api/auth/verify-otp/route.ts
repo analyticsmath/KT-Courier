@@ -50,5 +50,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     message: "Email verified successfully.",
     redirect,
+    requiresPasswordSetup: result.requiresPasswordSetup,
   });
 }

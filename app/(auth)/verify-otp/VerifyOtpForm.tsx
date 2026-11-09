@@ -29,6 +29,7 @@ export function VerifyOtpForm({
   // not imply the provider rejected the email. Only display actual failures.
   const [rootError, setRootError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [passwordSetup, setPasswordSetup] = useState<{ destination: string } | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,7 +56,12 @@ export function VerifyOtpForm({
         return;
       }
 
-      router.push(safeAuthReturnUrl(returnUrl) ?? data.redirect ?? "/account");
+      const destination = safeAuthReturnUrl(returnUrl) ?? data.redirect ?? "/account";
+      if (data.requiresPasswordSetup === true) {
+        setPasswordSetup({ destination });
+      } else {
+        router.push(destination);
+      }
     } catch {
       setRootError("Something went wrong. Please try again.");
     } finally {
@@ -85,6 +91,26 @@ export function VerifyOtpForm({
     } finally {
       setResending(false);
     }
+  }
+
+  if (passwordSetup) {
+    return (
+      <>
+        <AuthRouteIntro title="Your email is verified">
+          Your existing account needs a password before you can sign in again.
+          Request a secure password link using the same email address.
+        </AuthRouteIntro>
+        <section className={`${styles.formCard} ${styles.formStack}`}>
+          <button className={styles.primaryAction} type="button" onClick={() => router.push("/forgot-password")}>
+            Set a password
+          </button>
+          <button className={styles.secondaryAction} type="button" onClick={() => router.push(passwordSetup.destination)}>
+            Continue to your account
+          </button>
+          <AuthSecurityNote />
+        </section>
+      </>
+    );
   }
 
   return (

@@ -45,6 +45,9 @@ export async function verifyAccountEmail(email: string, code: string) {
     }
     const rawToken = generateToken(32);
     await tx.session.create({ data: { userId: user.id, tokenHash: hashToken(rawToken), expiresAt: sessionExpiresAt() } });
-    return { ok: true as const, rawToken, role: user.role };
+    // Some imported accounts have no credential. The code proves email
+    // ownership and opens a session, but cannot make the password entered
+    // on an unrelated prior signup attempt authoritative.
+    return { ok: true as const, rawToken, role: user.role, requiresPasswordSetup: !user.passwordHash };
   });
 }
