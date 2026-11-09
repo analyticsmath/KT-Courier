@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMarketplaceCartCount } from "./marketplace-cart-client";
+import { usePublicAccountRoute } from "./use-public-account-route";
 import styles from "./mobile-navigation.module.css";
 
 export function MobileNavigation() {
   const pathname = usePathname();
   const isCommerce = pathname.startsWith("/shop") || pathname === "/cart";
   const cartCount = useMarketplaceCartCount(!pathname.startsWith("/checkout"));
+  const accountHref = usePublicAccountRoute();
 
   // Hide mobile nav on checkout and full-screen auth if needed
   if (pathname.startsWith("/checkout")) {
@@ -74,7 +76,7 @@ export function MobileNavigation() {
     },
     {
       label: "Account",
-      href: "/login",
+      href: accountHref,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
