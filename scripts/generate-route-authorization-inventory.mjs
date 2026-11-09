@@ -119,6 +119,12 @@ for (const file of routeFiles) {
   ) {
     authMechanism = "WEBHOOK_SIGNATURE";
     webhookSignatureCount++;
+  } else if (relPath === "app/api/public/account-navigation/route.ts") {
+    // The PUBLIC page navigation probe deliberately returns HTTP 200 for
+    // anonymous visitors, using the validated session only when present.
+    // It exposes no private identity data and never authorizes mutations.
+    authMechanism = "PUBLIC_OPTIONAL_SESSION";
+    publicCount++;
   } else if (content.includes("requireSuperAdminApi")) {
     // Exact role guard: normal ADMIN sessions must never be shown as permitted.
     authMechanism = "SUPER_ADMIN_SESSION";
