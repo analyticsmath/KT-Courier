@@ -50,7 +50,7 @@ export function selectableCustomerAddresses(
     .filter((address) =>
       address.id.trim().length > 0
       && address.line1.trim().length >= 3
-      && address.country.trim().toLocaleLowerCase("en-ZA") === "south africa")
+      && ["south africa", "za", "rsa"].includes(address.country.trim().toLocaleLowerCase("en-ZA")))
     .sort((a, b) => {
       const priority = (address: CustomerCheckoutSavedAddress) =>
         (address.type === "CUSTOMER" || address.type === "DROPOFF" ? 4 : 0)
