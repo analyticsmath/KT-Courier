@@ -8,7 +8,7 @@ export function isActiveDeliveryServiceForPickup(
   pickupProvince: string | null | undefined,
   pickupRegionId: string | null | undefined,
 ): boolean {
-  const normalise = (value: string) => value.trim().replace(/\\s+/g, " ").toLocaleLowerCase("en-ZA");
+  const normalise = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-ZA");
   const province = normalise(pickupProvince ?? "");
   if (!service.active || !province || !pickupRegionId) return false;
   return service.provinces.some(configured => normalise(configured) === province)
