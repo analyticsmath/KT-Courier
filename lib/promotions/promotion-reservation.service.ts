@@ -52,6 +52,24 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
 
   // 1. Lock Checkout
   await lockCheckout(input.checkoutId, tx);
+  // Recheck the source row INSIDE the locked financial transaction. A reviewed
+  // checkout can change version, buyer, status or guest capability between
+  // the outer API lookup and this reservation.
+  const scopedCheckout = await tx.marketplaceCheckout.findUnique({
+    where: { id: input.checkoutId },
+    select: {
+      reviewVersion: true, status: true,
+      customerUserId: true, guestAccessTokenHash: true,
+    },
+  });
+  if (!scopedCheckout
+    || scopedCheckout.reviewVersion !== input.checkoutReviewVersion
+    || !["READY_FOR_REVIEW", "RESERVED"].includes(scopedCheckout.status)
+    || scopedCheckout.customerUserId !== (input.customerUserId ?? null)
+    || scopedCheckout.guestAccessTokenHash !== (input.guestEvidenceReference ?? null)
+    || (scopedCheckout.customerUserId === null && !scopedCheckout.guestAccessTokenHash)) {
+    throw new Error("Promotion claim does not match the current authorized checkout review.");
+  }
 
   // Preserve the checkout -> customer -> campaign lock order. Two concurrent
   // first-order reservations for the same customer cannot both win.
@@ -208,6 +226,41 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
       : null;
     if (applied.applicationMethod === "COUPON_CODE" && !code) {
       throw new Error("The checkout coupon is not valid for this customer and current review.");
+    }
+    if (code) {
+      // Codes have already been row-locked in stable order. Count committed
+      // use plus OTHER live reservations, not just committed redemption:
+      // otherwise two unpaid checkouts could each hold the final use.
+      const [committed, outstanding] = await Promise.all([
+        tx.promotionRedemption.count({
+          where: { promotionCodeId: code.id, status: "COMMITTED" },
+        }),
+        tx.promotionReservation.count({
+          where: { promotionCodeId: code.id, status: "RESERVED", expiresAt: { gt: input.now } },
+        }),
+      ]);
+      if (code.maximumRedemptions !== null
+        && code.maximumRedemptions !== undefined
+        && committed + outstanding >= code.maximumRedemptions) {
+        throw new Error("The coupon has reached its maximum allowed uses.");
+      }
+      if (code.maximumRedemptionsPerCustomer !== null
+        && code.maximumRedemptionsPerCustomer !== undefined) {
+        if (!input.customerUserId) {
+          throw new Error("This limited coupon requires a verified customer.");
+        }
+        const [customerCommitted, customerOutstanding] = await Promise.all([
+          tx.promotionRedemption.count({
+            where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "COMMITTED" },
+          }),
+          tx.promotionReservation.count({
+            where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "RESERVED", expiresAt: { gt: input.now } },
+          }),
+        ]);
+        if (customerCommitted + customerOutstanding >= code.maximumRedemptionsPerCustomer) {
+          throw new Error("The coupon has already been claimed by this customer.");
+        }
+      }
     }
     const budget = budgets.find(b => b.campaignVersionId === applied.campaignVersionId);
     if (!budget) {
