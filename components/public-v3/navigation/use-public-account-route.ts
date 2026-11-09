@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /** The public site and the parcel/customer dashboard share the same host-only
- * session. Read its role through the existing first-party API instead of
+ * session. Read its role through the anonymous-safe, first-party session projection instead of
  * pretending an authenticated person needs to sign in again.
  */
 export function publicAccountRoute(role: unknown): string {
@@ -25,7 +25,7 @@ export function usePublicAccountRoute(): string {
     let active = true;
     const refresh = async () => {
       try {
-        const response = await fetch("/api/auth/me", {
+        const response = await fetch("/api/public/account-navigation", {
           credentials: "same-origin",
           cache: "no-store",
         });
