@@ -23,7 +23,7 @@ export const metadata: Metadata = { title: "Store administration" };
 function tone(variant: string): ProtectedStatusTone { return variant === "green" ? "success" : variant === "amber" ? "warning" : variant === "red" ? "danger" : variant === "blue" ? "information" : "neutral"; }
 
 const PAGE_SIZE = 25;
-const STORE_FILTERS = ["PENDING", "NO_DEFAULT_PICKUP", "ALL", "ACTIVE", "SUSPENDED", "DISABLED"] as const;
+const STORE_FILTERS = ["CHECKOUT_BLOCKED", "PENDING", "NO_DEFAULT_PICKUP", "ALL", "ACTIVE", "SUSPENDED", "DISABLED"] as const;
 type StoreFilter = typeof STORE_FILTERS[number];
 
 function filterHref(filter: StoreFilter, page = 1) {
@@ -40,9 +40,9 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const selectedFilter: StoreFilter = STORE_FILTERS.includes(filters.status as StoreFilter) ? filters.status as StoreFilter : "PENDING";
   const requestedPage = Number(filters.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage >= 1 && (requestedPage - 1) * PAGE_SIZE <= 2_147_483_647 ? requestedPage : 1;
-  const status = selectedFilter === "ALL" || selectedFilter === "NO_DEFAULT_PICKUP" ? undefined : selectedFilter as StoreStatus;
+  const status = selectedFilter === "ALL" || selectedFilter === "NO_DEFAULT_PICKUP" || selectedFilter === "CHECKOUT_BLOCKED" ? undefined : selectedFilter as StoreStatus;
   const [{ data: stores, total }, canApprove, canReviewSellerIdentity, canManageRates, canReadOrderReports] = await Promise.all([
-    listStores({ status, missingDefaultPickup: selectedFilter === "NO_DEFAULT_PICKUP", page, pageSize: PAGE_SIZE }),
+    listStores({ status, missingDefaultPickup: selectedFilter === "NO_DEFAULT_PICKUP", checkoutBlocked: selectedFilter === "CHECKOUT_BLOCKED", page, pageSize: PAGE_SIZE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
@@ -52,10 +52,10 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (page > pageCount) redirect(filterHref(selectedFilter, pageCount));
   return <ProtectedPageFrame className="eo-store-directory">
-    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : selectedFilter === "NO_DEFAULT_PICKUP" ? " without a saved default collection address" : " in this view"}.`}
+    <ProtectedPageHeader title="Stores" description={`${total} ${selectedFilter === "PENDING" ? "vendor account" : "store account"}${total === 1 ? "" : "s"}${selectedFilter === "PENDING" ? " awaiting review" : selectedFilter === "NO_DEFAULT_PICKUP" ? " without a complete collection address" : selectedFilter === "CHECKOUT_BLOCKED" ? " requiring checkout setup" : " in this view"}.`}
       actions={user.role === "SUPER_ADMIN" ? <Link href="/admin/super-admin" className="eo-table-action">Add or manage stores</Link> : undefined} />
     <nav aria-label="Store account status filters" className="eo-filter-chips">
-      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "NO_DEFAULT_PICKUP" ? "No default pickup" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
+      {STORE_FILTERS.map((filter) => <Link aria-current={selectedFilter === filter ? "page" : undefined} className={selectedFilter === filter ? "is-active" : undefined} href={filterHref(filter)} key={filter}>{filter === "PENDING" ? "Pending approval" : filter === "NO_DEFAULT_PICKUP" ? "Incomplete collection" : filter === "CHECKOUT_BLOCKED" ? "Checkout blocked" : filter === "ALL" ? "All stores" : filter.toLowerCase()}</Link>)}
     </nav>
     {metrics && <OperationalPanel title="Store operations report">
       <StoreOperationsPanel snapshot={metrics} statusFilter={selectedFilter} />
@@ -64,7 +64,7 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
     { id: "store", header: "Store", priority: "primary", cell: (store) => <div className="eo-store-identity"><Link href={`/admin/stores/${encodeURIComponent(store.id)}`}><strong>{store.name}</strong></Link><small>/{store.slug}</small></div> },
     { id: "owner", header: "Owner & contact", priority: "secondary", cell: (store) => <div className="eo-store-contact"><span>{store.ownerUser?.email ? <>{store.ownerUser.email.split("@")[0]}<wbr />@{store.ownerUser.email.split("@").slice(1).join("@")}</> : "Owner unavailable"}</span><small>{store.contactName ?? "Contact not supplied"}</small></div> },
     { id: "state", header: "Account status", priority: "primary", cell: (store) => { const state = getStoreStatusConfig(store.status); return <ProtectedStatus label={state.label} tone={tone(state.variant)} />; } },
-    { id: "pickup", header: "Collection setup", priority: "secondary", cell: (store) => <div className="flex flex-col items-start gap-1"><ProtectedStatus label={store.pickupReadiness.checkoutPickupConfigured ? "Saved pickup recorded" : "Pickup setup required"} tone={store.pickupReadiness.checkoutPickupConfigured && store.pickupReadiness.missing.length === 0 ? "success" : "warning"} />{store.pickupReadiness.missing.length > 0 ? <small className="text-xs">{store.pickupReadiness.missing.join(" · ")}</small> : <small className="text-xs">Address evidence recorded; serviceability not yet verified</small>}</div> },
+    { id: "pickup", header: "Collection setup", priority: "secondary", cell: (store) => <div className="flex flex-col items-start gap-1"><ProtectedStatus label={store.pickupReadiness.checkoutPickupConfigured ? "Saved pickup recorded" : "Pickup setup required"} tone={store.pickupReadiness.checkoutPickupConfigured && store.pickupReadiness.missing.length === 0 ? "success" : "warning"} />{store.pickupReadiness.missing.length > 0 ? <small className="text-xs">{store.pickupReadiness.missing.join(" · ")}</small> : <small className="text-xs">Address evidence recorded; serviceability not yet verified</small>}{store.checkoutBlockers.length > 0 ? <small className="text-xs">Checkout blocked: {store.checkoutBlockers.join(" · ")}</small> : <small className="text-xs">Current publication evidence recorded; final customer route checked at checkout</small>}</div> },
     { id: "review", header: "Review", priority: "primary", cell: (store) => <Link href={`/admin/stores/${encodeURIComponent(store.id)}`} className="eo-table-action">{store.status === "PENDING" ? "Review application" : "View store"}</Link> },
     { id: "management", header: "Management", priority: "secondary", cell: (store) => <details className="eo-store-management"><summary>Manage store</summary><div>
       {user.role === "SUPER_ADMIN" ? <Link href={`/admin/business-support/${store.id}`}>Business support</Link> : null}

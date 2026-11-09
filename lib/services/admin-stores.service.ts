@@ -11,12 +11,14 @@ import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pic
 import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
 import { currentStoreCertificationFacts, requireCurrentStoreCheckoutCertification, type StoreCertificationFacts } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
+import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
 export interface AdminStoreListOptions {
   status?: StoreStatus;
   missingDefaultPickup?: boolean;
+  checkoutBlocked?: boolean;
   featured?: boolean;
   search?: string;
   page: number;
@@ -24,14 +26,15 @@ export interface AdminStoreListOptions {
 }
 
 export interface AdminStoreListResult {
-  data: (AdminStoreListItem & { pickupReadiness: StoreCollectionEvidenceSummary })[];
+  data: (AdminStoreListItem & { pickupReadiness: StoreCollectionEvidenceSummary; checkoutBlockers: string[] })[];
   total: number;
 }
 
 export async function listStores(
   opts: AdminStoreListOptions
 ): Promise<AdminStoreListResult> {
-  const { status, missingDefaultPickup, featured, search, page, pageSize } = opts;
+  const { status, missingDefaultPickup, checkoutBlocked, featured, search, page, pageSize } = opts;
+  const needsCompleteInventory = Boolean(missingDefaultPickup || checkoutBlocked);
   const skip = (page - 1) * pageSize;
 
   const where = {
@@ -49,25 +52,45 @@ export async function listStores(
   const [stores, total] = await Promise.all([
     prisma.store.findMany({
       where,
-      ...(missingDefaultPickup ? {} : { skip, take: pageSize }),
+      ...(needsCompleteInventory ? {} : { skip, take: pageSize }),
       orderBy: { createdAt: "desc" },
-      include: { ownerUser: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
+      include: {
+        ownerUser: true,
+        defaultPickupAddress: true,
+        savedAddresses: { where: { type: "PICKUP" } },
+        checkoutCertification: true,
+        storefrontDocument: { select: { publishedOfferCount: true } },
+      },
     }),
     prisma.store.count({ where }),
   ]);
 
+  const now = new Date();
+  const mapped = stores.map((store) => {
+    const pickup = selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses);
+    return {
+      ...toAdminStoreListItem(store),
+      pickupReadiness: describeStoreCollectionEvidence(pickup),
+      checkoutBlockers: describeStoreCheckoutBlockers({
+        status: store.status,
+        name: store.name,
+        publishedOfferCount: store.storefrontDocument?.publishedOfferCount ?? 0,
+        pickup,
+        certification: store.checkoutCertification,
+        now,
+      }),
+    };
+  });
+  // These are operator-facing read-only filters, not a change to payment,
+  // publication, certification or any merchant account state.
+  const filtered = missingDefaultPickup
+    ? mapped.filter((store) => !store.pickupReadiness.checkoutPickupConfigured)
+    : checkoutBlocked
+      ? mapped.filter((store) => store.checkoutBlockers.length > 0)
+      : mapped;
   return {
-    data: (() => {
-      const mapped = stores.map((store) => ({
-        ...toAdminStoreListItem(store),
-        pickupReadiness: describeStoreCollectionEvidence(
-          selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses),
-        ),
-      }));
-      const filtered = missingDefaultPickup ? mapped.filter((store) => !store.pickupReadiness.checkoutPickupConfigured) : mapped;
-      return missingDefaultPickup ? filtered.slice(skip, skip + pageSize) : filtered;
-    })(),
-    total: missingDefaultPickup ? stores.filter((store) => !describeStoreCollectionEvidence(selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses)).checkoutPickupConfigured).length : total,
+    data: needsCompleteInventory ? filtered.slice(skip, skip + pageSize) : filtered,
+    total: needsCompleteInventory ? filtered.length : total,
   };
 }
 

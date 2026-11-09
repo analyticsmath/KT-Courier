@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
     status: status ?? undefined,
     featured,
     search,
+    missingDefaultPickup: sp.get("missingDefaultPickup") === "true",
+    checkoutBlocked: sp.get("checkoutBlocked") === "true",
     page,
     pageSize,
   });
