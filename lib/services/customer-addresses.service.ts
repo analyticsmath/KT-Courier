@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { staleCustomerSavedAddressPinReset } from "@/lib/services/customer-address-map-authority";
 import type { Address, AddressType } from "@/types/db";
 import type {
   SavedAddressCreateInput,
@@ -144,9 +145,9 @@ export async function updateCustomerAddress(
 
   const nextType = input.type ?? existing.type;
   const nextDefault = input.isDefault ?? existing.isDefault;
-  const locationFields = ["line1", "line2", "city", "province", "postalCode", "country", "formattedAddress", "placeId"] as const;
-  const textLocationChanged = locationFields.some((field) => input[field] !== undefined && input[field] !== existing[field]);
-  const clearOldPoint = textLocationChanged && input.latitude === undefined && input.longitude === undefined;
+  // A text edit or a changed map point must not retain the previous pin's
+  // coordinates/placeId. Checkout still independently verifies route coverage.
+  const invalidatedLocation = staleCustomerSavedAddressPinReset(existing, input);
 
   const updated = await prisma.$transaction(async (tx) => {
     if (nextDefault) {
@@ -164,7 +165,7 @@ export async function updateCustomerAddress(
 
     return tx.address.update({
       where: { id: addressId },
-      data: { ...updateData(input), ...(clearOldPoint ? { latitude: null, longitude: null, placeId: input.placeId ?? null } : {}) },
+      data: { ...updateData(input), ...(invalidatedLocation ?? {}) },
     });
   });
 
