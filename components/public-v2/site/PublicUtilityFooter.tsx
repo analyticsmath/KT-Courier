@@ -150,7 +150,7 @@ export function PublicUtilityFooter() {
           </div>
           <div className={styles.footerSignoff}>
             <span>SOUTH AFRICAN COMMERCE IN MOTION</span>
-            <span>GAUTENG · WESTERN CAPE · KWAZULU-NATAL</span>
+            <span>GAUTENG DELIVERY LAUNCH · SOUTH AFRICA MARKETPLACE</span>
           </div>
         </div>
       </div>
