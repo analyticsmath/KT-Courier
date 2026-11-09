@@ -11,7 +11,8 @@ const MAX_BODY_BYTES = 1_048_576; // 1 MB limit
 
 export async function POST(request: NextRequest): Promise<Response> {
   const signature = request.headers.get("x-paystack-signature");
-  if (!signature) {
+  const modernSignature = request.headers.get("paystack-signature");
+  if (!signature && !modernSignature) {
     return new Response(JSON.stringify({ error: "Missing x-paystack-signature header." }), {
       status: 401,
       headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const ingestResult = await ingestPaystackWebhook({
       rawBody,
       signature,
+      modernSignature,
       sourceAddress,
     });
 

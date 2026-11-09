@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/payments/paystack/webhook/route";
 import { calculatePaystackHmac } from "@/lib/payments/providers/paystack/paystack-signature";
+import { createHmac } from "node:crypto";
 import {
   ingestPaystackWebhook,
   claimPaystackWebhookEventsBatch,
@@ -98,6 +99,8 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.PAYSTACK_SECRET_KEY = testSecret;
+    delete process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET;
+    delete process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET_PREVIOUS;
   });
 
   describe("HTTP Ingress Route Boundary", () => {
@@ -127,6 +130,45 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
 
       const res = await POST(req);
       expect(res.status).toBe(401);
+      expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
+    });
+
+    it("accepts a fresh modern webhook signed with the dedicated whsec key", async () => {
+      const signingKey = "whsec_local_modern_webhook_test_123456";
+      process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET = signingKey;
+      const body = JSON.stringify({ event: "ping", data: { id: 8 } });
+      const now = Math.floor(Date.now() / 1000);
+      const digest = createHmac("sha512", signingKey).update(String(now) + "." + body).digest("hex");
+      (prisma.paymentWebhookEvent.findUnique as any).mockResolvedValue(null);
+      (prisma.paymentWebhookEvent.upsert as any).mockResolvedValue({
+        id: "pwe_modern", publicReference: "pwe_modern_ref", processingStatus: "RECEIVED",
+      });
+      const request = new NextRequest("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST",
+        headers: { "paystack-signature": "t=" + now + ",v1=whk_test1234:" + digest },
+        body,
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      expect(prisma.paymentWebhookEvent.upsert).toHaveBeenCalledWith(expect.objectContaining({
+        create: expect.objectContaining({ signatureVerified: true, processingStatus: "RECEIVED" }),
+      }));
+    });
+
+    it("rejects an invalid versioned signature instead of downgrading to legacy HMAC", async () => {
+      process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET = "whsec_local_modern_webhook_test_123456";
+      const body = JSON.stringify({ event: "ping", data: { id: 8 } });
+      const now = Math.floor(Date.now() / 1000);
+      const request = new NextRequest("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST",
+        headers: {
+          "x-paystack-signature": calculatePaystackHmac(body, testSecret),
+          "paystack-signature": "t=" + now + ",v1=whk_test1234:" + "f".repeat(128),
+        },
+        body,
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(401);
       expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
     });
 

@@ -4,7 +4,7 @@ import { PaymentSubjectType, PaymentWebhookEvent, Prisma } from "@prisma/client"
 import { prisma } from "@/lib/db/prisma";
 import { PaymentError } from "@/lib/payments/errors";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
-import { verifyPaystackSignature } from "@/lib/payments/providers/paystack/paystack-signature";
+import { verifyPaystackSignature, verifyPaystackWebhookSecretSignature } from "@/lib/payments/providers/paystack/paystack-signature";
 import { PaystackClient, zarToSubunitCents } from "@/lib/payments/providers/paystack/paystack-client";
 import { resolvePaystackStoredEventSecretKey, resolvePaystackWebhookSecretKey } from "@/lib/payments/providers/paystack/paystack-config";
 import { buildPaystackReceiptPosting } from "@/lib/payments/providers/paystack/paystack-ledger-posting-policy";
@@ -98,6 +98,7 @@ export type PaystackWebhookPayload = PaystackChargeSuccessPayload | PaystackRefu
 export type IngestPaystackWebhookInput = Readonly<{
   rawBody: string;
   signature: string | null;
+  modernSignature?: string | null;
   sourceAddress?: string;
   secretKey?: string;
   environment?: PaymentProviderEnvironment;
@@ -245,8 +246,17 @@ export async function ingestPaystackWebhook(
     ?? (secretKey.startsWith("sk_live_") ? "PRODUCTION" : "SANDBOX");
   const credentialVersion = secretKey.startsWith("sk_live_") ? "live-v1" : "test-v1";
 
-  // 1. Verify HMAC-SHA512 signature in constant time
-  const signatureValid = verifyPaystackSignature(input.rawBody, input.signature, secretKey);
+  // During signing-key migration, old events can carry only legacy HMAC.
+  // When an explicitly configured signing secret and modern header both exist,
+  // reject a bad modern signature even if the deprecated header is valid.
+  const signingSecrets = [
+    process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET,
+    process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET_PREVIOUS,
+  ].filter((value): value is string => typeof value === "string" && value.startsWith("whsec_"));
+  const verifyModern = Boolean(input.modernSignature && signingSecrets.length);
+  const signatureValid = verifyModern
+    ? verifyPaystackWebhookSecretSignature(input.rawBody, input.modernSignature, signingSecrets)
+    : verifyPaystackSignature(input.rawBody, input.signature, secretKey);
   if (!signatureValid) {
     throw new PaymentError("PAYSTACK_SIGNATURE_INVALID", "Paystack signature verification failed.");
   }
