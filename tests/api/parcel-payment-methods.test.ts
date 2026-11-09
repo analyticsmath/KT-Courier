@@ -18,7 +18,10 @@ const request = { headers: new Headers() } as never;
 const quote = {
   id: "quote-a", total: new Prisma.Decimal("205.85"), deliveryType: "PARCEL_DOCUMENT",
   ruleSnapshot: { configurationId: "CLIENT_STANDARD", serviceKey: "CLIENT_STANDARD" },
-  metadata: { bookingInput: { pickupAddress: { province: "Gauteng" }, dropoffAddress: { province: "Gauteng" } } },
+  metadata: { bookingInput: {
+    pickupAddress: { city: "Johannesburg", line2: "Hillbrow", province: "Gauteng" },
+    dropoffAddress: { city: "Pretoria", line2: "Sunnyside", province: "Gauteng" },
+  } },
   destinationRegionId: null,
 };
 const read = async () => {
@@ -41,6 +44,19 @@ describe("parcel booking payment choices", () => {
     ]);
     expect(result.body.cod).toMatchObject({ eligible: true, amountDueAtDelivery: "205.85" });
     expect(mocks.breakdown).toHaveBeenCalledWith(expect.objectContaining({ storeId: null, orderType: "PARCEL_DOCUMENT" }));
+    expect(mocks.breakdown).toHaveBeenCalledWith(expect.objectContaining({
+      originLocality: { city: "Johannesburg", suburb: "Hillbrow", province: "Gauteng" },
+      destinationLocality: { city: "Pretoria", suburb: "Sunnyside", province: "Gauteng" },
+    }));
+  });
+  it("suppresses cash at the quote choice screen when a trusted suburb is high risk", async () => {
+    mocks.breakdown.mockRejectedValue(new PaymentPolicyError("HIGH_RISK_CASH_RESTRICTED", "Cash is not allowed in the selected area."));
+    const result = await read();
+    expect(result.status).toBe(200);
+    expect(result.body.methods).toEqual([
+      { mode: "DIGITAL_ONLY", digitalRequired: "205.85", cashRequired: "0.00" },
+    ]);
+    expect(result.body.cod).toMatchObject({ eligible: false, reasonCode: "HIGH_RISK_AREA" });
   });
   it("explains why cash is unavailable rather than silently showing only online payment", async () => {
     mocks.breakdown.mockRejectedValue(new PaymentPolicyError("PAYMENT_POLICY_NOT_CONFIGURED", "No active payment policy matches this order."));
