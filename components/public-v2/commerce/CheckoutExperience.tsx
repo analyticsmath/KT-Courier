@@ -813,7 +813,19 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                         const nextId = event.target.value;
                         setSelectedSavedAddressId(nextId);
                         const selected = savedAddresses.find((address) => address.id === nextId);
-                        if (!selected) return;
+                        if (!selected) {
+                          setAddrLine1("");
+                          setAddrLine2("");
+                          setAddrSuburb("");
+                          setAddrCity("");
+                          setAddrProvince("Gauteng");
+                          setAddrPostalCode("");
+                          setAddrInstructions("");
+                          setMappedAddress(null);
+                          setDeliveryQuotePreviews([]);
+                          invalidateReview();
+                          return;
+                        }
                         const prefill = customerCheckoutAddressPrefill(selected);
                         setAddrLine1(prefill.line1);
                         setAddrLine2(prefill.line2);
