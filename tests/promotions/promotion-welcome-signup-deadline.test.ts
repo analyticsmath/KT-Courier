@@ -49,6 +49,40 @@ describe("source-owned registration expiry of first store marketplace offer", ()
     expect(result.applied).toHaveLength(1);
     expect(result.totalDiscount.toFixed(2)).toBe("50.00");
   });
+  it("enforces the admin-editable minimum on the eligible store merchandise, not delivery fees", async () => {
+    const evaluateSpend = (merchandise: string, fee: string) => evaluateMarketplacePromotions({
+      ...input,
+      storeGroups: [{
+        storeReference: "store-1",
+        lines: [{
+          lineReference: "line-1",
+          merchandiseSubtotal: new Prisma.Decimal(merchandise),
+          modifierSubtotal: new Prisma.Decimal(0),
+          productId: "product-1", variantId: "variant-1", categoryId: "category-1",
+        }],
+      }],
+      deliveryQuotes: [{
+        storeReference: "store-1",
+        feeAmount: new Prisma.Decimal(fee),
+        deliveryServiceType: "STANDARD",
+        deliveryRegion: "JHB",
+      }],
+    }, {
+      fetchActiveCampaignVersions: async () => [candidate(7)],
+      fetchPriorCompletedOrdersCount: async () => 0,
+      fetchCustomerSignupAt: async () => new Date(now.getTime() - 86400000),
+    });
+    const below = await evaluateSpend("74.99", "200.00");
+    expect(below.applied).toHaveLength(0);
+    expect(below.totalDiscount.toFixed(2)).toBe("0.00");
+    expect(below.rejected).toContainEqual(expect.objectContaining({
+      campaignVersionId: "signup-deadline-version", reason: "Minimum eligible spend not met",
+    }));
+    const boundary = await evaluateSpend("75.00", "0.00");
+    expect(boundary.applied).toHaveLength(1);
+    expect(boundary.totalDiscount.toFixed(2)).toBe("50.00");
+  });
+
   it("expires the welcome offer after 7 days, without any payment mutation", async () => {
     const expired = await evaluate(7, new Date(now.getTime() - 8 * 86400000));
     expect(expired.applied).toHaveLength(0);
