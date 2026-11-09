@@ -30,6 +30,16 @@ describe("same-account marketplace checkout address prefill", () => {
     ])).toEqual([]);
   });
 
+  it("accepts South African ISO country codes in saved checkout addresses", () => {
+    const entries = selectableCustomerAddresses([
+      { ...address, id: "iso2", country: "ZA" },
+      { ...address, id: "iso3", country: "RSA" },
+      { ...address, id: "full", country: "South Africa" },
+      { ...address, id: "foreign", country: "Zimbabwe" },
+    ]);
+    expect(new Set(entries.map(item => item.id))).toEqual(new Set(["iso2", "iso3", "full"]));
+  });
+
   it("fills checkout's contact-address fields without losing a valid map pin", () => {
     expect(customerCheckoutAddressPrefill(address)).toMatchObject({
       line1: "15 Example Street", line2: "Flat 2", city: "Johannesburg",
