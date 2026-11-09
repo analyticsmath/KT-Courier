@@ -73,6 +73,16 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
     throw new Error('Promotion reservation does not match evaluated checkout evidence.');
   }
 
+  // A coupon cannot be assigned merely because a campaign has one or more
+  // active code records. Bind it to the exact 256-bit HMAC that passed code
+  // validation; an unbound coupon is NEVER a valid checkout discount.
+  const couponClaims = input.appliedPromotions.filter(item => item.applicationMethod === "COUPON_CODE");
+  if (couponClaims.length > 1
+    || (couponClaims.length > 0 && !/^[a-f0-9]{64}$/.test(input.appliedCouponCode ?? ""))
+    || (couponClaims.length === 0 && input.appliedCouponCode !== undefined)) {
+    throw new Error("A single validated coupon HMAC is required for a coupon-funded checkout discount.");
+  }
+
   // Replay is checked BEFORE first-order claims, otherwise the original
   // reservation blocks its own idempotent retry. The operation receipt owns
   // idempotency; one command may legitimately reserve multiple campaigns.
@@ -186,8 +196,19 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
   for (const applied of input.appliedPromotions) {
     const reservationId = cuid();
     
-    // Find matching code if coupon
-    const code = codes.find(c => c.campaignVersionId === applied.campaignVersionId);
+    // A validated HMAC belongs to precisely one active, unexpired code.
+    // Never attach the first arbitrary code from a campaign to a discount.
+    const code = applied.applicationMethod === "COUPON_CODE"
+      ? codes.find(c => c.campaignVersionId === applied.campaignVersionId
+        && c.codeHmac === input.appliedCouponCode
+        && c.status === "ACTIVE"
+        && (!c.startsAt || c.startsAt <= input.now)
+        && (!c.expiresAt || c.expiresAt >= input.now)
+        && (!c.restrictedCustomerUserId || c.restrictedCustomerUserId === input.customerUserId))
+      : null;
+    if (applied.applicationMethod === "COUPON_CODE" && !code) {
+      throw new Error("The checkout coupon is not valid for this customer and current review.");
+    }
     const budget = budgets.find(b => b.campaignVersionId === applied.campaignVersionId);
     if (!budget) {
       throw new Error(`Budget not found for campaign version ${applied.campaignVersionId}`);
@@ -197,7 +218,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
       id: reservationId,
       publicReference: cuid(),
       campaignVersionId: applied.campaignVersionId,
-      promotionCodeId: applied.applicationMethod === 'COUPON_CODE' ? (code?.id || null) : null,
+      promotionCodeId: code?.id ?? null,
       checkoutId: input.checkoutId,
       checkoutReviewVersion: input.checkoutReviewVersion,
       customerUserId: input.customerUserId || null,
