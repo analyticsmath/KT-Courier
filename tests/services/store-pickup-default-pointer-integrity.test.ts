@@ -10,7 +10,7 @@ vi.mock("@/lib/client-platform/store-access", () => ({ storeAccess: mock.access 
 vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: mock.transaction } }));
 vi.mock("@/lib/services/storefront-store.service", () => ({ rebuildStorefrontStoreDocument: mock.rebuild }));
 vi.mock("@/lib/services/customer-addresses.service", () => ({ toSavedAddressDto: (value: unknown) => value }));
-import { upsertStorePickupAddress } from "@/lib/services/store-addresses.service";
+import { upsertStorePickupAddress, upsertStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 
 const input = StorePickupAddressSchema.parse({
   line1: "12 Main Road", line2: "Sandton", city: "Johannesburg", province: "Gauteng",
@@ -42,6 +42,15 @@ beforeEach(() => {
 });
 
 describe("store pickup pointer integrity", () => {
+  it("records an authorized admin actor and revokes stale live checkout authority for a changed pickup", async () => {
+    mock.current.mockResolvedValue({ id: "store-own", status: "ACTIVE", defaultPickupAddressId: "address-old", defaultPickupAddress: previous });
+    mock.lookup.mockResolvedValue(previous);
+    await upsertStorePickupAddressForStore("store-own", "admin-1", { ...input, line1: "20 New Road" });
+    expect(mock.access).not.toHaveBeenCalled();
+    expect(mock.updateStore).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PENDING", featured: false }) }));
+    expect(mock.revoke).toHaveBeenCalledOnce(); expect(mock.rebuild).toHaveBeenCalledOnce();
+    expect(mock.activity).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ actorUserId: "admin-1", entityId: "store-own" }) }));
+  });
   it("preserves an old BUSINESS address when a stale default points at it", async () => {
     mock.current.mockResolvedValue({
       id: "store-own", status: "PENDING",

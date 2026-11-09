@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 785,
+    "totalRoutes": 786,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 683,
-    "permissionGatedRoutes": 535,
+    "authenticatedRoutes": 684,
+    "permissionGatedRoutes": 536,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 226,
-    "generatedAt": "2026-11-09T08:24:55.525Z"
+    "rateLimitedRoutes": 227,
+    "generatedAt": "2026-11-09T14:26:44.351Z"
   },
   "serverActions": [],
   "routes": [
@@ -7965,6 +7965,27 @@
         "stores.feature"
       ],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/stores/[id]/pickup-address/route.ts",
+      "httpMethods": [
+        "GET",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "stores.update"
+      ],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",

@@ -33,8 +33,13 @@ export async function getStorePickupAddress(
   section: "settings" | "deliveries" = "settings",
 ): Promise<StorePickupAddressState | null> {
   const access = await storeAccess(userId, section);
+  return getStorePickupAddressForStore(access.store.id);
+}
+
+/** Caller must first authorize access to the specific store. */
+export async function getStorePickupAddressForStore(storeId: string): Promise<StorePickupAddressState | null> {
   const store = await prisma.store.findUnique({
-    where: { id: access.store.id },
+    where: { id: storeId },
     include: {
       defaultPickupAddress: true,
       // The quote authority already accepts a complete, store-owned saved
@@ -137,6 +142,17 @@ export async function upsertStorePickupAddress(
 
   if (!store) return null;
 
+  return upsertStorePickupAddressForStore(store.id, userId, input);
+}
+
+/** Caller must first authorize the actor to update this specific store. */
+export async function upsertStorePickupAddressForStore(
+  storeId: string,
+  actorUserId: string,
+  input: StorePickupAddressInput,
+): Promise<SavedAddressDto | null> {
+  const store = { id: storeId };
+
   const pickupAddress = await prisma.$transaction(async (tx) => {
     // Serialize with administrative store activation. The live projection and
     // any recertification state change must commit with the new pickup address.
@@ -190,7 +206,7 @@ export async function upsertStorePickupAddress(
 
     await tx.adminActivityLog.create({
       data: {
-        actorUserId: userId,
+        actorUserId,
         action: "UPDATE",
         entityType: "Store",
         entityId: store.id,

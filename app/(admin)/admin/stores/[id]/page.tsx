@@ -6,11 +6,13 @@ import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { hasPermission } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStoreDetail } from "@/lib/services/admin-stores.service";
+import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 import { vendorReviewChecklist } from "@/lib/admin/vendor-review-checklist";
 import { getStoreCommissionReadiness } from "@/lib/admin/store-commission-readiness";
 import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
 import { StoreCheckoutCertificationPanel } from "@/components/admin/StoreCheckoutCertificationPanel";
+import { StorePickupAddressManager } from "@/components/store/StorePickupAddressManager";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
@@ -27,16 +29,17 @@ function date(value: Date | null | undefined) {
 export default async function AdminStoreDossier({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const { id } = await params;
-  const [store, canApprove, canReviewSeller, canManagePricing, canReadCommission] = await Promise.all([
+  const [store, canApprove, canUpdate, canReviewSeller, canManagePricing, canReadCommission] = await Promise.all([
     getStoreDetail(id),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
+    hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.STORES_UPDATE }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.COMMISSION_PLANS_READ }),
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
@@ -51,6 +54,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
       },
     }) : Promise.resolve(null),
+    canUpdate ? getStorePickupAddressForStore(id) : Promise.resolve(null),
   ]);
   const owner = store.ownerUser;
   const summary = vendorReviewChecklist({
@@ -104,6 +108,15 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       <p className="text-sm">The preflight identifies missing pickup configuration, mapping, covered pickup regions and active courier-service support.</p>
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4" href={`/admin/stores/${encodeURIComponent(id)}/readiness`}>Run operational pickup preflight</Link>
     </OperationalPanel>
+    {canUpdate && pickupState ? (
+      <OperationalPanel title="Manage collection address" description="Enter the store's confirmed collection address. Changing a live collection point requires fresh route and checkout review.">
+        <StorePickupAddressManager pickupAddress={pickupState.pickupAddress}
+          endpoint={`/api/admin/stores/${encodeURIComponent(id)}/pickup-address`}
+          legacyAddress={{ storeName: store.name, contactName: store.contactName, contactPhone: store.contactPhone,
+            line1: store.addressLine1, line2: store.addressLine2, city: store.city, province: store.province,
+            postalCode: store.postalCode, country: store.country }} />
+      </OperationalPanel>
+    ) : null}
     {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
       <OperationalPanel title="Independent checkout and route certification"
         description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">

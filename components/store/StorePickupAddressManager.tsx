@@ -27,6 +27,7 @@ interface LegacyPickupAddress {
 interface StorePickupAddressManagerProps {
   pickupAddress: SavedAddressDto | null;
   legacyAddress?: LegacyPickupAddress;
+  endpoint?: string;
 }
 
 interface FormState {
@@ -93,6 +94,7 @@ function displaySummary(address: SavedAddressDto | null, legacy?: LegacyPickupAd
 export function StorePickupAddressManager({
   pickupAddress,
   legacyAddress,
+  endpoint = "/api/store/pickup-address",
 }: StorePickupAddressManagerProps) {
   const [current, setCurrent] = useState(pickupAddress);
   const [formOpen, setFormOpen] = useState(() => storePickupSetupState(pickupAddress, legacyAddress).setupRequired);
@@ -106,7 +108,7 @@ export function StorePickupAddressManager({
   // without asking the merchant to resave unchanged location data.
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/store/pickup-address", {
+    void fetch(endpoint, {
       credentials: "same-origin", cache: "no-store", signal: controller.signal,
     })
       .then(async response => response.ok
@@ -119,7 +121,7 @@ export function StorePickupAddressManager({
         // A provider/network error does not mean this store is checkout-ready.
       });
     return () => controller.abort();
-  }, []);
+  }, [endpoint]);
 
   const hasDisplayAddress = !storePickupSetupState(current, legacyAddress).setupRequired;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";
@@ -184,7 +186,7 @@ export function StorePickupAddressManager({
     };
 
     try {
-      const res = await fetch("/api/store/pickup-address", {
+      const res = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
