@@ -63,3 +63,11 @@ Source intentionally blocks the merchant checkout when `CHECKOUT_PUBLIC_ENABLED`
 An updated **copy** of the original Developer Brief contains indicative estimates/targets in Section 11 and this latest decision summary. The provided inputs contain **no accepted Rand rate or fixed project fee**, so cost remains `To be agreed`; no fake estimate is recorded. The original nine source attachments are preserved. The client's answers supersede older open questions, but do not certify features as complete.
 
 **Decision remains NO-GO for production:** do not merge, push migrations to the live database, activate transfers or claim every Live store is sellable before the named gates have passed.
+
+## 7. Parcel card-payment navigation improvement (later continuation on 9 November)
+
+The verified UI source in `components/forms/PublicDeliveryQuoteForm.tsx` booked a parcel and then unconditionally navigated to `/account/orders/:id` (or the store equivalent), requiring the user to find an additional Payment link. That does not by itself prove Paystack failure, but conflicts with the client's expectation that choosing Card/Online proceeds to checkout.
+
+The booking now selects the next page through `lib/client-platform/parcel-booking-navigation.ts`: `DIGITAL_ONLY` goes immediately to `/orders/:orderNumber/payment` **only after the canonical booking API succeeds**; approved `FULL_COD` remains on order details. If an older API response lacks an order number, it safely falls back to the order detail route. The existing payment page requires authentication and verifies order ownership; this client-side redirect performs no charge and never interprets a Paystack browser return as proof of payment.
+
+The targeted routing, privacy and prefill tests now pass **23/23** across four test files; targeted ESLint and isolated-workspace TypeScript check pass. A complete Paystack test-mode checkout and signed webhook verification on the exact GitHub branch build remain release requirements.
