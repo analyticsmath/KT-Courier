@@ -10787,7 +10787,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure_ready/route.ts",
+      "routePath": "app/api/infrastructure/ready/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -10802,7 +10802,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure/ready/route.ts",
+      "routePath": "app/api/infrastructure_ready/route.ts",
       "httpMethods": [
         "GET"
       ],
