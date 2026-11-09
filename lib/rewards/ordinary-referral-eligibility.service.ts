@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { ORDINARY_REFERRAL_PROGRAM, ORDINARY_REFERRAL_SOURCE } from "./ordinary-referral.service";
 import { sameReferralPhone } from "./ordinary-referral-phone";
@@ -17,7 +18,9 @@ type Eligibility = Readonly<{
  * first paid order across both commerce channels; it cannot create money,
  * guarantee a future entitlement or bypass an independent finance signoff.
  */
-export async function inspectOrdinaryReferralEligibility(referralEventId: string): Promise<Eligibility> {
+export async function inspectOrdinaryReferralEligibility(
+  referralEventId: string, db: Prisma.TransactionClient = prisma,
+): Promise<Eligibility> {
   const respond = (reason: string, paymentId: string | null = null, evidenceStatus: OrdinaryReferralFinancialStatus | null = null): Eligibility =>
     Object.freeze({
       eligible: reason === "VERIFIED_FIRST_PAID_ORDER",
@@ -25,7 +28,7 @@ export async function inspectOrdinaryReferralEligibility(referralEventId: string
     });
   if (!referralEventId.trim() || referralEventId.length > 200) return respond("INVALID_REFERRAL");
 
-  const event = await prisma.referralEvent.findUnique({
+  const event = await db.referralEvent.findUnique({
     where: { id: referralEventId },
     include: { referralCode: true, targetUser: {
       select: { id: true, role: true, status: true, email: true, phone: true, createdAt: true },
@@ -42,10 +45,10 @@ export async function inspectOrdinaryReferralEligibility(referralEventId: string
     return respond("INELIGIBLE_REFERRAL");
   }
   const referrer = event.referralCode.ownerType === "CUSTOMER"
-    ? await prisma.user.findFirst({ where: {
+    ? await db.user.findFirst({ where: {
         id: event.referralCode.ownerId, status: "ACTIVE", role: "CUSTOMER",
       }, select: { id: true, email: true, phone: true } })
-    : await prisma.store.findFirst({ where: {
+    : await db.store.findFirst({ where: {
         id: event.referralCode.ownerId, status: "ACTIVE",
         ownerUser: { status: "ACTIVE", role: "STORE" },
       }, select: { ownerUser: { select: { id: true, email: true, phone: true } } } })
@@ -59,7 +62,7 @@ export async function inspectOrdinaryReferralEligibility(referralEventId: string
   // Once the first paid source exists, a later order never qualifies in its
   // place. A failed/forged original receipt is an investigation case, not an
   // invitation to claim a payout against a newer payment.
-  const payment = await prisma.payment.findFirst({
+  const payment = await db.payment.findFirst({
     where: {
       userId: event.targetUserId, status: "SUCCEEDED",
       subjectType: { in: ["COURIER_ORDER", "MARKETPLACE_CHECKOUT"] },

@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 784,
+    "totalRoutes": 785,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 682,
-    "permissionGatedRoutes": 534,
+    "authenticatedRoutes": 683,
+    "permissionGatedRoutes": 535,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 225,
-    "generatedAt": "2026-11-09T04:09:40.621Z"
+    "rateLimitedRoutes": 226,
+    "generatedAt": "2026-11-09T08:24:55.525Z"
   },
   "serverActions": [],
   "routes": [
@@ -6770,6 +6770,23 @@
         "deliveries.redelivery.manage"
       ],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/referrals/[id]/award/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
