@@ -53,7 +53,7 @@ test("finance targets use a separate disposable invocation before the unchanged 
 });
 
 test("CI and certification cancel superseded PRs only, never main push audits", () => {
-  assert.equal(ciWorkflow.concurrency.group, "${{ github.event.pull_request.number || github.ref }}".replace("${{", "kt-ci-${{"));
+  assert.equal(ciWorkflow.concurrency.group, "kt-ci-${{ github.event.pull_request.number || github.ref }}");
   assert.equal(ciWorkflow.concurrency["cancel-in-progress"], "${{ github.event_name == 'pull_request' }}");
   assert.equal(workflow.concurrency.group, "production-certification-${{ github.ref }}");
   assert.equal(workflow.concurrency["cancel-in-progress"], "${{ github.event_name == 'pull_request' }}");
