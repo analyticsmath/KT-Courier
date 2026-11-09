@@ -47,8 +47,7 @@ export function projectCheckoutPromotionFacts(
       .map(line => {
         if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0
           || !group.storeId || !line.id || !line.productReference || !line.variantReference
-          || line.baseUnitPrice.isNegative() || line.modifierUnitTotal.isNegative()
-          || line.lineTotal.isNegative()) {
+          || line.baseUnitPrice.isNegative() || line.lineTotal.isNegative()) {
           throw new Error("Checkout promotion requires nonnegative, source-bound current review lines.");
         }
         const merchandiseSubtotal = line.baseUnitPrice.mul(line.quantity);
