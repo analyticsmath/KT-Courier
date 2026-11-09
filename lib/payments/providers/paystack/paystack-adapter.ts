@@ -73,23 +73,37 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       throw new PaymentError("PAYMENT_CURRENCY_INVALID", "Paystack payments must be in ZAR.");
     }
 
-    // Attempt recovery: if the attempt already exists upstream due to a retry/timeout, verify first
+    // A timed-out first attempt can already have succeeded at the provider.
+    // Never treat a remote "success" as our own payment without checking the
+    // exact original reference, currency, amount and provider environment.
+    // The verification attempt is outside the mutation transaction.
+    let existing: PaystackVerifyData | null = null;
     try {
-      const existing = await this.client.verifyTransaction(input.merchantReference, context.signal);
-      if (existing && existing.status === "success") {
-        return Object.freeze({
-          status: "SUCCEEDED" as const,
-          providerReference: existing.reference,
-          providerStatusCode: existing.status,
-          definitive: true,
-          safeMetadata: Object.freeze({
-            channel: existing.channel,
-            gatewayResponse: existing.gateway_response,
-          }),
-        });
-      }
+      existing = await this.client.verifyTransaction(input.merchantReference, context.signal);
     } catch {
-      // Transaction doesn't exist yet on Paystack; proceed to initialize
+      // Existing retry behavior: the provider may not know this reference yet.
+      // Initialize with the SAME immutable merchant reference below.
+    }
+    if (existing?.status === "success") {
+      if (existing.reference !== input.merchantReference) {
+        throw new PaymentError("PAYMENT_PROVIDER_REFERENCE_CONFLICT", "Paystack recovered a different transaction reference.");
+      }
+      if (existing.currency !== input.currency || existing.amount !== amountCents) {
+        throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack recovered an amount or currency that does not match this payment.");
+      }
+      if (existing.domain !== (this.configuration.environment === "production" ? "live" : "test")) {
+        throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack recovered a transaction from another provider environment.");
+      }
+      return Object.freeze({
+        status: "SUCCEEDED" as const,
+        providerReference: existing.reference,
+        providerStatusCode: existing.status,
+        definitive: true,
+        safeMetadata: Object.freeze({
+          channel: existing.channel,
+          gatewayResponse: existing.gateway_response,
+        }),
+      });
     }
 
     const initData = await this.client.initializeTransaction({
@@ -105,6 +119,9 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       }),
     }, context.signal);
 
+    if (initData.reference !== input.merchantReference) {
+      throw new PaymentError("PAYMENT_PROVIDER_REFERENCE_CONFLICT", "Paystack initialized a different transaction reference.");
+    }
     const safeUrl = validatePaystackAuthorizationUrl(initData.authorization_url);
 
     return Object.freeze({
@@ -136,7 +153,9 @@ export class PaystackAdapter implements PaymentProviderAdapter {
 
     const reference = input.merchantReference;
     const verifyData: PaystackVerifyData = await this.client.verifyTransaction(reference, context.signal);
-
+    if (verifyData.reference !== reference) {
+      throw new PaymentError("PAYMENT_PROVIDER_REFERENCE_CONFLICT", "Paystack returned a different transaction reference.");
+    }
     return this.normalizeVerifyStatus(verifyData);
   }
 
