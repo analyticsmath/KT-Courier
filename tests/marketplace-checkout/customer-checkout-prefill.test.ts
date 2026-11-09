@@ -34,10 +34,11 @@ describe("same-account marketplace checkout address prefill", () => {
     const entries = selectableCustomerAddresses([
       { ...address, id: "iso2", country: "ZA" },
       { ...address, id: "iso3", country: "RSA" },
+      { ...address, id: "iso3z", country: " ZAF " },
       { ...address, id: "full", country: "South Africa" },
       { ...address, id: "foreign", country: "Zimbabwe" },
     ]);
-    expect(new Set(entries.map(item => item.id))).toEqual(new Set(["iso2", "iso3", "full"]));
+    expect(new Set(entries.map(item => item.id))).toEqual(new Set(["iso2", "iso3", "iso3z", "full"]));
   });
 
   it("fills checkout's contact-address fields without losing a valid map pin", () => {

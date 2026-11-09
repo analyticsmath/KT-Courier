@@ -1,3 +1,5 @@
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
+
 /** Read-only presentation of the authenticated customer's existing address
  * book. This does not authorize geocoding, delivery coverage or a charge.
  * The checkout server re-verifies the selected address and route on submit.
@@ -50,7 +52,7 @@ export function selectableCustomerAddresses(
     .filter((address) =>
       address.id.trim().length > 0
       && address.line1.trim().length >= 3
-      && ["south africa", "za", "rsa"].includes(address.country.trim().toLocaleLowerCase("en-ZA")))
+      && isSouthAfricanCountry(address.country))
     .sort((a, b) => {
       const priority = (address: CustomerCheckoutSavedAddress) =>
         (address.type === "CUSTOMER" || address.type === "DROPOFF" ? 4 : 0)
