@@ -120,7 +120,10 @@ export async function prepareStoreCheckoutCertification(
   const facts = await currentStoreCertificationFacts(storeId);
   return prisma.$transaction(async tx => {
     const { store, pickup, fingerprint } = await lockedStorePickup(tx, storeId);
-    if (store.status !== "PENDING" || pickup.id !== facts.pickupAddressId ||
+    // Existing ACTIVE stores imported before certification was introduced need
+    // the same recovery path as new applicants. They remain hidden until the
+    // certificate is independently approved and publication is rebuilt.
+    if ((store.status !== "PENDING" && store.status !== "ACTIVE") || pickup.id !== facts.pickupAddressId ||
         fingerprint !== facts.pickupFingerprint) {
       throw new StoreCertificationError("STORE_PICKUP_CHANGED", "Store or pickup changed; repeat staging checks.");
     }
@@ -175,9 +178,12 @@ export async function approveStoreCheckoutCertification(
   storeId: string, approvingAdminId: string, expectedRevision: number,
 ) {
   const facts = await currentStoreCertificationFacts(storeId);
+  // Lazy import avoids the publication-readiness service's fingerprint import
+  // forming an initialization cycle with this module.
+  const { rebuildStorefrontStoreDocument } = await import("@/lib/services/storefront-store.service");
   return prisma.$transaction(async tx => {
     const { store, pickup, fingerprint } = await lockedStorePickup(tx, storeId);
-    if (store.status !== "PENDING" || pickup.id !== facts.pickupAddressId ||
+    if ((store.status !== "PENDING" && store.status !== "ACTIVE") || pickup.id !== facts.pickupAddressId ||
         fingerprint !== facts.pickupFingerprint) {
       throw new StoreCertificationError("STORE_PICKUP_CHANGED", "The store or pickup changed during review.");
     }
@@ -200,6 +206,10 @@ export async function approveStoreCheckoutCertification(
       data: { status: "APPROVED", approvedByUserId: approvingAdminId,
         approvedAt: new Date(), revision: { increment: 1 } },
     });
+    // A legacy active store may already have an INELIGIBLE projection. Make
+    // approval and its recalculated visibility atomic; pending stores remain
+    // ineligible until a separate activation.
+    await rebuildStorefrontStoreDocument(storeId, tx);
     await tx.adminActivityLog.create({ data: {
       actorUserId: approvingAdminId, action: "UPDATE", entityType: "Store", entityId: storeId,
       message: "Independent store staging route and paid-checkout evidence approved",

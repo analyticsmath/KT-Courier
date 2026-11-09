@@ -72,18 +72,18 @@ describe("locked two-person store certification and activation (isolated Postgre
     const certificate = await prisma.storeCheckoutCertification.findUniqueOrThrow({ where: { storeId: store.id } });
     expect(certificate.approvedByUserId).toBe(ids.admins[1]);
     await expect(approveStoreCheckoutCertification(store.id, ids.admins[1], pending.revision))
-      .rejects.toMatchObject({ code: "STORE_PICKUP_CHANGED" });
+      .rejects.toMatchObject({ code: "CERTIFICATION_VERSION_CONFLICT" });
     // The re-certification UX must recover from expired or pre-migration
     // approved evidence, but never silently keep the old Live authority.
-    await prisma.store.update({ where: { id: store.id }, data: { status: "PENDING" } });
     await prisma.storeCheckoutCertification.update({ where: { storeId: store.id }, data: {
       status: "APPROVED", routeEvidenceDigest: null, checkoutEvidenceDigest: null,
     } });
     const renewed = await prepareStoreCheckoutCertification(store.id, ids.admins[0], proof);
     expect(renewed.status).toBe("PENDING_REVIEW");
-    await expect(setStoreStatus(store.id, "ACTIVE"))
-      .rejects.toMatchObject({ code: "CHECKOUT_CERTIFICATION_REQUIRED" });
+    expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("ACTIVE");
+    await expect(approveStoreCheckoutCertification(store.id, ids.admins[0], renewed.revision))
+      .rejects.toMatchObject({ code: "INDEPENDENT_REVIEWER_REQUIRED" });
     await approveStoreCheckoutCertification(store.id, ids.admins[1], renewed.revision);
-    expect((await setStoreStatus(store.id, "ACTIVE")).status).toBe("ACTIVE");
+    expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("ACTIVE");
   });
 });
