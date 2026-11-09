@@ -145,33 +145,29 @@ export async function upsertStorePickupAddress(
       where: { id: store.id },
       include: { defaultPickupAddress: true },
     });
-    const locationChanged = hasStorePickupLocationChanged(current.defaultPickupAddress, input);
+    // Legacy/mislinked defaults are not authority to mutate a business or
+    // another merchant's address into a courier collection point.
+    const existingPickup = current.defaultPickupAddress?.type === "PICKUP"
+      && current.defaultPickupAddress.storeId === store.id
+      ? current.defaultPickupAddress : null;
+    const locationChanged = hasStorePickupLocationChanged(existingPickup, input);
     const revokeLiveStatus = current.status === "ACTIVE" && locationChanged;
     await tx.address.updateMany({
       where: { storeId: store.id, type: "PICKUP", isDefault: true },
       data: { isDefault: false },
     });
 
-    let address: Address;
-    if (current.defaultPickupAddressId) {
-      const existing = await tx.address.findFirst({
-        where: { id: current.defaultPickupAddressId, storeId: store.id },
-      });
-      if (existing) {
-        address = await tx.address.update({
+    const existing = existingPickup && current.defaultPickupAddressId
+      ? await tx.address.findFirst({
+          where: { id: current.defaultPickupAddressId, storeId: store.id, type: "PICKUP" },
+        })
+      : null;
+    const address: Address = existing?.type === "PICKUP" && existing.storeId === store.id
+      ? await tx.address.update({
           where: { id: existing.id },
           data: updateAddressData(input),
-        });
-      } else {
-        address = await tx.address.create({
-          data: createAddressData(store.id, input),
-        });
-      }
-    } else {
-      address = await tx.address.create({
-        data: createAddressData(store.id, input),
-      });
-    }
+        })
+      : await tx.address.create({ data: createAddressData(store.id, input) });
 
     await tx.store.update({
       where: { id: store.id },
