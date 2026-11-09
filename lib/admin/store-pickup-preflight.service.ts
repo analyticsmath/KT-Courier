@@ -5,6 +5,7 @@ import { evaluateStorePickupPreflight } from "@/lib/admin/store-operational-pref
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
 import { resolveVerifiedStorePickupCoordinates } from "@/lib/marketplace-checkout/verified-store-pickup-coordinates";
+import { isActiveDeliveryServiceForPickup } from "./store-service-matching";
 
 /**
  * This read-only operation does not modify store status, persist geocoding
@@ -46,9 +47,7 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
         pickupRegionId = decision.regionId ?? null;
         const services = await deliveryCatalog();
         const matching = services.filter(
-          service => service.active
-            && service.provinces.some(province => province === pickup.province)
-            && (!service.regionIds.length || service.regionIds.includes(decision.regionId!)),
+          service => isActiveDeliveryServiceForPickup(service, pickup.province, decision.regionId!),
         );
         matchingServiceCount = matching.length;
         matchingServiceVersions = matching.map(service => service.id + ":" + service.version).sort();
