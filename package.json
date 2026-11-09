@@ -9,7 +9,7 @@
     "build:e2e-host": "node scripts/build-e2e-host-standalone.mjs",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
+    "typecheck": "node node_modules/next/dist/bin/next typegen && node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit",
     "typecheck:home": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit -p tsconfig.home-cinematic.json",
     "media:home:cinematic": "node scripts/media/prepare-home-cinematic-assets.mjs && node scripts/media/prepare-home-composite-actors.mjs",
     "db:preflight": "node scripts/db-preflight.mjs",

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SystemSettingType } from "@/types/db";
 import { getSystemSettingDefinition } from "@/lib/settings/catalog";
+import { parseHighRiskAreas } from "@/lib/settings/high-risk-area-policy";
 
 // Keys that must never be stored in SystemSetting (enforced server-side).
 export const FORBIDDEN_SETTING_KEYS = [
@@ -35,10 +36,24 @@ export function validateSettingValue(
       return { ok: true, value: normalized };
 
     case SystemSettingType.NUMBER: {
-      const n = typeof value === "string" ? parseFloat(value) : value;
-      if (typeof n !== "number" || isNaN(n)) return { ok: false, error: "Value must be a number." };
+      // parseFloat("10junk") silently accepts malformed commercial settings.
+      // Refuse partial parses, exponent overflow and nonfinite numeric JSON.
+      const trimmed = typeof value === "string" ? value.trim() : "";
+      const n = typeof value === "string"
+        ? (/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(trimmed) ? Number(trimmed) : NaN)
+        : value;
+      if (typeof n !== "number" || !Number.isFinite(n)) return { ok: false, error: "Value must be a finite number." };
       if (definition?.minimum !== undefined && n < definition.minimum) return { ok: false, error: "Value is below the approved setting range." };
       if (definition?.maximum !== undefined && n > definition.maximum) return { ok: false, error: "Value is above the approved setting range." };
+      if (key === "loyalty.conversion_points" || key === "welcome.store.valid_days" || key === "loyalty.points_per_zar") {
+        if (!Number.isSafeInteger(n)) return { ok: false, error: "This setting must be a whole number." };
+      }
+      if (key?.startsWith("welcome.store.") || key?.startsWith("loyalty.") || key === "referral.reward_zar") {
+        const decimalText = typeof value === "string" ? trimmed : n.toString();
+        if (/e/i.test(decimalText) || (decimalText.split(".")[1]?.length ?? 0) > 2) {
+          return { ok: false, error: "Commercial amounts must use no more than two decimal places." };
+        }
+      }
       return { ok: true, value: n };
     }
 
@@ -48,17 +63,20 @@ export function validateSettingValue(
       if (value === "false") return { ok: true, value: false };
       return { ok: false, error: "Value must be true or false." };
 
-    case SystemSettingType.JSON:
-      if (typeof value === "object" && value !== null) return { ok: true, value };
+    case SystemSettingType.JSON: {
+      let parsed: unknown = value;
       if (typeof value === "string") {
-        try {
-          const parsed = JSON.parse(value);
-          return { ok: true, value: parsed };
-        } catch {
-          return { ok: false, error: "Value must be valid JSON." };
-        }
+        try { parsed = JSON.parse(value); }
+        catch { return { ok: false, error: "Value must be valid JSON." }; }
       }
+      if (key === "delivery.high_risk_areas") {
+        const riskAreas = parseHighRiskAreas(parsed);
+        if (!riskAreas) return { ok: false, error: "Each high-risk area requires unique ID, named locations, area notes, and enabled status." };
+        return { ok: true, value: riskAreas };
+      }
+      if (typeof parsed === "object" && parsed !== null) return { ok: true, value: parsed };
       return { ok: false, error: "Value must be a valid JSON object." };
+    }
 
     default:
       return { ok: false, error: "Unknown setting type." };

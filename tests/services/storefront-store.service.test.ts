@@ -1,7 +1,8 @@
-import { expect, test, vi } from "vitest";
-const dependencies = vi.hoisted(() => ({ storeFindUnique: vi.fn(), queryRaw: vi.fn(), storeUpsert: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ store: { findUnique: dependencies.storeFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } }), store: { findUnique: dependencies.storeFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } } }));
+import { beforeEach, expect, test, vi } from "vitest";
+const dependencies = vi.hoisted(() => ({ storeFindUnique: vi.fn(), certificationFindUnique: vi.fn(), queryRaw: vi.fn(), storeUpsert: vi.fn() }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ store: { findUnique: dependencies.storeFindUnique }, storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } }), store: { findUnique: dependencies.storeFindUnique }, storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } } }));
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
+import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 
 const pickup = {
   id: "pickup", storeId: "store", type: "PICKUP", isDefault: true,
@@ -10,7 +11,15 @@ const pickup = {
   latitude: -26.1, longitude: 28.05,
 };
 
-test("store service publishes a privacy-minimised projection only with a complete saved pickup", async () => {
+beforeEach(() => { vi.clearAllMocks(); dependencies.certificationFindUnique.mockResolvedValue(null); });
+
+test("store service publishes a privacy-minimised projection only with a complete saved pickup AND reviewed checkout", async () => {
+  dependencies.certificationFindUnique.mockResolvedValue({
+    status: "APPROVED", pickupAddressId: pickup.id, pickupFingerprint: pickupCertificationFingerprint(pickup),
+    preparedByUserId: "admin-one", approvedByUserId: "admin-two", approvedAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 86_400_000),
+    routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
+  });
   dependencies.storeFindUnique.mockResolvedValue({ id: "store", slug: "tea-store", name: "Tea Store", status: "ACTIVE", updatedAt: new Date(), defaultPickupAddress: pickup, savedAddresses: [pickup] });
   dependencies.queryRaw.mockResolvedValue([{ categoryPublicReference: "CC-1", fulfilmentMode: "COURIER_DELIVERY" }]);
   await rebuildStorefrontStoreDocument("store");
@@ -25,4 +34,24 @@ test("store service keeps a store with no saved pickup out of the public storefr
   dependencies.storeUpsert.mockClear();
   await rebuildStorefrontStoreDocument("store");
   expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE", publishedOfferCount: 1 });
+});
+
+test("legacy ACTIVE with a complete pickup still cannot be publicly Live without independent checkout approval", async () => {
+  dependencies.storeFindUnique.mockResolvedValue({ id: "store", slug: "tea-store", name: "Tea Store", status: "ACTIVE", updatedAt: new Date(), defaultPickupAddress: pickup, savedAddresses: [pickup] });
+  dependencies.queryRaw.mockResolvedValue([{ categoryPublicReference: "CC-1", fulfilmentMode: "COURIER_DELIVERY" }]);
+  await rebuildStorefrontStoreDocument("store");
+  expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE" });
+});
+
+test("expired independent checkout certification cannot republish merchant as Live", async () => {
+  dependencies.storeFindUnique.mockResolvedValue({ id: "store", slug: "tea-store", name: "Tea Store", status: "ACTIVE", updatedAt: new Date(), defaultPickupAddress: pickup, savedAddresses: [pickup] });
+  dependencies.queryRaw.mockResolvedValue([{ categoryPublicReference: "CC-1", fulfilmentMode: "COURIER_DELIVERY" }]);
+  dependencies.certificationFindUnique.mockResolvedValue({
+    status: "APPROVED", pickupAddressId: pickup.id, pickupFingerprint: pickupCertificationFingerprint(pickup),
+    preparedByUserId: "admin-one", approvedByUserId: "admin-two",
+    approvedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() - 1000),
+    routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
+  });
+  await rebuildStorefrontStoreDocument("store");
+  expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE" });
 });

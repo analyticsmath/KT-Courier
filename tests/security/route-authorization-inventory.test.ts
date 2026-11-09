@@ -95,6 +95,53 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     }
   });
 
+  it("tracks new customer-review and finance/driver dual-permission routes accurately", () => {
+    const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const get = (routePath: string) =>
+      content.routes.find((row: { routePath: string }) => row.routePath === routePath);
+    expect(get("app/api/account/driver-reviews/route.ts")).toMatchObject({
+      httpMethods: ["GET", "POST"], requiredRoles: ["CUSTOMER"],
+      bolaOwnershipValidated: true, rateLimitingApplied: true,
+    });
+    expect(get("app/api/admin/drivers/[id]/cash-limit/route.ts")).toMatchObject({
+      httpMethods: ["PATCH"], requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: [PERMISSIONS.DRIVERS_UPDATE, "cod_operations.manage"],
+    });
+    expect(get("app/api/admin/drivers/[id]/engagement/route.ts")).toMatchObject({
+      httpMethods: ["PATCH"], requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: [PERMISSIONS.DRIVERS_UPDATE, PERMISSIONS.DRIVERS_STATUS_MANAGE],
+    });
+    expect(get("app/api/admin/stores/[id]/checkout-certification/route.ts")).toMatchObject({
+      httpMethods: ["GET", "POST", "PATCH"],
+      requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: [PERMISSIONS.STORES_APPROVE, PERMISSIONS.ORDERS_READ, PERMISSIONS.STORES_READ],
+    });
+  });
+
+  it("limits ordinary referrals to authenticated customer and store owners", () => {
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const referral = artifact.routes.find((row: { routePath: string }) =>
+      row.routePath === "app/api/account/referrals/route.ts");
+    expect(referral).toMatchObject({
+      httpMethods: ["GET", "POST"],
+      requiredRoles: ["CUSTOMER", "STORE"],
+      rateLimitingApplied: true,
+      bolaOwnershipValidated: true,
+    });
+  });
+
+  it("records dual finance/customer permissions for the read-only referral evidence API", () => {
+    const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const route = artifact.routes.find((entry: { routePath: string }) =>
+      entry.routePath === "app/api/admin/referrals/[id]/eligibility/route.ts");
+    expect(route).toMatchObject({
+      httpMethods: ["GET"],
+      requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: expect.arrayContaining(["customers.read", "finance.read"]),
+      rateLimitingApplied: true,
+    });
+  });
+
   it("keeps the dispatch recovery route inventory truthful (method, role, permission, protections, idempotency)", () => {
     const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const entry = content.routes.find((r: any) => r.routePath === "app/api/admin/dispatch/recover/route.ts");

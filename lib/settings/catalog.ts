@@ -1,4 +1,5 @@
 import { SystemSettingType } from "@/types/db";
+import { INITIAL_HIGH_RISK_AREAS } from "@/lib/settings/high-risk-area-policy";
 
 export type SettingSensitivity = "PUBLIC" | "INTERNAL";
 export type SettingMutability = "MUTABLE" | "READ_ONLY";
@@ -30,7 +31,23 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "orders.max_parcel_count": mutable("orders.max_parcel_count", SystemSettingType.NUMBER, 10, { minimum: 1, maximum: 100 }),
   "pricing.vat.enabled": mutable("pricing.vat.enabled", SystemSettingType.BOOLEAN, false),
   "pricing.vat.rate": mutable("pricing.vat.rate", SystemSettingType.NUMBER, 0.15, { minimum: 0, maximum: 1 }),
+  // Marketplace VAT is a separately authorized platform delivery-fee switch.
+  // Seller merchandise taxes come from approved seller tax evidence, never here.
+  "pricing.marketplace_vat.enabled": mutable("pricing.marketplace_vat.enabled", SystemSettingType.BOOLEAN, false),
+  "pricing.marketplace_vat.rate": mutable("pricing.marketplace_vat.rate", SystemSettingType.NUMBER, 0.15, { minimum: 0, maximum: 1 }),
+  // Phase 3 commercial defaults are owner-editable. These amounts are policy
+  // snapshots, not permission to post cash or rewards without a qualifying order.
+  "loyalty.points_per_zar": mutable("loyalty.points_per_zar", SystemSettingType.NUMBER, 1, { minimum: 0, maximum: 1000 }),
+  "loyalty.conversion_points": mutable("loyalty.conversion_points", SystemSettingType.NUMBER, 100, { minimum: 1, maximum: 1000000 }),
+  "loyalty.conversion_wallet_zar": mutable("loyalty.conversion_wallet_zar", SystemSettingType.NUMBER, 2, { minimum: 0, maximum: 10000 }),
+  "loyalty.conversion_enabled": mutable("loyalty.conversion_enabled", SystemSettingType.BOOLEAN, false),
+  "referral.reward_zar": mutable("referral.reward_zar", SystemSettingType.NUMBER, 5, { minimum: 0, maximum: 1000 }),
+  "referral.reward_issuing_enabled": mutable("referral.reward_issuing_enabled", SystemSettingType.BOOLEAN, false, { readinessImpact: "ordinary_referral_financial_award" }),
+  "welcome.store.discount_zar": mutable("welcome.store.discount_zar", SystemSettingType.NUMBER, 50, { minimum: 0, maximum: 100000 }),
+  "welcome.store.valid_days": mutable("welcome.store.valid_days", SystemSettingType.NUMBER, 7, { minimum: 1, maximum: 365 }),
+  "welcome.store.minimum_order_zar": mutable("welcome.store.minimum_order_zar", SystemSettingType.NUMBER, 0, { minimum: 0, maximum: 1000000 }),
   "delivery.high_risk_region_ids": mutable("delivery.high_risk_region_ids", SystemSettingType.JSON, "[]"),
+  "delivery.high_risk_areas": mutable("delivery.high_risk_areas", SystemSettingType.JSON, JSON.stringify(INITIAL_HIGH_RISK_AREAS)),
   "pricing.quote_ttl_minutes": mutable("pricing.quote_ttl_minutes", SystemSettingType.STRING, "15"),
   "dispatch.assignment_offer_ttl_minutes": mutable("dispatch.assignment_offer_ttl_minutes", SystemSettingType.STRING, "10"),
   "dispatch.policy_version": mutable("dispatch.policy_version", SystemSettingType.STRING, "dispatch-v1"),

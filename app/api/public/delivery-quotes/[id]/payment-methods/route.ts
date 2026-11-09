@@ -39,8 +39,8 @@ export async function GET(
         input = (
           q.metadata as {
             bookingInput?: {
-              pickupAddress?: { province?: string };
-              dropoffAddress?: { province?: string };
+              pickupAddress?: { city?: string; line2?: string | null; province?: string };
+              dropoffAddress?: { city?: string; line2?: string | null; province?: string };
             };
           }
         )?.bookingInput;
@@ -57,6 +57,19 @@ export async function GET(
           regionId: q.destinationRegionId,
           originRegionId: q.originRegionId,
           destinationRegionId: q.destinationRegionId,
+          // The choice screen must assess the SAME trusted pickup/dropoff
+          // localities that booking uses. Region-only checks could advertise
+          // cash in high-risk suburbs and then reject it after booking.
+          originLocality: {
+            city: input?.pickupAddress?.city,
+            suburb: input?.pickupAddress?.line2,
+            province: input?.pickupAddress?.province,
+          },
+          destinationLocality: {
+            city: input?.dropoffAddress?.city,
+            suburb: input?.dropoffAddress?.line2,
+            province: input?.dropoffAddress?.province,
+          },
           authoritativeTotal: q.total.toFixed(2),
         });
         if (b.mode === "FULL_COD") {

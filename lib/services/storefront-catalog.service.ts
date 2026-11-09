@@ -1,6 +1,7 @@
 import { selectFeaturedMarketplaceCategories } from "@/lib/public-marketplace/featured-categories";
 import { matchesStorefrontCategory } from "@/lib/storefront/storefront-category-discovery";
 import { Prisma } from "@prisma/client";
+import { activePublicStoreDocumentSql, activePublicProductDocumentSql } from "@/lib/storefront/sql-store-publication";
 import { prisma } from "@/lib/db/prisma";
 import { loadStorefrontDocuments, PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
@@ -17,7 +18,7 @@ function publicChildren(value: unknown): Array<{ reference: string; path: string
 
 export async function listStorefrontCategories() {
   const rows = await prisma.$queryRaw<CategoryRow[]>`SELECT "categoryPublicReference", "canonicalPath", "name", "description", "publicImageReference", "parentPublicReference", "childNavigation", "productCount", "seoTitle", "seoDescription", "sourceUpdatedAt" FROM "StorefrontCategoryDocument" ORDER BY "canonicalPath" ASC LIMIT 200`;
-  const products = await prisma.$queryRaw<Array<{ productPublicReference: string; categoryPath: string; title: string }>>`SELECT DISTINCT "productPublicReference", "categoryPath", "title" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true`;
+  const products = await prisma.$queryRaw<Array<{ productPublicReference: string; categoryPath: string; title: string }>>(Prisma.sql`SELECT DISTINCT "productPublicReference", "categoryPath", "title" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true AND ${activePublicProductDocumentSql}`);
   return rows.map((row) => ({ reference: row.categoryPublicReference, path: row.canonicalPath, name: row.name, ...(row.description ? { description: row.description } : {}), ...(row.publicImageReference ? { imageReference: row.publicImageReference } : {}), ...(row.parentPublicReference ? { parentReference: row.parentPublicReference } : {}), children: publicChildren(row.childNavigation), productCount: new Set(products.filter(product => matchesStorefrontCategory(product, row.canonicalPath)).map(product => product.productPublicReference)).size, ...(row.seoTitle ? { seoTitle: row.seoTitle } : {}), ...(row.seoDescription ? { seoDescription: row.seoDescription } : {}), updatedAt: row.sourceUpdatedAt.toISOString() }));
 }
 
@@ -31,13 +32,13 @@ export async function getStorefrontCategory(path: string) {
 }
 
 export async function listStorefrontStores(input: { query?: string; category?: string; fulfilment?: string; limit?: number }) {
-  const rows = await prisma.$queryRaw<StoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount", "sourceUpdatedAt" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' ORDER BY "name" ASC, "slug" ASC LIMIT ${Math.max(1, Math.min(input.limit ?? 48, 100))}`);
+  const rows = await prisma.$queryRaw<StoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount", "sourceUpdatedAt" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} ORDER BY "name" ASC, "slug" ASC LIMIT ${Math.max(1, Math.min(input.limit ?? 48, 100))}`);
   const query = input.query?.toLocaleLowerCase("en-ZA").slice(0, 80);
   return rows.filter((row) => !query || row.name.toLocaleLowerCase("en-ZA").includes(query)).filter((row) => !input.category || publicArray(row.publicCategoryCodes).includes(input.category)).filter((row) => !input.fulfilment || publicArray(row.fulfilmentModes).includes(input.fulfilment)).map((row) => ({ reference: row.storePublicReference, slug: row.slug, name: row.name, ...(row.shortDescription ? { description: row.shortDescription } : {}), ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}), ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}), categories: publicArray(row.publicCategoryCodes), fulfilmentModes: publicArray(row.fulfilmentModes), serviceAreaReferences: publicArray(row.serviceAreaReferences), publishedOfferCount: row.publishedOfferCount, scheduleStatus: publicStoreScheduleStatus() }));
 }
 
 export async function getStorefrontStoreCategories(storeSlug: string) {
-  const rows = await prisma.$queryRaw<Array<{ categoryPublicReference: string; categoryPath: string; productCount: bigint }>>(Prisma.sql`SELECT "categoryPublicReference", "categoryPath", COUNT(DISTINCT "productPublicReference") as "productCount" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true AND "storeSlug" = ${storeSlug} GROUP BY "categoryPublicReference", "categoryPath" ORDER BY "categoryPath" ASC`);
+  const rows = await prisma.$queryRaw<Array<{ categoryPublicReference: string; categoryPath: string; productCount: bigint }>>(Prisma.sql`SELECT "categoryPublicReference", "categoryPath", COUNT(DISTINCT "productPublicReference") as "productCount" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "searchable" = true AND ${activePublicProductDocumentSql} AND "storeSlug" = ${storeSlug} GROUP BY "categoryPublicReference", "categoryPath" ORDER BY "categoryPath" ASC`);
   if (!rows.length) return [];
   const allCategories = await listStorefrontCategories();
   const catMap = new Map(allCategories.map((c) => [c.path, c]));
@@ -57,7 +58,7 @@ export async function getStorefrontStoreCategories(storeSlug: string) {
 }
 
 export async function getStorefrontStore(slug: string) {
-  const rows = await prisma.$queryRaw<StoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount", "sourceUpdatedAt" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND "slug" = ${slug} LIMIT 1`);
+  const rows = await prisma.$queryRaw<StoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount", "sourceUpdatedAt" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "slug" = ${slug} LIMIT 1`);
   const row = rows[0];
   if (!row) return null;
   const [products, storeCategories, reviews] = await Promise.all([
@@ -137,7 +138,7 @@ export async function getStorefrontProduct(productReference: string): Promise<{ 
   if (!rawOffers.length) return null;
   const storeSlugs = [...new Set(rawOffers.map((offer) => offer.storeSlug))];
   const storeRows = storeSlugs.length
-    ? await prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND "slug" IN (${Prisma.join(storeSlugs)})`)
+    ? await prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "slug" IN (${Prisma.join(storeSlugs)})`)
     : [];
   const storeNames = new Map(storeRows.map((store) => [store.slug, store.name]));
   const offers = rawOffers.map((offer) => ({ ...offer, ...(storeNames.get(offer.storeSlug) ? { storeName: storeNames.get(offer.storeSlug)! } : {}) }));
@@ -156,7 +157,7 @@ export async function getStorefrontFacetDisplayNames(input: Readonly<{ storeSlug
   const brandReferences = [...new Set(input.brandReferences ?? [])].slice(0, 20);
   const [stores, brands] = await Promise.all([
     storeSlugs.length
-      ? prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND "slug" IN (${Prisma.join(storeSlugs)})`)
+      ? prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "slug" IN (${Prisma.join(storeSlugs)})`)
       : Promise.resolve([]),
     brandReferences.length
       ? prisma.$queryRaw<Array<{ brandPublicReference: string; brandName: string }>>(Prisma.sql`SELECT DISTINCT ON ("brandPublicReference") "brandPublicReference", "brandName" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "brandPublicReference" IN (${Prisma.join(brandReferences)}) AND "brandName" IS NOT NULL ORDER BY "brandPublicReference", "publishedAt" DESC`)
@@ -179,7 +180,7 @@ export async function getStorefrontSearchSuggestionLabels(input: Readonly<{
       ? prisma.$queryRaw<Array<{ categoryPublicReference: string; canonicalPath: string; name: string; publicImageReference: string | null }>>(Prisma.sql`SELECT "categoryPublicReference", "canonicalPath", "name", "publicImageReference" FROM "StorefrontCategoryDocument" WHERE "canonicalPath" IN (${Prisma.join(paths)})`)
       : Promise.resolve([]),
     slugs.length
-      ? prisma.$queryRaw<Array<{ storePublicReference: string; slug: string; name: string; logoMediaReference: string | null }>>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "logoMediaReference" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND "slug" IN (${Prisma.join(slugs)})`)
+      ? prisma.$queryRaw<Array<{ storePublicReference: string; slug: string; name: string; logoMediaReference: string | null }>>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "logoMediaReference" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "slug" IN (${Prisma.join(slugs)})`)
       : Promise.resolve([]),
   ]);
   const categories = new Map(categoryRows.map((category) => [category.canonicalPath, category]));
@@ -269,7 +270,7 @@ export async function getStorefrontCollection(slug: string) {
   const [documents, categoryRows, storeRows] = await Promise.all([
     productReferences.length || variantReferences.length ? loadStorefrontDocuments({ productReferences, variantReferences, limit: 10_000 }) : Promise.resolve([]),
     categoryReferences.length ? prisma.$queryRaw<Array<{ categoryPublicReference: string; canonicalPath: string; name: string; description: string | null; publicImageReference: string | null; productCount: number }>>(Prisma.sql`SELECT "categoryPublicReference", "canonicalPath", "name", "description", "publicImageReference", "productCount" FROM "StorefrontCategoryDocument" WHERE "categoryPublicReference" IN (${Prisma.join([...new Set(categoryReferences)])}) AND "productCount" > 0`) : Promise.resolve([]),
-    storeReferences.length ? prisma.$queryRaw<Array<{ storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publishedOfferCount: number }>>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "storePublicReference" IN (${Prisma.join([...new Set(storeReferences)])}) AND "publicStatus" = 'ACTIVE' AND "publishedOfferCount" > 0`) : Promise.resolve([]),
+    storeReferences.length ? prisma.$queryRaw<Array<{ storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publishedOfferCount: number }>>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "storePublicReference" IN (${Prisma.join([...new Set(storeReferences)])}) AND "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "publishedOfferCount" > 0`) : Promise.resolve([]),
   ]);
   const displayNames = await getStorefrontFacetDisplayNames({ storeSlugs: [...documents.map((document) => document.storeSlug), ...storeRows.map((store) => store.slug)] });
   const namedDocuments = documents.map((document) => ({ ...document, ...(displayNames.stores.get(document.storeSlug) ? { storeName: displayNames.stores.get(document.storeSlug)! } : {}) }));

@@ -60,7 +60,13 @@ describe("Phase 20 settlement and recovery composition", () => {
     expect(source("lib/marketplace-checkout/checkout.service.ts")).toContain("createPrismaMarketplaceReservationRepository");
     expect(source("lib/marketplace-checkout/checkout.service.ts")).toContain("createPrismaMarketplacePaymentPreparationRepository");
     expect(source("lib/marketplace-checkout/prisma-marketplace-reservation.repository.ts")).toContain("ORDER BY \"id\" ASC FOR UPDATE");
-    expect(source("lib/marketplace-checkout/prisma-marketplace-payment-preparation.repository.ts")).toContain("marketplaceCheckoutId");
+    // The read-only outer adapter must not re-link or overwrite payment state
+    // after Paystack I/O. The canonical payment transaction owns that binding.
+    const paymentAdapter = source("lib/marketplace-checkout/prisma-marketplace-payment-preparation.repository.ts");
+    expect(paymentAdapter).toContain("readCheckout");
+    expect(paymentAdapter).not.toContain("linkPayment");
+    expect(paymentAdapter).not.toContain("transitionCheckout");
+    expect(source("lib/services/payment-preparation.service.ts")).toContain("marketplaceCheckoutId: command.checkoutId");
   });
 
   it("keeps administrative recovery on canonical services and rejects manual financial fields", () => {

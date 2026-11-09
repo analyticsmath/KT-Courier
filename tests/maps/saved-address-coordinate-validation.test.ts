@@ -4,7 +4,8 @@ const body = { line1: "12 Main Road" };
 describe("saved address coordinate clearing", () => {
   it("accepts explicit paired null for customer and store text-only edits", () => {
     for (const schema of [SavedAddressCreateSchema, SavedAddressUpdateSchema]) expect(schema.parse({ ...body, placeId: null, latitude: null, longitude: null })).toMatchObject({ placeId: null, latitude: null, longitude: null });
-    expect(StorePickupAddressSchema.parse({ ...body, city: "Johannesburg", province: "Gauteng", placeId: null, latitude: null, longitude: null })).toMatchObject({ placeId: null, latitude: null, longitude: null });
+    // A merchant's canonical collection pickup must be mappable for checkout.
+    expect(StorePickupAddressSchema.safeParse({ ...body, line2: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196", placeId: null, latitude: null, longitude: null }).success).toBe(false);
   });
   it("rejects partial clearing and mixed numeric/null coordinate pairs", () => {
     for (const schema of [SavedAddressCreateSchema, SavedAddressUpdateSchema, StorePickupAddressSchema]) for (const coordinates of [{ latitude: null }, { longitude: null }, { latitude: -26.2, longitude: null }, { latitude: null, longitude: 28.04 }]) expect(schema.safeParse({ ...body, ...coordinates }).success).toBe(false);
@@ -16,7 +17,8 @@ describe("saved address coordinate clearing", () => {
   it("allows optional saved-address details to be explicitly removed", () => {
     const empty = { contactName: null, contactPhone: null, line2: null, city: null, province: null, postalCode: null, accessNotes: null, formattedAddress: null };
     for (const schema of [SavedAddressCreateSchema, SavedAddressUpdateSchema]) expect(schema.parse({ ...body, ...empty })).toMatchObject(empty);
-    expect(StorePickupAddressSchema.parse({ ...body, city: "Johannesburg", province: "Gauteng", ...Object.fromEntries(Object.entries(empty).filter(([key]) => key !== "city" && key !== "province")) })).toMatchObject({ contactName: null, contactPhone: null, line2: null });
+    expect(StorePickupAddressSchema.safeParse({ ...body, city: "Johannesburg", province: "Gauteng", ...Object.fromEntries(Object.entries(empty).filter(([key]) => key !== "city" && key !== "province")) }).success).toBe(false);
+    expect(StorePickupAddressSchema.parse({ ...body, line2: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196", latitude: -26.1076, longitude: 28.0567, contactName: null, contactPhone: null })).toMatchObject({ contactName: null, contactPhone: null });
     expect(StorePickupAddressSchema.safeParse({ ...body, ...empty }).success).toBe(false);
     expect(SavedAddressUpdateSchema.parse({ label: null })).toEqual({ label: null });
   });

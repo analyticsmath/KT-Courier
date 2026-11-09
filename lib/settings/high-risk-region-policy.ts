@@ -1,5 +1,6 @@
 import { Prisma, SystemSettingType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { hasHighRiskCashAreaSnapshot } from "@/lib/settings/high-risk-area-policy";
 
 export const HIGH_RISK_REGION_IDS_SETTING_KEY = "delivery.high_risk_region_ids";
 type HighRiskSettingDb = Pick<Prisma.TransactionClient, "systemSetting">;
@@ -62,6 +63,19 @@ export function hasHighRiskRegion(
 export function isHighRiskCashPolicyEvidence(evidence: unknown): boolean {
   if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return false;
   const record = evidence as Record<string, unknown>;
+  if (hasHighRiskCashAreaSnapshot(record)) return true;
+  // The marketplace courier bridge stores a frozen plan wrapper rather than
+  // the flattened policy snapshot; never lose the original cash restriction.
+  if (record.policyEvidence && typeof record.policyEvidence === "object"
+    && !Array.isArray(record.policyEvidence)) {
+    const nested = record.policyEvidence as Record<string, unknown>;
+    if (hasHighRiskCashAreaSnapshot(nested)) return true;
+    const nestedIds = parseHighRiskRegionIds(nested.highRiskRegionIdsAtDecision);
+    if (nestedIds === null && (nested.originRegionId || nested.destinationRegionId)) return true;
+    if (nestedIds && hasHighRiskRegion(
+      typeof nested.originRegionId === "string" ? nested.originRegionId : null,
+      typeof nested.destinationRegionId === "string" ? nested.destinationRegionId : null, nestedIds)) return true;
+  }
   const origin = typeof record.originRegionId === "string" ? record.originRegionId : null;
   const destination = typeof record.destinationRegionId === "string" ? record.destinationRegionId : null;
   const regionIds = parseHighRiskRegionIds(record.highRiskRegionIdsAtDecision);

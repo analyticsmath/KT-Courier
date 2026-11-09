@@ -35,7 +35,10 @@ export class LocalSecureReportArtifactStorage implements ReportArtifactStorage {
   readonly root: string;
 
   constructor(root = process.env.REPORT_ARTIFACT_DIR || path.join(process.cwd(), "artifacts", "reports")) {
-    this.root = path.resolve(root);
+    // This is a runtime-configured, private storage directory, never a
+    // build artifact input. Tracing the dynamic root would bundle the entire
+    // repository (including assets) into production serverless functions.
+    this.root = path.resolve(/* turbopackIgnore: true */ root);
   }
 
   createStorageKey(reference: string, format: ReportExportFormat, content: string): string {

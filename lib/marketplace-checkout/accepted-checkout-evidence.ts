@@ -28,7 +28,10 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
     if (group.paymentPlan) {
       const pickup = await prisma.store.findUnique({ where: { id: group.storeId }, include: { defaultPickupAddress: true } });
       const destination = await prisma.marketplaceCheckoutAddressSnapshot.findUnique({ where: { id: checkout.addressSnapshotId! } });
-      const current = await resolveMarketplacePaymentPlan({ storeId: group.storeId, orderType: "STORE", deliveryServiceId: quote.deliveryType, deliveryServiceKey: quote.deliveryType, regionId: quote.destinationRegionId, provinces: [...new Set([pickup?.defaultPickupAddress?.province, destination?.province].filter((p): p is string => Boolean(p)))], total: group.groupTotal.toFixed(2), fulfilmentMode: group.fulfilmentMode, groupCount: checkout.storeGroups.length }, prisma);
+      const current = await resolveMarketplacePaymentPlan({ storeId: group.storeId, orderType: "STORE", deliveryServiceId: quote.deliveryType, deliveryServiceKey: quote.deliveryType, regionId: quote.destinationRegionId,
+        originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
+        destinationLocality: { city: destination?.city, suburb: destination?.suburb, province: destination?.province },
+        provinces: [...new Set([pickup?.defaultPickupAddress?.province, destination?.province].filter((p): p is string => Boolean(p)))], total: group.groupTotal.toFixed(2), fulfilmentMode: group.fulfilmentMode, groupCount: checkout.storeGroups.length }, prisma);
       if (!marketplacePaymentPlansEqual(current, group.paymentPlan)) fail();
     }
     const rule = quote.ruleSnapshot as { policyVersion?: number; policyAuthority?: string };

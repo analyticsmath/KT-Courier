@@ -183,6 +183,8 @@ model User {
   conversationMemberships              PlatformConversationMember[]
   conversationMessages                 PlatformConversationMessage[]
   deliveryReviews                      DeliveryReview[]
+  driverReviews                        DriverReview[]
+  loyaltyAccount                       CustomerLoyaltyAccount?
   businessSupportAccesses              BusinessSupportAccess[]
   id                                   String                              @id @default(cuid())
   email                                String                              @unique
@@ -387,7 +389,16 @@ model UserPermission {
 }
 
 model DriverProfile {
+  driverReviews                DriverReview[]
   cashDeposits                DriverCashDeposit[]
+  cashLimitAmount             Decimal                     @default(1000.00) @db.Decimal(18, 2)
+  cashLimitRevision           Int                         @default(0)
+  // Contract classification is informational until a separate, approved
+  // remuneration policy has been versioned and linked to earnings.
+  engagementType              DriverEngagementType?
+  engagementContractReference String?
+  engagementEffectiveFrom     DateTime?
+  engagementRevision          Int                         @default(0)
   id                          String                      @id @default(cuid())
   userId                      String                      @unique
   displayName                 String?
@@ -539,6 +550,7 @@ model PasswordResetToken {
 }
 
 model Store {
+  checkoutCertification          StoreCheckoutCertification?
   employeeMemberships            StoreEmployeeMembership[]
   platformConversations          PlatformConversation[]
   deliveryReviews                DeliveryReview[]
@@ -603,6 +615,34 @@ model Store {
   @@index([slug])
   @@index([status])
   @@index([featured])
+}
+
+/// A two-reviewer, time-limited go-live permit for a specific store pickup,
+/// operational region and delivery-service revision. Evidence references are
+/// held for audit: they are never treated as verified provider payment objects.
+model StoreCheckoutCertification {
+  id                         String    @id @default(cuid())
+  storeId                    String    @unique
+  store                      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  pickupAddressId            String
+  pickupFingerprint          String
+  coverageRegionId           String
+  serviceSignature           String
+  routeEvidenceReference     String
+  routeEvidenceDigest        String?
+  checkoutEvidenceReference  String
+  checkoutEvidenceDigest     String?
+  preparedByUserId           String
+  approvedByUserId           String?
+  status                     String    @default("PENDING_REVIEW")
+  reviewNote                 String?
+  preparedAt                 DateTime  @default(now())
+  approvedAt                 DateTime?
+  expiresAt                  DateTime
+  revision                   Int       @default(0)
+
+  @@index([status, expiresAt])
+  @@index([preparedByUserId])
 }
 
 enum StoreSellerLegalIdentityStatus {
@@ -676,6 +716,7 @@ model Order {
   platformConversations        PlatformConversation[]
   driverCashDeposits           DriverCashDeposit[]
   deliveryReview               DeliveryReview?
+  driverReview                 DriverReview?
   id                           String                               @id @default(cuid())
   orderNumber                  String                               @unique
   source                       OrderSource
@@ -1292,6 +1333,7 @@ model PrivateMediaObject {
   version                          Int                               @default(1)
   createdAt                        DateTime                          @default(now())
   updatedAt                        DateTime                          @updatedAt
+  cashDepositProof                 DriverCashDeposit?                @relation("DriverCashDepositProof")
   driverDocument                   DriverDocument?                   @relation("DriverDocumentPrivateMedia")
   vehicleDocument                  VehicleDocument?                  @relation("VehicleDocumentPrivateMedia")
   vehicleMedia                     VehicleMedia?                     @relation("VehicleMediaPrivateMedia")
@@ -1532,6 +1574,11 @@ enum SystemSettingType {
   JSON
 }
 
+enum DriverEngagementType {
+  FREELANCE
+  SALARIED
+}
+
 enum DriverStatus {
   PENDING_REVIEW
   ACTIVE
@@ -1608,6 +1655,7 @@ enum PrivateMediaPurpose {
   DRIVER_IDENTITY_DOCUMENT
   DRIVER_LICENCE
   DRIVER_PROFILE_PHOTO
+  DRIVER_CASH_DEPOSIT_RECEIPT
   VEHICLE_REGISTRATION
   VEHICLE_LICENCE_DISC
   VEHICLE_INSURANCE
@@ -2388,6 +2436,7 @@ model Payment {
   successLedgerJournal                   LedgerJournal?                          @relation("PaymentSuccessLedgerJournal", fields: [successLedgerJournalId], references: [id], onDelete: Restrict)
   reconciliationCases                    PaymentReconciliationCase[]
   refunds                                PaymentRefund[]
+  loyaltyEarning                         CustomerLoyaltyEarning?
   subscriptionInvoice                    SubscriptionInvoice?                    @relation("SubscriptionInvoicePayment", fields: [subscriptionInvoiceId], references: [id], onDelete: Restrict, map: "Payment_subscriptionInvoice_fkey")
   managedMarketingRequest                ManagedMarketingRequest?                @relation("ManagedMarketingRequestPayment", fields: [managedMarketingRequestId], references: [id], onDelete: Restrict)
   managedMarketingBillingEvidence        ManagedMarketingBillingEvidence?        @relation("ManagedMarketingBillingEvidencePayment")
@@ -3082,6 +3131,9 @@ enum LedgerAccountPurpose {
   SUBSCRIPTION_DEFERRED_REVENUE
   SUBSCRIPTION_TAX_PAYABLE
   MANAGED_MARKETING_TAX_PAYABLE
+  CUSTOMER_LOYALTY_REWARDS_EXPENSE
+  PLATFORM_PROMOTION_EXPENSE
+  STORE_REFERRAL_WALLET_AVAILABLE
 }
 
 enum LedgerAccountCategory {
@@ -3122,6 +3174,7 @@ enum LedgerJournalType {
   SUBSCRIPTION_INVOICE_SETTLEMENT
   SUBSCRIPTION_REVENUE_RECOGNITION
   SUBSCRIPTION_REFUND_REVERSAL
+  CUSTOMER_LOYALTY_CONVERSION
 }
 
 enum LedgerEntryDirection {
@@ -3238,6 +3291,7 @@ model LedgerJournal {
   createdBy                       User?                                 @relation("LedgerJournalCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   originalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal", fields: [reversalOfJournalId], references: [id], onDelete: Restrict)
   reversalJournal                 LedgerJournal?                        @relation("LedgerJournalReversal")
+  loyaltyRedemption                CustomerLoyaltyRedemption?
   successfulForPayment            Payment?                              @relation("PaymentSuccessLedgerJournal")
   webhookEvent                    PaymentWebhookEvent?                  @relation("WebhookLedgerJournal")
   withdrawalReserve               WithdrawalRequest?                    @relation("WithdrawalReserveLedgerJournal")
@@ -6182,7 +6236,7 @@ model PromotionReservation {
 
   /// Committed promotion use after payment confirmation.
 
-  @@unique([operationId])
+  @@unique([operationId, campaignVersionId], map: "PromotionReservation_operation_campaign_key")
   @@index([campaignVersionId])
   @@index([promotionCodeId])
   @@index([checkoutId])
@@ -6222,7 +6276,7 @@ model PromotionRedemption {
 
   /// Exact line/store-level allocation evidence for financial tracing.
 
-  @@unique([operationId])
+  @@index([operationId])
   @@index([campaignVersionId])
   @@index([promotionCodeId])
   @@index([reservationId])
@@ -14540,6 +14594,24 @@ model DeliveryReview {
   @@index([storeId, createdAt])
 }
 
+/// A real post-delivery rating of the completing courier. Kept distinct from
+/// store/product and parcel delivery-experience reviews. One review per order.
+model DriverReview {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  authorUserId    String
+  driverProfileId String
+  rating          Int
+  body            String
+  createdAt       DateTime      @default(now())
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  author          User          @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+  driver          DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Restrict)
+
+  @@index([driverProfileId, createdAt])
+  @@index([authorUserId, createdAt])
+}
+
 model DriverCashDeposit {
   id               String        @id @default(cuid())
   driverProfileId  String
@@ -14548,6 +14620,8 @@ model DriverCashDeposit {
   // Legacy deposits default to bank transfer. Physical handover needs separate evidence.
   remittanceMethod String        @default("BANK_DEPOSIT")
   bankReference    String
+  privateMediaObjectId String? @unique
+  privateMediaObject PrivateMediaObject? @relation("DriverCashDepositProof", fields: [privateMediaObjectId], references: [id], onDelete: Restrict)
   operationId      String        @unique
   status           String        @default("PENDING")
   reviewedByUserId String?
@@ -14650,4 +14724,82 @@ model StoreOnboardingInvitation {
   updatedAt       DateTime @updatedAt
 
   @@index([email, status, expiresAt])
+}
+
+// Phase 3 - independently reconciled customer loyalty (non-money points).
+// These models never authorize wallet debits or credits. A future conversion
+// must atomically post a balanced ZAR journal before reducing points.
+model CustomerLoyaltyAccount {
+  userId                 String   @id
+  availablePoints        BigInt   @default(0)
+  debtPoints             BigInt   @default(0)
+  lifetimeEarnedPoints   BigInt   @default(0)
+  lifetimeReversedPoints BigInt   @default(0)
+  version                Int      @default(0)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  user      User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  earnings  CustomerLoyaltyEarning[]
+  movements CustomerLoyaltyMovement[]
+  redemptions CustomerLoyaltyRedemption[]
+
+  @@index([availablePoints])
+}
+
+model CustomerLoyaltyEarning {
+  paymentId           String   @id
+  userId              String
+  pointsPerZar        Int
+  recognizedPoints    BigInt   @default(0)
+  eligibleBasisAmount Decimal  @db.Decimal(18, 2)
+  vatAmount           Decimal  @db.Decimal(18, 2)
+  refundedAmount      Decimal  @db.Decimal(18, 2)
+  revision            Int      @default(1)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  account   CustomerLoyaltyAccount  @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyEarning_account_fkey")
+  payment   Payment                 @relation(fields: [paymentId], references: [id], onDelete: Restrict, map: "CustomerLoyaltyEarning_payment_fkey")
+  movements CustomerLoyaltyMovement[]
+
+  @@index([userId, createdAt])
+}
+
+// Points and spendable customer wallet credit must move atomically.
+model CustomerLoyaltyRedemption {
+  id                   String   @id @default(cuid())
+  userId               String
+  operationId          String
+  pointsRedeemed       BigInt
+  availablePointsAfter BigInt
+  walletCreditAmount   Decimal  @db.Decimal(18, 2)
+  pointsRequired       Int
+  walletRateAmount     Decimal  @db.Decimal(18, 2)
+  journalId            String   @unique
+  createdAt            DateTime @default(now())
+
+  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyRedemption_account_fkey")
+  journal LedgerJournal @relation(fields: [journalId], references: [id], onDelete: Restrict, map: "CustomerLoyaltyRedemption_journal_fkey")
+
+  @@unique([userId, operationId])
+  @@index([userId, createdAt])
+}
+
+model CustomerLoyaltyMovement {
+  id                   String   @id @default(cuid())
+  userId               String
+  paymentId            String
+  revision             Int
+  deltaPoints          BigInt
+  availablePointsAfter BigInt
+  debtPointsAfter      BigInt
+  policySnapshot       Json
+  createdAt            DateTime @default(now())
+
+  account CustomerLoyaltyAccount @relation(fields: [userId], references: [userId], onDelete: Restrict, map: "CustomerLoyaltyMovement_account_fkey")
+  earning CustomerLoyaltyEarning @relation(fields: [paymentId], references: [paymentId], onDelete: Restrict, map: "CustomerLoyaltyMovement_earning_fkey")
+
+  @@unique([paymentId, revision])
+  @@index([userId, createdAt])
 }

@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/db/prisma";
 import { assertPromotionsProductionReady } from "./production-lock";
-import { evaluateMarketplacePromotions } from "./promotion-evaluation.service";
+import { resolvePromotionProductionComposition } from "./promotion-composition-root";
+import { projectCheckoutPromotionFacts } from "./checkout-promotion-facts";
 import { reserveCheckoutPromotions } from "./promotion-reservation.service";
-import { Decimal } from "@prisma/client/runtime/library";
 
 export async function viewFrozenPromotions(owner: any, checkoutReference: string) {
   assertPromotionsProductionReady("EVALUATION");
@@ -16,7 +16,7 @@ export async function viewFrozenPromotions(owner: any, checkoutReference: string
   });
   if (!checkout) throw new Error("Checkout not found");
 
-  const reservations = await (prisma as any).promotionReservation.findMany({
+  const reservations = await prisma.promotionReservation.findMany({
     where: {
       checkoutId: checkout.id,
       checkoutReviewVersion: checkout.reviewVersion
@@ -24,7 +24,7 @@ export async function viewFrozenPromotions(owner: any, checkoutReference: string
     include: {
       campaignVersion: true
     }
-  }).catch(() => []);
+  });
 
   return {
     checkoutReference,
@@ -67,54 +67,25 @@ export async function reservePromotions(input: {
   });
   if (!checkout) throw new Error("Checkout not found");
 
-  // Load quotes for checkout (e.g. from store groups)
-  const quotes = checkout.storeGroups.map((g) => ({
-    storeReference: g.storeId,
-    feeAmount: g.deliveryFee,
-    deliveryServiceType: "STANDARD", // Default or map if available
-    deliveryRegion: "JHB", // Default or map if available
-  }));
+  // Projection uses the current immutable checkout review, not the
+  // original unit prices, stale previous reviews or fabricated JHB service.
+  const now = new Date();
+  const evaluationInput = projectCheckoutPromotionFacts(checkout, now);
+  // Production still fails closed until independently approved. Once that
+  // gate is opened, resolve the ACTUAL active, reviewed campaigns and
+  // source-owned customer purchase/registration history; never [].
+  const evaluator = resolvePromotionProductionComposition("EVALUATION");
+  const evaluationResult = await evaluator.evaluate(evaluationInput);
 
-  const storeGroups = checkout.storeGroups.map((g) => ({
-    storeReference: g.storeId,
-    lines: g.lines.map((l) => ({
-      lineReference: l.id,
-      merchandiseSubtotal: l.baseUnitPrice,
-      modifierSubtotal: l.modifierUnitTotal,
-      productId: l.productReference,
-      variantId: l.variantReference,
-      categoryId: "default",
-    }))
-  }));
-
-  return prisma.$transaction(async (tx) => {
-    // Run evaluation
-    // Stub campaign version fetcher (returns empty list in stub/evaluation lock context)
-    const evaluator = {
-      fetchActiveCampaignVersions: async () => []
-    };
-    
-    const evaluationResult = await evaluateMarketplacePromotions({
-      checkoutId: checkout.id,
-      customerUserId: checkout.customerUserId || undefined,
-      guestEvidenceReference: checkout.guestAccessTokenHash || undefined,
-      storeGroups,
-      deliveryQuotes: quotes,
-      now: new Date()
-    }, evaluator);
-
-    const reservationEvidence = await reserveCheckoutPromotions({
-      checkoutId: checkout.id,
-      checkoutReviewVersion: checkout.reviewVersion,
-      customerUserId: checkout.customerUserId || undefined,
-      guestEvidenceReference: checkout.guestAccessTokenHash || undefined,
-      evaluationResult,
-      appliedPromotions: evaluationResult.applied,
-      operationId: input.operationId,
-      requestHash: input.requestHash,
-      now: new Date()
-    }, tx);
-
-    return reservationEvidence;
-  });
+  return prisma.$transaction(async (tx) => reserveCheckoutPromotions({
+    checkoutId: checkout.id,
+    checkoutReviewVersion: checkout.reviewVersion,
+    customerUserId: checkout.customerUserId ?? undefined,
+    guestEvidenceReference: checkout.guestAccessTokenHash ?? undefined,
+    evaluationResult,
+    appliedPromotions: evaluationResult.applied,
+    operationId: input.operationId,
+    requestHash: input.requestHash,
+    now,
+  }, tx));
 }

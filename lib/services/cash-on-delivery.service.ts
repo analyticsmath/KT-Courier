@@ -1,4 +1,5 @@
 import { isHighRiskCashPolicyEvidence } from "@/lib/settings/high-risk-region-policy";
+import { assertDriverCashCapacityForCollection } from "@/lib/services/driver-cash-capacity.service";
 import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -85,6 +86,9 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
       if (!deposit || deposit.status !== "SUCCEEDED" || !deposit.amount.equals(cod.digitalRequired) || !cod.digitalPaid.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified digital deposit is required before cash collection.");
     }
     if (!amount.equals(cod.cashObligation.sub(cod.cashCollected))) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Collection amount must equal the outstanding cash obligation.");
+    // Never allow a legacy/manual assignment to bypass the money custody cap.
+    // This locks the same driver row as the assignment entrypoint.
+    await assertDriverCashCapacityForCollection(tx, input.collectorDriverId, input.orderId, amount);
     const accounts = await custodyAccounts(input.collectorDriverId, tx);
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt: new Date(), collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });

@@ -12,6 +12,7 @@ const db = vi.hoisted(() => ({
     updateMany: vi.fn(),
   },
   cashOnDelivery: { findUnique: vi.fn() },
+  privateMediaObject: { findUnique: vi.fn() },
   cashOnDeliveryReconciliation: { findUnique: vi.fn() },
   adminActivityLog: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -36,6 +37,7 @@ const input = {
   orderId: "corder12345678901234567890",
   amount: "100.00",
   bankReference: "BANK-REAL-REF",
+  privateMediaReference: "PMO-00000000-0000-4000-8000-000000000001",
   operationId: "deposit-operation-123",
 };
 const bank = {
@@ -56,6 +58,7 @@ const deposit = {
   ...input,
   amount: new Prisma.Decimal(input.amount),
   driverProfileId: "driver-1",
+  privateMediaObjectId: "proof-1",
   remittanceMethod: "BANK_DEPOSIT",
   status: "PENDING",
   reviewedByUserId: null,
@@ -78,6 +81,11 @@ beforeEach(() => {
     user: { role: "DRIVER", status: "ACTIVE" },
   });
   db.systemSetting.findUnique.mockResolvedValue({ value: bank });
+  db.privateMediaObject.findUnique.mockResolvedValue({
+    id: "proof-1", ownerType: "DRIVER", ownerId: "driver-1",
+    createdByUserId: "driver-user", purpose: "DRIVER_CASH_DEPOSIT_RECEIPT",
+    status: "READY", checksum: "deadbeef", byteSize: 400, detectedMimeType: "application/pdf",
+  });
   db.cashOnDelivery.findUnique.mockResolvedValue({
     collectorDriverId: "driver-1",
     status: "COLLECTED",
@@ -95,6 +103,17 @@ beforeEach(() => {
   db.driverCashDeposit.updateMany.mockResolvedValue({ count: 1 });
 });
 describe("driver cash deposit verification", () => {
+  it("rejects a bank deposit without private uploaded evidence", async () => {
+    await expect(submitDriverDeposit("driver-user", { ...input, privateMediaReference: undefined })).rejects.toThrow(/deposit slip/);
+    expect(db.driverCashDeposit.create).not.toHaveBeenCalled();
+  });
+  it("rejects a deposit slip belonging to another driver before creating any remittance", async () => {
+    db.privateMediaObject.findUnique.mockResolvedValue({ id: "proof-fraud", ownerType: "DRIVER", ownerId: "another-driver",
+      createdByUserId: "attacker", purpose: "DRIVER_CASH_DEPOSIT_RECEIPT", status: "READY",
+      checksum: "hash", byteSize: 100, detectedMimeType: "application/pdf" });
+    await expect(submitDriverDeposit("driver-user", input)).rejects.toMatchObject({ code: "DEPOSIT_PROOF_NOT_VERIFIED" });
+    expect(db.driverCashDeposit.create).not.toHaveBeenCalled();
+  });
   it("accepts a governed in-person remittance request but does not reconcile before review", async () => {
     db.systemSetting.findUnique.mockResolvedValue({ value: { ...bank, handoverEnabled: true } });
     await submitDriverDeposit("driver-user", { ...input, remittanceMethod: "IN_PERSON", bankReference: "MEETING-2026-OCT-25" });

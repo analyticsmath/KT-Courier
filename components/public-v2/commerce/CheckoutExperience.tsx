@@ -9,6 +9,10 @@ import tx from "./transaction-design.module.css";
 import { storeDeliveryQuotePreviews, storeDeliveryQuotePreviewTotals, type StoreDeliveryQuotePreview } from "@/lib/marketplace-checkout/delivery-quote-preview";
 import { CheckoutPaymentSummary } from "./CheckoutPaymentSummary";
 import { GuestCheckoutEmailUpdates } from "./GuestCheckoutEmailUpdates";
+import {
+  customerCheckoutAddressPrefill, selectableCustomerAddresses,
+  type CustomerCheckoutSavedAddress,
+} from "@/lib/marketplace-checkout/customer-checkout-prefill";
 
 function formatMoney(amount: string | number | undefined | null) {
   if (amount === undefined || amount === null) return "R 0.00";
@@ -129,6 +133,8 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
   const [addrProvince, setAddrProvince] = useState("Gauteng");
   const [addrPostalCode, setAddrPostalCode] = useState("");
   const [mappedAddress, setMappedAddress] = useState<AddressAutocompleteValue | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<CustomerCheckoutSavedAddress[]>([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
   const [addrInstructions, setAddrInstructions] = useState("");
 
   // Step 4 & 5: Review & Acknowledgement
@@ -160,17 +166,29 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         if (ignore) return;
         setCheckout(data.checkout);
         const saved = data.checkout as PublicCheckoutData;
-        setContactName(saved.contact?.recipientName ?? "");
-        setContactEmail(saved.contact?.email ?? "");
-        setContactPhone(saved.contact?.phone ?? "");
+        // These fields are returned only for an authenticated CUSTOMER who
+        // owns this checkout. Guests never see another account's address book.
+        const addresses = Array.isArray(data.savedAddresses)
+          ? selectableCustomerAddresses(data.savedAddresses as CustomerCheckoutSavedAddress[])
+          : [];
+        setSavedAddresses(addresses);
+        const preferredAddress = addresses[0] ?? null;
+        const address = !saved.deliveryAddress && preferredAddress
+          ? customerCheckoutAddressPrefill(preferredAddress)
+          : null;
+        setSelectedSavedAddressId(address ? preferredAddress!.id : "");
+        setContactName(saved.contact?.recipientName ?? data.account?.name ?? preferredAddress?.contactName ?? "");
+        setContactEmail(saved.contact?.email ?? data.account?.email ?? "");
+        setContactPhone(saved.contact?.phone ?? data.account?.phone ?? preferredAddress?.contactPhone ?? "");
         setContactMethod(saved.contact?.preferredContactMethod ?? "EMAIL");
-        setAddrLine1(saved.deliveryAddress?.line1 ?? "");
-        setAddrLine2(saved.deliveryAddress?.line2 ?? "");
+        setAddrLine1(saved.deliveryAddress?.line1 ?? address?.line1 ?? "");
+        setAddrLine2(saved.deliveryAddress?.line2 ?? address?.line2 ?? "");
         setAddrSuburb(saved.deliveryAddress?.suburb ?? "");
-        setAddrCity(saved.deliveryAddress?.city ?? "");
-        setAddrProvince(saved.deliveryAddress?.province ?? "Gauteng");
-        setAddrPostalCode(saved.deliveryAddress?.postalCode ?? "");
-        setAddrInstructions(saved.deliveryAddress?.deliveryInstructions ?? "");
+        setAddrCity(saved.deliveryAddress?.city ?? address?.city ?? "");
+        setAddrProvince(saved.deliveryAddress?.province ?? address?.province ?? "Gauteng");
+        setAddrPostalCode(saved.deliveryAddress?.postalCode ?? address?.postalCode ?? "");
+        setAddrInstructions(saved.deliveryAddress?.deliveryInstructions ?? address?.instructions ?? "");
+        setMappedAddress(address?.mapped ?? null);
         if (data.checkout.status === "RESERVED") {
           setCurrentStep(6);
         } else if (data.checkout.status === "COMPLETED") {
@@ -783,6 +801,57 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
 
             {currentStep === 2 ? (
               <form aria-labelledby="checkout-address-heading" aria-describedby={errorMessage ? "checkout-error" : undefined} onSubmit={handleSaveAddress} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <label htmlFor="checkout-saved-address" style={{ display: "block", fontSize: "0.875rem", fontWeight: 540, marginBottom: 4 }}>
+                      Your saved delivery addresses
+                    </label>
+                    <select
+                      id="checkout-saved-address"
+                      value={selectedSavedAddressId}
+                      onChange={(event) => {
+                        const nextId = event.target.value;
+                        setSelectedSavedAddressId(nextId);
+                        const selected = savedAddresses.find((address) => address.id === nextId);
+                        if (!selected) {
+                          setAddrLine1("");
+                          setAddrLine2("");
+                          setAddrSuburb("");
+                          setAddrCity("");
+                          setAddrProvince("Gauteng");
+                          setAddrPostalCode("");
+                          setAddrInstructions("");
+                          setMappedAddress(null);
+                          setDeliveryQuotePreviews([]);
+                          invalidateReview();
+                          return;
+                        }
+                        const prefill = customerCheckoutAddressPrefill(selected);
+                        setAddrLine1(prefill.line1);
+                        setAddrLine2(prefill.line2);
+                        setAddrSuburb("");
+                        setAddrCity(prefill.city);
+                        setAddrProvince(prefill.province);
+                        setAddrPostalCode(prefill.postalCode);
+                        setAddrInstructions(prefill.instructions);
+                        setMappedAddress(prefill.mapped);
+                        setDeliveryQuotePreviews([]);
+                        invalidateReview();
+                      }}
+                    >
+                      <option value="">Enter a different address</option>
+                      {savedAddresses.map((address) => (
+                        <option key={address.id} value={address.id}>
+                          {address.label ?? address.line1} — {address.city ?? "South Africa"}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs text-[var(--kt-public-text-muted)]">
+                      Your saved addresses work in both parcel delivery and marketplace checkout.
+                      Delivery coverage and the map location are verified again before calculating a fee.
+                    </p>
+                  </div>
+                )}
                 {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
                   label="Find your delivery address on the map"
                   value={mappedAddress}

@@ -29,6 +29,7 @@ export const CustomerSignupSchema = z
     password: passwordField,
     confirmPassword: z.string().min(1, "Please confirm your password"),
     accountType: z.literal("CUSTOMER"),
+    referralCode: z.string().trim().toUpperCase().regex(/^KTR-[A-F0-9]{24}$/).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.password !== data.confirmPassword) {
@@ -52,6 +53,7 @@ export const StoreSignupSchema = z
     confirmPassword: z.string().min(1, "Please confirm your password"),
     accountType: z.literal("STORE"),
     inviteToken: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    referralCode: z.string().trim().toUpperCase().regex(/^KTR-[A-F0-9]{24}$/).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.password !== data.confirmPassword) {

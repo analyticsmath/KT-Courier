@@ -22,7 +22,13 @@ describe("Phase B COD runtime-proof source contract", () => {
     const reconcile = read("app/api/admin/orders/[id]/cod/reconcile/route.ts");
     expect(collect).toMatch(/recordCashCollection/);
     expect(collect).toMatch(/RATE_LIMITS\.COD_COLLECTION/);
-    expect(reconcile).toMatch(/reconcileCashCollection/);
+    // The historical direct-money endpoint must never reconcile arbitrary
+    // caller-supplied bank evidence. Finance must use reviewed deposits.
+    expect(reconcile).not.toMatch(/\breconcileCashCollection\s*\(/);
+    expect(reconcile).toMatch(/gone\(/);
     expect(reconcile).toMatch(/PERMISSIONS\.COD_OPERATIONS_MANAGE/);
+    const review = read("app/api/admin/cash-deposits/[id]/review/route.ts");
+    expect(review).toMatch(/reviewDriverDeposit/);
+    expect(review).toMatch(/DepositReviewSchema/);
   });
 });

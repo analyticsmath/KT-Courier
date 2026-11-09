@@ -52,6 +52,13 @@ test("finance targets use a separate disposable invocation before the unchanged 
   assert.doesNotMatch(planSource, /withdrawal-finance-admin\.spec\.ts/);
 });
 
+test("CI and certification cancel superseded PRs only, never main push audits", () => {
+  assert.equal(ciWorkflow.concurrency.group, "kt-ci-${{ github.event.pull_request.number || github.ref }}");
+  assert.equal(ciWorkflow.concurrency["cancel-in-progress"], "${{ github.event_name == 'pull_request' }}");
+  assert.equal(workflow.concurrency.group, "production-certification-${{ github.ref }}");
+  assert.equal(workflow.concurrency["cancel-in-progress"], "${{ github.event_name == 'pull_request' }}");
+});
+
 test("CI tests the pull request head with read-only credentials and offline providers", () => {
   assert.equal(ciWorkflow.env.KT_CERTIFICATION_HEAD_SHA, "${{ github.event.pull_request.head.sha || github.sha }}");
   assert.deepEqual(ciWorkflow.on.pull_request.branches, ["main"]);

@@ -90,6 +90,29 @@ describe("marketplace checkout policy", () => {
       }),
     ).toThrow();
   });
+  it("keeps checkout totals exact above JavaScript's integer-cents safe range", () => {
+    expect(() => assertCheckoutTotals({
+      merchandiseSubtotal: "90071992547409.93",
+      modifierSubtotal: "0.01",
+      deliveryFeeTotal: "0.01",
+      promotionDiscount: "0.01",
+      grandTotal: "90071992547409.94",
+    })).not.toThrow();
+    expect(() => assertCheckoutTotals({
+      merchandiseSubtotal: "90071992547409.93",
+      modifierSubtotal: "0.01",
+      deliveryFeeTotal: "0.01",
+      promotionDiscount: "0.01",
+      grandTotal: "90071992547409.95",
+    })).toThrow("CHECKOUT_TOTAL_MISMATCH");
+    expect(() => assertCheckoutTotals({
+      merchandiseSubtotal: "10.00",
+      modifierSubtotal: "0.00",
+      deliveryFeeTotal: "0.00",
+      promotionDiscount: "11.00",
+      grandTotal: "0.00",
+    })).toThrow("MONEY_NEGATIVE");
+  });
   it("blocks variable weight until exact prepacked evidence exists", () => {
     expect(
       variableWeightCheckoutEligibility({ sellingUnit: "VARIABLE_WEIGHT" }),

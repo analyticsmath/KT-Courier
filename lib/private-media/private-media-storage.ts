@@ -30,7 +30,10 @@ export class LocalPrivateMediaStorageAdapter implements PrivateMediaStorageAdapt
   private readonly root: string;
 
   constructor(root = process.env.PRIVATE_MEDIA_LOCAL_DIR ?? path.join(process.cwd(), "var", "private-media")) {
-    this.root = path.resolve(root);
+    // This is a runtime-configured, private storage directory, never a
+    // build artifact input. Tracing the dynamic root would bundle the entire
+    // repository (including assets) into production serverless functions.
+    this.root = path.resolve(/* turbopackIgnore: true */ root);
     if (this.root === path.resolve(process.cwd(), "public") || this.root.startsWith(`${path.resolve(process.cwd(), "public")}${path.sep}`)) {
       throw new PrivateMediaStorageError("PRIVATE_MEDIA_STORAGE_NOT_CONFIGURED", "Private media may not use the public static directory.");
     }

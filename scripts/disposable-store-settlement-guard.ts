@@ -7,6 +7,11 @@ export function requireDisposableStoreSettlementDatabase() {
   const local = ["localhost", "127.0.0.1"].includes(url.hostname);
   const closure = local && database === "kt_launch_test" && process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1";
   const browser = ["db", "localhost", "127.0.0.1"].includes(url.hostname) && database === "kt_phase75_e2e" && url.username === database;
+  // Separate one-off points-to-wallet journal tests from the existing launch
+  // fixture DB. Named local DB, unprivileged account, test-only network lock.
+  const loyalty = local && database === "kt_phase3_loyalty_conversion_test"
+    && url.username === "sprite"
+    && process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1";
   const store = local && /^kt_store_earning_\d+_\d+$/.test(database)
     && database === process.env.POSTGRES_DB && database === url.username
     && /^kt-couriers-store-earning-(?:[a-z0-9-]+-)?\d+-\d+$/.test(process.env.KT_SMOKE_PROJECT_NAME ?? "")
@@ -14,5 +19,5 @@ export function requireDisposableStoreSettlementDatabase() {
     && process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1";
   if (!["postgres:", "postgresql:"].includes(url.protocol) || process.env.NODE_ENV !== "test"
     || process.env.KT_RUNTIME_ENV !== "e2e" || process.env.KT_NETWORK_DISABLED !== "true"
-    || (!closure && !browser && !store)) throw refused();
+    || (!closure && !browser && !store && !loyalty)) throw refused();
 }

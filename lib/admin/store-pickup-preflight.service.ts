@@ -32,6 +32,7 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
   let pickupRegionName: string | null = null;
   let pickupRegionId: string | null = null;
   let matchingServiceCount = 0;
+  let matchingServiceVersions: string[] = [];
 
   if (pickup && evidence.checkoutPickupConfigured) {
     try {
@@ -44,11 +45,13 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
         pickupRegionName = decision.regionName;
         pickupRegionId = decision.regionId ?? null;
         const services = await deliveryCatalog();
-        matchingServiceCount = services.filter(
+        const matching = services.filter(
           service => service.active
             && service.provinces.some(province => province === pickup.province)
             && (!service.regionIds.length || service.regionIds.includes(decision.regionId!)),
-        ).length;
+        );
+        matchingServiceCount = matching.length;
+        matchingServiceVersions = matching.map(service => service.id + ":" + service.version).sort();
       } else {
         area = "UNVERIFIED";
       }
@@ -76,5 +79,6 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
     pickupRegionName,
     pickupRegionId,
     matchingServiceCount,
+    matchingServiceVersions,
   };
 }

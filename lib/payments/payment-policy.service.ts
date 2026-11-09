@@ -6,6 +6,10 @@ import {
   hasHighRiskRegion,
   parseHighRiskRegionIds,
 } from "@/lib/settings/high-risk-region-policy";
+import {
+  evaluateLocalityCashRisk, parseHighRiskAreas,
+  type MappedCashLocality,
+} from "@/lib/settings/high-risk-area-policy";
 export type PaymentPolicyContext = Readonly<{
   businessModuleId?: string | null;
   storeId?: string | null;
@@ -16,6 +20,8 @@ export type PaymentPolicyContext = Readonly<{
   regionId?: string | null;
   originRegionId?: string | null;
   destinationRegionId?: string | null;
+  originLocality?: MappedCashLocality | null;
+  destinationLocality?: MappedCashLocality | null;
   orderId?: string | null;
 }>;
 export class PaymentPolicyError extends Error {
@@ -150,7 +156,9 @@ export async function resolvePaymentBreakdown(
   const p = await resolvePaymentPolicy(input, input.now, db),
     mode = p.mode === "DIGITAL" ? "DIGITAL_ONLY" : p.mode;
   let highRiskRegionIds: string[] = [];
-  if (mode !== "DIGITAL_ONLY" && input.orderType?.startsWith("PARCEL_")) {
+  let highRiskAreaIds: readonly string[] = [];
+  let highRiskAreaReviewRequired = false;
+  if (mode !== "DIGITAL_ONLY") {
     const setting = await db.systemSetting?.findUnique({
       where: { key: HIGH_RISK_REGION_IDS_SETTING_KEY },
       select: { type: true, value: true },
@@ -162,6 +170,29 @@ export async function resolvePaymentBreakdown(
     }
     if (hasHighRiskRegion(input.originRegionId, input.destinationRegionId ?? input.regionId, highRiskRegionIds)) {
       throw new PaymentPolicyError("HIGH_RISK_CASH_RESTRICTED", "Cash payment is unavailable when the pickup or drop-off area is marked high risk.");
+    }
+    const areaSetting = await db.systemSetting?.findUnique({
+      where: { key: "delivery.high_risk_areas" },
+      select: { type: true, value: true },
+    });
+    const production = process.env.NODE_ENV === "production" && process.env.KT_RUNTIME_ENV !== "e2e";
+    if (production && (!areaSetting || !input.originLocality || !input.destinationLocality)) {
+      throw new PaymentPolicyError("HIGH_RISK_POLICY_UNAVAILABLE", "Cash is unavailable until both mapped localities and the active high-risk policy are verified.");
+    }
+    if (areaSetting) {
+      const areas = areaSetting.type === "JSON" ? parseHighRiskAreas(areaSetting.value) : null;
+      if (!areas) throw new PaymentPolicyError("HIGH_RISK_POLICY_UNAVAILABLE", "Cash is unavailable because area-risk configuration is invalid.");
+      // A named suburb must be matched against the approved city and province,
+      // not a guessed province-wide risk flag or substring match.
+      const risk = evaluateLocalityCashRisk(input.originLocality, input.destinationLocality, areas);
+      highRiskAreaIds = risk.matchedAreaIds;
+      highRiskAreaReviewRequired = risk.reviewRequired;
+      if (risk.restrictCash) {
+        throw new PaymentPolicyError(
+          risk.reviewRequired ? "HIGH_RISK_POLICY_UNAVAILABLE" : "HIGH_RISK_CASH_RESTRICTED",
+          "Cash payment is unavailable for a named high-risk area or an unverified collection/delivery locality.",
+        );
+      }
     }
   }
   if (mode !== "DIGITAL_ONLY") {
@@ -264,6 +295,8 @@ export async function resolvePaymentBreakdown(
       originRegionId: input.originRegionId ?? null,
       destinationRegionId: input.destinationRegionId ?? input.regionId ?? null,
       highRiskRegionIdsAtDecision: highRiskRegionIds,
+      highRiskAreaIdsAtDecision: [...highRiskAreaIds],
+      highRiskAreaReviewRequired,
     },
   });
 }

@@ -119,6 +119,12 @@ for (const file of routeFiles) {
   ) {
     authMechanism = "WEBHOOK_SIGNATURE";
     webhookSignatureCount++;
+  } else if (relPath === "app/api/public/account-navigation/route.ts") {
+    // The PUBLIC page navigation probe deliberately returns HTTP 200 for
+    // anonymous visitors, using the validated session only when present.
+    // It exposes no private identity data and never authorizes mutations.
+    authMechanism = "PUBLIC_OPTIONAL_SESSION";
+    publicCount++;
   } else if (content.includes("requireSuperAdminApi")) {
     // Exact role guard: normal ADMIN sessions must never be shown as permitted.
     authMechanism = "SUPER_ADMIN_SESSION";
@@ -187,16 +193,40 @@ for (const file of routeFiles) {
     publicCount++;
   }
 
+  // A customer-only driver-review route has an explicit role check, not
+  // the generic multi-role identity inherited from account route paths.
+  if (relPath === "app/api/account/driver-reviews/route.ts" &&
+      content.includes('user.role !== "CUSTOMER"')) {
+    requiredRoles = ["CUSTOMER"];
+  }
+
+  // The loyalty API routes require active customer sessions; do not infer
+  // generic multi-role access from the /account/ URL prefix.
+  if (relPath.startsWith("app/api/account/loyalty/") &&
+      content.includes('customer.role !== "CUSTOMER"') &&
+      content.includes('customer.status !== "ACTIVE"')) {
+    requiredRoles = ["CUSTOMER"];
+  }
+
+  // Ordinary referral codes are shared between precisely two account roles.
+  // Store ownership is checked against the authenticated owner, not the
+  // caller-supplied store ID. Other account APIs retain their original scope.
+  if (relPath === "app/api/account/referrals/route.ts") {
+    requiredRoles = ["CUSTOMER", "STORE"];
+  }
+
   // Detect Idempotency. An `idempotencyKey` that the route declares optional/nullable is NOT
   // enforcement (callers may omit it and the mutation is then never deduplicated), so it does not
   // count unless another mandatory token (operationId / clientMutationId) is also present.
   const idempotencyKeyDeclaredOptional =
     /\bidempotencyKey\s*\?\s*:/.test(content) ||
     /\bidempotencyKey\s*:\s*z\.[^\n]*\.(optional|nullish)\(\)/.test(content);
-  const hasIdempotency =
+  const hasMutation = methods.some(method => !["GET", "HEAD", "OPTIONS"].includes(method));
+  const hasIdempotency = hasMutation && (
     content.includes("operationId") ||
     (content.includes("idempotencyKey") && !idempotencyKeyDeclaredOptional) ||
-    content.includes("clientMutationId");
+    content.includes("clientMutationId")
+  );
   // This delegated handler performs scoped origin/rate checks and binds its
   // mandatory operationId to the canonical CSV receipt, not the route wrapper.
   const delegatedInventoryUpload = content.includes("storeInventoryUploadPost");
@@ -210,6 +240,12 @@ for (const file of routeFiles) {
   )) {
     const value = permissionValues.get(match[1]);
     if (value && !requiredPermissions.includes(value)) requiredPermissions.push(value);
+  }
+
+  // The finance cash-custody permission is a deliberate literal additional
+  // gate, not a PERMISSIONS constant. Record it without weakening this guard.
+  for (const match of content.matchAll(/requireAdminApiPermission\(\s*"([a-z0-9_.]+)"/g)) {
+    if (!requiredPermissions.includes(match[1])) requiredPermissions.push(match[1]);
   }
 
   // Detect BOLA. A route without a dynamic object segment that passes the

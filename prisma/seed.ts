@@ -139,6 +139,8 @@ export async function seedFoundationBootstrap(prisma: PrismaClient, options: {
     { key: "platform.currency", label: "Platform Currency", type: "STRING", value: "ZAR" },
     { key: "pricing.vat.enabled", label: "VAT Enabled", type: "BOOLEAN", value: false },
     { key: "pricing.vat.rate", label: "VAT Rate", type: "NUMBER", value: 0.15 },
+    { key: "pricing.marketplace_vat.enabled", label: "Marketplace delivery VAT enabled", type: "BOOLEAN", value: false },
+    { key: "pricing.marketplace_vat.rate", label: "Marketplace delivery VAT rate", type: "NUMBER", value: 0.15 },
     { key: "delivery.high_risk_region_ids", label: "High-risk delivery regions", type: "JSON", value: [] },
     { key: "dispatch.max_radius_km", label: "Max Dispatch Radius", type: "NUMBER", value: 35 },
     { key: "dispatch.auto_assign_timeout_seconds", label: "Auto Assign Timeout", type: "NUMBER", value: 45 },

@@ -46,6 +46,7 @@ const JOURNAL_TYPES = new Set<LedgerJournalTypeCode>([
   "SUBSCRIPTION_INVOICE_SETTLEMENT",
   "SUBSCRIPTION_REVENUE_RECOGNITION",
   "SUBSCRIPTION_REFUND_REVERSAL",
+  "CUSTOMER_LOYALTY_CONVERSION",
 ]);
 
 function requiredText(value: unknown, field: string, maxLength: number): string {

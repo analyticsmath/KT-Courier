@@ -10,6 +10,7 @@ import { vendorReviewChecklist } from "@/lib/admin/vendor-review-checklist";
 import { getStoreCommissionReadiness } from "@/lib/admin/store-commission-readiness";
 import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
+import { StoreCheckoutCertificationPanel } from "@/components/admin/StoreCheckoutCertificationPanel";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
@@ -35,13 +36,21 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
     canReviewSeller ? prisma.storeSellerLegalIdentity.findFirst({ where: { storeId: id, status: "APPROVED", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] }, orderBy: { effectiveFrom: "desc" }, select: { legalName: true, tradingName: true, registrationReference: true, vatRegistrationStatus: true, identityVersion: true } }) : Promise.resolve(null),
     canManagePricing ? prisma.personalizedDeliveryRate.count({ where: { ownerType: "STORE", ownerId: id, status: "ACTIVE" } }) : Promise.resolve(0),
     canReadCommission ? getStoreCommissionReadiness(id, prisma, now) : Promise.resolve(null),
+    canApprove ? prisma.storeCheckoutCertification.findUnique({
+      where: { storeId: id }, select: {
+        status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
+        preparedByUserId: true, approvedByUserId: true,
+        routeEvidenceReference: true, routeEvidenceDigest: true,
+        checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
+      },
+    }) : Promise.resolve(null),
   ]);
   const owner = store.ownerUser;
   const summary = vendorReviewChecklist({
@@ -95,6 +104,12 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       <p className="text-sm">The preflight identifies missing pickup configuration, mapping, covered pickup regions and active courier-service support.</p>
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4" href={`/admin/stores/${encodeURIComponent(id)}/readiness`}>Run operational pickup preflight</Link>
     </OperationalPanel>
+    {canApprove && store.status === "PENDING" ? (
+      <OperationalPanel title="Independent checkout and route certification"
+        description="New store go-Live transitions now require two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
+        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} />
+      </OperationalPanel>
+    ) : null}
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
       <dl className="grid gap-4 sm:grid-cols-2">
         {fact("Registered store name", store.name)}

@@ -26,8 +26,9 @@ vi.mock("@/lib/db/prisma", () => {
       findUnique: vi.fn(async () => ({ id: "usr_admin", status: "ACTIVE" })),
     },
     driverProfile: {
-      findUnique: vi.fn(async () => ({ id: "drv_001", status: "ACTIVE" })),
+      findUnique: vi.fn(async () => ({ id: "drv_001", status: "ACTIVE", cashLimitAmount: new Prisma.Decimal("1000.00") })),
     },
+    orderAssignment: { findMany: vi.fn(async () => []) },
     cashOnDeliveryReconciliation: { findUnique: vi.fn(async () => null) },
     cashOnDeliveryEvent: { findUnique: vi.fn(async () => null) },
     cashOnDelivery: {
@@ -53,6 +54,7 @@ vi.mock("@/lib/db/prisma", () => {
       create: vi.fn(),
     },
     ledgerAccount: {
+      aggregate: vi.fn(async () => ({ _sum: { currentBalance: new Prisma.Decimal("0.00") } })),
       findUnique: vi.fn(async (args: any) => {
         if (args?.where?.walletId_purpose_currency || args?.where?.code) {
           return null;

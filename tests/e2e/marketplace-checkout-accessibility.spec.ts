@@ -50,8 +50,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const currentRes = await page.request.get(`/api/checkout/${checkout.reference}`); expect(currentRes.status()).toBe(200);
     const current = (await currentRes.json()).checkout;
     expect(current.version).toBeGreaterThan(checkout.version);
-    // Disposable tariff R23.45 plus the seed's explicit 15% VAT = R26.97.
-    expect(current.totals.deliveryFeeTotal).toBe("26.97"); expect(current.totals.grandTotal).toBe("1526.97");
+    // Client-approved release policy disables marketplace and parcel VAT.
+    // The configured VAT percentage is retained for future activation, but
+    // an OFF switch must not add tax to newly quoted deliveries.
+    expect(current.totals.deliveryFeeTotal).toBe("23.45");
+    expect(current.totals.grandTotal).toBe("1523.45");
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
     // Stop before reservation/payment; ticking a box cannot claim a paid order.
   });

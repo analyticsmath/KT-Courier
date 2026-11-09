@@ -4,6 +4,7 @@ import { edgeRewrites, PRODUCTION_EDGE_ORIGIN, PRODUCTION_EDGE_PROJECT, resolveE
 describe("edge deployment environment isolation", () => {
   const production = { VERCEL: "1", VERCEL_ENV: "production", VERCEL_PROJECT_ID: PRODUCTION_EDGE_PROJECT, KT_EDGE_ROLE: "production" };
   it("routes the real production Vercel project to the verified Railway production service", () => {
+    expect(PRODUCTION_EDGE_PROJECT).toBe("prj_vlJrGktEcTIOCMZTAj6QTnrZEev2");
     expect(PRODUCTION_EDGE_ORIGIN).toBe("https://web-production-9f8bb.up.railway.app");
     expect(resolveEdgeOrigin(production)).toBe("https://web-production-9f8bb.up.railway.app");
     expect(edgeRewrites(resolveEdgeOrigin(production)).beforeFiles[0].destination).toBe("https://web-production-9f8bb.up.railway.app/:path*");

@@ -103,6 +103,9 @@ export interface PromotionEvaluationResult {
 export interface PromotionEvaluationDependencies {
   fetchActiveCampaignVersions(now: Date): Promise<CampaignVersionCandidate[]>;
   fetchCouponCampaignVersion?(codeHmac: string): Promise<CampaignVersionCandidate | null>;
+  // The first-order rule may only use verified historical paid-order state.
+  fetchPriorCompletedOrdersCount?(customerUserId: string): Promise<number>;
+  fetchCustomerSignupAt?(customerUserId: string): Promise<Date | null>;
 }
 
 export async function evaluateMarketplacePromotions(
@@ -126,14 +129,32 @@ export async function evaluateMarketplacePromotions(
     }
   }
 
+  // Unavailable authoritative history must fail closed, never default to zero.
+  const needsHistory = candidates.some(candidate =>
+    candidate.eligibilityRules.some(rule => rule.rule === 'FIRST_MARKETPLACE_ORDER'));
+  let priorCompletedOrdersCount = Number.MAX_SAFE_INTEGER;
+  if (needsHistory && input.customerUserId && deps.fetchPriorCompletedOrdersCount) {
+    const count = await deps.fetchPriorCompletedOrdersCount(input.customerUserId);
+    if (Number.isSafeInteger(count) && count >= 0) priorCompletedOrdersCount = count;
+  }
+  // First-store welcome deadlines require a source-owned registration time;
+  // an absent or invalid time is never interpreted as freshly registered.
+  const needsSignupTime = candidates.some(candidate =>
+    candidate.eligibilityRules.some(rule => rule.rule === 'FIRST_MARKETPLACE_ORDER'
+      && rule.signupWithinDays !== undefined));
+  const customerSignedUpAt = needsSignupTime && input.customerUserId && deps.fetchCustomerSignupAt
+    ? (await deps.fetchCustomerSignupAt(input.customerUserId)) ?? undefined
+    : undefined;
   const eligibilityContext: EligibilityContext = {
     userId: input.customerUserId,
     isGuest: !input.customerUserId,
-    priorCompletedOrdersCount: 0, // Simplified for this stub
+    priorCompletedOrdersCount,
     hasActiveSubscription: !!input.subscriptionBenefitEvidence,
     deliveryRegion: input.deliveryQuotes[0]?.deliveryRegion || '',
     deliveryServiceType: input.deliveryQuotes[0]?.deliveryServiceType || '',
     subtotal: totalMerchandise,
+    customerSignedUpAt,
+    evaluatedAt: input.now,
   };
 
   const eligible: EligiblePromotion[] = [];
@@ -229,6 +250,16 @@ export async function evaluateMarketplacePromotions(
         rejected.push({ campaignVersionId: candidate.id, reason: 'No eligible lines in cart' });
         continue;
       }
+    }
+
+    // Minimum spend is an independently configured commercial boundary.
+    // Check the actual eligible merchandise/delivery basis AFTER targeting,
+    // never the whole cart or a buyer-supplied price. Otherwise a R50
+    // first-store discount could apply below the owner's minimum.
+    if (candidate.minimumEligibleSubtotal !== null
+      && basisAmount.lessThan(candidate.minimumEligibleSubtotal)) {
+      rejected.push({ campaignVersionId: candidate.id, reason: 'Minimum eligible spend not met' });
+      continue;
     }
 
     // Calculate discount amount

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { isStorePubliclyCheckoutReady } from "@/lib/storefront/store-publication-readiness";
 
 /** Builds the privacy-minimised store read projection. Store contact/address fields are intentionally absent. */
 export async function rebuildStorefrontStoreDocument(storeId: string, transaction?: Prisma.TransactionClient): Promise<void> {
@@ -12,7 +13,7 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     });
     if (!store) return;
 
-    const [documents, storeMedia] = await Promise.all([
+    const [documents, storeMedia, checkoutCertification] = await Promise.all([
       tx.$queryRaw<Array<{ categoryPublicReference: string; fulfilmentMode: string }>>`SELECT "categoryPublicReference", "fulfilmentMode" FROM "StorefrontProductDocument" WHERE "storeId" = ${store.id} AND "status" = 'ACTIVE'`,
       tx.catalogMediaAsset?.findMany
         ? tx.catalogMediaAsset.findMany({
@@ -27,13 +28,27 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           })
         : Promise.resolve([]),
+      tx.storeCheckoutCertification.findUnique({
+        where: { storeId },
+        select: {
+          status: true, pickupAddressId: true, pickupFingerprint: true,
+          preparedByUserId: true, approvedByUserId: true, approvedAt: true,
+          expiresAt: true, routeEvidenceDigest: true, checkoutEvidenceDigest: true,
+        },
+      }),
     ]);
 
     const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO") ?? storeMedia.find((m) => m.purpose === "BRAND_LOGO");
     const heroAsset = storeMedia.find((m) => m.purpose === "STORE_HERO");
 
-    const pickupConfigured = Boolean(selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses));
-    const active = store.status === "ACTIVE" && store.name.trim().length > 0 && documents.length > 0 && pickupConfigured;
+    const pickup = selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses);
+    const active = isStorePubliclyCheckoutReady({
+      status: store.status,
+      name: store.name,
+      documentsCount: documents.length,
+      pickup,
+      certification: checkoutCertification,
+    });
     await tx.storefrontStoreDocument.upsert({
       where: { storeId },
       create: {

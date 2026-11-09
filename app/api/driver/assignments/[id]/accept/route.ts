@@ -8,6 +8,7 @@ import { DispatchAcceptSchema } from "@/lib/validation/assignment";
 import { getDriverProfileIdForUser } from "@/lib/services/driver-assignments.service";
 import { acceptDispatchAssignment } from "@/lib/services/dispatch-assignment.service";
 import { DispatchError } from "@/lib/dispatch/errors";
+import { DriverCashLimitError } from "@/lib/services/driver-cash-capacity.service";
 
 export async function POST(
   req: NextRequest,
@@ -51,6 +52,7 @@ export async function POST(
     const assignment = await acceptDispatchAssignment(driverProfileId, assignmentId, parsed.data);
     return ok({ assignmentId: assignment.id, status: assignment.status, version: assignment.version });
   } catch (err) {
+    if (err instanceof DriverCashLimitError) return conflict(err.message);
     if (err instanceof DispatchError) return conflict(err.message);
     console.error("[driver/assignments/[id]/accept POST]", err);
     return serverError();

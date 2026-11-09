@@ -46,6 +46,13 @@ function mapEligibilityRule(
       return { rule: rule.rule, allowlistUserIds: [...allowlistUserIds] };
     case 'CUSTOMER_REGION':
       return { rule: rule.rule, region: rule.ruleValue ?? undefined };
+    case 'FIRST_MARKETPLACE_ORDER': {
+      if (rule.ruleValue === null) return { rule: rule.rule };
+      // Existing campaign rules without a deadline remain first-order only.
+      // Invalid configured deadlines explicitly fail closed as zero days.
+      const days = /^[1-9]\d{0,3}$/.test(rule.ruleValue) ? Number(rule.ruleValue) : 0;
+      return { rule: rule.rule, signupWithinDays: days > 0 && days <= 3650 ? days : 0 };
+    }
     case 'MINIMUM_ELIGIBLE_SPEND':
       return rule.ruleValue ? { rule: rule.rule, minimumSpendAmount: new Prisma.Decimal(rule.ruleValue) } : { rule: rule.rule };
     case 'SERVICE_TYPE':
@@ -100,10 +107,27 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
     evaluate: async (input: PromotionEvaluationInput) => {
       assertPromotionsProductionReady('EVALUATION');
       const evaluatorDeps: PromotionEvaluationDependencies = {
+        fetchCustomerSignupAt: async (customerUserId: string) =>
+          (await prisma.user.findUnique({
+            where: { id: customerUserId },
+            select: { createdAt: true },
+          }))?.createdAt ?? null,
+        fetchPriorCompletedOrdersCount: async (customerUserId: string) =>
+          prisma.marketplaceOrder.count({
+            where: {
+              customerUserId,
+              status: 'CONFIRMED',
+              payment: { status: 'SUCCEEDED', successLedgerJournalId: { not: null } },
+            },
+          }),
         fetchActiveCampaignVersions: async (now: Date) => {
           const activeVersions = await prisma.promotionCampaignVersion.findMany({
             where: {
               status: 'ACTIVE',
+              applicationMethod: 'AUTOMATIC',
+              currency: 'ZAR',
+              campaign: { status: 'ACTIVE' },
+              budget: { is: { status: 'ACTIVE', currency: 'ZAR' } },
               startsAt: { lte: now },
               endsAt: { gte: now },
             },
@@ -144,7 +168,30 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
           });
           if (!codeRecord) return null;
           const v = codeRecord.campaignVersion;
-          
+          // A coupon must never turn into an unsolicited automatic discount,
+          // remain valid after expiry, escape its recipient restriction, or
+          // apply after its campaign was paused. The reservation transaction
+          // must revalidate these facts before funds are reserved.
+          if (v.status !== 'ACTIVE'
+            || v.applicationMethod !== 'COUPON_CODE'
+            || v.campaign.status !== 'ACTIVE'
+            || v.currency !== 'ZAR'
+            || input.now < v.startsAt || input.now > v.endsAt
+            || (codeRecord.startsAt && input.now < codeRecord.startsAt)
+            || (codeRecord.expiresAt && input.now > codeRecord.expiresAt)
+            || (codeRecord.restrictedCustomerUserId
+              && codeRecord.restrictedCustomerUserId !== input.customerUserId)) return null;
+          if (codeRecord.maximumRedemptions !== null
+            && await prisma.promotionRedemption.count({
+              where: { promotionCodeId: codeRecord.id, status: 'COMMITTED' },
+            }) >= codeRecord.maximumRedemptions) return null;
+          if (codeRecord.maximumRedemptionsPerCustomer !== null) {
+            if (!input.customerUserId) return null;
+            if (await prisma.promotionRedemption.count({
+              where: { promotionCodeId: codeRecord.id, customerUserId: input.customerUserId, status: 'COMMITTED' },
+            }) >= codeRecord.maximumRedemptionsPerCustomer) return null;
+          }
+
           const globalRedemptionsCount = await prisma.promotionRedemption.count({
             where: { campaignVersionId: v.id, status: 'COMMITTED' }
           });

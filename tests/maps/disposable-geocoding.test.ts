@@ -25,6 +25,15 @@ describe("isolated address geocoding fixtures", () => {
   it("selects the real provider when no fixture is configured", () => {
     expect(disposableGeocode(address, { NODE_ENV: "test" })).toBeUndefined();
   });
+  it("does not duplicate the suburb stored in a merchant pickup line2", () => {
+    const merchantPickup = { ...address, line2: "Central", suburb: " CENTRAL " };
+    expect(southAfricanAddressQuery(merchantPickup)).toBe(query);
+    expect(disposableGeocode(merchantPickup, environment)).toEqual(coordinates);
+    // Distinct apartment/unit and suburb remain separate: never lose address evidence.
+    expect(southAfricanAddressQuery({ ...address, line2: "Unit 4", suburb: "Central" })).toBe(
+      "45 Commission St, Unit 4, Central, Johannesburg, Gauteng, 2001, South Africa",
+    );
+  });
   it("resolves only an explicitly named address in the disposable browser database", () => {
     expect(disposableGeocode(address, environment)).toEqual(coordinates);
     expect(disposableGeocode({ ...address, line1: "Another address" }, environment)).toBeNull();

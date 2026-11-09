@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { useMarketplaceCartCount } from "../navigation/marketplace-cart-client";
+import { usePublicAccountRoute } from "../navigation/use-public-account-route";
 
 const destinations = [
   ["Send a parcel", "/services/parcel"],
@@ -20,6 +21,7 @@ export function MarketingNavigation() {
   const [floating, setFloating] = useState(false);
   const pathname = usePathname();
   const cartCount = useMarketplaceCartCount();
+  const accountHref = usePublicAccountRoute();
   useEffect(() => {
     let previous = false;
     const update = () => {
@@ -178,8 +180,8 @@ export function MarketingNavigation() {
           <Link href="/contact" onClick={close}>
             Contact
           </Link>
-          <Link href="/login" onClick={close}>
-            Your account ↗
+          <Link href={accountHref} onClick={close}>
+            {accountHref === "/login" ? "Sign in" : "Your account"} ↗
           </Link>
         </nav>
         <nav className="kt-menu-legal" aria-label="Support and policies">

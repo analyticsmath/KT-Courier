@@ -8,7 +8,11 @@ describe("store registration pickup address", () => {
     const parsed = StoreSignupSchema.parse({ ...input, businessLocation: { line1: "1 Main Road", city: "Johannesburg", country: "South Africa", latitude: -26.2, longitude: 28.04 } });
     expect(parsed.businessLocation).toMatchObject({ latitude: -26.2, longitude: 28.04 });
     expect(completeStorePickupAddress(parsed.businessLocation)).toBe(false);
-    expect(completeStorePickupAddress(StoreSignupSchema.parse({ ...input, businessLocation: { line1: "1 Main Road", city: "Johannesburg", province: "Gauteng", country: "South Africa" } }).businessLocation)).toBe(true);
+    // Registration is allowed with a text-only business address, but the resulting store
+    // cannot become checkout-ready until the owner supplies a complete pickup.
+    expect(completeStorePickupAddress(StoreSignupSchema.parse({ ...input, businessLocation: { line1: "1 Main Road", city: "Johannesburg", province: "Gauteng", country: "South Africa" } }).businessLocation)).toBe(false);
+    const complete = StoreSignupSchema.parse({ ...input, businessLocation: { line1: "1 Main Road", line2: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196", country: "South Africa", latitude: -26.2, longitude: 28.04 } });
+    expect(completeStorePickupAddress(complete.businessLocation)).toBe(true);
   });
   it("rejects unpaired and invalid coordinates instead of inventing a missing location", () => {
     expect(StoreSignupSchema.safeParse({ ...input, businessLocation: { line1: "1 Main Road", latitude: -26.2 } }).success).toBe(false);

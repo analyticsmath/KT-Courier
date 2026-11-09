@@ -8,9 +8,11 @@ on:
     branches: [main]
 permissions:
   contents: read
+# PR revisions supersede one another; a main push or signed release should
+# complete its certification so that the exact deployment SHA has a receipt.
 concurrency:
   group: production-certification-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
   KT_CERTIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   KT_NETWORK_DISABLED: 'true'
@@ -191,4 +193,12 @@ jobs:
         with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
       - name: Independent Phase 3 launch authorization — fail closed until real evidence exists
         run: node scripts/check-closure-engineering-gates.mjs
+      - name: Preserve Phase 3 gate evidence even when the launch is vetoed
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-launch-veto-${{ github.run_id }}
+          path: output/production-closure/phase3-launch-veto.json
+          if-no-files-found: error
+          retention-days: 30
       - run: echo 'Engineering gates passed for this commit. Separate production and live acceptance evidence is still required.'

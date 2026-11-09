@@ -105,6 +105,8 @@ export async function createOrder(
               regionId: quote.destinationRegionId,
               originRegionId: quote.originRegionId,
               destinationRegionId: quote.destinationRegionId,
+              originLocality: { city: input.pickupAddress.city, suburb: input.pickupAddress.line2, province: input.pickupAddress.province },
+              destinationLocality: { city: input.dropoffAddress.city, suburb: input.dropoffAddress.line2, province: input.dropoffAddress.province },
               authoritativeTotal: quote.total.toFixed(2),
             },
             tx,

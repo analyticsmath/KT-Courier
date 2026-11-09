@@ -104,8 +104,11 @@ export function assertCheckoutTotals(input: {
   merchandiseSubtotal: string; modifierSubtotal: string; deliveryFeeTotal: string; promotionDiscount?: string; grandTotal: string;
 }): void {
   const preDiscount = addIntegerStrings(addIntegerStrings(parseZarToCents(input.merchandiseSubtotal), parseZarToCents(input.modifierSubtotal)), parseZarToCents(input.deliveryFeeTotal));
-  const expectedCents = Number(preDiscount) - Number(parseZarToCents(input.promotionDiscount || "0.00"));
-  if (expectedCents < 0) throw new Error("MONEY_NEGATIVE");
+  const discountCents = BigInt(parseZarToCents(input.promotionDiscount || "0.00"));
+  const fullCents = BigInt(preDiscount);
+  if (discountCents > fullCents) throw new Error("MONEY_NEGATIVE");
+  const expectedCents = fullCents - discountCents;
+  if (expectedCents > 999999999999999999n) throw new Error("MONEY_INVALID");
   if (expectedCents.toString() !== parseZarToCents(input.grandTotal)) throw new Error("CHECKOUT_TOTAL_MISMATCH");
 }
 

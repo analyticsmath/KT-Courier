@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AddressAutocomplete, type AddressAutocompleteValue } from "@/components/maps/AddressAutocomplete";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -101,6 +101,25 @@ export function StorePickupAddressManager({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [readiness, setReadiness] = useState<{ stage: string; blockers: string[]; outstandingChecks: string[] } | null>(null);
+  // A registered merchant may have an address but still be blocked from
+  // checkout. Show the server's exact region/collection blockers immediately,
+  // without asking the merchant to resave unchanged location data.
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/store/pickup-address", {
+      credentials: "same-origin", cache: "no-store", signal: controller.signal,
+    })
+      .then(async response => response.ok
+        ? await response.json() as { readiness?: { stage: string; blockers: string[]; outstandingChecks: string[] } | null }
+        : null)
+      .then(result => {
+        if (!controller.signal.aborted && result?.readiness) setReadiness(result.readiness);
+      })
+      .catch(() => {
+        // A provider/network error does not mean this store is checkout-ready.
+      });
+    return () => controller.abort();
+  }, []);
 
   const hasDisplayAddress = !storePickupSetupState(current, legacyAddress).setupRequired;
   const hasLocation = !!current && typeof current.latitude === "number" && typeof current.longitude === "number";

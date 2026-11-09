@@ -2,6 +2,8 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 
 const mockPrisma = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
+  $transaction: vi.fn(),
   marketplaceCheckout: {
     findFirst: vi.fn(),
     update: vi.fn().mockResolvedValue({ id: "chk-1", version: 3, status: "READY_FOR_REVIEW" }),
@@ -88,6 +90,63 @@ describe("Phase 1 Acceptance: Delivery Option Selection Persistence", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async work => work(mockPrisma));
+    mockPrisma.marketplaceCheckout.findFirst.mockResolvedValue(mockCheckout);
+    mockPrisma.marketplaceCheckoutStoreGroup.findMany.mockResolvedValue([{
+      merchandiseSubtotal: "100.00", modifierSubtotal: "0.00",
+      deliveryFee: "35.00", groupTotal: "135.00",
+    }]);
+  });
+
+  it("checks the checkout version again under the row lock after external quoting", async () => {
+    mockPrisma.marketplaceCheckout.findFirst
+      .mockResolvedValueOnce(mockCheckout)
+      .mockResolvedValueOnce({ ...mockCheckout, version: 3 });
+    mockPrisma.marketplaceCheckoutOperation.findUnique.mockResolvedValue(null);
+    mockComposition.deliveryQuotes.quoteStoreGroup.mockResolvedValueOnce({
+      publicReference: "quote-1", currency: "ZAR", fee: "35.00",
+      version: "v1", expiresAt: new Date("2030-01-01T00:00:00Z"),
+      serviceabilityReference: "area-sandton",
+    });
+    await expect(selectMarketplaceCheckoutDeliveryOptions({
+      reference: "chk_ref_abc", owner,
+      operation: { operationId: "late-quote", requestHash: "hash-late", expectedVersion: 2 },
+    })).rejects.toMatchObject({ code: "CHECKOUT_VERSION_CONFLICT" });
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
+    expect(mockPrisma.marketplaceCheckoutStoreGroup.update).not.toHaveBeenCalled();
+    expect(mockPrisma.marketplaceCheckout.update).not.toHaveBeenCalled();
+    expect(mockPrisma.marketplaceCheckoutOperation.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects changed merchant groups before writing any delivery selections", async () => {
+    mockPrisma.marketplaceCheckout.findFirst
+      .mockResolvedValueOnce(mockCheckout)
+      .mockResolvedValueOnce({ ...mockCheckout, storeGroups: [{ id: "changed", storeId: "store-2" }] });
+    mockPrisma.marketplaceCheckoutOperation.findUnique.mockResolvedValue(null);
+    mockComposition.deliveryQuotes.quoteStoreGroup.mockResolvedValueOnce({
+      publicReference: "quote-1", currency: "ZAR", fee: "35.00",
+      version: "v1", expiresAt: new Date("2030-01-01T00:00:00Z"),
+      serviceabilityReference: "area-sandton",
+    });
+    await expect(selectMarketplaceCheckoutDeliveryOptions({
+      reference: "chk_ref_abc", owner,
+      operation: { operationId: "changed-groups", requestHash: "hash-groups", expectedVersion: 2 },
+    })).rejects.toMatchObject({ code: "CHECKOUT_VERSION_CONFLICT" });
+    expect(mockPrisma.marketplaceCheckoutStoreGroup.update).not.toHaveBeenCalled();
+    expect(mockPrisma.marketplaceCheckoutOperation.create).not.toHaveBeenCalled();
+  });
+
+  it("replays an already committed delivery selection even after the checkout version advanced", async () => {
+    mockPrisma.marketplaceCheckout.findFirst.mockResolvedValueOnce({ ...mockCheckout, version: 3, status: "VALIDATING" });
+    mockPrisma.marketplaceCheckoutOperation.findUnique.mockResolvedValueOnce({
+      operationId: "committed-selection", requestHash: "hash-committed", type: "DELIVERY_OPTIONS",
+    });
+    await expect(selectMarketplaceCheckoutDeliveryOptions({
+      reference: "chk_ref_abc", owner,
+      operation: { operationId: "committed-selection", requestHash: "hash-committed", expectedVersion: 2 },
+    })).resolves.toMatchObject({ publicReference: "chk_ref_abc" });
+    expect(mockComposition.deliveryQuotes.quoteStoreGroup).not.toHaveBeenCalled();
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("persists authoritative quote onto store group and advances checkout version", async () => {
@@ -99,7 +158,7 @@ describe("Phase 1 Acceptance: Delivery Option Selection Persistence", () => {
       currency: "ZAR",
       fee: "35.00",
       version: "rule-v1",
-      expiresAt: new Date("2026-09-30T12:00:00Z"),
+      expiresAt: new Date("2030-09-30T12:00:00Z"),
       serviceabilityReference: "area-sandton",
     });
 
@@ -159,7 +218,7 @@ describe("Phase 1 Acceptance: Delivery Option Selection Persistence", () => {
       currency: "ZAR",
       fee: "35.00",
       version: "rule-v1",
-      expiresAt: new Date("2026-09-30T12:00:00Z"),
+      expiresAt: new Date("2030-09-30T12:00:00Z"),
       serviceabilityReference: "area-sandton",
     });
 
@@ -181,6 +240,27 @@ describe("Phase 1 Acceptance: Delivery Option Selection Persistence", () => {
         ],
       }),
     ).rejects.toThrow(MarketplaceCheckoutError);
+  });
+
+  it("rejects expired or mismatched service-area quotes before database writes", async () => {
+    for (const quotePatch of [
+      { expiresAt: new Date("2020-01-01T00:00:00Z") },
+      { serviceabilityReference: "another-region" },
+    ]) {
+      mockPrisma.marketplaceCheckout.findFirst.mockResolvedValueOnce(mockCheckout);
+      mockPrisma.marketplaceCheckoutOperation.findUnique.mockResolvedValueOnce(null);
+      mockComposition.deliveryQuotes.quoteStoreGroup.mockResolvedValueOnce({
+        publicReference: "quote-1", currency: "ZAR", fee: "35.00",
+        version: "v1", expiresAt: new Date("2030-01-01T00:00:00Z"),
+        serviceabilityReference: "area-sandton", ...quotePatch,
+      });
+      await expect(selectMarketplaceCheckoutDeliveryOptions({
+        reference: "chk_ref_abc", owner,
+        operation: { operationId: crypto.randomUUID(), requestHash: "hash-invalid-quote", expectedVersion: 2 },
+      })).rejects.toMatchObject({ code: "CHECKOUT_REVIEW_REQUIRED" });
+    }
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.marketplaceCheckoutStoreGroup.update).not.toHaveBeenCalled();
   });
 
   it("fails closed when destination address / service area is missing", async () => {
@@ -226,6 +306,7 @@ describe("Phase 1 Acceptance: Delivery Option Selection Persistence", () => {
     mockPrisma.marketplaceCheckoutOperation.findUnique.mockResolvedValueOnce({
       operationId: "op-quote-replay",
       requestHash: "hash-same",
+      type: "DELIVERY_OPTIONS",
     });
 
     const result = await selectMarketplaceCheckoutDeliveryOptions({

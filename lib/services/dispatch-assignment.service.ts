@@ -2,6 +2,7 @@ import { AdminActionType, DriverAvailability, DriverStatus, OrderAssignmentEvent
 import { randomUUID } from "node:crypto";
 import { Prisma as PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { assertDriverCashCapacityForAssignment } from "@/lib/services/driver-cash-capacity.service";
 import { canTransitionAssignment } from "@/lib/dispatch/assignment-state-machine";
 import { dispatchError } from "@/lib/dispatch/errors";
 import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
@@ -208,6 +209,8 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
     // The evidence is a snapshot. Validate again immediately before the
     // assignment write so a stale candidate can never become assignable.
     const { eligibility, config } = await validateDriver(tx, input.driverProfileId, order!);
+    // Canonical manual and automatic offer authority: hold plus reservations must fit the per-driver cap.
+    await assertDriverCashCapacityForAssignment(tx, input.driverProfileId, orderId);
     const reasonCode = input.reasonCode ?? (isSystem ? "AUTOMATIC_DISPATCH_OFFER" : "INITIAL_ASSIGNMENT");
     const assignment = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({
       data: {
@@ -298,6 +301,8 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
     if (assignment.expiresAt && assignment.expiresAt <= new Date()) { await reconcileExpired(tx, assignment.orderId, assignment.driverProfile.userId); throw dispatchError.expired(); }
     assertAssignable(assignment.order);
     await validateDriver(tx, driverProfileId, assignment.order, assignmentId);
+    // Recheck at acceptance: custody may have changed since the offer was created.
+    await assertDriverCashCapacityForAssignment(tx, driverProfileId, assignment.orderId);
 
     // For marketplace-bridged orders, revalidate the canonical store order contract
     // within the same serializable transaction before driver acceptance can advance the order.
@@ -471,6 +476,8 @@ export async function reassignDispatchOrder(adminUserId: string, orderId: string
       excludeAssignmentId: assignment.id,
     });
     await validateDriver(tx, input.newDriverProfileId, order!, assignment.id);
+    // The previous assignment remains intact if this fails.
+    await assertDriverCashCapacityForAssignment(tx, input.newDriverProfileId, orderId);
     await closeCurrent(tx, assignment, OrderAssignmentStatus.SUPERSEDED, adminUserId, input.reasonCode, input.note);
     await setDispatchCandidateDispositionForAssignmentInTx(tx, assignment.id, "SUPERSEDED");
     await tx.order.update({ where: { id: orderId }, data: { currentDriverProfileId: null } });

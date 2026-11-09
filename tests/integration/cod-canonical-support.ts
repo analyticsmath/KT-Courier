@@ -22,7 +22,10 @@ export async function codBooking(page: Page, suffix: string) {
   const user = await prisma.user.create({ data: { email: `e2e-paystack-cod-${randomUUID()}@ktcouriers.local`, name: "Disposable COD business", role: "STORE", status: "ACTIVE", emailVerifiedAt: new Date(), passwordHash: seed.passwordHash } });
   const store = await prisma.store.create({ data: { ownerUserId: user.id, name: "Disposable COD business", slug: `cod-${randomUUID()}`, status: "ACTIVE" } });
   const policy = await prisma.paymentMethodPolicy.create({ data: { storeId: store.id, orderType: "SAME_DAY", provinceScope: ["Gauteng"], versionNumber: 1, status: "ACTIVE", mode: "DEPOSIT_PLUS_COD", depositPercent: "0.5", maximumCodAmount: "10000.00", effectiveFrom: new Date("2026-01-01"), createdByUserId: user.id, policyEvidence: { fixture: "NAMED_DISPOSABLE_CONFIGURATION_ONLY_NOT_HUMAN_APPROVAL" } } });
-  const address = { line1: "Synthetic courier booking", city: "Johannesburg", province: "Gauteng", country: "South Africa", latitude: -26.2041, longitude: 28.0473 };
+  // Independent cash-locality checks require a named, verified test suburb
+  // for both addresses. An absent line2 represents an unverified locality and
+  // must stay cash-ineligible; never weaken production controls for fixtures.
+  const address = { line1: "Synthetic courier booking", line2: "Marshalltown", city: "Johannesburg", province: "Gauteng", country: "South Africa", latitude: -26.2041, longitude: 28.0473 };
   const input = { deliveryType: "SAME_DAY" as const, pickupAddress: address, dropoffAddress: { ...address, line1: "Synthetic courier destination", latitude: -26.2051 }, recipientName: "Disposable recipient", recipientPhone: "+27820000000", parcelCount: 1, paymentMethod: "DEPOSIT_PLUS_COD" as const };
   const quote = await createPricingQuote(user, { deliveryType: input.deliveryType, pickupAddress: input.pickupAddress, dropoffAddress: input.dropoffAddress });
   const order = await createOrder(user, { ...input, pricingQuoteId: quote.id });
