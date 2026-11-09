@@ -1,3 +1,5 @@
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
+
 export type StorePickupCoordinate = number | string | { toString(): string } | null | undefined;
 
 export type StorePickupAddressCandidate = Readonly<{
@@ -16,17 +18,13 @@ export type StorePickupAddressCandidate = Readonly<{
   placeId?: string | null;
 }>;
 
-function normalized(value: string | null | undefined): string {
-  return value?.trim().replace(/\s+/g, " ").toLowerCase() ?? "";
-}
-
 function hasCorePickupAddress(address: StorePickupAddressCandidate | null | undefined): boolean {
   return Boolean(
     address
     && (address.line1?.trim().length ?? 0) >= 3
     && (address.city?.trim().length ?? 0) >= 2
     && (address.province?.trim().length ?? 0) >= 2
-    && normalized(address.country) === "south africa",
+    && isSouthAfricanCountry(address.country),
   );
 }
 

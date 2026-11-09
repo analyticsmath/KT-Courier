@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AddressType } from "@/types/db";
 import { AddressInputSchema } from "./address";
+import { isSouthAfricanCountry } from "./south-african-country";
 
 const SavedAddressTypeSchema = z.enum([
   AddressType.PICKUP,
@@ -73,7 +74,7 @@ export const StorePickupAddressSchema = AddressInputSchema.extend({
   city: z.string().trim().min(2, "Collection city is required").max(100),
   province: z.string().trim().min(2, "Collection province is required").max(100),
   country: z.string().trim().refine(
-    (country) => country.toLowerCase() === "south africa",
+    isSouthAfricanCountry,
     "Only South African collection addresses are currently supported",
   ).default("South Africa"),
   postalCode: z.string().trim().regex(/^\d{4}$/, "Enter a valid four-digit South African postal code"),

@@ -25,6 +25,15 @@ describe("read-only store collection address readiness", () => {
     });
   });
 
+  it("recognizes existing ZA/RSA/ZAF merchant country values without inventing coverage", () => {
+    for (const country of ["ZA", " rsa ", "ZAF", "south africa"]) {
+      expect(describeStoreCollectionEvidence({ ...completePickup, country })).toEqual({
+        checkoutPickupConfigured: true, missing: [],
+      });
+    }
+    expect(describeStoreCollectionEvidence({ ...completePickup, country: "US" }).missing).toContain("Country not supported");
+  });
+
   it("rejects invalid or unmapped coordinates as setup evidence", () => {
     for (const location of [{latitude:0,longitude:0},{latitude:null,longitude:28},{latitude:101,longitude:28},{latitude: -26, longitude: Infinity}]) {
       expect(describeStoreCollectionEvidence({ ...completePickup, ...location }).missing).toContain("Map coordinates missing");

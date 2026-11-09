@@ -1,3 +1,4 @@
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
 import type { StorePickupAddressCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 
 export type StoreCollectionEvidenceSummary = Readonly<{
@@ -25,7 +26,7 @@ export function describeStoreCollectionEvidence(
   if ((pickup.line2?.trim().length ?? 0) < 2) missing.push("Suburb / area missing");
   if ((pickup.city?.trim().length ?? 0) < 2) missing.push("City missing");
   if ((pickup.province?.trim().length ?? 0) < 2) missing.push("Province missing");
-  if (pickup.country?.trim().toLowerCase() !== "south africa") missing.push("Country not supported");
+  if (!isSouthAfricanCountry(pickup.country)) missing.push("Country not supported");
   if (!/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")) missing.push("Postal code missing");
   if (!validCoordinatePair(pickup)) missing.push("Map coordinates missing");
   return { checkoutPickupConfigured: missing.length === 0, missing };

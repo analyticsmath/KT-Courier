@@ -27,6 +27,19 @@ describe("production marketplace collection address readiness", () => {
     const missingSuburb = { ...depot, line2: null, id: "missing-suburb", isDefault: true };
     expect(selectStorePickupAddress("store-1", missingSuburb, [missingSuburb, depot])).toEqual(depot);
   });
+  it("accepts the same valid South African country aliases as customer checkout", () => {
+    for (const country of ["ZA", "za", "RSA", "ZAF", "south africa"]) {
+      const pickup = { ...depot, country };
+      expect(completeStorePickupAddress(pickup)).toBe(true);
+      expect(selectStorePickupAddress("store-1", pickup, [])).toEqual(pickup);
+      expect(StorePickupAddressSchema.safeParse(pickup).success).toBe(true);
+    }
+    for (const country of ["", "US", "Zimbabwe", "ZAA"]) {
+      expect(completeStorePickupAddress({ ...depot, country })).toBe(false);
+      expect(StorePickupAddressSchema.safeParse({ ...depot, country }).success).toBe(false);
+    }
+  });
+
   it("never treats an unrelated business default as a collection address", () => {
     const business = { ...depot, id: "business", type: "BUSINESS", isDefault: true };
     expect(selectStorePickupAddress("store-1", null, [business, depot])).toEqual(depot);
