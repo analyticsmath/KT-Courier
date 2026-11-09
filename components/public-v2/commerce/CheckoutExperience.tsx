@@ -835,7 +835,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                       ))}
                     </select>
                     <p className="mt-2 text-xs text-[var(--kt-public-text-muted)]">
-                      Your account's addresses work in both parcel delivery and marketplace checkout.
+                      Your saved addresses work in both parcel delivery and marketplace checkout.
                       Delivery coverage and the map location are verified again before calculating a fee.
                     </p>
                   </div>
