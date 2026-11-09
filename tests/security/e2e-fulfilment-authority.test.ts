@@ -5,7 +5,13 @@ vi.mock("@/lib/db/prisma", () => ({ prisma: {
   deliveryRegion: { findUniqueOrThrow: async () => ({ id: "region" }) },
   deliveryServiceDefinition: { findFirst: async () => null }, parcelProfileVersion: { findFirst: async () => null },
   systemSetting: { findUniqueOrThrow: async () => ({ updatedAt: new Date("2026-01-01") }) },
-  store: { findUniqueOrThrow: async ({ where }: { where: { slug: string } }) => ({ id: where.slug, slug: where.slug }) },
+  store: { findUniqueOrThrow: async ({ where }: { where: { slug: string } }) => ({ id: where.slug, slug: where.slug, defaultPickupAddressId: `${where.slug}-pickup` }) },
+  address: { findFirstOrThrow: async ({ where }: { where: { storeId: string } }) => ({
+    id: `${where.storeId}-pickup`, storeId: where.storeId, type: "PICKUP", line1: "10 Test Lane",
+    line2: "Central", city: "Johannesburg", province: "Gauteng", postalCode: "2001",
+    country: "South Africa", latitude: -26.2041, longitude: 28.0473, placeId: "disposable-map-evidence",
+  }) },
+  storeCheckoutCertification: { create: vi.fn() },
   storeSellerLegalIdentity: { create: vi.fn() },
 } }));
 vi.mock("@/lib/client-platform/delivery.service", () => ({ saveDeliveryConfiguration: vi.fn() }));
