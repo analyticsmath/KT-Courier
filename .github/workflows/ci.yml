@@ -8,6 +8,12 @@ on:
     branches:
       - main
 
+# Only the newest PR revision needs a complete CI matrix; never cancel
+# a main-branch push, whose results are part of the production audit trail.
+concurrency:
+  group: kt-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
