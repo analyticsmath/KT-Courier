@@ -252,6 +252,16 @@ export async function evaluateMarketplacePromotions(
       }
     }
 
+    // Minimum spend is an independently configured commercial boundary.
+    // Check the actual eligible merchandise/delivery basis AFTER targeting,
+    // never the whole cart or a buyer-supplied price. Otherwise a R50
+    // first-store discount could apply below the owner's minimum.
+    if (candidate.minimumEligibleSubtotal !== null
+      && basisAmount.lessThan(candidate.minimumEligibleSubtotal)) {
+      rejected.push({ campaignVersionId: candidate.id, reason: 'Minimum eligible spend not met' });
+      continue;
+    }
+
     // Calculate discount amount
     const discountAmount = calculateDiscountAmount({
       scope: candidate.discountScope,
