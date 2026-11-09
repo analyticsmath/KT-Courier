@@ -53,6 +53,14 @@ const buildInput = (names = ["ordinary"]): ReservationInput => {
 function mockTransaction(input: ReservationInput) {
   const stored: ReservationRecord[] = [];
   const database = {
+    marketplaceCheckout: {
+      findUnique: vi.fn(async () => ({
+        reviewVersion: input.checkoutReviewVersion,
+        status: "READY_FOR_REVIEW",
+        customerUserId: input.customerUserId ?? null,
+        guestAccessTokenHash: input.guestEvidenceReference ?? null,
+      })),
+    },
     promotionOperation: {
       findUnique: vi.fn(async () => null as null | { operationType: string; requestHash: string }),
       create: vi.fn(async () => ({ id: "operation-1" })),
@@ -217,6 +225,47 @@ describe("promotion reservation financial authority and multi-campaign idempoten
     expect(reserved.reservations).toHaveLength(1);
     expect(stored[0]?.promotionCodeId).toBe("correct-code");
     expect(database.promotionReservation.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses stale review, foreign buyer, and invalid checkout states before any budget claim", async () => {
+    const input = buildInput(), { tx, database } = mockTransaction(input);
+    database.marketplaceCheckout.findUnique.mockResolvedValueOnce({
+      reviewVersion: input.checkoutReviewVersion - 1, status: "READY_FOR_REVIEW",
+      customerUserId: input.customerUserId ?? null, guestAccessTokenHash: null,
+    });
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("current authorized checkout review");
+    database.marketplaceCheckout.findUnique.mockResolvedValueOnce({
+      reviewVersion: input.checkoutReviewVersion, status: "READY_FOR_REVIEW",
+      customerUserId: "other-customer", guestAccessTokenHash: null,
+    });
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("current authorized checkout review");
+    database.marketplaceCheckout.findUnique.mockResolvedValueOnce({
+      reviewVersion: input.checkoutReviewVersion, status: "PAYMENT_CONFIRMED",
+      customerUserId: input.customerUserId ?? null, guestAccessTokenHash: null,
+    });
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("current authorized checkout review");
+    expect(database.promotionBudget.findMany).not.toHaveBeenCalled();
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("caps held coupons even without a finalized redemption", async () => {
+    const automatic = buildInput(["coupon"]);
+    const coupon = { ...automatic.appliedPromotions[0], applicationMethod: "COUPON_CODE" as const };
+    const input: ReservationInput = {
+      ...automatic, appliedCouponCode: "f".repeat(64),
+      appliedPromotions: [coupon],
+      evaluationResult: { ...automatic.evaluationResult, applied: [coupon], eligible: [coupon] },
+    };
+    const { tx, database } = mockTransaction(input);
+    database.promotionCode.findMany.mockResolvedValue([{
+      id: "claimed-code", codeHmac: "f".repeat(64), status: "ACTIVE",
+      campaignVersionId: "coupon", startsAt: null, expiresAt: null,
+      restrictedCustomerUserId: "customer-1",
+      maximumRedemptions: 1, maximumRedemptionsPerCustomer: 1,
+    }] as never);
+    database.promotionReservation.count.mockResolvedValue(1);
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("maximum allowed uses");
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
   });
 
   it("rejects changed financial evaluation before writing any reservation", async () => {
