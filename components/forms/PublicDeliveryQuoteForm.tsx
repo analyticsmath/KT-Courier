@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability } from "@/components/forms/ParcelPaymentChoice";
+import { parcelBookingDestination } from "@/lib/client-platform/parcel-booking-navigation";
 import {
   PROVINCES,
   type DeliveryConfiguration,
@@ -460,9 +461,15 @@ export function PublicDeliveryQuoteForm({
                   );
                   const v = await r.json();
                   if (!r.ok) throw new Error(v.error);
-                  router.push(
-                    `${business ? "/store" : "/account"}/orders/${v.id}`,
-                  );
+                  // An online payer should reach the secure, owner-authorized
+                  // card payment screen immediately after booking, not have to
+                  // find the separate Payment link on order details.
+                  router.push(parcelBookingDestination({
+                    business,
+                    paymentMethod: selectedPaymentMethod,
+                    orderId: v.id,
+                    orderNumber: v.orderNumber,
+                  }));
                 } catch (e) {
                   setError(
                     e instanceof Error ? e.message : "Booking unavailable.",
