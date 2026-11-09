@@ -17,6 +17,7 @@ import {
   marketplaceVariantHref,
 } from "@/lib/public-marketplace/routes";
 import { formatCommercePrice } from "@/lib/public-marketplace/commerce-presentation";
+import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 import { ProductMediaGallery } from "./ProductMediaGallery";
 import { SellerSelector } from "./SellerSelector";
 import { ProductInformation } from "./ProductInformation";
@@ -491,7 +492,7 @@ export function ProductDetailExperience({
                 {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
                 {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
               </span>
-              <span className={styles.pdpVatNote}>VAT included</span>
+              <span className={styles.pdpVatNote}>Delivery fee confirmed at checkout</span>
             </div>
 
             {/* Seller / Offer Decision Section */}
@@ -664,6 +665,12 @@ export function ProductDetailExperience({
                 </button>
               </div>
 
+              {!isPurchasable && (
+                <p role="status" data-kt-availability-blocker className="mt-2 text-sm text-[var(--kt-public-text-muted)]">
+                  {availabilityLabel(activeOffer.availability)}. Purchasing is unavailable until the merchant confirms stock and fulfilment readiness.
+                </p>
+              )}
+
               {/* Add to Cart / Buy Now Feedback Toast */}
               {cartFeedback && (
                 <div
@@ -723,7 +730,7 @@ export function ProductDetailExperience({
             <span className={styles.pdpMobileStickyPrice}>
               {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
             </span>
-            <span className={styles.pdpMobileStickyVat}>VAT included</span>
+            <span className={styles.pdpMobileStickyVat}>Delivery fee at checkout</span>
           </div>
           <div className={styles.pdpMobileStickyBtns}>
             <button
