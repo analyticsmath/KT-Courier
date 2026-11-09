@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { humanizeAvailability } from "@/lib/public-marketplace/commerce-presentation";
-import { availabilityLabel, type StorefrontAvailabilityState } from "@/lib/storefront/storefront-availability-policy";
+import { availabilityLabel } from "@/lib/storefront/storefront-availability-policy";
 
 describe("product detail inventory wording agrees with purchase eligibility", () => {
   it.each(["UNTRACKED", "CONFIRM_AT_CHECKOUT"] as const)(
