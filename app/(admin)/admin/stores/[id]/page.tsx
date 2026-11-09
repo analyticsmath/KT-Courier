@@ -104,9 +104,9 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       <p className="text-sm">The preflight identifies missing pickup configuration, mapping, covered pickup regions and active courier-service support.</p>
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4" href={`/admin/stores/${encodeURIComponent(id)}/readiness`}>Run operational pickup preflight</Link>
     </OperationalPanel>
-    {canApprove && store.status === "PENDING" ? (
+    {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
       <OperationalPanel title="Independent checkout and route certification"
-        description="New store go-Live transitions now require two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
+        description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
         <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} />
       </OperationalPanel>
     ) : null}
