@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "@/lib/db/prisma";
 import { assertPromotionsProductionReady } from "./production-lock";
 import { resolvePromotionProductionComposition } from "./promotion-composition-root";
