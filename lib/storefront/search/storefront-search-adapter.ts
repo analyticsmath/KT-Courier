@@ -1,6 +1,7 @@
 import { matchesStorefrontCategory, storefrontCategoryPredicate } from "@/lib/storefront/storefront-category-discovery";
 import { CatalogFulfilmentMode, CatalogProductCondition, Prisma, StorefrontAvailabilityState } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { activePublicProductDocumentSql } from "@/lib/storefront/sql-store-publication";
 import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-query-normalization";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 
@@ -143,7 +144,7 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
   }): Promise<StorefrontDocument[]> {
     const limit = input.limit !== undefined ? Math.max(1, input.limit) : 100000;
     const normalized = input.query ? normalizeStorefrontQuery(input.query).value : "";
-    const clauses = [Prisma.sql`"status" = 'ACTIVE'`, Prisma.sql`"searchable" = true`];
+    const clauses = [Prisma.sql`"status" = 'ACTIVE'`, Prisma.sql`"searchable" = true`, activePublicProductDocumentSql];
     if (input.storeSlug) clauses.push(Prisma.sql`"storeSlug" = ${input.storeSlug}`);
     if (input.categoryPath) {
       clauses.push(storefrontCategoryPredicate(input.categoryPath));
@@ -198,7 +199,7 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
 }
 
 export async function loadStorefrontDocuments(input: { productReference?: string; productReferences?: readonly string[]; variantReference?: string; variantReferences?: readonly string[]; storeSlug?: string; categoryPath?: string; limit?: number }): Promise<StorefrontDocument[]> {
-  const clauses = [Prisma.sql`"status" = 'ACTIVE'`];
+  const clauses = [Prisma.sql`"status" = 'ACTIVE'`, activePublicProductDocumentSql];
   if (input.productReference) clauses.push(Prisma.sql`"productPublicReference" = ${input.productReference}`);
   if (input.variantReference) clauses.push(Prisma.sql`"variantPublicReference" = ${input.variantReference}`);
   const referenceClauses = [
