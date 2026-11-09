@@ -53,8 +53,8 @@ export function selectableCustomerAddresses(
       && address.country.trim().toLocaleLowerCase("en-ZA") === "south africa")
     .sort((a, b) => {
       const priority = (address: CustomerCheckoutSavedAddress) =>
-        (address.type === "CUSTOMER" || address.type === "DROPOFF" ? 2 : 0)
-        + (address.isDefault ? 4 : 0);
+        (address.type === "CUSTOMER" || address.type === "DROPOFF" ? 4 : 0)
+        + (address.isDefault ? 2 : 0);
       return priority(b) - priority(a);
     });
 }
