@@ -1,5 +1,9 @@
-/** Build-time routing authority. No caller-provided origin or Host header is trusted. */
-export const PRODUCTION_EDGE_PROJECT = "prj_Q6i3g8JIv1ibkXGspPotBem2FFLD";
+/** Build-time routing authority. No caller-provided origin or Host header is trusted.
+ * Production project identity matches the Vercel project with verified
+ * ktcouriers.com and www.ktcouriers.com domains as inspected 2026-11-09.
+ * An explicit production role remains required; this is not a release approval.
+ */
+export const PRODUCTION_EDGE_PROJECT = "prj_vlJrGktEcTIOCMZTAj6QTnrZEev2";
 export const PRODUCTION_EDGE_ORIGIN = "https://web-production-9f8bb.up.railway.app";
 
 export type EdgeEnvironment = Readonly<Record<string, string | undefined>>;
