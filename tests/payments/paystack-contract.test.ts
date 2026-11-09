@@ -214,6 +214,7 @@ describe("Paystack 24 Deterministic Contract Test Suite", () => {
     expect(() => validatePaystackAuthorizationUrl("not-a-url")).toThrow(/malformed/i);
     expect(() => validatePaystackAuthorizationUrl("javascript:alert(1)")).toThrow(/must use HTTPS/i);
     expect(() => validatePaystackAuthorizationUrl("https://evil-paystack.com/pay")).toThrow(/not permitted/i);
+    expect(() => validatePaystackAuthorizationUrl("https://operator:token@checkout.paystack.com/pay")).toThrow(/credentials/i);
   });
 
   // 11. Fast webhook HTTP receipt with sourceAddressVerified: false

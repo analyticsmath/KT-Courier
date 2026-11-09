@@ -55,6 +55,9 @@ export function validatePaystackAuthorizationUrl(rawUrl: string): string {
     if (parsed.protocol !== "https:") {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack authorization URL must use HTTPS.");
     }
+    if (parsed.username || parsed.password) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack authorization URL must not contain credentials.");
+    }
     const host = parsed.hostname.toLowerCase();
     if (!ALLOWED_PAYSTACK_CHECKOUT_HOSTS.has(host)) {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", `Paystack authorization URL domain '${host}' is not permitted.`);

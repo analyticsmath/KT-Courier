@@ -70,16 +70,22 @@ export function PaymentCheckoutClient({
       if (typeof payload.checkoutUrl !== "string" || !payload.checkoutUrl.trim()) {
         throw new Error("Payment checkout returned an invalid handoff.");
       }
+      // Defense in depth: never follow a stored/replayed URL pointing at a
+      // different host, an insecure protocol or a URL containing credentials.
+      let checkoutUrl: URL;
       try {
-        const parsedUrl = new URL(payload.checkoutUrl, window.location.origin);
-        if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
-          throw new Error("Invalid checkout URL protocol.");
+        checkoutUrl = new URL(payload.checkoutUrl);
+        if (checkoutUrl.protocol !== "https:"
+          || !["checkout.paystack.com", "standard.paystack.co"].includes(checkoutUrl.hostname.toLowerCase())
+          || checkoutUrl.username || checkoutUrl.password
+          || (checkoutUrl.port && checkoutUrl.port !== "443")) {
+          throw new Error("Checkout destination is not Paystack HTTPS.");
         }
       } catch {
         throw new Error("Payment checkout returned an invalid handoff URL.");
       }
       operations.current.clear("checkout");
-      window.location.assign(payload.checkoutUrl);
+      window.location.assign(checkoutUrl.toString());
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Payment checkout is unavailable.");
       setBusy(false);

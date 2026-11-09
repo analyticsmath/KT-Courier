@@ -6,4 +6,8 @@ describe("Payment checkout-session API contract", () => {
   it("selects Paystack server-side and accepts no provider selection", () => expect(route).toContain('provider: "PAYSTACK"'));
   it("returns only an internal checkout transition instead of signed JSON fields", () => { expect(route).toContain("checkoutUrl"); expect(route).not.toMatch(/customerAction|\.fields|signature|merchantKey|passphrase/); });
   it("supports stable replay of an existing actionable attempt", () => expect(route).toMatch(/status === "REQUIRES_ACTION"[\s\S]*currentAttemptReference/));
+  it("revalidates both persisted and new Paystack browser handoffs", () => {
+    expect(route).toContain("validatePaystackAuthorizationUrl(payment.currentRedirectUrl)");
+    expect(route).toContain("validatePaystackAuthorizationUrl(session.attempt.redirectUrl)");
+  });
 });

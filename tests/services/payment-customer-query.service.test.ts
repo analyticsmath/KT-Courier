@@ -90,6 +90,13 @@ describe("payment page unavailable states", () => {
       ),
     ).toMatchObject({ canCheckout: false, amount: "0.00" });
   });
+  it("reports a missing card-payment payer email using the canonical error code", async () => {
+    mocks.orderFindFirst.mockResolvedValue({ id: "order-id", orderNumber: "KT-1" });
+    mocks.paymentFindUnique.mockResolvedValue(null);
+    mocks.resolve.mockResolvedValue({ amount: { toString: () => "10.00" } });
+    await expect(getCustomerPaymentPage({ id: "payer", email: "invalid" }, "KT-1"))
+      .rejects.toMatchObject({ code: "PAYMENT_PAYER_EMAIL_REQUIRED" });
+  });
   it("handles a nonpayable order without a server page error", async () => {
     mocks.orderFindFirst.mockResolvedValue({
       id: "order",

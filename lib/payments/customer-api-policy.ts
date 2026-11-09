@@ -52,6 +52,25 @@ export function paymentApiError(error: unknown): NextResponse {
       return noStoreJson({ error: "Payment cannot be started in its current state." }, 409);
     case "PAYFAST_PAYER_EMAIL_REQUIRED":
       return noStoreJson({ error: "A valid account email is required for Payfast checkout." }, 422);
+    case "PAYSTACK_PAYER_EMAIL_REQUIRED":
+    case "PAYMENT_PAYER_EMAIL_REQUIRED":
+      return noStoreJson({ error: "A valid account email is required for card checkout." }, 422);
+    case "PAYSTACK_NOT_CONFIGURED":
+    case "PAYSTACK_CONFIGURATION_INVALID":
+    case "PAYSTACK_PRODUCTION_NOT_READY":
+    case "PAYMENT_PROVIDER_NOT_CONFIGURED":
+    case "PAYMENT_PROVIDER_CONFIGURATION_INVALID":
+    case "PAYMENT_PROVIDER_PRODUCTION_NOT_READY":
+    case "PAYMENT_PROVIDER_UNAVAILABLE":
+    case "PAYMENT_PROVIDER_AUTHENTICATION_FAILED":
+      return noStoreJson({ error: "Card checkout is temporarily unavailable. Please contact KT Couriers support." }, 503);
+    case "PAYMENT_PROVIDER_TIMEOUT":
+      return noStoreJson({ error: "The payment provider did not respond. Check the payment's current status before retrying." }, 503);
+    case "PAYMENT_PROVIDER_RATE_LIMITED":
+      return noStoreJson({ error: "Card checkout is temporarily rate limited. Check payment status before retrying." }, 429);
+    case "PAYMENT_PROVIDER_RESPONSE_INVALID":
+    case "PAYMENT_PROVIDER_REDIRECT_INVALID":
+      return noStoreJson({ error: "The card payment handoff could not be verified. Please contact KT Couriers support." }, 503);
     default:
       return noStoreJson({ error: "Payment request is invalid." }, 422);
   }

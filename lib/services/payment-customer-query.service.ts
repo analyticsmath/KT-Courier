@@ -175,8 +175,8 @@ export async function getCustomerPaymentPage(
   }
   if (!payer.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payer.email)) {
     throw new PaymentError(
-      "PAYFAST_PAYER_EMAIL_REQUIRED",
-      "A valid payer email is required for Payfast checkout.",
+      "PAYMENT_PAYER_EMAIL_REQUIRED",
+      "A valid payer email is required for card checkout.",
     );
   }
   return Object.freeze({

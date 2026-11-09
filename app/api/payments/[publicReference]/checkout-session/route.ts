@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { noStoreJson, paymentApiError, validatePaymentJsonRequest } from "@/lib/payments/customer-api-policy";
 import { createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+import { validatePaystackAuthorizationUrl } from "@/lib/payments/providers/paystack/paystack-client";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { getOwnedPaymentIdentity } from "@/lib/services/payment-customer-query.service";
@@ -36,7 +37,9 @@ export async function POST(
     registry.getAdapter("PAYSTACK");
     if (payment.status === "REQUIRES_ACTION" && payment.currentAttemptReference) {
       if (payment.currentActionType === "REDIRECT_GET" && payment.currentRedirectUrl) {
-        return noStoreJson({ checkoutUrl: payment.currentRedirectUrl });
+        // A persisted attempt is not a trusted browser redirect: verify it again
+        // against the currently approved HTTPS Paystack host list on replay.
+        return noStoreJson({ checkoutUrl: validatePaystackAuthorizationUrl(payment.currentRedirectUrl) });
       }
     }
     const session = await createProviderCheckoutSession(
@@ -48,7 +51,7 @@ export async function POST(
       return noStoreJson({ error: "Paystack checkout is not ready." }, 503);
     }
     if (session.attempt.checkoutActionType === "REDIRECT_GET" && session.attempt.redirectUrl) {
-      return noStoreJson({ checkoutUrl: session.attempt.redirectUrl });
+      return noStoreJson({ checkoutUrl: validatePaystackAuthorizationUrl(session.attempt.redirectUrl) });
     }
     return noStoreJson({ error: "Checkout action is not supported." }, 503);
   } catch (error) {
