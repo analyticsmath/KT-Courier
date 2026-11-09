@@ -124,6 +124,10 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
           const activeVersions = await prisma.promotionCampaignVersion.findMany({
             where: {
               status: 'ACTIVE',
+              applicationMethod: 'AUTOMATIC',
+              currency: 'ZAR',
+              campaign: { status: 'ACTIVE' },
+              budget: { is: { status: 'ACTIVE', currency: 'ZAR' } },
               startsAt: { lte: now },
               endsAt: { gte: now },
             },
@@ -164,7 +168,30 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
           });
           if (!codeRecord) return null;
           const v = codeRecord.campaignVersion;
-          
+          // A coupon must never turn into an unsolicited automatic discount,
+          // remain valid after expiry, escape its recipient restriction, or
+          // apply after its campaign was paused. The reservation transaction
+          // must revalidate these facts before funds are reserved.
+          if (v.status !== 'ACTIVE'
+            || v.applicationMethod !== 'COUPON_CODE'
+            || v.campaign.status !== 'ACTIVE'
+            || v.currency !== 'ZAR'
+            || input.now < v.startsAt || input.now > v.endsAt
+            || (codeRecord.startsAt && input.now < codeRecord.startsAt)
+            || (codeRecord.expiresAt && input.now > codeRecord.expiresAt)
+            || (codeRecord.restrictedCustomerUserId
+              && codeRecord.restrictedCustomerUserId !== input.customerUserId)) return null;
+          if (codeRecord.maximumRedemptions !== null
+            && await prisma.promotionRedemption.count({
+              where: { promotionCodeId: codeRecord.id, status: 'COMMITTED' },
+            }) >= codeRecord.maximumRedemptions) return null;
+          if (codeRecord.maximumRedemptionsPerCustomer !== null) {
+            if (!input.customerUserId) return null;
+            if (await prisma.promotionRedemption.count({
+              where: { promotionCodeId: codeRecord.id, customerUserId: input.customerUserId, status: 'COMMITTED' },
+            }) >= codeRecord.maximumRedemptionsPerCustomer) return null;
+          }
+
           const globalRedemptionsCount = await prisma.promotionRedemption.count({
             where: { campaignVersionId: v.id, status: 'COMMITTED' }
           });
