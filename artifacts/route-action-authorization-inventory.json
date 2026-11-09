@@ -6779,7 +6779,8 @@
     {
       "routePath": "app/api/admin/referrals/[id]/award/route.ts",
       "httpMethods": [
-        "POST"
+        "POST",
+        "DELETE"
       ],
       "authorizationMechanism": "SUPER_ADMIN_SESSION",
       "requiredRoles": [

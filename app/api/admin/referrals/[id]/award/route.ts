@@ -4,6 +4,7 @@ import { requireSuperAdminApi } from "@/lib/auth/admin-api";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit } from "@/lib/security/rate-limit";
 import { awardVerifiedOrdinaryReferral, OrdinaryReferralAwardError } from "@/lib/rewards/ordinary-referral-award.service";
+import { reverseRefundedOrdinaryReferral } from "@/lib/rewards/ordinary-referral-reversal.service";
 
 const commandSchema = z.object({
   operationId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9:_-]{7,95}$/),
@@ -53,6 +54,51 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     // Never send customer, payment, wallet, journal or provider internals.
     return Response.json({ error: "The referral award was not confirmed. Retry the same operation ID." }, {
       status: 503, headers,
+    });
+  }
+}
+
+/** Revoke an actually issued referral after a proven source refund or dispute.
+ * One atomic ledger reversal, never an external bank payout. Low wallet
+ * balance is a finance recovery case, not permission for a negative wallet.
+ */
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const origin = await enforceSameOriginRequest(request);
+  if (origin) return origin;
+  const auth = await requireSuperAdminApi({ request });
+  if (auth.response) return auth.response;
+  const rate = await checkIpRateLimit(request, `admin-referral-reversal:${auth.user.id}`, {
+    max: 12, windowMs: 60 * 60 * 1000, distributedRequired: true,
+  });
+  if (!rate.ok) return Response.json({ error: "Referral reversals are temporarily unavailable." }, {
+    status: rate.failClosed ? 503 : 429, headers,
+  });
+  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
+    return Response.json({ error: "JSON content type is required." }, { status: 415, headers });
+  }
+  const { id } = await context.params;
+  const validReference = reference.safeParse(id);
+  if (!validReference.success) return Response.json({ error: "Invalid referral event." }, { status: 422, headers });
+  const raw = await request.json().catch(() => null);
+  const parsed = commandSchema.safeParse(raw);
+  if (!parsed.success) return Response.json({ error: "A stable operation ID is required." }, { status: 422, headers });
+  try {
+    const result = await reverseRefundedOrdinaryReferral({
+      referralEventId: validReference.data, actorUserId: auth.user.id,
+      operationId: parsed.data.operationId,
+    });
+    return Response.json({ reversal: result, releaseAuthorization: false }, { status: 200, headers });
+  } catch (error) {
+    if (error instanceof OrdinaryReferralAwardError) {
+      const status = error.code === "FORBIDDEN" ? 403
+        : error.code === "EVIDENCE_CONFLICT" ? 409
+        : error.code === "DISABLED" ? 503 : 422;
+      return Response.json({ error: error.message }, { status, headers });
+    }
+    // A spent reward cannot be reversed into a negative wallet. Keep the
+    // initial reward and referral state untouched for finance recovery.
+    return Response.json({ error: "Reversal was not confirmed. Finance must review the original wallet and payment journals." }, {
+      status: 409, headers,
     });
   }
 }

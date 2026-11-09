@@ -6,6 +6,7 @@ import { loadCustomerRewardPolicy } from "./customer-reward-configuration";
 import { ordinaryReferralReward } from "./customer-reward-policy";
 import { inspectOrdinaryReferralEligibility } from "./ordinary-referral-eligibility.service";
 import { ORDINARY_REFERRAL_SOURCE } from "./ordinary-referral.service";
+import { ORDINARY_REFERRAL_LEDGER_INCLUDE, verifyOrdinaryReferralAwardJournal } from "./ordinary-referral-ledger-evidence";
 import { ensureLedgerAccountInTx, ensureWalletForOwnerInTx } from "@/lib/services/wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { PROMOTION_ACCOUNT_CODES } from "@/lib/promotions/promotion-ledger-policy";
@@ -75,47 +76,24 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
         throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward status has no ledger receipt.");
       }
       const journal = await tx.ledgerJournal.findUnique({
-        where: { id: existingJournalId },
-        include: { entries: { include: { account: { include: { wallet: true } } } } },
+        where: { id: existingJournalId }, include: ORDINARY_REFERRAL_LEDGER_INCLUDE,
       });
-      const credited = journal?.entries.find(entry => entry.direction === "CREDIT");
-      const charged = journal?.entries.find(entry => entry.direction === "DEBIT");
-      const ownerType = event.referralCode.ownerType;
-      const ownerId = event.referralCode.ownerId;
-      const expectedPurpose = ownerType === "CUSTOMER" ? "CUSTOMER_WALLET_AVAILABLE"
-        : ownerType === "STORE" ? "STORE_REFERRAL_WALLET_AVAILABLE" : null;
-      const amount = typeof existing.rewardAmountZar === "string"
-        && /^\d+\.\d{2}$/.test(existing.rewardAmountZar)
-        ? new Prisma.Decimal(existing.rewardAmountZar) : null;
-      const source = record(journal?.metadata);
-      if (!journal || !amount || !amount.gt(0) || !expectedPurpose ||
-          journal.sourceReference !== `ORDINARY_REFERRAL:${digest}` ||
-          journal.idempotencyKey !== key || journal.type !== "GENERAL" ||
-          journal.currency !== "ZAR" || journal.entries.length !== 2 ||
-          !journal.totalDebits.equals(amount) || !journal.totalCredits.equals(amount) ||
-          !credited || credited.account.purpose !== expectedPurpose ||
-          credited.account.category !== "LIABILITY" ||
-          credited.account.wallet.ownerType !== ownerType ||
-          credited.account.wallet.ownerId !== ownerId ||
-          !credited.amount.equals(amount) ||
-          !charged || charged.account.purpose !== "PLATFORM_PROMOTION_EXPENSE" ||
-          charged.account.category !== "EXPENSE" ||
-          charged.account.wallet.ownerType !== "PLATFORM" ||
-          charged.account.wallet.ownerId !== "platform" ||
-          !charged.amount.equals(amount) ||
-          existing.recipientOwnerType !== ownerType || existing.recipientOwnerId !== ownerId ||
-          source.category !== "ORDINARY_REFERRAL_AWARD" ||
-          source.referralEventId !== event.id ||
-          source.qualifyingPaymentId !== existing.qualifyingPaymentId ||
-          source.rewardOperationDigest !== operationDigest) {
-        throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward ledger evidence does not match the referral.");
+      if (!journal) throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward receipt is missing.");
+      let proof;
+      try {
+        proof = verifyOrdinaryReferralAwardJournal(event, journal, digest);
+      } catch {
+        throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward journal does not belong to this referral.");
+      }
+      if (proof.operationDigest !== operationDigest) {
+        throw new OrdinaryReferralAwardError("EVIDENCE_CONFLICT", "Reward operation ID does not match its issued receipt.");
       }
       return Object.freeze({
         status: "REPLAYED" as const,
         journalId: journal.id, journalReference: journal.reference,
         referralEventId: event.id,
-        amountZar: String(existing.rewardAmountZar),
-        qualifyingPaymentId: String(existing.qualifyingPaymentId),
+        amountZar: proof.amountZar,
+        qualifyingPaymentId: proof.qualifyingPaymentId,
       });
     }
     if (event.status !== "PENDING") {

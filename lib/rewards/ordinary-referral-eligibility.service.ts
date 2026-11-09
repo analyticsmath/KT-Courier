@@ -6,6 +6,21 @@ import {
   verifyOrdinaryReferralPaymentEvidence, type OrdinaryReferralFinancialStatus,
 } from "./ordinary-referral-financial-evidence";
 
+export const ORDINARY_REFERRAL_PAYMENT_INCLUDE = {
+      successfulAttempt: true, successWebhookEvent: true,
+      successLedgerJournal: { include: {
+        entries: { include: { account: { select: { code: true, purpose: true, category: true } } } },
+      } },
+      disputes: { select: { id: true } },
+      order: { select: { id: true, customerId: true, status: true, cashOnDelivery: {
+        select: { cashObligation: true, status: true },
+      } } },
+      marketplaceOrder: { select: {
+        id: true, customerUserId: true, status: true, cashRequired: true,
+        storeOrders: { select: { status: true, derivedStatus: true, financialResolutionStatus: true } },
+      } },
+    } satisfies Prisma.PaymentInclude;
+
 type Eligibility = Readonly<{
   eligible: boolean;
   reason: string;
@@ -70,20 +85,7 @@ export async function inspectOrdinaryReferralEligibility(
     // Null-success timestamps fail closed as the first candidate rather
     // than allowing a later successful payment to mask historical drift.
     orderBy: [{ succeededAt: { sort: "asc", nulls: "first" } }, { id: "asc" }],
-    include: {
-      successfulAttempt: true, successWebhookEvent: true,
-      successLedgerJournal: { include: {
-        entries: { include: { account: { select: { code: true, purpose: true, category: true } } } },
-      } },
-      disputes: { select: { id: true } },
-      order: { select: { id: true, customerId: true, status: true, cashOnDelivery: {
-        select: { cashObligation: true, status: true },
-      } } },
-      marketplaceOrder: { select: {
-        id: true, customerUserId: true, status: true, cashRequired: true,
-        storeOrders: { select: { status: true, derivedStatus: true, financialResolutionStatus: true } },
-      } },
-    },
+    include: ORDINARY_REFERRAL_PAYMENT_INCLUDE,
   });
   if (!payment) return respond("NO_SUCCESSFUL_PAYMENT");
   if (payment.succeededAt && payment.succeededAt < event.createdAt) {
