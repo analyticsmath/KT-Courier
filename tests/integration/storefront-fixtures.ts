@@ -11,6 +11,7 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
   const safety = validateGate4DatabaseSafety();
   if (!safety.ok) throw new Error(safety.reason);
   const { store } = await createGate4Store("storefront", "projection");
+  const source = await createGate4ActiveProductScenario("storefront", "projection", store.id, { available: 10 });
   // Public marketplace search must have the same approved store evidence
   // as checkout. This fixture only runs behind validateGate4DatabaseSafety.
   const pickup = await prisma.address.create({ data: {
@@ -30,11 +31,10 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
     routeEvidenceDigest: createHash("sha256").update(`${certRef}:synthetic-route`).digest("hex"),
     checkoutEvidenceReference: `${certRef}:synthetic-checkout`,
     checkoutEvidenceDigest: createHash("sha256").update(`${certRef}:synthetic-checkout`).digest("hex"),
-    preparedByUserId: store.ownerUserId!, approvedByUserId: `independent-${randomUUID()}`,
+    preparedByUserId: store.ownerUserId!, approvedByUserId: source.adminUser.id,
     status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
     reviewNote: "Disposable integration fixture only; no customer payment or production approval.",
   } });
-  const source = await createGate4ActiveProductScenario("storefront", "projection", store.id, { available: 10 });
   source.product = await prisma.catalogProduct.update({ where: { id: source.product.id }, data: { publicReference: `CP-${randomUUID().replaceAll("-", "").toUpperCase()}` } });
   const ref = `media_${randomUUID().replaceAll("-", "")}`;
   const asset = await prisma.catalogMediaAsset.create({ data: {
