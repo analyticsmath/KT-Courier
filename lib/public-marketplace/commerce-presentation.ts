@@ -65,7 +65,9 @@ export function humanizeAvailability(
     case "OUT_OF_STOCK":
       return { label: "Out of stock", isAvailable: false, isLowStock: false };
     case "MADE_TO_ORDER":
-      return { label: "Made to order", isAvailable: true, isLowStock: false };
+      // A bespoke item needs an accepted merchant quote; ordinary quick-add
+      // and product checkout currently authorize confirmed stock only.
+      return { label: "Made to order", isAvailable: false, isLowStock: false };
     case "UNTRACKED":
       // Untracked inventory is not evidence that a merchant can fulfil an
       // order. Match the disabled purchase state on the product detail page.
