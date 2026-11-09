@@ -109,7 +109,7 @@ export function MarketplaceProductGrid({ products, label = "Products" }: { produ
           <div className={styles.productBody}>
             {product.brandName ? <p className={styles.productMeta}>{product.brandName}</p> : null}
             <h3>{href ? <Link href={href}>{product.title}</Link> : <span>{product.title}</span>}</h3>
-            <p className={styles.price}>{product.price.from ? "From " : ""}{formatPrice(product.price.amount, product.price.currency)}<small>VAT included</small></p>
+            <p className={styles.price}>{product.price.from ? "From " : ""}{formatPrice(product.price.amount, product.price.currency)}<small>Final charges at checkout</small></p>
             <p className={styles.availability}>{availabilityLabel(product.availability)}</p>
             <p className={styles.storeCount}>Available from {product.storeCount} {product.storeCount === 1 ? "store" : "stores"}</p>
             {!href ? <p style={{ fontSize: "0.75rem", color: "var(--kt-state-warning)", marginTop: 4 }}>Temporarily unavailable</p> : null}
@@ -131,7 +131,7 @@ export function MarketplaceOfferList({ offers }: { offers: readonly StorefrontDo
             <h3><Link className={styles.storeLink} href={href}>View store</Link></h3>
             <p>{offer.fulfilmentMode.replaceAll("_", " ").toLocaleLowerCase("en-ZA")} · {availabilityLabel(offer.availability)}</p>
           </div>
-          <p className={styles.price}>{formatPrice(offer.price.amount, offer.price.currency)}<small>VAT included</small></p>
+          <p className={styles.price}>{formatPrice(offer.price.amount, offer.price.currency)}<small>Final charges at checkout</small></p>
         </li>;
       })}
     </ul>
