@@ -22,6 +22,7 @@ export function MarketplaceProductCard({ product, variant, priority = false, cla
   const [quickBuyOpen, setQuickBuyOpen] = useState(false);
   const closeQuickBuy = useCallback(() => setQuickBuyOpen(false), []);
   const href = marketplaceProductHref(product.productSlug, product.productReference);
+  const canQuickBuy = Boolean(href) && (product.availability === "IN_STOCK" || product.availability === "LOW_STOCK");
   const src = product.primaryMedia ? `/api/catalog/media/${product.primaryMedia.publicReference}` : undefined;
   const meta = product.brandName || (product.storeCount > 1 ? `Available from ${product.storeCount} stores` : availabilityLabel(product.availability));
   const availability = `${availabilityLabel(product.availability)}${product.variantCount > 1 ? ` · ${product.variantCount} options` : ""}`;
@@ -43,7 +44,7 @@ export function MarketplaceProductCard({ product, variant, priority = false, cla
         {variant !== "related" && <span className={styles.availability}>{availability}</span>}
         <div className={styles.bottom}>
           <span className={styles.price}>{product.price.from && <small>From </small>}{new Intl.NumberFormat("en-ZA", { style: "currency", currency: product.price.currency }).format(Number(product.price.amount))}</span>
-          <button className={styles.basket} type="button" aria-label={`Quick add ${product.title}`} disabled={!href} onClick={() => setQuickBuyOpen(true)}>
+          <button className={styles.basket} type="button" aria-label={canQuickBuy ? `Quick add ${product.title}` : `${product.title} is not available for quick add`} disabled={!canQuickBuy} onClick={() => setQuickBuyOpen(true)}>
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h16l-1.3 12H5.3L4 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
           </button>
         </div>
