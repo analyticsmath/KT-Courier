@@ -67,11 +67,13 @@ export function humanizeAvailability(
     case "MADE_TO_ORDER":
       return { label: "Made to order", isAvailable: true, isLowStock: false };
     case "UNTRACKED":
-      return { label: "In stock", isAvailable: true, isLowStock: false };
+      // Untracked inventory is not evidence that a merchant can fulfil an
+      // order. Match the disabled purchase state on the product detail page.
+      return { label: "Availability to be confirmed", isAvailable: false, isLowStock: false };
     case "CONFIRM_AT_CHECKOUT":
       return {
-        label: "Confirm at checkout",
-        isAvailable: true,
+        label: "Confirm availability before checkout",
+        isAvailable: false,
         isLowStock: false,
       };
     case "NOT_AVAILABLE_IN_AREA":
