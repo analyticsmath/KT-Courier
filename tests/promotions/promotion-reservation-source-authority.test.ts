@@ -140,8 +140,15 @@ describe("promotion reservation financial authority and multi-campaign idempoten
         campaignVersion: { eligibility: { some: { rule: "FIRST_MARKETPLACE_ORDER" } } },
       },
     });
-    await expect(reserveCheckoutPromotions({ ...input, customerUserId: undefined }, tx))
-      .rejects.toThrow("authenticated customer");
+    // A real scoped GUEST checkout still cannot claim this first-order
+    // customer-only reward, even with a valid guest capability.
+    database.marketplaceCheckout.findUnique.mockResolvedValueOnce({
+      reviewVersion: input.checkoutReviewVersion, status: "READY_FOR_REVIEW",
+      customerUserId: null, guestAccessTokenHash: "guest-valid",
+    });
+    await expect(reserveCheckoutPromotions({
+      ...input, customerUserId: undefined, guestEvidenceReference: "guest-valid",
+    }, tx)).rejects.toThrow("authenticated customer");
   });
 
   it("idempotent replay happens before self-conflicting first-order claim checks", async () => {
