@@ -35,6 +35,15 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
     status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
     reviewNote: "Disposable integration fixture only; no customer payment or production approval.",
   } });
+  // Public product visibility also requires a source-bound ACTIVE store
+  // document, not just an approved merchant certificate. Preserve both gates.
+  await prisma.storefrontStoreDocument.create({ data: {
+    storeId: store.id, storePublicReference: `SFS-DISPOSABLE-${randomUUID()}`,
+    slug: store.slug, name: store.name, shortDescription: "Isolated published merchant",
+    publicCategoryCodes: [source.category.path], fulfilmentModes: ["COURIER_DELIVERY"],
+    serviceAreaReferences: ["disposable-jhb"], publicStatus: "ACTIVE", publishedOfferCount: 1,
+    sourceUpdatedAt: new Date(), indexedAt: new Date(),
+  } });
   source.product = await prisma.catalogProduct.update({ where: { id: source.product.id }, data: { publicReference: `CP-${randomUUID().replaceAll("-", "").toUpperCase()}` } });
   const ref = `media_${randomUUID().replaceAll("-", "")}`;
   const asset = await prisma.catalogMediaAsset.create({ data: {
