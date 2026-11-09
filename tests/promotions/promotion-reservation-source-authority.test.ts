@@ -173,6 +173,52 @@ describe("promotion reservation financial authority and multi-campaign idempoten
     expect(database.promotionOperation.create).toHaveBeenCalledTimes(1);
   });
 
+  it("blocks arbitrary coupon linkage without an exact validated HMAC", async () => {
+    const automatic = buildInput(["coupon"]);
+    const coupon = { ...automatic.appliedPromotions[0], applicationMethod: "COUPON_CODE" as const };
+    const input: ReservationInput = {
+      ...automatic,
+      appliedPromotions: [coupon],
+      evaluationResult: { ...automatic.evaluationResult, applied: [coupon], eligible: [coupon] },
+    };
+    const { tx, database } = mockTransaction(input);
+    database.promotionCode.findMany.mockResolvedValue([{
+      id: "unrelated-code", codeHmac: "a".repeat(64), status: "ACTIVE",
+      campaignVersionId: "coupon", startsAt: null, expiresAt: null,
+      restrictedCustomerUserId: null,
+    }] as never);
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("validated coupon HMAC");
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
+    await expect(reserveCheckoutPromotions({
+      ...input, appliedCouponCode: "b".repeat(64),
+    }, tx)).rejects.toThrow("not valid for this customer");
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("binds one active customer-authorized coupon and no others in the locked transaction", async () => {
+    const automatic = buildInput(["coupon"]);
+    const coupon = { ...automatic.appliedPromotions[0], applicationMethod: "COUPON_CODE" as const };
+    const input: ReservationInput = {
+      ...automatic, appliedCouponCode: "f".repeat(64),
+      appliedPromotions: [coupon],
+      evaluationResult: { ...automatic.evaluationResult, applied: [coupon], eligible: [coupon] },
+    };
+    const { tx, database, stored } = mockTransaction(input);
+    database.promotionCode.findMany.mockResolvedValue([{
+      id: "wrong-code", codeHmac: "b".repeat(64), status: "ACTIVE",
+      campaignVersionId: "coupon", startsAt: null, expiresAt: null,
+      restrictedCustomerUserId: null,
+    }, {
+      id: "correct-code", codeHmac: "f".repeat(64), status: "ACTIVE",
+      campaignVersionId: "coupon", startsAt: null, expiresAt: null,
+      restrictedCustomerUserId: "customer-1",
+    }] as never);
+    const reserved = await reserveCheckoutPromotions(input, tx);
+    expect(reserved.reservations).toHaveLength(1);
+    expect(stored[0]?.promotionCodeId).toBe("correct-code");
+    expect(database.promotionReservation.create).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects changed financial evaluation before writing any reservation", async () => {
     const input = buildInput(["ordinary"]), { tx, database } = mockTransaction(input);
     const modified = {
