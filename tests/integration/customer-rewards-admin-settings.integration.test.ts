@@ -11,7 +11,7 @@ describe("Phase 3 reward settings are editable, validated and applied to eligibi
   let actorId = "";
   const keys = [
     "loyalty.points_per_zar", "loyalty.conversion_points", "loyalty.conversion_wallet_zar",
-    "referral.reward_zar", "welcome.store.discount_zar", "welcome.store.valid_days",
+    "referral.reward_zar", "referral.reward_issuing_enabled", "welcome.store.discount_zar", "welcome.store.valid_days",
     "welcome.store.minimum_order_zar",
   ] as const;
   beforeAll(async () => {
@@ -74,6 +74,21 @@ describe("Phase 3 reward settings are editable, validated and applied to eligibi
       merchandiseSubtotalZar: "100.00", policy: edited,
     });
     expect(offer).toBe("65.25");
-    expect(await prisma.adminActivityLog.count({ where: { actorUserId: actorId, entityType: "SystemSetting" } })).toBeGreaterThanOrEqual(10);
+    // This is an actual finance activation control: even a no-op OFF write
+    // requires the policy update and SHA-256 audit receipt in one transaction.
+    expect("error" in await updateSettingValue(actorId, "referral.reward_issuing_enabled", false)).toBe(false);
+    const issuingAudit = await prisma.adminActivityLog.findFirstOrThrow({
+      where: { actorUserId: actorId, entityType: "SystemSetting" },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(issuingAudit.metadata).toMatchObject({
+      key: "referral.reward_issuing_enabled",
+      previousValueDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+      newValueDigest: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+    expect(await prisma.systemSetting.findUniqueOrThrow({
+      where: { key: "referral.reward_issuing_enabled" },
+    })).toMatchObject({ value: false });
+    expect(await prisma.adminActivityLog.count({ where: { actorUserId: actorId, entityType: "SystemSetting" } })).toBeGreaterThanOrEqual(11);
   });
 });
