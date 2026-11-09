@@ -22,7 +22,16 @@ export async function GET() {
   try {
     const state = await getStorePickupAddress(user.id);
     if (!state) return notFound("Store not found.");
-    return ok(state);
+    // Sellers need the same explicit checkout blockers on first page load,
+    // not only after editing a pickup. Read-only provider failures must never
+    // be interpreted as approved delivery coverage.
+    let readiness = null;
+    try {
+      readiness = await getStorePickupOperationalPreflight(state.store.id);
+    } catch {
+      // Unknown preflight must remain unknown, not silently GREEN.
+    }
+    return ok({ ...state, readiness });
   } catch {
     return serverError();
   }
