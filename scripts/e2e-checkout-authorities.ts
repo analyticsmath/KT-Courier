@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 import { prisma } from "@/lib/db/prisma";
 import { saveDeliveryConfiguration } from "@/lib/client-platform/delivery.service";
 import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
@@ -55,6 +57,25 @@ export async function createDisposableCheckoutAuthorities() {
   for (const slug of ["e2e-store", "e2e-other-store"]) {
     const store = await prisma.store.findUniqueOrThrow({ where: { slug } });
     await prisma.storeSellerLegalIdentity.create({ data: { storeId: store.id, publicReference: `DISPOSABLE-SELLER-${slug}`, identityVersion: "disposable-v1", legalName: "Disposable browser seller; not a production legal entity", vatRegistrationStatus: "NOT_REGISTERED", status: "APPROVED", effectiveFrom: new Date("2026-01-01") } });
+    // Synthetic browser stores satisfy the same public checkout/listing
+    // certificate as real merchants, only inside the isolated E2E database.
+    const pickup = await prisma.address.findFirstOrThrow({
+      where: { id: store.defaultPickupAddressId!, storeId: store.id, type: "PICKUP" },
+    });
+    const syntheticRef = `disposable-e2e-${slug}`;
+    await prisma.storeCheckoutCertification.create({ data: {
+      storeId: store.id, pickupAddressId: pickup.id,
+      pickupFingerprint: pickupCertificationFingerprint(pickup),
+      coverageRegionId: region.id,
+      serviceSignature: createHash("sha256").update(syntheticRef).digest("hex"),
+      routeEvidenceReference: `${syntheticRef}:route`,
+      routeEvidenceDigest: createHash("sha256").update(`${syntheticRef}:route`).digest("hex"),
+      checkoutEvidenceReference: `${syntheticRef}:checkout`,
+      checkoutEvidenceDigest: createHash("sha256").update(`${syntheticRef}:checkout`).digest("hex"),
+      preparedByUserId: maker.id, approvedByUserId: checker.id,
+      status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
+      reviewNote: "Synthetic isolated browser certificate only, not a real route or payment acceptance.",
+    } });
     await createSyntheticStoreCommission(store.id, store.slug, maker.id, checker.id, slug === "e2e-other-store");
   }
   for (const documentType of ["TERMS_OF_SERVICE", "PRIVACY_NOTICE", "REFUND_POLICY"]) {
