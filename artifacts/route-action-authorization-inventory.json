@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 783,
+    "totalRoutes": 784,
     "totalServerActions": 0,
-    "publicRoutes": 98,
+    "publicRoutes": 99,
     "authenticatedRoutes": 682,
     "permissionGatedRoutes": 534,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 225,
-    "generatedAt": "2026-11-08T23:14:22.843Z"
+    "generatedAt": "2026-11-09T04:09:40.621Z"
   },
   "serverActions": [],
   "routes": [
@@ -10787,7 +10787,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure/ready/route.ts",
+      "routePath": "app/api/infrastructure_ready/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -10802,7 +10802,7 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/infrastructure_ready/route.ts",
+      "routePath": "app/api/infrastructure/ready/route.ts",
       "httpMethods": [
         "GET"
       ],
@@ -12086,6 +12086,21 @@
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_DETECTED",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/public/account-navigation/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "PUBLIC_OPTIONAL_SESSION",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
