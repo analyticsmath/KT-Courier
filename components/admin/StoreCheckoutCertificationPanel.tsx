@@ -21,10 +21,10 @@ type Certification = {
 } | null;
 
 export function StoreCheckoutCertificationPanel({
-  storeId, initial,
-}: { storeId: string; initial: Certification }) {
+  storeId, initial, initialNeedsRenewal = false,
+}: { storeId: string; initial: Certification; initialNeedsRenewal?: boolean }) {
   const router = useRouter();
-  const [status, setStatus] = useState(initial?.status ?? "NOT_SUBMITTED");
+  const [status, setStatus] = useState(initialNeedsRenewal ? "RENEWAL_REQUIRED" : initial?.status ?? "NOT_SUBMITTED");
   const [revision, setRevision] = useState(initial?.revision ?? 0);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");

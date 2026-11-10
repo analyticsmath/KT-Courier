@@ -120,7 +120,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
     {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
       <OperationalPanel title="Independent checkout and route certification"
         description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
-        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} />
+        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "")))} />
       </OperationalPanel>
     ) : null}
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
