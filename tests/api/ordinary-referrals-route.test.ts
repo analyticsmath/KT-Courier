@@ -65,6 +65,13 @@ describe("ordinary referral account API enforces owner identity", () => {
     expect((await GET(get())).status).toBe(403);
   });
 
+  it("lets a customer account request its store referral while leaving ownership validation to the service", async () => {
+    expect((await GET(get("https://ktcouriers.com/api/account/referrals?storeId=owned-store"))).status).toBe(200);
+    expect(mock.get).toHaveBeenCalledWith({ userId: "cust-1", ownerType: "STORE", storeId: "owned-store" });
+    expect((await POST(post({ storeId: "owned-store" }))).status).toBe(200);
+    expect(mock.create).toHaveBeenCalledWith({ userId: "cust-1", ownerType: "STORE", storeId: "owned-store" });
+  });
+
   it("rejects malformed POST bodies, preserves same-origin and limits attempts", async () => {
     expect((await POST(post({ ownerType: "CUSTOMER", ownerId: "other" }))).status).toBe(400);
     mock.origin.mockResolvedValueOnce(new Response(null, { status: 403 }));

@@ -118,4 +118,13 @@ describe("ordinary referral signup authority and anti-abuse", () => {
     await expect(createOrdinaryReferralCode({ ownerType: "STORE", userId: "owner-user", storeId: "someone-elses-store" }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("permits either supported owner role only when the store belongs to that user", async () => {
+    mocks.storeFindFirst.mockResolvedValueOnce({ id: "owned-store" });
+    await createOrdinaryReferralCode({ ownerType: "STORE", userId: "owner-user", storeId: "owned-store" });
+    expect(mocks.storeFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      id: "owned-store", ownerUserId: "owner-user", status: "ACTIVE",
+      ownerUser: { status: "ACTIVE", role: { in: ["CUSTOMER", "STORE"] } },
+    }) }));
+  });
 });

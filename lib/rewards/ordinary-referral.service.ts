@@ -52,7 +52,7 @@ async function resolveOwner(db: Db, input: OrdinaryReferralOwner) {
   const store = await db.store.findFirst({
     where: {
       id: input.storeId, ownerUserId: input.userId, status: "ACTIVE",
-      ownerUser: { role: "STORE", status: "ACTIVE" },
+      ownerUser: { role: { in: ["CUSTOMER", "STORE"] }, status: "ACTIVE" },
     },
     select: { id: true },
   });
@@ -153,7 +153,7 @@ export async function bindOrdinaryReferralAtSignup(
     : await db.store.findFirst({
         where: {
           id: referral.ownerId, status: "ACTIVE",
-          ownerUser: { role: "STORE", status: "ACTIVE" },
+          ownerUser: { role: { in: ["CUSTOMER", "STORE"] }, status: "ACTIVE" },
         },
         select: { ownerUser: { select: { id: true, email: true, phone: true } } },
       }).then(row => row?.ownerUser ?? null);

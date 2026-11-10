@@ -65,7 +65,7 @@ export async function inspectOrdinaryReferralEligibility(
       }, select: { id: true, email: true, phone: true } })
     : await db.store.findFirst({ where: {
         id: event.referralCode.ownerId, status: "ACTIVE",
-        ownerUser: { status: "ACTIVE", role: "STORE" },
+        ownerUser: { status: "ACTIVE", role: { in: ["CUSTOMER", "STORE"] } },
       }, select: { ownerUser: { select: { id: true, email: true, phone: true } } } })
       .then(row => row?.ownerUser ?? null);
   if (!referrer || referrer.id === event.targetUserId ||

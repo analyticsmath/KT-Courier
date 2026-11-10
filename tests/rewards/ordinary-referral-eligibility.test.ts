@@ -110,7 +110,7 @@ describe("read-only ordinary referral payout eligibility preflight", () => {
     });
     expect((await inspectOrdinaryReferralEligibility("event-1")).eligible).toBe(true);
     expect(m.store).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: "store-1", status: "ACTIVE" }),
+      where: expect.objectContaining({ id: "store-1", status: "ACTIVE", ownerUser: { status: "ACTIVE", role: { in: ["CUSTOMER", "STORE"] } } }),
     }));
   });
 });

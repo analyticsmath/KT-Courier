@@ -15,9 +15,9 @@ const requestSchema = z.object({ storeId: z.string().min(1).max(100).optional() 
 async function owner(request: NextRequest, bodyStoreId?: string): Promise<OrdinaryReferralOwner | null> {
   const user = await getCurrentUser();
   if (!user || user.status !== "ACTIVE") return null;
-  if (user.role === "CUSTOMER") return { userId: user.id, ownerType: "CUSTOMER" };
-  if (user.role !== "STORE") return null;
   const storeId = bodyStoreId ?? request.nextUrl.searchParams.get("storeId") ?? "";
+  if (user.role === "CUSTOMER" && !storeId) return { userId: user.id, ownerType: "CUSTOMER" };
+  if (!["CUSTOMER", "STORE"].includes(user.role)) return null;
   if (!storeId) {
     const stores = await prisma.store.findMany({
       where: { ownerUserId: user.id, status: "ACTIVE" }, select: { id: true }, take: 2,
