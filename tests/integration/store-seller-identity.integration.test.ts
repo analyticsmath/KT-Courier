@@ -6,13 +6,44 @@ import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-s
 import { submitStoreSellerIdentity, reviewStoreSellerIdentity, getStoreSellerIdentityState } from "@/lib/services/store-seller-identity.service";
 import type { SellerIdentityProposalInput, SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
 async function fixture() {
-  const tag = randomUUID(); const owner = await prisma.user.create({ data: { email: `seller-owner-${tag}@example.test`, role: "STORE", status: "ACTIVE" } });
+  const tag = randomUUID();
+  const owner = await prisma.user.create({ data: { email: `seller-owner-${tag}@example.test`, role: "STORE", status: "ACTIVE" } });
   const checker = await prisma.user.create({ data: { email: `seller-checker-${tag}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
   const store = await prisma.store.create({ data: { name: "Synthetic seller; not a legal entity", slug: `seller-${tag}`, ownerUserId: owner.id, status: "ACTIVE" } });
-  const input: SellerIdentityProposalInput = { operationId: randomUUID(), expectedIdentityReference: null, identityVersion: "synthetic-v1", legalName: "Synthetic test seller; not production legal identity", vatRegistrationStatus: "NOT_REGISTERED", countryCode: "ZA", invoiceClassification: "RECEIPT", effectiveFrom: new Date(Date.now() - 60_000).toISOString(), effectiveUntil: null, sourceEvidenceReference: "SYNTHETIC_OWNER_INPUT_ONLY", confirmSuppliedDetails: true };
-  return { owner, checker, store, input };
+  const evidenceReference = `PMO-${randomUUID()}`;
+  const document = await prisma.privateMediaObject.create({
+    data: {
+      publicReference: evidenceReference,
+      ownerType: "STORE",
+      ownerId: store.id,
+      purpose: "STORE_VERIFICATION_DOCUMENT",
+      status: "READY",
+      storageProvider: "local-disposable-test",
+      storageKey: `seller-verification/${store.id}/${evidenceReference}.png`,
+      originalFileName: "seller-verification.png",
+      declaredMimeType: "image/png",
+      detectedMimeType: "image/png",
+      byteSize: 128,
+      checksum: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      createdByUserId: owner.id,
+    },
+  });
+  const input: SellerIdentityProposalInput = {
+    operationId: randomUUID(),
+    expectedIdentityReference: null,
+    identityVersion: "synthetic-v1",
+    legalName: "Synthetic test seller; not production legal identity",
+    vatRegistrationStatus: "NOT_REGISTERED",
+    countryCode: "ZA",
+    invoiceClassification: "RECEIPT",
+    effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+    effectiveUntil: null,
+    sourceEvidenceReference: document.publicReference,
+    confirmSuppliedDetails: true,
+  };
+  return { owner, checker, store, document, input };
 }
-const review = (proposal: { reference: string; updatedAt: string }, action: "APPROVE" | "REJECT" = "APPROVE"): SellerIdentityReviewInput => ({ proposalReference: proposal.reference, expectedUpdatedAt: proposal.updatedAt, operationId: randomUUID(), action, reason: "Synthetic independent review only", evidenceReference: "SYNTHETIC_REVIEW_NOT_REAL_APPROVAL", confirmIndependentReview: true });
+const review = (proposal: { reference: string; updatedAt: string; input?: { sourceEvidenceReference?: string } }, action: "APPROVE" | "REJECT" = "APPROVE"): SellerIdentityReviewInput => ({ proposalReference: proposal.reference, expectedUpdatedAt: proposal.updatedAt, operationId: randomUUID(), action, reason: "Synthetic independent review only", evidenceReference: proposal.input?.sourceEvidenceReference ?? "PMO-11111111-1111-4111-8111-111111111111", confirmIndependentReview: true });
 describe("seller identity owner submission and independent approval on real PostgreSQL", () => {
   beforeAll(() => requireDisposableStoreSettlementDatabase());
   it("serializes owner submission and review replays with one canonical identity and no financial writes", async () => {
@@ -79,4 +110,128 @@ describe("seller identity owner submission and independent approval on real Post
     expect((await reviewStoreSellerIdentity(f.store.id, f.checker.id, command)).replayed).toBe(true);
     expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: f.store.id } })).toBe(0);
   }, 15_000);
+  it("enforces store-owned document, external receipt, and legacy renewal evidence invariants across submission and approval", async () => {
+    const f = await fixture();
+    const foreign = await fixture();
+
+    // 1. SYNTHETIC_* and new-applicant EXISTING_REVIEWED_EVIDENCE are rejected
+    await expect(
+      submitStoreSellerIdentity(f.store.id, f.owner.id, {
+        ...f.input,
+        operationId: randomUUID(),
+        sourceEvidenceReference: "SYNTHETIC_OWNER_INPUT_ONLY",
+      }),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+    await expect(
+      submitStoreSellerIdentity(f.store.id, f.owner.id, {
+        ...f.input,
+        operationId: randomUUID(),
+        sourceEvidenceReference: "EXISTING_REVIEWED_EVIDENCE",
+      }),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+
+    // 2. Foreign store PMO document is rejected
+    await expect(
+      submitStoreSellerIdentity(f.store.id, f.owner.id, {
+        ...f.input,
+        operationId: randomUUID(),
+        sourceEvidenceReference: foreign.document.publicReference,
+      }),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+
+    // 3. Revoked/deleted PMO document after submission blocks approval
+    const pendingRevoked = await submitStoreSellerIdentity(f.store.id, f.owner.id, f.input);
+    await prisma.privateMediaObject.update({
+      where: { id: f.document.id },
+      data: { status: "DELETED", deletedAt: new Date() },
+    });
+    await expect(
+      reviewStoreSellerIdentity(f.store.id, f.checker.id, review(pendingRevoked)),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+
+    // Restore READY status and approve
+    await prisma.privateMediaObject.update({
+      where: { id: f.document.id },
+      data: { status: "READY", deletedAt: null },
+    });
+    const approvedFirst = await reviewStoreSellerIdentity(
+      f.store.id,
+      f.checker.id,
+      review(pendingRevoked),
+    );
+    expect(approvedFirst.status).toBe("APPROVED");
+
+    // 4. Legacy renewal with EXISTING_REVIEWED_EVIDENCE succeeds when bound to approvedFirst.identityReference and valid underlying PMO
+    const renewalPending = await submitStoreSellerIdentity(f.store.id, f.owner.id, {
+      ...f.input,
+      operationId: randomUUID(),
+      identityVersion: "synthetic-v2",
+      expectedIdentityReference: approvedFirst.identityReference!,
+      effectiveFrom: new Date().toISOString(),
+      sourceEvidenceReference: "EXISTING_REVIEWED_EVIDENCE",
+    });
+    const renewalApproved = await reviewStoreSellerIdentity(
+      f.store.id,
+      f.checker.id,
+      review(renewalPending),
+    );
+    expect(renewalApproved.status).toBe("APPROVED");
+
+    // 5. External receipt EXT-... requires valid store-bound reviewed record at submission and approval
+    const extRef = `EXT-RECEIPT_${randomUUID().replaceAll("-", "").slice(0, 16)}`;
+    await prisma.systemSetting.create({
+      data: {
+        key: `store_seller_external_evidence:${f.store.id}:${extRef}`,
+        label: "External seller evidence",
+        type: "JSON",
+        value: {
+          schemaVersion: 1,
+          reference: extRef,
+          storeId: foreign.store.id, // swapped storeId!
+          status: "REVIEWED",
+          authorizedByUserId: f.checker.id,
+          documentDigest: "sha256:0123456789abcdef0123456789abcdef",
+        },
+      },
+    });
+    await expect(
+      submitStoreSellerIdentity(f.store.id, f.owner.id, {
+        ...f.input,
+        operationId: randomUUID(),
+        identityVersion: "synthetic-v3",
+        expectedIdentityReference: renewalApproved.identityReference!,
+        effectiveFrom: new Date(Date.now() + 5_000).toISOString(),
+        sourceEvidenceReference: extRef,
+      }),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+
+    await prisma.systemSetting.update({
+      where: { key: `store_seller_external_evidence:${f.store.id}:${extRef}` },
+      data: {
+        value: {
+          schemaVersion: 1,
+          reference: extRef,
+          storeId: f.store.id,
+          status: "REVIEWED",
+          authorizedByUserId: f.checker.id,
+          documentDigest: "sha256:0123456789abcdef0123456789abcdef",
+        },
+      },
+    });
+    const extPending = await submitStoreSellerIdentity(f.store.id, f.owner.id, {
+      ...f.input,
+      operationId: randomUUID(),
+      identityVersion: "synthetic-v3",
+      expectedIdentityReference: renewalApproved.identityReference!,
+      effectiveFrom: new Date(Date.now() + 5_000).toISOString(),
+      sourceEvidenceReference: extRef,
+    });
+    // Tampering with external receipt before approval blocks review
+    await prisma.systemSetting.delete({
+      where: { key: `store_seller_external_evidence:${f.store.id}:${extRef}` },
+    });
+    await expect(
+      reviewStoreSellerIdentity(f.store.id, f.checker.id, review(extPending)),
+    ).rejects.toMatchObject({ code: "SELLER_EVIDENCE_INVALID", status: 422 });
+  }, 20_000);
 });

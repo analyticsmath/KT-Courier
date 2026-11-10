@@ -11,6 +11,8 @@ export type AdminStoreCheckoutFacts = Readonly<{
   publishedOfferCount: number;
   pickup: StorePickupAddressCandidate | null;
   certification: PublicStoreCheckoutCertificate | null;
+  hasApprovedSellerIdentity?: boolean;
+  hasActiveOperationalPolicy?: boolean;
   now?: Date;
 }>;
 
@@ -24,6 +26,12 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
   if (!input.name.trim()) blockers.push("Store name missing");
   if (!Number.isSafeInteger(input.publishedOfferCount) || input.publishedOfferCount < 1) {
     blockers.push("No published products available");
+  }
+  if (input.hasApprovedSellerIdentity === false) {
+    blockers.push("Approved legal seller identity missing or expired");
+  }
+  if (input.hasActiveOperationalPolicy === false) {
+    blockers.push("Active store order operational policy missing or expired");
   }
 
   const collection = describeStoreCollectionEvidence(input.pickup);
@@ -53,6 +61,8 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
     documentsCount: input.publishedOfferCount,
     pickup: input.pickup,
     certification: input.certification,
+    hasApprovedSellerIdentity: input.hasApprovedSellerIdentity,
+    hasActiveOperationalPolicy: input.hasActiveOperationalPolicy,
     now,
   }) && blockers.length === 0) {
     blockers.push("Reconfirm the saved pickup against current approved checkout evidence");

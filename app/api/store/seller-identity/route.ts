@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
   try {
     const access = await owner(); const prepared = await mutation(request, `${endpoint}:${access.user.id}`); if ("response" in prepared) return prepared.response;
     const input = StoreSellerIdentityProposalSchema.parse(prepared.body);
-    assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference);
+    assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference, {
+      expectedIdentityReference: input.expectedIdentityReference,
+    });
     return json({ proposal: await submitStoreSellerIdentity(access.store.id, access.user.id, input) }, 201);
   } catch (error) { return failure(error); }
 }

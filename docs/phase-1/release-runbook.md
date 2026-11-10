@@ -13,10 +13,17 @@
 | `NOTIFICATION_ENDPOINT_ENCRYPTION_KEY` | Server Notifications | Base64-encoded 32-byte key for AES-256-GCM notification endpoint vault (`lib/notifications/endpoint-vault.ts`). |
 | `GOOGLE_MAPS_SERVER_KEY` | Server Pricing & Geocoding | Authoritative server-side Google Geocoding & Routes API key (`ZA` region restriction). |
 | `NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY` | Browser Autocomplete | Browser-restricted Google Maps Places API key (never trusted for server pricing). |
-| `PAYSTACK_SECRET_KEY` | Server Payments | Paystack secret key (`sk_test_...` for controlled test checkout or `sk_live_...` after Phase 3 financial sign-off). |
-| `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | Browser Payments | Matching Paystack public key (`pk_test_...` or `pk_live_...`). |
-| `PAYSTACK_ALLOW_TEST_IN_PRODUCTION` | Controlled Staging / Prod Test | Set to `"true"` **only** during owner-authorized controlled Paystack test-mode checkout in a production build; must be unset/`"false"` before live-money cutover. |
-| `EMAIL_PROVIDER` & `RESEND_API_KEY` | Transactional Email | Set `EMAIL_PROVIDER=resend` and valid `RESEND_API_KEY` with verified sender domain before enabling `notifications.email_enabled=true`. |
+| `PAYSTACK_MODE` | Server Payments (`lib/payments/providers/paystack/paystack-config.ts`) | `"disabled"` \| `"test"` \| `"live"`. In `production` runtime, requires `"live"` unless the time-bounded temporary sandbox override below is active. |
+| `PAYSTACK_SECRET_KEY` | Server Payments | Paystack secret key (`sk_test_...` when `PAYSTACK_MODE=test` in non-production; `sk_live_...` when `PAYSTACK_MODE=live` in production). |
+| `PAYSTACK_PUBLIC_KEY` | Server / Checkout Config | Matching Paystack public key (`pk_test_...` or `pk_live_...`) where applicable. Never use `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`. |
+| `PAYSTACK_CREDENTIAL_VERSION` | Server Payments | Credential version identifier (`^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$`, defaults to `"v1"`). |
+| `PAYMENT_APP_ORIGIN` | Server Payments | Canonical HTTPS origin (`https://...` in production; `http://localhost:...` allowed only in non-production) used for Paystack callback URLs. |
+| `CHECKOUT_PUBLIC_ENABLED` | Production Financial Gate | Must be `"true"` to enable live Paystack checkout in production (`CONSOLIDATED_VALIDATION_NOT_APPROVED` when `"false"`). |
+| `PAYSTACK_TEMPORARY_SANDBOX_ENABLED` | Bounded Production Sandbox | Set to `"true"` **only** during an owner-authorized, time-boxed production sandbox verification window (maximum 6 hours). Preserves `PAYSTACK_SECRET_KEY` and `PAYSTACK_MODE=live` untouched and fails closed on expiry. |
+| `PAYSTACK_TEMPORARY_SANDBOX_UNTIL` | Bounded Production Sandbox | Strict UTC ISO-8601 deadline (`YYYY-MM-DDTHH:mm:ssZ`, `> now` and `<= now + 6h`) required when `PAYSTACK_TEMPORARY_SANDBOX_ENABLED="true"`. |
+| `PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY` | Bounded Production Sandbox | Paystack test secret key (`sk_test_...`) used exclusively while the temporary sandbox window is active. |
+| `PAYSTACK_TEMPORARY_SANDBOX_PUBLIC_KEY` | Bounded Production Sandbox | Paystack test public key (`pk_test_...`) paired with `PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY`. |
+| `EMAIL_PROVIDER` & `RESEND_API_KEY` | Transactional Email | Set `EMAIL_PROVIDER=resend` and valid `RESEND_API_KEY` with verified sender domain before enabling live external email delivery (`EXTERNAL_APPROVAL_REQUIRED` until live inbox receipts are recorded). |
 
 ## 2. Pre-Deployment Verification Sequence
 

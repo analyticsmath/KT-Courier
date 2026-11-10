@@ -66,6 +66,35 @@ export async function listStores(
   ]);
 
   const now = new Date();
+  const storeIds = stores.map((store) => store.id);
+  const [sellerIdentities, activeOperationalPolicy] = await Promise.all([
+    storeIds.length > 0 && prisma.storeSellerLegalIdentity?.findMany
+      ? prisma.storeSellerLegalIdentity.findMany({
+          where: {
+            storeId: { in: storeIds },
+            status: "APPROVED",
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+          },
+          select: { storeId: true },
+        })
+      : Promise.resolve(null),
+    prisma.storeOrderOperationalPolicy?.findFirst
+      ? prisma.storeOrderOperationalPolicy.findFirst({
+          where: {
+            status: "ACTIVE",
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(undefined),
+  ]);
+  const approvedIdentityStoreIds = sellerIdentities
+    ? new Set(sellerIdentities.map((item) => item.storeId))
+    : null;
+  const hasActiveOperationalPolicy =
+    activeOperationalPolicy === undefined ? undefined : Boolean(activeOperationalPolicy);
   const mapped = stores.map((store) => {
     const pickup = selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses);
     return {
@@ -77,6 +106,10 @@ export async function listStores(
         publishedOfferCount: store.storefrontDocument?.publishedOfferCount ?? 0,
         pickup,
         certification: store.checkoutCertification,
+        hasApprovedSellerIdentity: approvedIdentityStoreIds
+          ? approvedIdentityStoreIds.has(store.id)
+          : undefined,
+        hasActiveOperationalPolicy,
         now,
       }),
     };

@@ -62,16 +62,51 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await login(page, email);
   await page.goto("/store/profile");
   const seller = page.getByRole("form", { name: "Seller legal identity submission", exact: true });
+  const verificationPng = await sharp({
+    create: { width: 256, height: 256, channels: 3, background: { r: 24, g: 64, b: 120 } },
+  })
+    .png()
+    .toBuffer();
+  await seller.getByLabel("Verification file", { exact: true }).setInputFiles({
+    name: `seller-verification-${tag}.png`,
+    mimeType: "image/png",
+    buffer: verificationPng,
+  });
+  const docUploaded = page.waitForResponse(
+    response =>
+      response.url().endsWith("/api/store/seller-identity/documents") &&
+      response.request().method() === "POST",
+  );
+  await seller.getByRole("button", { name: "Upload supporting document", exact: true }).click();
+  const uploadedDocResponse = await docUploaded;
+  expect(uploadedDocResponse.status(), await uploadedDocResponse.text()).toBe(201);
+  const uploadedDocPayload = await uploadedDocResponse.json();
+  const uploadedEvidenceRef = String(uploadedDocPayload.document?.publicReference ?? "");
+  expect(uploadedEvidenceRef).toMatch(/^PMO-[0-9a-f-]{36}$/i);
+  const persistedDoc = await prisma.privateMediaObject.findUniqueOrThrow({
+    where: { publicReference: uploadedEvidenceRef },
+  });
+  expect(persistedDoc.ownerType).toBe("STORE");
+  expect(persistedDoc.ownerId).toBe(store.id);
+  expect(persistedDoc.purpose).toBe("STORE_VERIFICATION_DOCUMENT");
+  expect(persistedDoc.status).toBe("READY");
+  expect((await page.request.get(`/api/private-media/${encodeURIComponent(uploadedEvidenceRef)}`)).status()).toBe(200);
+  const evidenceInput = seller.getByLabel("Supplied evidence reference", { exact: true });
+  await expect(evidenceInput).toHaveAttribute("readonly", "");
+  await expect(evidenceInput).toHaveValue(uploadedEvidenceRef);
   await seller.locator('input[name="identityVersion"]').fill(`synthetic-${tag}-v1`);
   await seller.getByLabel("Legal seller name", { exact: true }).fill(`Synthetic seller ${tag}; not a production legal entity`);
   await seller.getByRole("combobox", { name: "VAT registration status", exact: true }).selectOption("NOT_REGISTERED");
   await seller.getByRole("combobox", { name: "Receipt classification", exact: true }).selectOption("RECEIPT");
   const utcDate = new Date().toISOString().slice(0, 16);
   await seller.getByLabel("Effective from (UTC)", { exact: true }).fill(utcDate);
-  await seller.getByLabel("Supplied evidence reference", { exact: true }).fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL");
   await seller.getByLabel("I confirm these are the supplied seller details and evidence for review.", { exact: true }).check();
   const sellerSubmitted = page.waitForResponse(response => response.url().endsWith("/api/store/seller-identity") && response.request().method() === "POST");
-  await seller.getByRole("button", { name: "Submit seller identity", exact: true }).click(); const pendingSeller = await sellerSubmitted; expect(pendingSeller.status(), await pendingSeller.text()).toBe(201);
+  await seller.getByRole("button", { name: "Submit seller identity", exact: true }).click();
+  const pendingSeller = await sellerSubmitted;
+  expect(pendingSeller.status(), await pendingSeller.text()).toBe(201);
+  const pendingSellerPayload = await pendingSeller.json();
+  expect(pendingSellerPayload.proposal?.input?.sourceEvidenceReference).toBe(uploadedEvidenceRef);
   expect(await prisma.storeSellerLegalIdentity.count({ where: { storeId: store.id } })).toBe(0);
   expect((await page.request.post(`/api/admin/stores/${store.id}/seller-identity`, { headers, data: {} })).status()).toBe(403);
   // The owner saves the mapped pickup before staging certification or Live.
@@ -85,6 +120,26 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     province: "Gauteng", postalCode: "2001", country: "South Africa",
     latitude: -26.2041, longitude: 28.0473,
   } }); expect(pickup.status(), await pickup.text()).toBe(200);
+  // Verify an unrelated store cannot access or reuse the uploaded verification document.
+  await login(page, "e2e-other-store@ktcouriers.local");
+  expect([403, 404]).toContain((await page.request.get(`/api/private-media/${encodeURIComponent(uploadedEvidenceRef)}`)).status());
+  const foreignReuse = await page.request.post("/api/store/seller-identity", {
+    headers,
+    data: {
+      operationId: randomUUID(),
+      expectedIdentityReference: null,
+      identityVersion: `foreign-${tag}-v1`,
+      legalName: "Unrelated store reuse attempt",
+      vatRegistrationStatus: "NOT_REGISTERED",
+      countryCode: "ZA",
+      invoiceClassification: "RECEIPT",
+      effectiveFrom: new Date().toISOString(),
+      effectiveUntil: null,
+      sourceEvidenceReference: uploadedEvidenceRef,
+      confirmSuppliedDetails: true,
+    },
+  });
+  expect(foreignReuse.status()).toBe(422);
   await login(page, "superadmin@ktcouriers.local");
   const blocked = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } });
   expect(blocked.status()).toBe(422);
@@ -118,7 +173,7 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   await login(page, "superadmin@ktcouriers.local"); await page.goto(`/admin/stores/${store.id}/seller-identity`);
   const sellerReview = page.getByRole("region", { name: "Independent seller identity review", exact: true });
   await sellerReview.getByLabel("Seller review reason", { exact: true }).fill("Synthetic independent seller review only");
-  await sellerReview.getByLabel("Reviewed evidence reference", { exact: true }).fill("SYNTHETIC_REVIEW_NOT_PRODUCTION_ACCEPTANCE");
+  await sellerReview.getByLabel("Reviewed evidence reference", { exact: true }).fill(`REVIEWED_${uploadedEvidenceRef}`);
   await sellerReview.getByLabel("I have independently reviewed the supplied seller details and evidence.", { exact: true }).check();
   const reviewedSeller = page.waitForResponse(response => response.url().endsWith(`/api/admin/stores/${store.id}/seller-identity`));
   await sellerReview.getByRole("button", { name: "Approve seller identity", exact: true }).click(); const sellerApproved = await reviewedSeller; expect(sellerApproved.status(), await sellerApproved.text()).toBe(200);

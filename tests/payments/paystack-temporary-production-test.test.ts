@@ -57,6 +57,33 @@ describe("temporary sandbox on the existing production site", () => {
     const r = resolvePaystackConfiguration({ ...source, PAYSTACK_TEMPORARY_SANDBOX_ENABLED: "false", CHECKOUT_PUBLIC_ENABLED: "true" });
     expect(r.runtime).toMatchObject({ mode: "live", environment: "production", secretKey: source.PAYSTACK_SECRET_KEY });
   });
+  it("ignores undefined report-only variables such as PAYSTACK_ALLOW_TEST_IN_PRODUCTION and NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY", () => {
+    const bogusSandboxInProd = resolvePaystackConfiguration({
+      NODE_ENV: "production",
+      KT_DATABASE_CLASSIFICATION: "production",
+      PAYSTACK_MODE: "test",
+      PAYSTACK_SECRET_KEY: "sk_test_bogus_attempt",
+      NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: "pk_test_bogus_attempt",
+      PAYSTACK_ALLOW_TEST_IN_PRODUCTION: "true",
+      PAYMENT_APP_ORIGIN: "https://www.ktcouriers.com",
+      CHECKOUT_PUBLIC_ENABLED: "true",
+    });
+    expect(bogusSandboxInProd.runtime).toBeNull();
+    expect(bogusSandboxInProd.state.active).toBe(false);
+    expect(bogusSandboxInProd.state.blockReason).toBe("CONFIGURATION_INVALID");
+
+    const bogusLiveWithoutGate = resolvePaystackConfiguration({
+      NODE_ENV: "production",
+      KT_DATABASE_CLASSIFICATION: "production",
+      PAYSTACK_MODE: "live",
+      PAYSTACK_SECRET_KEY: "sk_live_original_should_remain_untouched",
+      NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: "pk_live_bogus_attempt",
+      PAYMENT_APP_ORIGIN: "https://www.ktcouriers.com",
+      CHECKOUT_PUBLIC_ENABLED: "false",
+    });
+    expect(bogusLiveWithoutGate.state.active).toBe(false);
+    expect(bogusLiveWithoutGate.state.blockReason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
+  });
 });
 
 describe("stored Paystack event verification across sandbox-to-live cutover", () => {

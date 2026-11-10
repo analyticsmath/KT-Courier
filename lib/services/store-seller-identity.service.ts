@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { catalogRequestHash as digest } from "@/lib/catalog/catalog-normalization";
-import { StoreSellerIdentityProposalSchema, StoreSellerIdentityReviewSchema, assertCanonicalSellerEvidenceReference, CANONICAL_SELLER_EVIDENCE_MESSAGE, type SellerIdentityProposalInput, type SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
+import { StoreSellerIdentityProposalSchema, StoreSellerIdentityReviewSchema, ExternalSellerEvidenceSchema, assertCanonicalSellerEvidenceReference, CANONICAL_SELLER_EVIDENCE_MESSAGE, type SellerIdentityProposalInput, type SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
 
 type Proposal = { schemaVersion: 1; reference: string; storeId: string; makerUserId: string; requestHash: string; input: SellerIdentityProposalInput; status: "PENDING_REVIEW" | "APPROVED" | "REJECTED"; review?: SellerIdentityReviewInput; reviewerUserId?: string; identityReference?: string };
 const prefix = (storeId: string) => `store_seller_identity_proposal:${storeId}:`;
@@ -16,6 +16,107 @@ const jsonValue = (value: Proposal) => JSON.parse(JSON.stringify(value)) as Pris
 async function lockStore(tx: Prisma.TransactionClient, storeId: string) { await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`; }
 async function latestIdentity(tx: Prisma.TransactionClient, storeId: string) { return tx.storeSellerLegalIdentity.findFirst({ where: { storeId, status: "APPROVED" }, orderBy: [{ effectiveFrom: "desc" }, { id: "asc" }] }); }
 
+async function verifyStoreSellerEvidence(
+  tx: Prisma.TransactionClient,
+  storeId: string,
+  storeOwnerUserId: string,
+  sourceEvidenceReference: string,
+  expectedIdentityReference: string | null,
+  stage: "SUBMIT" | "APPROVE",
+): Promise<void> {
+  assertCanonicalSellerEvidenceReference(sourceEvidenceReference, {
+    expectedIdentityReference,
+  });
+  if (sourceEvidenceReference.startsWith("PMO-")) {
+    const evidence = await tx.privateMediaObject.findFirst({
+      where: {
+        publicReference: sourceEvidenceReference,
+        ownerType: "STORE",
+        ownerId: storeId,
+        purpose: "STORE_VERIFICATION_DOCUMENT",
+        status: "READY",
+      },
+      select: { id: true },
+    });
+    if (!evidence) {
+      throw new PlatformError(
+        "SELLER_EVIDENCE_INVALID",
+        stage === "APPROVE"
+          ? "The uploaded seller evidence is no longer available for approval."
+          : "Choose an available verification document uploaded for this store.",
+        422,
+      );
+    }
+    return;
+  }
+  if (sourceEvidenceReference.startsWith("EXT-")) {
+    const externalRow = await tx.systemSetting.findUnique({
+      where: { key: `store_seller_external_evidence:${storeId}:${sourceEvidenceReference}` },
+    });
+    const parsed = ExternalSellerEvidenceSchema.safeParse(externalRow?.value);
+    if (
+      !parsed.success ||
+      parsed.data.storeId !== storeId ||
+      parsed.data.reference !== sourceEvidenceReference ||
+      parsed.data.authorizedByUserId === storeOwnerUserId
+    ) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    const authorizer = await tx.user.findUnique({
+      where: { id: parsed.data.authorizedByUserId },
+      select: { role: true, status: true },
+    });
+    if (
+      !authorizer ||
+      authorizer.status !== "ACTIVE" ||
+      !["ADMIN", "SUPER_ADMIN"].includes(authorizer.role)
+    ) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    return;
+  }
+  if (sourceEvidenceReference === "EXISTING_REVIEWED_EVIDENCE") {
+    if (!expectedIdentityReference) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    const current = await latestIdentity(tx, storeId);
+    if (!current || current.publicReference !== expectedIdentityReference) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    const priorApprovedRow = await tx.systemSetting.findFirst({
+      where: {
+        key: { startsWith: prefix(storeId) },
+        AND: [
+          { value: { path: ["status"], equals: "APPROVED" } },
+          { value: { path: ["identityReference"], equals: expectedIdentityReference } },
+        ],
+      },
+    });
+    if (!priorApprovedRow) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    const priorProposal = proposal(priorApprovedRow.value);
+    const priorSource = priorProposal.input.sourceEvidenceReference;
+    if (
+      priorProposal.storeId !== storeId ||
+      priorProposal.identityReference !== expectedIdentityReference ||
+      (!priorSource.startsWith("PMO-") && !priorSource.startsWith("EXT-"))
+    ) {
+      throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+    }
+    await verifyStoreSellerEvidence(
+      tx,
+      storeId,
+      storeOwnerUserId,
+      priorSource,
+      priorProposal.input.expectedIdentityReference,
+      stage,
+    );
+    return;
+  }
+  throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
+}
+
 export async function getStoreSellerIdentityState(storeId: string) {
   const [currentIdentity, pending, history] = await Promise.all([
     latestIdentity(prisma, storeId),
@@ -27,7 +128,9 @@ export async function getStoreSellerIdentityState(storeId: string) {
 
 export async function submitStoreSellerIdentity(storeId: string, actorUserId: string, raw: SellerIdentityProposalInput) {
   const input = StoreSellerIdentityProposalSchema.parse(raw);
-  assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference);
+  assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference, {
+    expectedIdentityReference: input.expectedIdentityReference,
+  });
   return prisma.$transaction(async tx => {
     await lockStore(tx, storeId);
     const [store, actor] = await Promise.all([tx.store.findFirst({ where: { id: storeId, ownerUserId: actorUserId } }), tx.user.findUnique({ where: { id: actorUserId }, select: { status: true } })]);
@@ -39,13 +142,7 @@ export async function submitStoreSellerIdentity(storeId: string, actorUserId: st
       if (saved.storeId !== storeId || saved.makerUserId !== actorUserId || saved.requestHash !== digest(input)) throw new PlatformError("SELLER_OPERATION_CONFLICT", "This operation was used for different seller details.", 409);
       return { ...saved, updatedAt: prior.updatedAt.toISOString(), replayed: true };
     }
-    if (input.sourceEvidenceReference.startsWith("PMO-")) {
-      const evidence = await tx.privateMediaObject.findFirst({ where: { publicReference: input.sourceEvidenceReference, ownerType: "STORE", ownerId: storeId, purpose: "STORE_VERIFICATION_DOCUMENT", status: "READY" }, select: { id: true } });
-      if (!evidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", "Choose an available verification document uploaded for this store.", 422);
-    } else if (input.sourceEvidenceReference.startsWith("EXT-")) {
-      const externalEvidence = await tx.systemSetting.findUnique({ where: { key: `store_seller_external_evidence:${storeId}:${input.sourceEvidenceReference}` } });
-      if (!externalEvidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
-    }
+    await verifyStoreSellerEvidence(tx, storeId, actorUserId, input.sourceEvidenceReference, input.expectedIdentityReference, "SUBMIT");
     if ((await latestIdentity(tx, storeId))?.publicReference !== (input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "Refresh the current seller identity before submitting.", 409);
     if (await tx.storeSellerLegalIdentity.findFirst({ where: { storeId, identityVersion: input.identityVersion }, select: { id: true } })) throw new PlatformError("SELLER_VERSION_ALREADY_USED", "Use a new identity version; approved seller facts are preserved.", 409);
     if (await tx.systemSetting.count({ where: { key: { startsWith: prefix(storeId) }, value: { path: ["status"], equals: "PENDING_REVIEW" } } }) >= 20) throw new PlatformError("SELLER_REVIEW_LIMIT", "Resolve pending seller identity reviews before adding another.", 409);
@@ -78,10 +175,7 @@ export async function reviewStoreSellerIdentity(storeId: string, actorUserId: st
     if (row.updatedAt.toISOString() !== input.expectedUpdatedAt) throw new PlatformError("SELLER_REVIEW_STALE", "Refresh this proposal before reviewing.", 409);
     let identityReference: string | undefined;
     if (input.action === "APPROVE") {
-      if (saved.input.sourceEvidenceReference.startsWith("PMO-")) {
-        const evidence = await tx.privateMediaObject.findFirst({ where: { publicReference: saved.input.sourceEvidenceReference, ownerType: "STORE", ownerId: storeId, purpose: "STORE_VERIFICATION_DOCUMENT", status: "READY" }, select: { id: true } });
-        if (!evidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", "The uploaded seller evidence is no longer available for approval.", 422);
-      }
+      await verifyStoreSellerEvidence(tx, storeId, store.ownerUserId, saved.input.sourceEvidenceReference, saved.input.expectedIdentityReference, "APPROVE");
       const current = await latestIdentity(tx, storeId);
       if (current?.publicReference !== (saved.input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "The seller identity changed after submission; request a new proposal.", 409);
       const start = new Date(saved.input.effectiveFrom), end = saved.input.effectiveUntil ? new Date(saved.input.effectiveUntil) : null;

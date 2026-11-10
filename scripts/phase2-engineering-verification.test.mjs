@@ -44,7 +44,7 @@ test('launch veto still exits nonzero for unresolved commercial and operational 
   const { spawnSync } = await import('node:child_process');
   const r = spawnSync(process.execPath, ['scripts/check-closure-engineering-gates.mjs'], { encoding: 'utf8' });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /NOT_READY: unresolved launch register gates/);
+  assert.match(r.stderr, /NOT_READY: \d+ unresolved of \d+ production launch gates/);
   assert.match(r.stderr, /commercial_financial_certification/);
   assert.match(r.stderr, /fresh_production_protected_row_audit/);
 });

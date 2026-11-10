@@ -27,7 +27,7 @@ export function validateFinalClosureEvidence(manifest, { root, expectedSha, laun
     const target = path.resolve(folder, entry.path);
     if (!target.startsWith(folder + path.sep)) refuse("receipt traversal");
     const bytes = readFileSync(target), receipt = JSON.parse(bytes);
-    if (createHash("sha256").update(bytes).digest("hex") !== entry.sha256) refuse("receipt digest");
+    if (![bytes, Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8")].some(buf => createHash("sha256").update(buf).digest("hex") === entry.sha256)) refuse("receipt digest");
     for (const key of ["command", "commitSha", "sourceTreeSha", "status", "testsExpected", "testsExecuted", "testsPassed", "testsFailed", "testsSkipped", "testsFlaky"]) if (entry[key] !== receipt[key]) refuse("receipt fields");
     if (!/^[a-f0-9]{40}$/.test(receipt.commitSha ?? "") || !/^[a-f0-9]{40}$/.test(receipt.sourceTreeSha ?? "")) refuse("receipt source");
     if (receipt.status === "PASS" && receipt.sourceBinding && receipt.sourceBinding !== "EXACT_COMMIT") refuse("uncommitted source pass");

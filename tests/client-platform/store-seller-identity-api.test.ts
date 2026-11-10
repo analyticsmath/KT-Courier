@@ -11,8 +11,8 @@ vi.mock("@/lib/auth/admin-api", () => ({ requireAdminApiPermission: state.admin 
 vi.mock("@/lib/security/request-origin", () => ({ enforceSameOriginRequest: state.origin }));
 vi.mock("@/lib/security/rate-limit", () => ({ checkIpRateLimit: state.rate, RATE_LIMITS: { ORDER_ESTIMATE: {} } }));
 vi.mock("@/lib/services/store-seller-identity.service", () => ({ submitStoreSellerIdentity: state.submit, reviewStoreSellerIdentity: state.review, getStoreSellerIdentityState: state.read }));
-const input = { operationId: "synthetic-operation", expectedIdentityReference: null, identityVersion: "v1", legalName: "Synthetic seller", vatRegistrationStatus: "NOT_REGISTERED", countryCode: "ZA", invoiceClassification: "RECEIPT", effectiveFrom: "2026-10-01T00:00:00.000Z", effectiveUntil: null, sourceEvidenceReference: "SYNTHETIC_OWNER_INPUT", confirmSuppliedDetails: true };
-const command = { proposalReference: "SLP-synthetic", expectedUpdatedAt: "2026-10-01T00:00:00.000Z", operationId: "synthetic-review", action: "APPROVE", reason: "Synthetic review", evidenceReference: "SYNTHETIC_REVIEW", confirmIndependentReview: true };
+const input = { operationId: "synthetic-operation", expectedIdentityReference: null, identityVersion: "v1", legalName: "Synthetic seller", vatRegistrationStatus: "NOT_REGISTERED", countryCode: "ZA", invoiceClassification: "RECEIPT", effectiveFrom: "2026-10-01T00:00:00.000Z", effectiveUntil: null, sourceEvidenceReference: "PMO-11111111-1111-4111-8111-111111111111", confirmSuppliedDetails: true };
+const command = { proposalReference: "SLP-synthetic", expectedUpdatedAt: "2026-10-01T00:00:00.000Z", operationId: "synthetic-review", action: "APPROVE", reason: "Synthetic review", evidenceReference: "PMO-11111111-1111-4111-8111-111111111111", confirmIndependentReview: true };
 const request = (body: unknown) => new NextRequest("http://localhost:3000/api/store/seller-identity", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: JSON.stringify(body) });
 describe("seller identity API scope and review authority", () => {
   beforeEach(() => { vi.clearAllMocks(); state.business.mockResolvedValue(null); state.access.mockResolvedValue({ owner: true, store: { id: "owned-store" } }); state.current.mockResolvedValue({ id: "owner" }); state.admin.mockResolvedValue({ user: { id: "checker" } }); state.submit.mockResolvedValue({ reference: "SLP-synthetic" }); state.review.mockResolvedValue({ status: "APPROVED" }); state.read.mockResolvedValue({ currentIdentity: null, proposals: [] }); state.origin.mockResolvedValue(null); state.rate.mockResolvedValue({ ok: true }); });
@@ -29,12 +29,18 @@ describe("seller identity API scope and review authority", () => {
     expect(result.fieldErrors?.identityVersion).toMatch(/letters.*numbers.*spaces/i);
     expect(state.submit).not.toHaveBeenCalled();
   });
-  it("rejects free-form shop names in sourceEvidenceReference with 422 before invoking submitStoreSellerIdentity", async () => {
-    const response = await POST(request({ ...input, sourceEvidenceReference: "PammyBakes" }));
-    expect(response.status).toBe(422);
-    const result = await response.json();
-    expect(result.code).toBe("SELLER_EVIDENCE_INVALID");
-    expect(result.error).toBe("Upload your verification document first, then use the automatically generated reference.");
+  it("rejects free-form shop names, SYNTHETIC_* tokens, and new-applicant EXISTING_REVIEWED_EVIDENCE in sourceEvidenceReference with 422 before invoking submitStoreSellerIdentity", async () => {
+    for (const invalidRef of [
+      "PammyBakes",
+      "SYNTHETIC_OWNER_INPUT",
+      "EXISTING_REVIEWED_EVIDENCE",
+    ]) {
+      const response = await POST(request({ ...input, sourceEvidenceReference: invalidRef }));
+      expect(response.status).toBe(422);
+      const result = await response.json();
+      expect(result.code).toBe("SELLER_EVIDENCE_INVALID");
+      expect(result.error).toBe("Upload your verification document first, then use the automatically generated reference.");
+    }
     expect(state.submit).not.toHaveBeenCalled();
   });
   it("does not allow body ownership or approval injection", async () => {

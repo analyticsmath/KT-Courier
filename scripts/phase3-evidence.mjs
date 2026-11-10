@@ -38,7 +38,7 @@ export function validatePhase3Evidence(manifest, { root, expectedSha, launchGate
     let artifactPath, bytes;
     try { artifactPath = realpathSync(path.resolve(rootPath, selection.artifact)); bytes = readFileSync(artifactPath); } catch { refusal("missing artifact"); }
     if (!artifactPath.startsWith(`${rootPath}${path.sep}`)) refusal("artifact escapes repository");
-    if (createHash("sha256").update(bytes).digest("hex") !== selection.artifactSha256) refusal("artifact hash");
+    if (![bytes, Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8")].some(buf => createHash("sha256").update(buf).digest("hex") === selection.artifactSha256)) refusal("artifact hash");
     let receipt;
     try { receipt = JSON.parse(bytes); } catch { refusal("artifact JSON"); }
     if (receipt.commitSha !== selection.commitSha || receipt.sourceTreeSha !== manifest.source.treeSha || receipt.status !== "PASS" ||

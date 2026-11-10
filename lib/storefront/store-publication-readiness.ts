@@ -30,9 +30,14 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
   documentsCount: number;
   pickup: StorePickupAddressCandidate | null;
   certification: PublicStoreCheckoutCertificate | null;
+  hasApprovedSellerIdentity?: boolean;
+  hasActiveOperationalPolicy?: boolean;
   now?: Date;
 }>): boolean {
   const { pickup, certification } = input;
+  if (input.hasApprovedSellerIdentity === false || input.hasActiveOperationalPolicy === false) {
+    return false;
+  }
   if (input.status !== "ACTIVE" || input.name.trim().length === 0 ||
       !Number.isSafeInteger(input.documentsCount) || input.documentsCount <= 0 ||
       !pickup?.id || !pickup.storeId || pickup.type !== "PICKUP" ||

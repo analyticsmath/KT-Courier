@@ -57,7 +57,24 @@ Executed in local shell with a Node TCP listener holding `0.0.0.0:55832`:
   ```
 - Exit Code: `0`.
 
-## 4. Phase 3 Live-Launch Veto Preservation (`production-certification.yml`)
+## 4. Browser Certification Fix (`P1-CORR-01`: `tests/e2e/vendor-five-product-media.spec.ts`)
+
+- **Observed Workflow Failure**: GitHub Actions `Production Certification` workflow (`.github/workflows/production-certification.yml`), run `42764945369`, job `browser` (`129659117211`), step `New vendor five-product media cart chat and delivery acceptance`.
+- **Symptom**:
+  ```text
+  TimeoutError: locator.fill: Timeout 15000ms exceeded.
+  getByRole('form', { name: 'Seller legal identity submission' }).getByLabel('Supplied evidence reference').fill('SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL')
+  Locator resolved to an <input readonly ...>; element is not editable.
+  ```
+- **Technical Root Cause**:
+  - Phase 1 correctly made `sourceEvidenceReference` (`Supplied evidence reference`) `readOnly` in [`components/store/StoreSellerIdentityForm.tsx`](file:///d:/KT-Courier/components/store/StoreSellerIdentityForm.tsx) so that seller identity proposals must bind to a genuine uploaded verification document (`PMO-<uuid>`) returned by `POST /api/store/seller-identity/documents`.
+  - However, [`tests/e2e/vendor-five-product-media.spec.ts`](file:///d:/KT-Courier/tests/e2e/vendor-five-product-media.spec.ts) still attempted `.fill("SYNTHETIC_OWNER_DETAILS_NOT_REAL_APPROVAL")` directly on the read-only input instead of uploading a verification file through the form.
+- **Engineering Fix Implemented (`P1-CORR-01` & `P1-CORR-02`)**:
+  1. Preserved `readOnly` on `sourceEvidenceReference` in [`components/store/StoreSellerIdentityForm.tsx`](file:///d:/KT-Courier/components/store/StoreSellerIdentityForm.tsx).
+  2. Updated [`tests/e2e/vendor-five-product-media.spec.ts`](file:///d:/KT-Courier/tests/e2e/vendor-five-product-media.spec.ts) to generate a disposable synthetic PNG via `sharp`, select it via `getByLabel('Verification file', { exact: true }).setInputFiles(...)`, click `Upload supporting document`, assert `POST /api/store/seller-identity/documents` returns `HTTP 201` with a canonical `PMO-<uuid>` reference (`READY` in `PrivateMediaObject` owned by `store.id`), assert `Supplied evidence reference` is `readonly` and automatically populated with that exact `PMO-<uuid>`, submit the proposal without `.fill()` on the read-only field, verify the saved proposal binds that `PMO-<uuid>`, and verify that an unrelated store (`e2e-other-store@ktcouriers.local`) receives `403`/`404` on `/api/private-media/:ref` and `422` when attempting to reuse that reference.
+  3. Hardened [`lib/validation/store-seller-identity.ts`](file:///d:/KT-Courier/lib/validation/store-seller-identity.ts) and [`lib/services/store-seller-identity.service.ts`](file:///d:/KT-Courier/lib/services/store-seller-identity.service.ts) (`verifyStoreSellerEvidence`) so `SYNTHETIC_*` is rejected in all environments, `EXISTING_REVIEWED_EVIDENCE` is rejected for new applicants and allowed only on legacy renewal of an existing approved identity with valid underlying store evidence, and `PMO-...`/`EXT-...` are verified both at submission and at review approval.
+
+## 5. Phase 3 Live-Launch Veto Preservation (`production-certification.yml`)
 
 - `.github/workflows/production-certification.yml` runs `node scripts/check-closure-engineering-gates.mjs` (`tests/infrastructure/closure-engineering-gates.test.ts`).
-- That gate intentionally fails closed (`exit 1`) until external Phase 3 owner/legal/financial live-launch approvals are recorded. It was **not** weakened or bypassed.
+- [`docs/production-closure/engineering-gates.json`](file:///d:/KT-Courier/docs/production-closure/engineering-gates.json) remains at its authentic status (`NOT_READY`: 19 implemented, 6 open, 3 validation-blocked). That gate intentionally fails closed (`exit 1`) until external Phase 3 owner/legal/financial live-launch approvals are recorded. It was **not** weakened or bypassed.

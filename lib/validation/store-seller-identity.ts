@@ -8,18 +8,38 @@ export const CANONICAL_SELLER_EVIDENCE_MESSAGE =
   "Upload your verification document first, then use the automatically generated reference.";
 
 const CANONICAL_SELLER_EVIDENCE_PATTERN =
-  /^(PMO-[0-9a-fA-F-]{36}|EXT-[A-Za-z0-9_-]{4,120}|EXISTING_REVIEWED_EVIDENCE|SYNTHETIC_[A-Z0-9_]+)$/;
+  /^(PMO-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|EXT-[A-Za-z0-9_-]{4,120}|EXISTING_REVIEWED_EVIDENCE)$/;
+
+export const ExternalSellerEvidenceSchema = z
+  .object({
+    schemaVersion: z.literal(1),
+    reference: z.string().regex(/^EXT-[A-Za-z0-9_-]{4,120}$/),
+    storeId: text(1, 160),
+    status: z.literal("REVIEWED"),
+    authorizedByUserId: text(1, 160),
+    documentDigest: text(16, 240),
+  })
+  .strict();
+
+export type ExternalSellerEvidenceRecord = z.infer<typeof ExternalSellerEvidenceSchema>;
 
 export function isCanonicalSellerEvidenceReference(value: string): boolean {
   return CANONICAL_SELLER_EVIDENCE_PATTERN.test(value.trim());
 }
 
-export function assertCanonicalSellerEvidenceReference(value: string): void {
+export function assertCanonicalSellerEvidenceReference(
+  value: string,
+  options?: { expectedIdentityReference?: string | null },
+): void {
   const normalized = value.trim();
   if (!isCanonicalSellerEvidenceReference(normalized)) {
     throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
   }
-  if (process.env.NODE_ENV === "production" && normalized.startsWith("SYNTHETIC_")) {
+  if (
+    normalized === "EXISTING_REVIEWED_EVIDENCE" &&
+    options !== undefined &&
+    !options.expectedIdentityReference
+  ) {
     throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
   }
 }
