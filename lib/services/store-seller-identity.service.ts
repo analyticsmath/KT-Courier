@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { catalogRequestHash as digest } from "@/lib/catalog/catalog-normalization";
-import { StoreSellerIdentityProposalSchema, StoreSellerIdentityReviewSchema, type SellerIdentityProposalInput, type SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
+import { StoreSellerIdentityProposalSchema, StoreSellerIdentityReviewSchema, assertCanonicalSellerEvidenceReference, CANONICAL_SELLER_EVIDENCE_MESSAGE, type SellerIdentityProposalInput, type SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
 
 type Proposal = { schemaVersion: 1; reference: string; storeId: string; makerUserId: string; requestHash: string; input: SellerIdentityProposalInput; status: "PENDING_REVIEW" | "APPROVED" | "REJECTED"; review?: SellerIdentityReviewInput; reviewerUserId?: string; identityReference?: string };
 const prefix = (storeId: string) => `store_seller_identity_proposal:${storeId}:`;
@@ -27,6 +27,7 @@ export async function getStoreSellerIdentityState(storeId: string) {
 
 export async function submitStoreSellerIdentity(storeId: string, actorUserId: string, raw: SellerIdentityProposalInput) {
   const input = StoreSellerIdentityProposalSchema.parse(raw);
+  assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference);
   return prisma.$transaction(async tx => {
     await lockStore(tx, storeId);
     const [store, actor] = await Promise.all([tx.store.findFirst({ where: { id: storeId, ownerUserId: actorUserId } }), tx.user.findUnique({ where: { id: actorUserId }, select: { status: true } })]);
@@ -41,6 +42,9 @@ export async function submitStoreSellerIdentity(storeId: string, actorUserId: st
     if (input.sourceEvidenceReference.startsWith("PMO-")) {
       const evidence = await tx.privateMediaObject.findFirst({ where: { publicReference: input.sourceEvidenceReference, ownerType: "STORE", ownerId: storeId, purpose: "STORE_VERIFICATION_DOCUMENT", status: "READY" }, select: { id: true } });
       if (!evidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", "Choose an available verification document uploaded for this store.", 422);
+    } else if (input.sourceEvidenceReference.startsWith("EXT-")) {
+      const externalEvidence = await tx.systemSetting.findUnique({ where: { key: `store_seller_external_evidence:${storeId}:${input.sourceEvidenceReference}` } });
+      if (!externalEvidence) throw new PlatformError("SELLER_EVIDENCE_INVALID", CANONICAL_SELLER_EVIDENCE_MESSAGE, 422);
     }
     if ((await latestIdentity(tx, storeId))?.publicReference !== (input.expectedIdentityReference ?? undefined)) throw new PlatformError("SELLER_IDENTITY_STALE", "Refresh the current seller identity before submitting.", 409);
     if (await tx.storeSellerLegalIdentity.findFirst({ where: { storeId, identityVersion: input.identityVersion }, select: { id: true } })) throw new PlatformError("SELLER_VERSION_ALREADY_USED", "Use a new identity version; approved seller facts are preserved.", 409);

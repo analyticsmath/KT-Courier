@@ -55,6 +55,7 @@ export const SYSTEM_SETTING_CATALOG: Record<string, SystemSettingDefinition> = {
   "dispatch.serializable_retry_count": mutable("dispatch.serializable_retry_count", SystemSettingType.STRING, "3"),
   "dispatch.auto_dispatch_enabled": mutable("dispatch.auto_dispatch_enabled", SystemSettingType.BOOLEAN, false, { readinessImpact: "automatic_dispatch" }),
   "notifications.email_enabled": mutable("notifications.email_enabled", SystemSettingType.BOOLEAN, false, { readinessImpact: "transactional_email" }),
+  "notifications.admin_alert_recipients": mutable("notifications.admin_alert_recipients", SystemSettingType.JSON, "[]"),
   "coverage.confirmation_required": mutable("coverage.confirmation_required", SystemSettingType.BOOLEAN, true),
 };
 

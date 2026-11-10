@@ -1,0 +1,10 @@
+# Disposable migration smoke override: all migration, seed, and inspection steps
+# execute inside the internal Compose network via service DNS (db:5432).
+# Clearing host port publications prevents host port binding collisions (e.g. 55832/6379/3100).
+services:
+  db:
+    ports: !override []
+  redis:
+    ports: !override []
+  app:
+    ports: !override []

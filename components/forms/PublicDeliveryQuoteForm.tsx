@@ -159,6 +159,7 @@ export function PublicDeliveryQuoteForm({
   }, [reference, catalogRevision]);
   const address = (f: FormData, p: string, selected: Address) => ({
     line1: String(f.get(`${p}-line1`)),
+    ...(selected.line2 ? { line2: selected.line2 } : {}),
     city: String(f.get(`${p}-city`)),
     province: String(f.get(`${p}-province`)),
     ...(f.get(`${p}-postalCode`)

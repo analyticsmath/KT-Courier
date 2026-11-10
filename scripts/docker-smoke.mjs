@@ -2,6 +2,7 @@ import process from "node:process";
 import {
   assertDisposableSmokeIdentity,
   assertSuccess,
+  findAvailableLoopbackPort,
   getDisposableSmokeSeedComposeArgs,
   getSchemaVerifierComposeArgs,
   isSchemaDiffVerbose,
@@ -15,15 +16,23 @@ import {
 } from "./docker-common.mjs";
 
 const projectName = process.env.KT_SMOKE_PROJECT_NAME || "kt-couriers-baseline-smoke";
+const allocatedPostgresPort = process.env.KT_SMOKE_POSTGRES_PORT || String(await findAvailableLoopbackPort());
+const allocatedRedisPort = process.env.KT_SMOKE_REDIS_PORT || String(await findAvailableLoopbackPort());
+const allocatedAppPort = process.env.KT_SMOKE_APP_PORT || String(await findAvailableLoopbackPort());
 const smokeEnv = {
   ...process.env,
   POSTGRES_DB: "kt_courier_baseline_smoke",
   POSTGRES_USER: "kt_courier_baseline_smoke",
   POSTGRES_PASSWORD: "smoke_local_only_password",
   SHADOW_POSTGRES_DB: "kt_courier_baseline_smoke_shadow",
-  POSTGRES_PORT: process.env.KT_SMOKE_POSTGRES_PORT || "55832",
-  APP_PORT: "3100",
-  NEXT_PUBLIC_APP_URL: "http://localhost:3100",
+  DATABASE_URL:
+    "postgresql://kt_courier_baseline_smoke:smoke_local_only_password@db:5432/kt_courier_baseline_smoke?schema=public",
+  SHADOW_DATABASE_URL:
+    "postgresql://kt_courier_baseline_smoke:smoke_local_only_password@db:5432/kt_courier_baseline_smoke_shadow?schema=public",
+  POSTGRES_PORT: allocatedPostgresPort,
+  REDIS_PORT: allocatedRedisPort,
+  APP_PORT: allocatedAppPort,
+  NEXT_PUBLIC_APP_URL: `http://localhost:${allocatedAppPort}`,
   EMAIL_PROVIDER: "console",
   KT_RUNTIME_ENV: "smoke",
 };

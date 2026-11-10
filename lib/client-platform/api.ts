@@ -15,8 +15,20 @@ export function json(body: unknown, status = 200) {
   });
 }
 export function failure(error: unknown) {
-  if (error instanceof ZodError)
-    return json({ error: error.issues[0]?.message ?? "Invalid request." }, 422);
+  if (error instanceof ZodError) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of error.issues) {
+      const key = issue.path.join(".") || "_root";
+      if (!fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return json(
+      {
+        error: error.issues[0]?.message ?? "Invalid request.",
+        fieldErrors,
+      },
+      422,
+    );
+  }
   if (error instanceof PaymentPolicyError)
     return json(
       { error: error.message, code: error.code },

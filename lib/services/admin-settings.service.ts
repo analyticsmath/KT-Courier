@@ -43,6 +43,7 @@ function requiresAtomicPolicyAudit(key: string): boolean {
     || key === "referral.reward_zar"
     || key === "referral.reward_issuing_enabled"
     || key === "delivery.high_risk_areas"
+    || key === "notifications.admin_alert_recipients"
     || key === "pricing.vat.enabled" || key === "pricing.vat.rate"
     || key === "pricing.marketplace_vat.enabled" || key === "pricing.marketplace_vat.rate";
 }

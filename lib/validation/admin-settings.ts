@@ -2,6 +2,10 @@ import { z } from "zod";
 import { SystemSettingType } from "@/types/db";
 import { getSystemSettingDefinition } from "@/lib/settings/catalog";
 import { parseHighRiskAreas } from "@/lib/settings/high-risk-area-policy";
+import {
+  isValidConfiguredNotificationEmail,
+  parseAdminAlertRecipients,
+} from "@/lib/settings/admin-alert-recipient-policy";
 
 // Keys that must never be stored in SystemSetting (enforced server-side).
 export const FORBIDDEN_SETTING_KEYS = [
@@ -32,6 +36,9 @@ export function validateSettingValue(
       if (typeof value !== "string") return { ok: false, error: "Value must be a string." };
       if (value.length > 2000) return { ok: false, error: "Value must be under 2000 characters." };
       const normalized = value.trim();
+      if (key === "platform.contact_email" && !isValidConfiguredNotificationEmail(normalized)) {
+        return { ok: false, error: "Enter a valid email address; placeholders such as [add business email] or [add owner email] are not permitted." };
+      }
       if (definition?.allowedValues && !definition.allowedValues.includes(normalized)) return { ok: false, error: "Value is not in the approved setting range." };
       return { ok: true, value: normalized };
 
@@ -73,6 +80,11 @@ export function validateSettingValue(
         const riskAreas = parseHighRiskAreas(parsed);
         if (!riskAreas) return { ok: false, error: "Each high-risk area requires unique ID, named locations, area notes, and enabled status." };
         return { ok: true, value: riskAreas };
+      }
+      if (key === "notifications.admin_alert_recipients") {
+        const recipients = parseAdminAlertRecipients(parsed);
+        if (!recipients) return { ok: false, error: "Each alert recipient requires a valid non-placeholder email address, label, active flag, and subscribed events." };
+        return { ok: true, value: recipients };
       }
       if (typeof parsed === "object" && parsed !== null) return { ok: true, value: parsed };
       return { ok: false, error: "Value must be a valid JSON object." };

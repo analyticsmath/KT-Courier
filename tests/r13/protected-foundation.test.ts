@@ -146,7 +146,7 @@ describe("R13 protected Editorial Operations foundation", () => {
 
 function collectSources(directory: string): string[] {
   const visit = (relative: string): string[] => readdirSync(path.join(workspaceRoot, relative)).flatMap((entry) => {
-    const entryPath = path.join(relative, entry);
+    const entryPath = path.join(relative, entry).replaceAll("\\", "/");
     return statSync(path.join(workspaceRoot, entryPath)).isDirectory() ? visit(entryPath) : entryPath.endsWith(".ts") || entryPath.endsWith(".tsx") ? [entryPath] : [];
   });
   return visit(directory);

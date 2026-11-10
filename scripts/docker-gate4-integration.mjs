@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   assertDisposableGate4Identity,
   assertSuccess,
+  findAvailableLoopbackPort,
   getSchemaVerifierComposeArgs,
   isSchemaDiffVerbose,
   normalComposeProject,
@@ -15,7 +16,8 @@ import {
 } from "./docker-common.mjs";
 
 const projectName = process.env.KT_GATE4_PROJECT_NAME || "kt-couriers-gate4";
-const port = process.env.KT_GATE4_POSTGRES_PORT || "55834";
+const port = process.env.KT_GATE4_POSTGRES_PORT || String(await findAvailableLoopbackPort());
+const redisPort = process.env.KT_GATE4_REDIS_PORT || String(await findAvailableLoopbackPort());
 const dbName = "kt_courier_gate4_disposable";
 const dbUser = "kt_courier_gate4_disposable";
 const dbPass = "gate4_local_only_password";
@@ -27,6 +29,7 @@ const gate4Env = {
   POSTGRES_PASSWORD: dbPass,
   SHADOW_POSTGRES_DB: `${dbName}_shadow`,
   POSTGRES_PORT: port,
+  REDIS_PORT: redisPort,
   APP_PORT: "3104",
   NEXT_PUBLIC_APP_URL: "http://localhost:3104",
   EMAIL_PROVIDER: "console",

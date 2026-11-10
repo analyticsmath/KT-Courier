@@ -26,6 +26,15 @@ describe("seller identity API scope and review authority", () => {
     const result = await response.json();
     expect(result.error).toMatch(/letters.*numbers.*spaces/i);
     expect(result.error).not.toMatch(/\^|\$|regex|pattern/i);
+    expect(result.fieldErrors?.identityVersion).toMatch(/letters.*numbers.*spaces/i);
+    expect(state.submit).not.toHaveBeenCalled();
+  });
+  it("rejects free-form shop names in sourceEvidenceReference with 422 before invoking submitStoreSellerIdentity", async () => {
+    const response = await POST(request({ ...input, sourceEvidenceReference: "PammyBakes" }));
+    expect(response.status).toBe(422);
+    const result = await response.json();
+    expect(result.code).toBe("SELLER_EVIDENCE_INVALID");
+    expect(result.error).toBe("Upload your verification document first, then use the automatically generated reference.");
     expect(state.submit).not.toHaveBeenCalled();
   });
   it("does not allow body ownership or approval injection", async () => {

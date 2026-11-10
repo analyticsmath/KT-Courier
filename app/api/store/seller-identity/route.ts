@@ -4,7 +4,7 @@ import { storeAccess } from "@/lib/client-platform/store-access";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { json, failure, mutation } from "@/lib/client-platform/api";
 import { PlatformError } from "@/lib/client-platform/contracts";
-import { StoreSellerIdentityProposalSchema } from "@/lib/validation/store-seller-identity";
+import { StoreSellerIdentityProposalSchema, assertCanonicalSellerEvidenceReference } from "@/lib/validation/store-seller-identity";
 import { getStoreSellerIdentityState, submitStoreSellerIdentity } from "@/lib/services/store-seller-identity.service";
 const endpoint = "/api/store/seller-identity";
 async function owner() {
@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const access = await owner(); const prepared = await mutation(request, `${endpoint}:${access.user.id}`); if ("response" in prepared) return prepared.response;
     const input = StoreSellerIdentityProposalSchema.parse(prepared.body);
+    assertCanonicalSellerEvidenceReference(input.sourceEvidenceReference);
     return json({ proposal: await submitStoreSellerIdentity(access.store.id, access.user.id, input) }, 201);
   } catch (error) { return failure(error); }
 }

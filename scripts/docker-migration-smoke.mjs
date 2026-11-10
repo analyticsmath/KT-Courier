@@ -1,6 +1,7 @@
 import process from "node:process";
 import { readdirSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   assertDisposableSmokeIdentity,
   assertSuccess,
@@ -14,17 +15,29 @@ import {
   waitForServiceHealth,
 } from "./docker-common.mjs";
 
+export const MIGRATION_SMOKE_COMPOSE_OVERRIDE = "compose.migration-smoke.yml";
+export const MIGRATION_SMOKE_EXTRA_COMPOSE_FILES = [MIGRATION_SMOKE_COMPOSE_OVERRIDE];
+
 const projectName = process.env.KT_SMOKE_PROJECT_NAME || "kt-couriers-baseline-smoke";
-const smokeEnv = {
+export const smokeEnv = {
   ...process.env,
   POSTGRES_DB: "kt_courier_baseline_smoke",
   POSTGRES_USER: "kt_courier_baseline_smoke",
   POSTGRES_PASSWORD: "smoke_local_only_password",
   SHADOW_POSTGRES_DB: "kt_courier_baseline_smoke_shadow",
-  POSTGRES_PORT: process.env.KT_SMOKE_POSTGRES_PORT || "55832",
+  DATABASE_URL:
+    "postgresql://kt_courier_baseline_smoke:smoke_local_only_password@db:5432/kt_courier_baseline_smoke?schema=public",
+  SHADOW_DATABASE_URL:
+    "postgresql://kt_courier_baseline_smoke:smoke_local_only_password@db:5432/kt_courier_baseline_smoke_shadow?schema=public",
   APP_PORT: "3100",
   NEXT_PUBLIC_APP_URL: "http://localhost:3100",
   EMAIL_PROVIDER: "console",
+};
+
+const smokeComposeOptions = {
+  projectName,
+  env: smokeEnv,
+  extraComposeFiles: MIGRATION_SMOKE_EXTRA_COMPOSE_FILES,
 };
 
 const expectedMigrations = readdirSync(path.join(process.cwd(), "prisma", "migrations"), { withFileTypes: true })
@@ -40,30 +53,26 @@ function assertDisposableProject() {
 
 async function cleanup() {
   safeLog("Fresh baseline migration smoke: removing only the disposable smoke project volume.");
-  const result = runCompose(["down", "-v", "--remove-orphans"], { projectName, env: smokeEnv });
+  const result = runCompose(["down", "-v", "--remove-orphans"], smokeComposeOptions);
   if (result.status !== 0) safeError(result.stderr || result.stdout || "Smoke cleanup failed.");
 }
 
 async function main() {
   assertDisposableProject();
   safeLog(`Fresh baseline migration smoke project: ${projectName}`);
-  assertSuccess(runCompose(["config", "--quiet"], { projectName, env: smokeEnv }), "compose config");
-  assertSuccess(runCompose(["build", "migrate", "seed"], { projectName, env: smokeEnv }), "fresh migrator build");
-  assertSuccess(runCompose(["up", "-d", "db"], { projectName, env: smokeEnv }), "smoke db startup");
+  assertSuccess(runCompose(["config", "--quiet"], smokeComposeOptions), "compose config");
+  assertSuccess(runCompose(["build", "migrate", "seed"], smokeComposeOptions), "fresh migrator build");
+  assertSuccess(runCompose(["up", "-d", "db"], smokeComposeOptions), "smoke db startup");
 
   const dbHealth = await waitForServiceHealth("db", {
-    projectName,
-    env: smokeEnv,
+    ...smokeComposeOptions,
     timeoutMs: 150_000,
   });
   if (dbHealth !== "healthy") throw new Error(`smoke db did not become healthy; final status: ${dbHealth}`);
 
-  assertSuccess(runCompose(["run", "--rm", "migrate"], { projectName, env: smokeEnv }), "fresh migrate deploy");
+  assertSuccess(runCompose(["run", "--rm", "migrate"], smokeComposeOptions), "fresh migrate deploy");
   assertSuccess(
-    runCompose(["run", "--rm", "migrate", "npx", "prisma", "migrate", "status"], {
-      projectName,
-      env: smokeEnv,
-    }),
+    runCompose(["run", "--rm", "migrate", "npx", "prisma", "migrate", "status"], smokeComposeOptions),
     "fresh migration status"
   );
   if (isSchemaDiffVerbose(smokeEnv)) {
@@ -72,7 +81,7 @@ async function main() {
   assertSuccess(
     runCompose(
       getSchemaVerifierComposeArgs(smokeEnv),
-      { projectName, env: smokeEnv }
+      smokeComposeOptions
     ),
     "fresh database-to-schema diff"
   );
@@ -85,7 +94,7 @@ async function main() {
       "-lc",
         "psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -Atc \"SELECT migration_name FROM \\\"_prisma_migrations\\\" WHERE finished_at IS NULL ORDER BY migration_name;\"",
     ],
-    { projectName, env: smokeEnv }
+    smokeComposeOptions
   );
   assertSuccess(migrationRecordInspection, "fresh migration record inspection");
   if (migrationRecordInspection.stdout.trim()) {
@@ -94,7 +103,7 @@ async function main() {
 
   const applied = runCompose(
     ["exec", "-T", "db", "sh", "-lc", "psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" -Atc \"SELECT migration_name FROM \\\"_prisma_migrations\\\" ORDER BY migration_name;\""],
-    { projectName, env: smokeEnv }
+    smokeComposeOptions
   );
   assertSuccess(applied, "applied migration inspection");
   const appliedNames = applied.stdout.split(/\r?\n/).map((line) => line.trim()).filter((line) => /^\d+_.+/.test(line));
@@ -107,28 +116,31 @@ async function main() {
   safeLog("First disposable smoke seed authorization: ENABLED");
   safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
   assertSuccess(
-    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), smokeComposeOptions),
     "first smoke seed"
   );
 
   safeLog("Second disposable smoke seed authorization: ENABLED");
   safeLog(`Seed target authorization: project=${projectName} database=${smokeEnv.POSTGRES_DB} host=db authorized=true`);
   assertSuccess(
-    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), { projectName, env: smokeEnv }),
+    runCompose(getDisposableSmokeSeedComposeArgs({ service: "seed" }), smokeComposeOptions),
     "second smoke seed"
   );
 
   safeLog("Fresh migration smoke passed: the complete migration chain, idempotent seed, and schema drift check succeeded from an empty database.");
 }
 
-let failed = false;
-try {
-  await main();
-} catch (error) {
-  failed = true;
-  safeError(error instanceof Error ? error.message : String(error));
-} finally {
-  await cleanup();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  let failed = false;
+  try {
+    await main();
+  } catch (error) {
+    failed = true;
+    safeError(error instanceof Error ? error.message : String(error));
+  } finally {
+    await cleanup();
+  }
+
+  process.exit(failed ? 1 : 0);
 }
 
-process.exit(failed ? 1 : 0);

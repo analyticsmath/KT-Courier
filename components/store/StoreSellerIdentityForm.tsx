@@ -5,16 +5,27 @@ import { Button } from "@/components/ui/Button";
 import { FileInput } from "@/components/ui/FileInput";
 import { Input } from "@/components/ui/Input";
 import { utcDateInputToIso } from "@/lib/utils/utc-date-input";
+import { suggestSellerIdentityVersion } from "@/lib/validation/store-seller-identity";
 
 export function StoreSellerIdentityForm({ currentReference }: { currentReference: string | null }) {
   const router = useRouter(), pending = useRef(false), command = useRef<{ signature: string; body: Record<string, unknown> } | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [status, setStatus] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [identityVersion, setIdentityVersion] = useState("");
+  const [identityVersionTouched, setIdentityVersionTouched] = useState(false);
+  const [legalNameDraft, setLegalNameDraft] = useState("");
+  const [tradingNameDraft, setTradingNameDraft] = useState("");
   const [evidenceReference, setEvidenceReference] = useState("");
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  function syncSuggestedIdentityVersion(nextTrading: string, nextLegal: string) {
+    if (identityVersionTouched) return;
+    const candidate = suggestSellerIdentityVersion(nextTrading || nextLegal);
+    setIdentityVersion(candidate);
+  }
   async function uploadEvidence() {
     if (!documentFile || uploading) return;
-    setUploading(true); setError(""); setStatus("");
+    setUploading(true); setError(""); setFieldErrors({}); setStatus("");
     try {
       const data = new FormData(); data.set("file", documentFile);
       const response = await fetch("/api/store/seller-identity/documents", { method: "POST", body: data });
@@ -26,14 +37,19 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
     finally { setUploading(false); }
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (pending.current) return; pending.current = true; setBusy(true); setError(""); setStatus("");
+    event.preventDefault(); if (pending.current) return; pending.current = true; setBusy(true); setError(""); setFieldErrors({}); setStatus("");
     const data = new FormData(event.currentTarget), value = (key: string) => String(data.get(key) ?? "").trim(), optional = (key: string) => value(key) || null;
     try {
       const fields = { expectedIdentityReference: currentReference, identityVersion: value("identityVersion"), legalName: value("legalName"), tradingName: optional("tradingName"), registrationReference: optional("registrationReference"), vatRegistrationStatus: value("vatRegistrationStatus"), vatNumber: optional("vatNumber"), countryCode: "ZA", termsReference: optional("termsReference"), invoiceClassification: value("invoiceClassification"), effectiveFrom: utcDateInputToIso(value("effectiveFrom")), effectiveUntil: value("effectiveUntil") ? utcDateInputToIso(value("effectiveUntil")) : null, sourceEvidenceReference: value("sourceEvidenceReference"), confirmSuppliedDetails: data.get("confirmSuppliedDetails") === "on" };
       const signature = JSON.stringify(fields);
       if (command.current?.signature !== signature) command.current = { signature, body: { ...fields, operationId: crypto.randomUUID() } };
       const response = await fetch("/api/store/seller-identity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(command.current.body) });
-      const reply = await response.json(); if (!response.ok) { setError(reply.error ?? "Seller details could not be submitted."); return; }
+      const reply = await response.json();
+      if (!response.ok) {
+        if (reply.fieldErrors && typeof reply.fieldErrors === "object") setFieldErrors(reply.fieldErrors as Record<string, string>);
+        setError(reply.error ?? "Seller details could not be submitted.");
+        return;
+      }
       setStatus("Seller identity submitted for independent review."); router.refresh();
     } catch { setError("Submission could not be confirmed. Retry the same details to check this request."); }
     finally { pending.current = false; setBusy(false); }
@@ -50,18 +66,18 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       {/^PMO-[a-f0-9-]{36}$/.test(evidenceReference) ? <a className="block underline" href={`/api/private-media/${encodeURIComponent(evidenceReference)}`}>Download uploaded document</a> : null}
     </fieldset>
     <div className="grid gap-4 sm:grid-cols-2">
-      <label>Identity version (reference, not the seller name)<Input name="identityVersion" required maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_.-]*" title="Use letters, numbers, underscores, periods or hyphens, without spaces. Example: PAMMY_BAKES_V1" placeholder="PAMMY_BAKES_V1" helpText="Example: PAMMY_BAKES_V1 — no spaces. Use a new version when submitting revised evidence." /></label>
-      <div><label htmlFor="seller-legal-name">Legal seller name</label><Input id="seller-legal-name" name="legalName" required maxLength={240} helpText="For an individual seller, enter the legal name of the owner, not just the shop name." /></div>
-      <label>Trading name (optional)<Input name="tradingName" maxLength={160} placeholder="Pammy Bakes" /></label>
-      <div><label htmlFor="seller-registration-reference">Registration reference (optional)</label><Input id="seller-registration-reference" name="registrationReference" maxLength={160} helpText="Leave blank if not formally registered. Do not invent a registration number." /></div>
+      <label>Identity version (reference, not the seller name)<Input name="identityVersion" value={identityVersion} onChange={event => { setIdentityVersionTouched(true); setIdentityVersion(event.target.value); }} error={fieldErrors.identityVersion} required maxLength={80} pattern="[A-Za-z0-9][A-Za-z0-9_.-]*" title="Use letters, numbers, underscores, periods or hyphens, without spaces. Example: PAMMY_BAKES_V1" placeholder="PAMMY_BAKES_V1" helpText="Example: PAMMY_BAKES_V1 — no spaces. Auto-suggested from your trading or legal name, and editable when submitting revised evidence." /></label>
+      <div><label htmlFor="seller-legal-name">Legal seller name</label><Input id="seller-legal-name" name="legalName" value={legalNameDraft} onChange={event => { const next = event.target.value; setLegalNameDraft(next); syncSuggestedIdentityVersion(tradingNameDraft, next); }} error={fieldErrors.legalName} required maxLength={240} helpText="For an individual seller, enter the legal name of the owner, not just the shop name." /></div>
+      <label>Trading name (optional)<Input name="tradingName" value={tradingNameDraft} onChange={event => { const next = event.target.value; setTradingNameDraft(next); syncSuggestedIdentityVersion(next, legalNameDraft); }} error={fieldErrors.tradingName} maxLength={160} placeholder="Pammy Bakes" /></label>
+      <div><label htmlFor="seller-registration-reference">Registration reference (optional)</label><Input id="seller-registration-reference" name="registrationReference" error={fieldErrors.registrationReference} maxLength={160} helpText="Leave blank if not formally registered. Do not invent a registration number." /></div>
       <div><label htmlFor="seller-vat-status">VAT registration status</label><select id="seller-vat-status" name="vatRegistrationStatus" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select supplied status</option><option value="NOT_REGISTERED">Not registered</option><option value="REGISTERED">Registered</option></select></div>
-      <label>VAT reference (only if registered)<Input name="vatNumber" maxLength={160} helpText="Leave blank if you are not VAT registered." /></label>
+      <label>VAT reference (only if registered)<Input name="vatNumber" error={fieldErrors.vatNumber} maxLength={160} helpText="Leave blank if you are not VAT registered." /></label>
       <div><label htmlFor="seller-receipt-classification">Receipt classification</label><select id="seller-receipt-classification" name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></div>
-      <label>Terms reference (optional)<Input name="termsReference" maxLength={160} helpText="Leave blank if no terms reference applies." /></label>
+      <label>Terms reference (optional)<Input name="termsReference" error={fieldErrors.termsReference} maxLength={160} helpText="Leave blank if no terms reference applies." /></label>
       <p className="sm:col-span-2">Enter effective times in UTC. The review window uses these exact UTC times regardless of your device time zone.</p>
-      <label>Effective from (UTC)<Input name="effectiveFrom" type="datetime-local" required /></label>
-      <label>Effective until (UTC, optional)<Input name="effectiveUntil" type="datetime-local" /></label>
-      <div className="sm:col-span-2"><label htmlFor="seller-evidence-reference">Supplied evidence reference</label><Input id="seller-evidence-reference" name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} required minLength={8} maxLength={240} helpText="Use the reference automatically generated after uploading a genuine supporting document. This is not simply your shop name; an independent administrator must review the evidence." /></div>
+      <label>Effective from (UTC)<Input name="effectiveFrom" type="datetime-local" error={fieldErrors.effectiveFrom} required /></label>
+      <label>Effective until (UTC, optional)<Input name="effectiveUntil" type="datetime-local" error={fieldErrors.effectiveUntil} /></label>
+      <div className="sm:col-span-2"><label htmlFor="seller-evidence-reference">Supplied evidence reference</label><Input id="seller-evidence-reference" name="sourceEvidenceReference" value={evidenceReference} onChange={event => setEvidenceReference(event.target.value)} readOnly error={fieldErrors.sourceEvidenceReference} required minLength={8} maxLength={240} placeholder="PMO-..." helpText="Automatically populated after uploading your supporting verification document above. Do not type your shop name here." /></div>
     </div>
     <label className="flex items-start gap-2"><input name="confirmSuppliedDetails" type="checkbox" required />I confirm these are the supplied seller details and evidence for review.</label>
     {error ? <p role="alert">{error}</p> : null}<p role="status" aria-live="polite">{status}</p>

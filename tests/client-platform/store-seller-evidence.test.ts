@@ -22,4 +22,19 @@ describe("seller identity uploaded evidence association", () => {
     expect((await submitStoreSellerIdentity("owned-store", "owner", { ...input, sourceEvidenceReference: "EXISTING_REVIEWED_EVIDENCE" })).status).toBe("PENDING_REVIEW");
     expect(f.media).not.toHaveBeenCalled();
   });
+  it("rejects free-form shop names such as PammyBakes as sourceEvidenceReference with 422 before any database write", async () => {
+    await expect(
+      submitStoreSellerIdentity("owned-store", "owner", {
+        ...input,
+        sourceEvidenceReference: "PammyBakes",
+      }),
+    ).rejects.toMatchObject({
+      code: "SELLER_EVIDENCE_INVALID",
+      status: 422,
+      message: "Upload your verification document first, then use the automatically generated reference.",
+    });
+    expect(f.media).not.toHaveBeenCalled();
+    expect(f.create).not.toHaveBeenCalled();
+    expect(f.audit).not.toHaveBeenCalled();
+  });
 });
