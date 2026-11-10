@@ -34,17 +34,17 @@ const approvedCheckoutEvidence = Prisma.sql`
         sha256(
           convert_to(
             concat(
-              '{"id":', to_json(pickup."id")::text,
-              ',"storeId":', to_json(pickup."storeId")::text,
-              ',"line1":', to_json(BTRIM(pickup."line1"))::text,
-              ',"line2":', to_json(BTRIM(pickup."line2"))::text,
-              ',"city":', to_json(BTRIM(pickup."city"))::text,
-              ',"province":', to_json(BTRIM(pickup."province"))::text,
-              ',"postalCode":', to_json(BTRIM(pickup."postalCode"))::text,
-              ',"country":', to_json(UPPER(BTRIM(pickup."country")))::text,
-              ',"placeId":', COALESCE(to_json(NULLIF(BTRIM(pickup."placeId"), ''))::text, 'null'),
-              ',"latitude":', to_json(ROUND(pickup."latitude"::numeric, 6)::double precision)::text,
-              ',"longitude":', to_json(ROUND(pickup."longitude"::numeric, 6)::double precision)::text,
+              '{"storeId":', to_json(pickup."storeId")::text,
+              ',"addressId":', to_json(pickup."id")::text,
+              ',"street":', to_json(lower(regexp_replace(btrim(coalesce(pickup."line1", '')), '\s+', ' ', 'g')))::text,
+              ',"suburb":', to_json(lower(regexp_replace(btrim(coalesce(pickup."line2", '')), '\s+', ' ', 'g')))::text,
+              ',"city":', to_json(lower(regexp_replace(btrim(coalesce(pickup."city", '')), '\s+', ' ', 'g')))::text,
+              ',"province":', to_json(lower(regexp_replace(btrim(coalesce(pickup."province", '')), '\s+', ' ', 'g')))::text,
+              ',"postcode":', to_json(lower(regexp_replace(btrim(coalesce(pickup."postalCode", '')), '\s+', ' ', 'g')))::text,
+              ',"country":', to_json(lower(regexp_replace(btrim(coalesce(pickup."country", '')), '\s+', ' ', 'g')))::text,
+              ',"lat":', to_json(to_char(pickup."latitude"::numeric, 'FM990.0000000'))::text,
+              ',"lng":', to_json(to_char(pickup."longitude"::numeric, 'FM990.0000000'))::text,
+              ',"placeId":', to_json(lower(regexp_replace(btrim(coalesce(pickup."placeId", '')), '\s+', ' ', 'g')))::text,
               '}'
             ),
             'UTF8'

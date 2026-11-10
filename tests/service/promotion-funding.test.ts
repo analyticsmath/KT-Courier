@@ -7,7 +7,14 @@ import { createPlatformSubsidyJournal, PROMOTION_JOURNAL_TYPE, PROMOTION_LINE_CO
 describe('promotion-funding service', () => {
   it('fundPlatformPromotionInTransaction throws PromotionsProductionLockedError', async () => {
     const input: PlatformFundingInput = { redemptionId: "redemption-1", campaignVersionId: "campaign-version-1", platformFundedAmount: new Prisma.Decimal("1.00"), paymentId: "payment-1", marketplaceOrderId: "order-1", allocations: [], operationId: "operation-1", requestHash: "hash-1" };
-    await expect(fundPlatformPromotionInTransaction(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
+    const env = process.env as Record<string, string | undefined>;
+    const prev = env.NODE_ENV;
+    try {
+      env.NODE_ENV = 'production';
+      await expect(fundPlatformPromotionInTransaction(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
+    } finally {
+      env.NODE_ENV = prev;
+    }
   });
 
   it('createPlatformSubsidyJournal creates 2-line journal', () => {

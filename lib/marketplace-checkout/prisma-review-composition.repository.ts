@@ -8,7 +8,7 @@ import type { MarketplaceAcknowledgementRepository, MarketplaceCheckoutReviewRep
 import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketplace-checkout/checkout-review.service";
 import { freezeMarketplaceStoreSettlementEvidence } from "@/lib/marketplace-checkout/frozen-seller-settlement-evidence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
-import { resolveMarketplacePaymentPlan } from "./payment-plan";
+import { digitalMarketplacePaymentPlan, resolveMarketplacePaymentPlan } from "./payment-plan";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 
@@ -162,16 +162,78 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         }
         return { group, stored, store, identity, plan };
       }));
+      const groupDiscounts = new Map<string, Prisma.Decimal>();
+      const totalPromoDiscount = new Prisma.Decimal(result.promotionDiscount ?? "0.00");
+      if (totalPromoDiscount.gt(0)) {
+        if (result.promotionEvidence && typeof result.promotionEvidence === "object" && "allocations" in result.promotionEvidence) {
+          const allocs = (result.promotionEvidence as { allocations?: readonly any[] }).allocations;
+          if (Array.isArray(allocs)) {
+            for (const a of allocs) {
+              const ref = a.storeReference;
+              if (ref) {
+                const existing = groupDiscounts.get(ref) ?? new Prisma.Decimal(0);
+                const amt = new Prisma.Decimal(a.platformFundedDiscount ?? 0)
+                  .add(a.storeFundedDiscount ?? 0)
+                  .add(a.discountAmount ?? 0);
+                groupDiscounts.set(ref, existing.add(amt));
+              }
+            }
+          }
+        }
+        const sumAllocated = Array.from(groupDiscounts.values()).reduce((sum, d) => sum.add(d), new Prisma.Decimal(0));
+        if (!sumAllocated.equals(totalPromoDiscount)) {
+          groupDiscounts.clear();
+          const totalDiscountCents = BigInt(Math.round(totalPromoDiscount.toNumber() * 100));
+          const grossCentsList = authority.map(({ group }) => {
+            const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
+            const fee = reviewedQuote ? Number(reviewedQuote.deliveryFee) : 0;
+            const linesTotal = group.lines.reduce((acc, l) => acc + Number(l.lineTotal), 0);
+            return BigInt(Math.round((linesTotal + fee) * 100));
+          });
+          const totalGrossCents = grossCentsList.reduce((acc, c) => acc + c, 0n);
+          let distributed = 0n;
+          authority.forEach(({ group }, idx) => {
+            let allocated = 0n;
+            if (idx === authority.length - 1) {
+              allocated = totalDiscountCents - distributed;
+            } else if (totalGrossCents > 0n) {
+              allocated = (totalDiscountCents * grossCentsList[idx]) / totalGrossCents;
+              distributed += allocated;
+            }
+            groupDiscounts.set(group.storeReference, new Prisma.Decimal((Number(allocated) / 100).toFixed(2)));
+          });
+        }
+      }
+
       const paymentPlans = await Promise.all(authority.map(async ({ group, stored }) => {
         const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
         const quote = reviewedQuote ? await db.pricingQuote.findUnique({ where: { id: reviewedQuote.quoteReference } }) : null;
         const scope = await db.marketplaceCheckout.findUnique({ where: { id: checkout.id }, include: { addressSnapshot: true } });
         const pickup = await db.store.findUnique({ where: { id: stored.storeId }, include: { defaultPickupAddress: true } });
-        const total = group.lines.reduce((sum, line) => sum.add(line.lineTotal), new Prisma.Decimal(reviewedQuote?.deliveryFee ?? 0)).toFixed(2);
-        return { storeId: stored.storeId, plan: await resolveMarketplacePaymentPlan({ storeId: stored.storeId, orderType: "STORE", deliveryServiceId: quote?.deliveryType, deliveryServiceKey: quote?.deliveryType, regionId: quote?.destinationRegionId,
-          originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
-          destinationLocality: { city: scope?.addressSnapshot?.city, suburb: scope?.addressSnapshot?.suburb, province: scope?.addressSnapshot?.province },
-          provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))], total, fulfilmentMode: group.fulfilmentMode, groupCount: authority.length, promotionDiscount: result.promotionDiscount }, db) };
+        const grossTotal = group.lines.reduce((sum, line) => sum.add(line.lineTotal), new Prisma.Decimal(reviewedQuote?.deliveryFee ?? 0));
+        const groupDiscount = groupDiscounts.get(group.storeReference) ?? new Prisma.Decimal(0);
+        const netCustomerLiability = Prisma.Decimal.max(0, grossTotal.minus(groupDiscount)).toFixed(2);
+
+        let plan;
+        if (totalPromoDiscount.gt(0)) {
+          plan = digitalMarketplacePaymentPlan(netCustomerLiability);
+        } else {
+          plan = await resolveMarketplacePaymentPlan({
+            storeId: stored.storeId,
+            orderType: "STORE",
+            deliveryServiceId: quote?.deliveryType,
+            deliveryServiceKey: quote?.deliveryType,
+            regionId: quote?.destinationRegionId,
+            originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
+            destinationLocality: { city: scope?.addressSnapshot?.city, suburb: scope?.addressSnapshot?.suburb, province: scope?.addressSnapshot?.province },
+            provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))],
+            total: netCustomerLiability,
+            fulfilmentMode: group.fulfilmentMode,
+            groupCount: authority.length,
+            promotionDiscount: result.promotionDiscount,
+          }, db);
+        }
+        return { storeId: stored.storeId, plan };
       }));
       const digitalRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.digitalRequired), new Prisma.Decimal(0)).toFixed(2);
       const cashRequired = paymentPlans.reduce((sum, item) => sum.add(item.plan.cashRequired), new Prisma.Decimal(0)).toFixed(2);

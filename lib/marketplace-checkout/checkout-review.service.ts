@@ -95,16 +95,34 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
       );
       if (welcome.eligible && welcome.discountAmountZar && welcome.discountAmountZar !== "0.00") {
         promotionDiscount = welcome.discountAmountZar;
+        const totalDiscountCents = BigInt(parseZarToCents(welcome.discountAmountZar));
+        const groupBases = effectiveGroups.map((g) =>
+          g.lines.reduce((sum, line) => sum + BigInt(parseZarToCents(line.baseUnitPrice)) * BigInt(line.quantity), 0n)
+        );
+        const totalMerchandiseBasis = groupBases.reduce((sum, b) => sum + b, 0n);
+
+        let distributedCents = 0n;
+        const allocations = effectiveGroups.map((g, idx) => {
+          let allocatedForGroup = 0n;
+          if (idx === effectiveGroups.length - 1) {
+            allocatedForGroup = totalDiscountCents - distributedCents;
+          } else if (totalMerchandiseBasis > 0n) {
+            allocatedForGroup = (totalDiscountCents * groupBases[idx]) / totalMerchandiseBasis;
+            distributedCents += allocatedForGroup;
+          }
+          return {
+            storeReference: g.storeReference,
+            platformFundedDiscount: centsToZar(allocatedForGroup.toString()),
+            storeFundedDiscount: "0.00",
+          };
+        });
+
         promotionEvidence = {
           type: "FIRST_STORE_WELCOME",
           discountAmount: welcome.discountAmountZar,
           totalStoreFunding: "0.00",
           totalPlatformFunding: welcome.discountAmountZar,
-          allocations: effectiveGroups.map((g) => ({
-            storeReference: g.storeReference,
-            platformFundedDiscount: welcome.discountAmountZar,
-            storeFundedDiscount: "0.00",
-          })),
+          allocations,
         };
       }
     } catch {

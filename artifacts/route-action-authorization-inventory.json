@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 786,
+    "totalRoutes": 787,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 684,
-    "permissionGatedRoutes": 536,
+    "authenticatedRoutes": 685,
+    "permissionGatedRoutes": 537,
     "webhookSignatureRoutes": 3,
     "rateLimitedRoutes": 227,
-    "generatedAt": "2026-11-09T14:26:44.351Z"
+    "generatedAt": "2026-11-10T17:00:00.000Z"
   },
   "serverActions": [],
   "routes": [
@@ -2486,6 +2486,26 @@
       "requiredPermissions": [
         "legal_holds.read",
         "legal_holds.manage"
+      ],
+      "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/loyalty/adjust/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "customers.update"
       ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,

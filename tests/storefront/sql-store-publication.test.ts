@@ -31,4 +31,19 @@ describe("public catalogue reflects current reviewed store checkout authority", 
   it("does not reuse a historical projection as live certification", () => {
     expect(sqlString(activePublicStoreDocumentSql)).toContain('store."id" = "StorefrontStoreDocument"."storeId"');
   });
+  it("enforces exact pickup fingerprint canonical JSON key parity with pickupCertificationFingerprint", () => {
+    const sql = sqlString(activePublicStoreDocumentSql);
+    expect(sql).toContain('"storeId":');
+    expect(sql).toContain('"addressId":');
+    expect(sql).toContain('"street":');
+    expect(sql).toContain('"suburb":');
+    expect(sql).toContain('"city":');
+    expect(sql).toContain('"province":');
+    expect(sql).toContain('"postcode":');
+    expect(sql).toContain('"country":');
+    expect(sql).toContain('"lat":');
+    expect(sql).toContain('"lng":');
+    expect(sql).toContain('"placeId":');
+    expect(sql).toContain("FM990.0000000");
+  });
 });

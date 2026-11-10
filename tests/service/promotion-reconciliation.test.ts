@@ -3,13 +3,13 @@ import { assertPromotionsProductionReady, PromotionsProductionLockedError, PROMO
 
 describe('promotion-reconciliation service', () => {
   it('RECONCILIATION operation throws PromotionsProductionLockedError', () => {
-    expect(() => assertPromotionsProductionReady('RECONCILIATION')).toThrow(PromotionsProductionLockedError);
+    expect(() => assertPromotionsProductionReady('RECONCILIATION', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
   });
 
   it('all operation types throw when lock is active', () => {
     const operations = ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_SUBMIT', 'CAMPAIGN_APPROVE', 'CAMPAIGN_ACTIVATE', 'CODE_GENERATE', 'CODE_VALIDATE', 'EVALUATION', 'RESERVATION', 'COMMITMENT', 'RELEASE', 'REVERSAL', 'BUDGET_MOVEMENT', 'FUNDING_JOURNAL', 'RECONCILIATION'] as const;
     for (const op of operations) {
-      expect(() => assertPromotionsProductionReady(op)).toThrow(PromotionsProductionLockedError);
+      expect(() => assertPromotionsProductionReady(op, undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
     }
   });
 

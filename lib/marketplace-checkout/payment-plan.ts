@@ -46,6 +46,12 @@ export function assertMarketplacePaymentPlanTotals(input: { grandTotal: string; 
   const cash = new Prisma.Decimal(input.cashRequired ?? 0), digital = new Prisma.Decimal(input.digitalRequired ?? input.grandTotal);
   if (!cash.add(digital).equals(input.grandTotal)) throw invalid();
   const plans = input.groups.map(g => g.paymentPlan ? parseMarketplacePaymentPlan(g.paymentPlan) : digitalMarketplacePaymentPlan(g.groupTotal));
-  if (!plans.reduce((sum,p) => sum.add(p.digitalRequired),new Prisma.Decimal(0)).equals(digital) || !plans.reduce((sum,p) => sum.add(p.cashRequired),new Prisma.Decimal(0)).equals(cash) || plans.some((p,i) => !new Prisma.Decimal(p.authoritativeTotal).equals(input.groups[i].groupTotal))) throw invalid();
+  const plansTotal = plans.reduce((sum, p) => sum.add(p.authoritativeTotal), new Prisma.Decimal(0));
+  if (!plans.reduce((sum, p) => sum.add(p.digitalRequired), new Prisma.Decimal(0)).equals(digital) ||
+      !plans.reduce((sum, p) => sum.add(p.cashRequired), new Prisma.Decimal(0)).equals(cash) ||
+      !plansTotal.equals(input.grandTotal) ||
+      plans.some((p, i) => new Prisma.Decimal(p.authoritativeTotal).gt(input.groups[i].groupTotal))) {
+    throw invalid();
+  }
   if (cash.gt(0) && (plans.length !== 1 || input.groups[0].fulfilmentMode !== "COURIER_DELIVERY" || plans[0].mode !== "DEPOSIT_PLUS_COD")) throw invalid();
 }

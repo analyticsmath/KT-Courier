@@ -24,8 +24,8 @@ describe('promotion-admin API contract', () => {
   });
 
   it('assertPromotionsProductionReady blocks manual actions', () => {
-    expect(() => assertPromotionsProductionReady('COMMITMENT')).toThrow(PromotionsProductionLockedError);
-    expect(() => assertPromotionsProductionReady('EVALUATION')).toThrow(PromotionsProductionLockedError);
-    expect(() => assertPromotionsProductionReady('BUDGET_MOVEMENT')).toThrow(PromotionsProductionLockedError);
+    expect(() => assertPromotionsProductionReady('COMMITMENT', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
+    expect(() => assertPromotionsProductionReady('EVALUATION', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
+    expect(() => assertPromotionsProductionReady('BUDGET_MOVEMENT', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
   });
 });

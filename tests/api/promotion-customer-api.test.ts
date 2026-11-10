@@ -17,7 +17,7 @@ const guestContext = {
 
 describe('promotion-customer API contract', () => {
   it('production lock blocks EVALUATION', () => {
-    expect(() => assertPromotionsProductionReady('EVALUATION')).toThrow();
+    expect(() => assertPromotionsProductionReady('EVALUATION', undefined, { NODE_ENV: 'production' })).toThrow();
   });
 
   it('normalizePromotionCode handles valid input', () => {

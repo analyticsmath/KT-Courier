@@ -13,7 +13,14 @@ describe('promotion-evaluation service', () => {
   it('evaluateMarketplacePromotions throws PromotionsProductionLockedError without test approval', async () => {
     const input: PromotionEvaluationInput = { checkoutId: "checkout-1", storeGroups: [], deliveryQuotes: [], now: new Date() };
     const dependencies: PromotionEvaluationDependencies = { fetchActiveCampaignVersions: async () => [] };
-    await expect(evaluateMarketplacePromotions(input, dependencies)).rejects.toThrow(PromotionsProductionLockedError);
+    const env = process.env as Record<string, string | undefined>;
+    const prev = env.NODE_ENV;
+    try {
+      env.NODE_ENV = 'production';
+      await expect(evaluateMarketplacePromotions(input, dependencies)).rejects.toThrow(PromotionsProductionLockedError);
+    } finally {
+      env.NODE_ENV = prev;
+    }
   });
 
   it('evaluateMarketplacePromotions is a function', () => {

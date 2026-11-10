@@ -7,14 +7,14 @@ describe('Promotion Production Readiness', () => {
   });
 
   it('all operations throw when lock is active', () => {
-    expect(() => assertPromotionsProductionReady('EVALUATION')).toThrow();
+    expect(() => assertPromotionsProductionReady('EVALUATION', undefined, { NODE_ENV: 'production' })).toThrow();
   });
 
   it('testApproval bypass works', () => {
-    expect(() => assertPromotionsProductionReady('EVALUATION', { approved: true })).not.toThrow();
+    expect(() => assertPromotionsProductionReady('EVALUATION', { approved: true }, { NODE_ENV: 'production' })).not.toThrow();
   });
 
   it('promotionsProductionReady returns false', () => {
-    expect(promotionsProductionReady()).toBe(false);
+    expect(promotionsProductionReady({ NODE_ENV: 'production' })).toBe(false);
   });
 });

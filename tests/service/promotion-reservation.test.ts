@@ -6,7 +6,14 @@ import { PromotionsProductionLockedError } from '@/lib/promotions/production-loc
 describe('promotion-reservation service', () => {
   it('reserveCheckoutPromotions throws PromotionsProductionLockedError', async () => {
     const input: ReservationInput = { checkoutId: "checkout-1", checkoutReviewVersion: 1, evaluationResult: { eligible: [], applied: [], rejected: [], stackingEvidence: { selectedPromotionIds: [], rejectedPromotionIds: [], rejectionReasons: {} }, totalDiscount: new Prisma.Decimal(0), totalPlatformFunding: new Prisma.Decimal(0), totalStoreFunding: new Prisma.Decimal(0), allocations: [] }, appliedPromotions: [], operationId: "operation-1", requestHash: "hash-1", now: new Date() };
-    await expect(reserveCheckoutPromotions(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
+    const env = process.env as Record<string, string | undefined>;
+    const prev = env.NODE_ENV;
+    try {
+      env.NODE_ENV = 'production';
+      await expect(reserveCheckoutPromotions(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
+    } finally {
+      env.NODE_ENV = prev;
+    }
   });
 
   it('ReservationInput and ReservationEvidence types exist', () => {
