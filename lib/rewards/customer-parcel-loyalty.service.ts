@@ -29,6 +29,8 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       where: { id: paymentId },
       include: {
         order: true,
+        marketplaceOrder: true,
+        marketplaceCheckout: true,
         successWebhookEvent: true,
         successLedgerJournal: {
           include: { entries: { include: { account: { select: { code: true, purpose: true, category: true } } } } },
@@ -36,9 +38,46 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
         successfulAttempt: true,
       },
     });
-    if (payment.subjectType !== "COURIER_ORDER" || !payment.order
-      || payment.order.customerId !== customerUserId || payment.order.id !== payment.orderId
-      || payment.currency !== "ZAR") throw new Error("Parcel payment ownership evidence is invalid.");
+
+    let vatAmount: Prisma.Decimal;
+    let completed = false;
+    let originalOrderReference = "UNKNOWN";
+    let targetUpdatedAt = payment.updatedAt;
+
+    if (payment.subjectType === "COURIER_ORDER") {
+      if (!payment.order
+        || payment.order.customerId !== customerUserId || payment.order.id !== payment.orderId
+        || payment.currency !== "ZAR") throw new Error("Parcel payment ownership evidence is invalid.");
+
+      await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.order.id} FOR UPDATE`);
+      const order = await tx.order.findUniqueOrThrow({
+        where: { id: payment.order.id }, select: { status: true, pricingTaxAmount: true, updatedAt: true },
+      });
+      if (!order.pricingTaxAmount) throw new Error("Original parcel tax snapshot is missing.");
+      vatAmount = order.pricingTaxAmount;
+      completed = order.status === "DELIVERED" || order.status === "COMPLETED";
+      originalOrderReference = payment.order.orderNumber;
+      targetUpdatedAt = order.updatedAt;
+    } else if (payment.subjectType === "MARKETPLACE_CHECKOUT") {
+      const marketplaceCustId = payment.marketplaceOrder?.customerUserId ?? payment.marketplaceCheckout?.customerUserId;
+      if (!payment.marketplaceOrder
+        || marketplaceCustId !== customerUserId
+        || payment.currency !== "ZAR") throw new Error("Marketplace payment ownership evidence is invalid.");
+
+      const lines = await tx.marketplaceOrderLine.findMany({
+        where: { marketplaceStoreOrder: { marketplaceOrderId: payment.marketplaceOrder.id } },
+        select: { includedTaxAmount: true },
+      });
+      vatAmount = lines.reduce(
+        (total, line) => total.plus(line.includedTaxAmount ?? new Prisma.Decimal(0)),
+        new Prisma.Decimal(0),
+      );
+      completed = payment.marketplaceOrder.status === "CONFIRMED";
+      originalOrderReference = payment.marketplaceOrder.publicReference;
+      targetUpdatedAt = payment.marketplaceOrder.createdAt;
+    } else {
+      throw new Error("Payment subject type is not eligible for customer loyalty points.");
+    }
 
     const journal = payment.successLedgerJournal;
     const webhook = payment.successWebhookEvent;
@@ -62,17 +101,9 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified
       || !attempt || attempt.paymentId !== paymentId || attempt.status !== "SUCCEEDED"
       || attempt.provider !== payment.provider || !attempt.amount.equals(payment.amount)
-      || attempt.currency !== payment.currency || webhook.merchantReference !== attempt.merchantReference
-      || !payment.order.pricingTaxAmount) {
+      || attempt.currency !== payment.currency || webhook.merchantReference !== attempt.merchantReference) {
       throw new Error("Verified payment, immutable ledger receipt or tax evidence is incomplete.");
     }
-
-    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.order.id} FOR UPDATE`);
-    const order = await tx.order.findUniqueOrThrow({
-      where: { id: payment.order.id }, select: { status: true, pricingTaxAmount: true, updatedAt: true },
-    });
-    if (!order.pricingTaxAmount) throw new Error("Original parcel tax snapshot is missing.");
-    const completed = order.status === "DELIVERED" || order.status === "COMPLETED";
 
     // Includes refund reservations so an in-flight refund does not temporarily
     // create redeemable points; replay after refund confirmation/release.
@@ -82,7 +113,7 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
     const pointsPerZar = prior?.pointsPerZar ?? (await loadCustomerRewardPolicy(tx)).pointsPerZar;
     const expected = earnedCustomerPoints({
       providerPaidZar: payment.amount.toFixed(2),
-      vatZar: order.pricingTaxAmount.toFixed(2),
+      vatZar: vatAmount.toFixed(2),
       refundedProviderZar: refunded.toFixed(2),
       paymentVerified: true, orderCompleted: completed, pointsPerZar,
     });
@@ -95,7 +126,7 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       // does not change points, record that it was examined so it cannot
       // indefinitely occupy the front of every subsequent bounded scan.
       // Locks on the payment and order are held until this update commits.
-      if (payment.updatedAt > prior.updatedAt || order.updatedAt > prior.updatedAt) {
+      if (payment.updatedAt > prior.updatedAt || targetUpdatedAt > prior.updatedAt) {
         await tx.customerLoyaltyEarning.update({ where: { paymentId }, data: { updatedAt: new Date() } });
       }
       return { status: "REPLAYED" as const, recognizedPoints: expected.toString(), availablePoints: (account?.availablePoints ?? 0n).toString(), debtPoints: (account?.debtPoints ?? 0n).toString(), revision: prior.revision };
@@ -114,10 +145,10 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       recognizedPoints: expected, pointsPerZar,
       eligibleBasisAmount: new Prisma.Decimal(centsToZar(remainingEligibleCustomerLoyaltyCents({
         providerPaidZar: payment.amount.toFixed(2),
-        vatZar: order.pricingTaxAmount.toFixed(2),
+        vatZar: vatAmount.toFixed(2),
         refundedProviderZar: refunded.toFixed(2),
       }))),
-      vatAmount: order.pricingTaxAmount, refundedAmount: refunded, revision,
+      vatAmount, refundedAmount: refunded, revision,
     };
     if (prior) await tx.customerLoyaltyEarning.update({ where: { paymentId }, data });
     else await tx.customerLoyaltyEarning.create({ data: { paymentId, userId: customerUserId, ...data } });
@@ -134,9 +165,9 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       availablePointsAfter: next.availablePoints, debtPointsAfter: next.debtPoints,
       policySnapshot: {
         pointsPerZar, verifiedPaymentReference: payment.publicReference,
-        originalOrderReference: payment.order.orderNumber,
+        originalOrderReference,
         digitalPaidZar: payment.amount.toFixed(2),
-        vatZar: order.pricingTaxAmount.toFixed(2),
+        vatZar: vatAmount.toFixed(2),
         settledOrReservedRefundZar: refunded.toFixed(2), completed,
       },
     } });
@@ -148,3 +179,6 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 }));
 }
+
+export const reconcileCompletedOrderLoyalty = reconcileCompletedParcelLoyalty;
+

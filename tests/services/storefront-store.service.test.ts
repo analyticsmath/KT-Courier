@@ -1,6 +1,31 @@
 import { beforeEach, expect, test, vi } from "vitest";
-const dependencies = vi.hoisted(() => ({ storeFindUnique: vi.fn(), certificationFindUnique: vi.fn(), queryRaw: vi.fn(), storeUpsert: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (work: (tx: unknown) => Promise<unknown>) => work({ store: { findUnique: dependencies.storeFindUnique }, storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } }), store: { findUnique: dependencies.storeFindUnique }, storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique }, $queryRaw: dependencies.queryRaw, storefrontStoreDocument: { upsert: dependencies.storeUpsert } } }));
+const dependencies = vi.hoisted(() => ({
+  storeFindUnique: vi.fn(),
+  certificationFindUnique: vi.fn(),
+  sellerIdentityFindFirst: vi.fn(),
+  operationalPolicyFindFirst: vi.fn(),
+  queryRaw: vi.fn(),
+  storeUpsert: vi.fn(),
+}));
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: {
+    $transaction: async (work: (tx: unknown) => Promise<unknown>) =>
+      work({
+        store: { findUnique: dependencies.storeFindUnique },
+        storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique },
+        storeSellerLegalIdentity: { findFirst: dependencies.sellerIdentityFindFirst },
+        storeOrderOperationalPolicy: { findFirst: dependencies.operationalPolicyFindFirst },
+        $queryRaw: dependencies.queryRaw,
+        storefrontStoreDocument: { upsert: dependencies.storeUpsert },
+      }),
+    store: { findUnique: dependencies.storeFindUnique },
+    storeCheckoutCertification: { findUnique: dependencies.certificationFindUnique },
+    storeSellerLegalIdentity: { findFirst: dependencies.sellerIdentityFindFirst },
+    storeOrderOperationalPolicy: { findFirst: dependencies.operationalPolicyFindFirst },
+    $queryRaw: dependencies.queryRaw,
+    storefrontStoreDocument: { upsert: dependencies.storeUpsert },
+  },
+}));
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 
@@ -11,7 +36,20 @@ const pickup = {
   latitude: -26.1, longitude: 28.05,
 };
 
-beforeEach(() => { vi.clearAllMocks(); dependencies.certificationFindUnique.mockResolvedValue(null); });
+beforeEach(() => {
+  vi.clearAllMocks();
+  dependencies.certificationFindUnique.mockResolvedValue(null);
+  dependencies.sellerIdentityFindFirst.mockResolvedValue({
+    status: "APPROVED",
+    effectiveFrom: new Date(Date.now() - 60_000),
+    effectiveUntil: null,
+  });
+  dependencies.operationalPolicyFindFirst.mockResolvedValue({
+    status: "ACTIVE",
+    effectiveFrom: new Date(Date.now() - 60_000),
+    effectiveUntil: null,
+  });
+});
 
 test("store service publishes a privacy-minimised projection only with a complete saved pickup AND reviewed checkout", async () => {
   dependencies.certificationFindUnique.mockResolvedValue({
@@ -52,6 +90,26 @@ test("expired independent checkout certification cannot republish merchant as Li
     approvedAt: new Date(Date.now() - 86_400_000), expiresAt: new Date(Date.now() - 1000),
     routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
   });
+  await rebuildStorefrontStoreDocument("store");
+  expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE" });
+});
+
+test("store service keeps a store ineligible when approved seller identity or active operational policy is missing", async () => {
+  dependencies.storeFindUnique.mockResolvedValue({ id: "store", slug: "tea-store", name: "Tea Store", status: "ACTIVE", updatedAt: new Date(), defaultPickupAddress: pickup, savedAddresses: [pickup] });
+  dependencies.queryRaw.mockResolvedValue([{ categoryPublicReference: "CC-1", fulfilmentMode: "COURIER_DELIVERY" }]);
+  dependencies.certificationFindUnique.mockResolvedValue({
+    status: "APPROVED", pickupAddressId: pickup.id, pickupFingerprint: pickupCertificationFingerprint(pickup),
+    preparedByUserId: "admin-one", approvedByUserId: "admin-two",
+    approvedAt: new Date(Date.now() - 60_000), expiresAt: new Date(Date.now() + 86_400_000),
+    routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
+  });
+
+  dependencies.sellerIdentityFindFirst.mockResolvedValueOnce(null);
+  await rebuildStorefrontStoreDocument("store");
+  expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE" });
+
+  dependencies.storeUpsert.mockClear();
+  dependencies.operationalPolicyFindFirst.mockResolvedValueOnce(null);
   await rebuildStorefrontStoreDocument("store");
   expect(dependencies.storeUpsert.mock.calls[0][0].create).toMatchObject({ publicStatus: "INELIGIBLE" });
 });

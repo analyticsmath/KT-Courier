@@ -23,7 +23,24 @@ const ref = (prefix: string) => `${prefix}-${randomUUID().replaceAll("-", "").to
 const journalInclude = { accrualLedgerJournal: { select: { reference: true } }, releaseLedgerJournal: { select: { reference: true } }, reversalLedgerJournal: { select: { reference: true } } } as const;
 
 function dto(row: any) { return Object.freeze({ id: row.id, publicReference: row.publicReference, status: row.status, settlementBasisAmount: formatDriverEarningMoney(row.settlementBasisAmount), attributedCommissionAmount: formatDriverEarningMoney(row.attributedCommissionAmount), amount: formatDriverEarningMoney(row.amount), currency: row.currency, accrualLedgerJournalReference: row.accrualLedgerJournal.reference, releaseLedgerJournalReference: row.releaseLedgerJournal?.reference ?? null, reversalLedgerJournalReference: row.reversalLedgerJournal?.reference ?? null }); }
-function assertPayment(payment: any, snapshot: DriverSettlementSnapshot, marketplaceFunding = false) { const webhook = payment?.successWebhookEvent; if (!payment || (!marketplaceFunding && payment.orderId !== snapshot.orderId) || payment.publicReference !== snapshot.paymentPublicReference || payment.status !== "SUCCEEDED" || payment.currency !== "ZAR" || payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "A verified successful matching ZAR payment is required."); if (!payment.totalRefundedAmount.isZero() || !payment.totalRefundReservedAmount.isZero() || payment.reconciliationStatus !== "CLEAR") throw new DriverEarningError("DRIVER_EARNING_REFUND_EVIDENCE_REQUIRED", "Payment has incompatible refund or reconciliation exposure."); }
+function assertPayment(payment: any, snapshot: DriverSettlementSnapshot, marketplaceFunding = false) {
+  const webhook = payment?.successWebhookEvent;
+  if (!payment || (!marketplaceFunding && payment.orderId !== snapshot.orderId) || payment.publicReference !== snapshot.paymentPublicReference || payment.status !== "SUCCEEDED" || payment.currency !== "ZAR") {
+    throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "A verified successful matching ZAR payment is required.");
+  }
+  if (payment.provider === "MANUAL") {
+    if (payment.successLedgerJournal?.type !== "ACCOUNT_TRANSFER") {
+      throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "Wallet-funded payment requires a valid account transfer journal.");
+    }
+  } else {
+    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) {
+      throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "A verified successful matching ZAR payment is required.");
+    }
+  }
+  if (!payment.totalRefundedAmount.isZero() || !payment.totalRefundReservedAmount.isZero() || payment.reconciliationStatus !== "CLEAR") {
+    throw new DriverEarningError("DRIVER_EARNING_REFUND_EVIDENCE_REQUIRED", "Payment has incompatible refund or reconciliation exposure.");
+  }
+}
 const paymentInclude = marketplaceDigitalReceiptInclude;
 function assignmentEvidence(row: any) { return { id: row.id, publicReference: assignmentPublicReference(row.id), version: String(row.version), driverId: row.driverProfileId, orderId: row.orderId, status: row.status, completedAt: row.completedAt?.toISOString() ?? null, podAssignmentId: row.proofOfDelivery?.assignmentId ?? null, podDriverId: row.proofOfDelivery?.driverProfileId ?? null, podOrderId: row.proofOfDelivery?.orderId ?? null, podDeliveredAt: row.proofOfDelivery?.deliveredAt?.toISOString() ?? null, hasDeliveryCompletedEvent: row.operationalEvents.some((e: any) => e.eventType === "DELIVERY_COMPLETED"), hasAssignmentCompletedEvent: row.events.some((e: any) => e.eventType === "ASSIGNMENT_COMPLETED") }; }
 

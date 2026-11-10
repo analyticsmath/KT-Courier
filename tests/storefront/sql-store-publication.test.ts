@@ -18,6 +18,11 @@ describe("public catalogue reflects current reviewed store checkout authority", 
     expect(sql).toContain('cert."checkoutEvidenceDigest"');
     expect(sql).toContain('pickup."storeId" = store."id"');
     expect(sql).toContain("pickup.\"type\" = 'PICKUP'");
+    expect(sql).toContain('cert."pickupFingerprint"');
+    expect(sql).toContain('"StoreSellerLegalIdentity"');
+    expect(sql).toContain("identity.\"status\" = 'APPROVED'");
+    expect(sql).toContain('"StoreOrderOperationalPolicy"');
+    expect(sql).toContain("policy.\"status\" = 'ACTIVE'");
     expect(sql).toContain('store."status" = \'ACTIVE\'');
   });
   it("ties catalogue product offers to the correct exact store, not just the same slug", () => {

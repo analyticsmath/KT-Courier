@@ -14,5 +14,26 @@ describe("canonical PostgreSQL storefront search", () => {
     expect((await search.search({ store: f.store.slug, maxPrice: "99.99" })).resultCount).toBe(0);
     expect((await search.search({ store: f.store.slug, availability: ["OUT_OF_STOCK"] })).resultCount).toBe(0);
     expect((await search.search({ store: "' OR 1=1 --" })).resultCount).toBe(0);
+
+    // Revoking or expiring seller legal identity immediately hides cached product projections
+    const { prisma } = await import("@/lib/db/prisma");
+    await prisma.storeSellerLegalIdentity.updateMany({
+      where: { storeId: f.store.id },
+      data: { status: "RETIRED" },
+    });
+    expect((await search.search({ store: f.store.slug })).resultCount).toBe(0);
+
+    // Restoring seller legal identity restores visibility, while mutating pickup line1 invalidates pickupFingerprint
+    await prisma.storeSellerLegalIdentity.updateMany({
+      where: { storeId: f.store.id },
+      data: { status: "APPROVED" },
+    });
+    expect((await search.search({ store: f.store.slug })).resultCount).toBe(1);
+
+    await prisma.address.updateMany({
+      where: { storeId: f.store.id, type: "PICKUP" },
+      data: { line1: "99 Uncertified Moved Lane" },
+    });
+    expect((await search.search({ store: f.store.slug })).resultCount).toBe(0);
   });
 });

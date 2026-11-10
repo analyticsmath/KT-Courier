@@ -1,3 +1,4 @@
+import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
 import {
   isStorePubliclyCheckoutReady,
@@ -11,8 +12,8 @@ export type AdminStoreCheckoutFacts = Readonly<{
   publishedOfferCount: number;
   pickup: StorePickupAddressCandidate | null;
   certification: PublicStoreCheckoutCertificate | null;
-  hasApprovedSellerIdentity?: boolean;
-  hasActiveOperationalPolicy?: boolean;
+  hasApprovedSellerIdentity: boolean;
+  hasActiveOperationalPolicy: boolean;
   now?: Date;
 }>;
 
@@ -27,10 +28,10 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
   if (!Number.isSafeInteger(input.publishedOfferCount) || input.publishedOfferCount < 1) {
     blockers.push("No published products available");
   }
-  if (input.hasApprovedSellerIdentity === false) {
+  if (input.hasApprovedSellerIdentity !== true) {
     blockers.push("Approved legal seller identity missing or expired");
   }
-  if (input.hasActiveOperationalPolicy === false) {
+  if (input.hasActiveOperationalPolicy !== true) {
     blockers.push("Active store order operational policy missing or expired");
   }
 
@@ -52,6 +53,14 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
       cert.expiresAt.getTime() <= now.getTime()) blockers.push("Checkout certification expired");
     if (input.pickup?.id && cert.pickupAddressId !== input.pickup.id) {
       blockers.push("Collection address changed since checkout certification");
+    } else if (collection.checkoutPickupConfigured && input.pickup) {
+      try {
+        if (cert.pickupFingerprint !== pickupCertificationFingerprint(input.pickup)) {
+          blockers.push("Reconfirm the saved pickup against current approved checkout evidence");
+        }
+      } catch {
+        blockers.push("Reconfirm the saved pickup against current approved checkout evidence");
+      }
     }
   }
 

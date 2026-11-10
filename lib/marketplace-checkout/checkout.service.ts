@@ -24,6 +24,8 @@ import {
 } from "@/lib/marketplace-checkout/inventory-reservation.service";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { settleAndFinalizeLocalDemoPayment } from "@/lib/marketplace-checkout/local-demo-payment-settlement.service";
+import { onVerifiedMarketplacePaymentSucceededInProduction } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
+import { releaseWalletSpendWithinTransaction } from "@/lib/services/wallet-spending.service";
 import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
 import {
@@ -670,6 +672,7 @@ export async function prepareMarketplacePayment(input: {
   expectedVersion: number;
   operationId: string;
   requestHash: string;
+  walletAmount?: string | null;
   testApproval?: { approved: true };
 }) {
   resolveMarketplaceCheckoutProductionComposition();
@@ -701,10 +704,13 @@ export async function prepareMarketplacePayment(input: {
       checkoutReference: input.reference,
       payerEmail: checkout.contactSnapshot.email,
       operationId: input.operationId,
+      walletAmount: input.walletAmount,
       testApproval: input.testApproval,
     },
   );
-  if (isLocalFullFlowAllowed()) {
+  if (prepared.walletSettled) {
+    await onVerifiedMarketplacePaymentSucceededInProduction(prepared.paymentId);
+  } else if (isLocalFullFlowAllowed()) {
     await settleAndFinalizeLocalDemoPayment({
       paymentId: prepared.paymentId,
       checkoutId: checkout.id,
@@ -752,6 +758,26 @@ export async function cancelMarketplaceCheckout(input: {
     paymentStatus,
     paymentOutcomeKnown,
   });
+
+  // Release any reserved split wallet funds
+  const meta = checkout.payment?.metadata as Record<string, unknown> | null;
+  if (meta?.walletAmount && meta?.walletSplit) {
+    const ownerType = (meta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
+    const ownerId = (meta.walletOwnerId as string) || (checkout.customerUserId ?? "");
+    await releaseWalletSpendWithinTransaction(prisma, {
+      owner: { ownerType, ownerId },
+      amount: String(meta.walletAmount),
+      operationId: `cancel:${input.operationId}`,
+      subject: {
+        subjectType: "MARKETPLACE_CHECKOUT",
+        subjectId: checkout.id,
+        subjectReference: checkout.publicReference,
+      },
+      reason: "Marketplace checkout cancelled",
+      actorUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : undefined,
+    });
+  }
+
   return Object.freeze({ released: true, status: released.status });
 }
 

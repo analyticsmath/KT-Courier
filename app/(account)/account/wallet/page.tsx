@@ -27,8 +27,9 @@ export default async function CustomerWalletPage() {
             : "Your wallet records cannot be read right now. Please contact support."}
         />
       ) : <>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <MetricTile label="Available balance" value={formatCustomerMoney(wallet.availableBalance, wallet.currency)} description="Ledger-backed refund and reward credits" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <MetricTile label="Available balance" value={formatCustomerMoney(wallet.availableBalance, wallet.currency)} description="Spendable at parcel and marketplace checkout" />
+          <MetricTile label="Reserved for checkout" value={formatCustomerMoney(wallet.reservedBalance ?? "0.00", wallet.currency)} description="Held for pending split-payment checkouts" />
           <MetricTile label="Refunds being held" value={formatCustomerMoney(wallet.refundHeldBalance, wallet.currency)} description="Reserved refunds are not spendable" />
         </div>
         <OperationalPanel title="Recent wallet activity" action={<CustomerAction href="/account/wallet/transactions">View all activity</CustomerAction>}>
@@ -62,7 +63,7 @@ export default async function CustomerWalletPage() {
           ]}
         />
       </OperationalPanel>
-      <OperationalPanel title="Wallet boundary"><p className="text-sm leading-6 text-[var(--eo-text-secondary)]">Your wallet may receive qualifying refunds and redeemed loyalty credits. It cannot currently be topped up, transferred, withdrawn, or used at parcel or marketplace checkout.</p></OperationalPanel>
+      <OperationalPanel title="Wallet boundary"><p className="text-sm leading-6 text-[var(--eo-text-secondary)]">Your wallet receives qualifying refunds and redeemed loyalty credits, and can be spent on parcel bookings and marketplace store orders. Customer wallets cannot be directly topped up, transferred between accounts, or withdrawn as cash.</p></OperationalPanel>
     </CustomerPage>
   );
 }

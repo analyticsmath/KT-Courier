@@ -6,15 +6,38 @@ import { isCanonicalExternalPaymentReceipt } from "@/lib/payments/canonical-exte
  * the platform's held funds for precisely the digital allocation. */
 export function assertMarketplaceDigitalReceipt(payment: unknown, required: string): void {
   const p = payment as {
-    status?: string; amount?: Prisma.Decimal; currency?: string; subjectType?: string;
+    status?: string; amount?: Prisma.Decimal; currency?: string; subjectType?: string; provider?: string | null; metadata?: unknown;
     successfulAttempt?: { id?: string; status?: string; amount?: Prisma.Decimal } | null;
     successWebhookEvent?: { processingStatus?: string; signatureVerified?: boolean; merchantVerified?: boolean; amountVerified?: boolean; providerDataVerified?: boolean } | null;
     successLedgerJournal?: { type?: string; currency?: string; totalDebits?: Prisma.Decimal; totalCredits?: Prisma.Decimal; entries?: { direction: string; amount: Prisma.Decimal; account: { code: string; purpose: string; category: string } }[] } | null;
   } | null;
   const r = p?.successLedgerJournal, w = p?.successWebhookEvent;
   const expected = new Prisma.Decimal(required);
-  const funded = r?.entries && isCanonicalExternalPaymentReceipt({ amount: expected, entries: r.entries });
-  if (!p || p.subjectType !== "MARKETPLACE_CHECKOUT" || p.status !== "SUCCEEDED" || p.currency !== "ZAR" || !p.amount?.equals(expected) || p.successfulAttempt?.status !== "SUCCEEDED" || !w || w.processingStatus !== "APPLIED" || !w.signatureVerified || !w.merchantVerified || !w.amountVerified || !w.providerDataVerified || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(expected) || !r.totalCredits?.equals(expected) || !funded) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+  if (!p || p.subjectType !== "MARKETPLACE_CHECKOUT" || p.status !== "SUCCEEDED" || p.currency !== "ZAR") {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+  }
+  if (p.provider === "MANUAL") {
+    if (!p.amount?.equals(expected) || r?.type !== "ACCOUNT_TRANSFER" || r.currency !== "ZAR" || !r.totalDebits?.equals(expected) || !r.totalCredits?.equals(expected)) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+    }
+    const creditedHeld = r?.entries?.find(e => e.direction === "CREDIT" && e.amount.equals(expected) && e.account.purpose === "HELD" && e.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR");
+    const debitedWallet = r?.entries?.find(e => e.direction === "DEBIT" && e.amount.equals(expected) && e.account.category === "LIABILITY");
+    if (!creditedHeld || !debitedWallet) {
+      throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Wallet digital receipt does not credit platform held funds from customer wallet.");
+    }
+    return;
+  }
+  const meta = p.metadata && typeof p.metadata === "object" ? (p.metadata as Record<string, unknown>) : null;
+  const walletAmountStr = typeof meta?.walletAmount === "string" ? meta.walletAmount : null;
+  const walletAmount = walletAmountStr ? new Prisma.Decimal(walletAmountStr) : new Prisma.Decimal(0);
+  const totalDigital = p.amount ? p.amount.add(walletAmount) : new Prisma.Decimal(0);
+  if (!totalDigital.equals(expected)) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+  }
+  const funded = r?.entries && isCanonicalExternalPaymentReceipt({ amount: p.amount!, entries: r.entries });
+  if (p.successfulAttempt?.status !== "SUCCEEDED" || !w || w.processingStatus !== "APPLIED" || !w.signatureVerified || !w.merchantVerified || !w.amountVerified || !w.providerDataVerified || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(p.amount!) || !r.totalCredits?.equals(p.amount!) || !funded) {
+    throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
+  }
 }
 export const marketplaceDigitalReceiptInclude = {
   successfulAttempt: true,

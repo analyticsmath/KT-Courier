@@ -16,11 +16,38 @@ const cert = {
   expiresAt: new Date("2026-11-10T08:00:00.000Z"),
   routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
 };
-const base = { status: "ACTIVE", name: "Gauteng Merchant", publishedOfferCount: 2, pickup, certification: cert, now: new Date("2026-11-09T12:00:00.000Z") };
+const base = {
+  status: "ACTIVE",
+  name: "Gauteng Merchant",
+  publishedOfferCount: 2,
+  pickup,
+  certification: cert,
+  hasApprovedSellerIdentity: true,
+  hasActiveOperationalPolicy: true,
+  now: new Date("2026-11-09T12:00:00.000Z"),
+};
 
 describe("superuser store checkout-blocked inventory", () => {
   it("does not classify a current independently certified merchant as blocked", () => {
     expect(describeStoreCheckoutBlockers(base)).toEqual([]);
+  });
+  it("fails closed when seller identity or operational policy is false or omitted", () => {
+    expect(describeStoreCheckoutBlockers({ ...base, hasApprovedSellerIdentity: false }))
+      .toContain("Approved legal seller identity missing or expired");
+    expect(describeStoreCheckoutBlockers({ ...base, hasActiveOperationalPolicy: false }))
+      .toContain("Active store order operational policy missing or expired");
+    expect(
+      describeStoreCheckoutBlockers({
+        ...base,
+        hasApprovedSellerIdentity: undefined as unknown as boolean,
+      }),
+    ).toContain("Approved legal seller identity missing or expired");
+    expect(
+      describeStoreCheckoutBlockers({
+        ...base,
+        hasActiveOperationalPolicy: undefined as unknown as boolean,
+      }),
+    ).toContain("Active store order operational policy missing or expired");
   });
   it("reports the merchant's exact missing pickup fields", () => {
     const blockers = describeStoreCheckoutBlockers({ ...base, pickup: { ...pickup, line2: "", postalCode: "", latitude: null } });

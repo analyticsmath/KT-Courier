@@ -148,7 +148,7 @@ export async function getStorefrontProduct(productReference: string): Promise<{ 
 }
 
 export async function getStorefrontBrandName(brandReference: string) {
-  const rows = await prisma.$queryRaw<Array<{ brandName: string | null }>>(Prisma.sql`SELECT "brandName" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "brandPublicReference" = ${brandReference} AND "brandName" IS NOT NULL LIMIT 1`);
+  const rows = await prisma.$queryRaw<Array<{ brandName: string | null }>>(Prisma.sql`SELECT "brandName" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND ${activePublicProductDocumentSql} AND "brandPublicReference" = ${brandReference} AND "brandName" IS NOT NULL LIMIT 1`);
   return rows[0]?.brandName ?? null;
 }
 
@@ -160,7 +160,7 @@ export async function getStorefrontFacetDisplayNames(input: Readonly<{ storeSlug
       ? prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activePublicStoreDocumentSql} AND "slug" IN (${Prisma.join(storeSlugs)})`)
       : Promise.resolve([]),
     brandReferences.length
-      ? prisma.$queryRaw<Array<{ brandPublicReference: string; brandName: string }>>(Prisma.sql`SELECT DISTINCT ON ("brandPublicReference") "brandPublicReference", "brandName" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND "brandPublicReference" IN (${Prisma.join(brandReferences)}) AND "brandName" IS NOT NULL ORDER BY "brandPublicReference", "publishedAt" DESC`)
+      ? prisma.$queryRaw<Array<{ brandPublicReference: string; brandName: string }>>(Prisma.sql`SELECT DISTINCT ON ("brandPublicReference") "brandPublicReference", "brandName" FROM "StorefrontProductDocument" WHERE "status" = 'ACTIVE' AND ${activePublicProductDocumentSql} AND "brandPublicReference" IN (${Prisma.join(brandReferences)}) AND "brandName" IS NOT NULL ORDER BY "brandPublicReference", "publishedAt" DESC`)
       : Promise.resolve([]),
   ]);
   return {

@@ -9,15 +9,40 @@ export class PromotionsProductionLockedError extends Error {
   }
 }
 
-/** There is intentionally no environment-variable bypass. */
+export type PromotionsReleaseGate = Readonly<{
+  approved: boolean;
+  reason: string | null;
+}>;
+
+export function evaluatePromotionsReleaseGate(
+  source: Record<string, string | undefined> = process.env,
+): PromotionsReleaseGate {
+  const isProduction = source.NODE_ENV === "production";
+  const isTestOrDisposable =
+    source.NODE_ENV === "test" ||
+    source.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" ||
+    source.KT_PROMOTIONS_TEST_APPROVED === "true";
+  const approved = (!isProduction && isTestOrDisposable) || PROMOTIONS_PRODUCTION_VALIDATION_APPROVED;
+  return Object.freeze({
+    approved,
+    reason: approved ? null : PROMOTIONS_PRODUCTION_BLOCK_REASON,
+  });
+}
+
+/** In production, fails closed until independently approved. In verified test environments, allows execution. */
 export function assertPromotionsProductionReady(
   operation: PromotionsProductionLockedError["operation"],
   testApproval?: { approved: true },
+  source: Record<string, string | undefined> = process.env,
 ): void {
-  if (PROMOTIONS_PRODUCTION_VALIDATION_APPROVED || testApproval?.approved === true) return;
+  if (testApproval?.approved === true) return;
+  const gate = evaluatePromotionsReleaseGate(source);
+  if (gate.approved) return;
   throw new PromotionsProductionLockedError(operation);
 }
 
-export function promotionsProductionReady(): boolean {
-  return PROMOTIONS_PRODUCTION_VALIDATION_APPROVED;
+export function promotionsProductionReady(
+  source: Record<string, string | undefined> = process.env,
+): boolean {
+  return evaluatePromotionsReleaseGate(source).approved;
 }

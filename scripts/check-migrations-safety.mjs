@@ -137,6 +137,12 @@ const approvedDestructiveOperations = [
     statement: /^\s*ALTER\s+TABLE\s+"PromoterAttribution"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"PromoterAttribution_one_subject"\s*;\s*$/i,
     reason: "Replaces the three-subject check with the additive four-subject check required for driver acquisition; no attribution rows or columns are removed.",
   },
+  {
+    migration: "20261110150000_phase2_wallet_spending_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_succeeded_requires_provider_evidence_check"\s*;\s*$/i,
+    reason: "Replaces Payment_succeeded_requires_provider_evidence_check in-place to allow provider='MANUAL' internal wallet ledger evidence while preserving strict external provider attempt/webhook/journal checks.",
+  },
 ];
 
 function checksum(file) {

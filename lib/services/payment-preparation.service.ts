@@ -11,6 +11,13 @@ import { PrepareOrderPaymentSchema, type PrepareOrderPaymentInput } from "@/lib/
 import { resolveOrderPaymentSubject } from "./payment-subject.service";
 import { assertMarketplacePaymentPlanTotals } from "@/lib/marketplace-checkout/payment-plan";
 import { assertPaymentSubjectIntegrity, marketplacePaymentSubject } from "@/lib/payments/payment-subject-policy";
+import {
+  consumeWalletSpendWithinTransaction,
+  getWalletSpendableBalance,
+  reserveWalletSpendWithinTransaction,
+  resolveWalletSpendBreakdown,
+  spendWalletForParcelOrderWithinTransaction,
+} from "./wallet-spending.service";
 
 const PAYMENT_SUMMARY_INCLUDE = {
   order: { select: { id: true, orderNumber: true } },
@@ -67,6 +74,16 @@ export async function prepareOrderPayment(
           throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
         }
         return toPaymentSummaryDto(existing);
+      }
+
+      if (parsed.data.walletAmount && parsed.data.walletAmount !== "0.00") {
+        const walletPayment = await spendWalletForParcelOrderWithinTransaction(tx, {
+          payer,
+          orderId: parsed.data.orderId,
+          idempotencyKey: parsed.data.idempotencyKey,
+          walletAmount: parsed.data.walletAmount,
+        });
+        if (walletPayment) return walletPayment;
       }
 
       const existingForOrder = await tx.payment.findUnique({
@@ -144,6 +161,7 @@ export type MarketplacePaymentPreparationCommand = Readonly<{
   customerUserId?: string | null;
   guestAccessTokenHash?: string | null;
   operationId: string;
+  walletAmount?: string | null;
 }>;
 
 export async function prepareMarketplacePayment(command: MarketplacePaymentPreparationCommand): Promise<MarketplacePreparedPayment> {
@@ -155,6 +173,7 @@ export async function prepareMarketplacePayment(command: MarketplacePaymentPrepa
       currency: command.currency,
       commercialFingerprint: command.commercialFingerprint,
       operationId: command.operationId,
+      walletAmount: command.walletAmount,
     },
     {
       subjectType: "MARKETPLACE_CHECKOUT",
@@ -170,7 +189,14 @@ export async function prepareMarketplacePayment(command: MarketplacePaymentPrepa
  * Phase 10 marketplace entry point. It reuses the Payment aggregate,
  * idempotency and history policy while deliberately omitting Order creation.
  */
-export type MarketplacePreparedPayment = Readonly<{ id: string; publicReference: string; amount: string; currency: "ZAR"; replayed: boolean }>;
+export type MarketplacePreparedPayment = Readonly<{
+  id: string;
+  publicReference: string;
+  amount: string;
+  currency: "ZAR";
+  replayed: boolean;
+  walletSettled?: boolean;
+}>;
 
 export async function prepareMarketplaceCheckoutPayment(
   command: Readonly<{
@@ -180,6 +206,7 @@ export async function prepareMarketplaceCheckoutPayment(
     currency: "ZAR";
     commercialFingerprint: string;
     operationId: string;
+    walletAmount?: string | null;
   }>,
   subject: Readonly<{
     subjectType: "MARKETPLACE_CHECKOUT";
@@ -215,7 +242,7 @@ export async function prepareMarketplaceCheckoutPayment(
     const existing = await tx.payment.findUnique({ where: { creationIdempotencyKey: command.operationId } });
     if (existing) {
       if (existing.creationRequestHash !== requestHash) throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for different marketplace evidence.");
-      return Object.freeze({ id: existing.id, publicReference: existing.publicReference, amount: existing.amount.toFixed(2), currency: "ZAR" as const, replayed: true });
+      return Object.freeze({ id: existing.id, publicReference: existing.publicReference, amount: existing.amount.toFixed(2), currency: "ZAR" as const, replayed: true, walletSettled: existing.status === "SUCCEEDED" && existing.provider === "MANUAL" });
     }
     const existingCheckoutPayment = await tx.payment.findUnique({ where: { marketplaceCheckoutId: command.checkoutId } });
     if (existingCheckoutPayment) throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Marketplace checkout already has a payment under a different operation.");
@@ -224,6 +251,149 @@ export async function prepareMarketplaceCheckoutPayment(
     const reservation = await tx.marketplaceInventoryReservation.findFirst({ where: { checkoutId: checkout.id, status: { in: ["ACTIVE", "PAYMENT_PENDING_HOLD"] }, commercialFingerprint: command.commercialFingerprint, expiresAt: { gt: new Date() } } });
     if (!["RESERVED", "PAYMENT_PREPARING", "PAYMENT_PENDING"].includes(checkout.status) || !reservation) throw new PaymentError("PAYMENT_METADATA_INVALID", "An unexpired accepted inventory reservation is required before creating a marketplace payment.");
     assertMarketplacePaymentPlanTotals({ grandTotal: checkout.grandTotal.toFixed(2), digitalRequired: checkout.digitalRequired?.toFixed(2), cashRequired: checkout.cashRequired.toFixed(2), groups: checkout.storeGroups.map(group => ({ ...group, groupTotal: group.groupTotal.toFixed(2) })) });
+
+    // Handle customer wallet spend (full or partial)
+    if (command.walletAmount && command.walletAmount !== "0.00") {
+      if (!subject.customerUserId) {
+        throw new PaymentError("PAYMENT_METADATA_INVALID", "Guest checkout cannot use customer wallet balance.");
+      }
+      const owner = { ownerType: "CUSTOMER" as const, ownerId: subject.customerUserId };
+      const walletBalance = await getWalletSpendableBalance(tx, owner);
+      const breakdown = resolveWalletSpendBreakdown({
+        payableAmount: command.amount,
+        availableBalance: walletBalance.availableAmount,
+        requestedWalletAmount: command.walletAmount,
+      });
+
+      const now = new Date();
+      const publicReference = newPublicPaymentReference();
+
+      if (breakdown.mode === "WALLET_ONLY") {
+        // Immediate full wallet settlement
+        const consume = await consumeWalletSpendWithinTransaction(tx, {
+          owner,
+          amount: command.amount,
+          operationId: command.operationId,
+          subject: {
+            subjectType: "MARKETPLACE_CHECKOUT",
+            subjectId: command.checkoutId,
+            subjectReference: command.checkoutReference,
+          },
+          fromReserved: false,
+          correlationId: publicReference,
+          actorUserId: subject.customerUserId,
+        });
+
+        const payment = await tx.payment.create({
+          data: {
+            publicReference,
+            subjectType: "MARKETPLACE_CHECKOUT",
+            marketplaceCheckoutId: command.checkoutId,
+            orderId: null,
+            userId: subject.customerUserId,
+            provider: "MANUAL",
+            purpose: "ORDER",
+            status: "SUCCEEDED",
+            amount: new Prisma.Decimal(command.amount),
+            currency: "ZAR",
+            creationIdempotencyKey: command.operationId,
+            creationRequestHash: requestHash,
+            version: 1,
+            latestAttemptNumber: 0,
+            successLedgerJournalId: consume.journalId,
+            succeededAt: now,
+            metadata: {
+              subjectType: "MARKETPLACE_CHECKOUT",
+              checkoutReference: command.checkoutReference,
+              commercialFingerprint: command.commercialFingerprint,
+              policyVersion: PAYMENT_POLICY_VERSION,
+              walletSettled: true,
+              walletAmount: command.amount,
+              walletJournalId: consume.journalId,
+              walletOwnerType: "CUSTOMER",
+              walletOwnerId: subject.customerUserId,
+            },
+          },
+        });
+
+        await tx.marketplaceInventoryReservation.update({ where: { id: reservation.id }, data: { status: "PAYMENT_PENDING_HOLD", paymentId: payment.id } });
+        await tx.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "PAYMENT_CONFIRMED" } });
+        await tx.paymentStatusHistory.create({
+          data: {
+            paymentId: payment.id,
+            fromStatus: null,
+            toStatus: "SUCCEEDED",
+            reasonCode: "MARKETPLACE_WALLET_FULL_PAYMENT",
+            actorType: "PAYER",
+            actorId: subject.customerUserId,
+            metadata: { checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint },
+          },
+        });
+        return Object.freeze({ id: payment.id, publicReference: payment.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR" as const, replayed: false, walletSettled: true });
+      }
+
+      if (breakdown.mode === "SPLIT_PAYSTACK") {
+        const reserve = await reserveWalletSpendWithinTransaction(tx, {
+          owner,
+          amount: breakdown.walletAmount,
+          operationId: command.operationId,
+          subject: {
+            subjectType: "MARKETPLACE_CHECKOUT",
+            subjectId: command.checkoutId,
+            subjectReference: command.checkoutReference,
+          },
+          actorUserId: subject.customerUserId,
+        });
+
+        const payment = await tx.payment.create({
+          data: {
+            publicReference,
+            subjectType: "MARKETPLACE_CHECKOUT",
+            marketplaceCheckoutId: command.checkoutId,
+            orderId: null,
+            userId: subject.customerUserId,
+            provider: null,
+            purpose: "ORDER",
+            status: "CREATED",
+            amount: new Prisma.Decimal(breakdown.remainingProviderAmount),
+            currency: "ZAR",
+            creationIdempotencyKey: command.operationId,
+            creationRequestHash: requestHash,
+            version: 0,
+            latestAttemptNumber: 0,
+            metadata: {
+              subjectType: "MARKETPLACE_CHECKOUT",
+              checkoutReference: command.checkoutReference,
+              commercialFingerprint: command.commercialFingerprint,
+              policyVersion: PAYMENT_POLICY_VERSION,
+              walletSplit: true,
+              walletAmount: breakdown.walletAmount,
+              walletReserveJournalId: reserve.journalId,
+              walletReserveOperationId: command.operationId,
+              digitalRequired: command.amount,
+              walletOwnerType: "CUSTOMER",
+              walletOwnerId: subject.customerUserId,
+            },
+          },
+        });
+
+        await tx.marketplaceInventoryReservation.update({ where: { id: reservation.id }, data: { status: "PAYMENT_PENDING_HOLD", paymentId: payment.id } });
+        await tx.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "PAYMENT_PENDING" } });
+        await tx.paymentStatusHistory.create({
+          data: {
+            paymentId: payment.id,
+            fromStatus: null,
+            toStatus: "CREATED",
+            reasonCode: "MARKETPLACE_PAYMENT_PREPARED_SPLIT_WALLET",
+            actorType: "PAYER",
+            actorId: subject.customerUserId,
+            metadata: { checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint },
+          },
+        });
+        return Object.freeze({ id: payment.id, publicReference: payment.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR" as const, replayed: false, walletSettled: false });
+      }
+    }
+
     const payment = await tx.payment.create({ data: {
       publicReference: newPublicPaymentReference(), subjectType: "MARKETPLACE_CHECKOUT", marketplaceCheckoutId: command.checkoutId,
       orderId: null, userId: subject.customerUserId ?? null, provider: null, purpose: "ORDER", status: "CREATED",
@@ -234,6 +404,6 @@ export async function prepareMarketplaceCheckoutPayment(
     await tx.marketplaceInventoryReservation.update({ where: { id: reservation.id }, data: { status: "PAYMENT_PENDING_HOLD", paymentId: payment.id } });
     await tx.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "PAYMENT_PENDING" } });
     await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, fromStatus: null, toStatus: "CREATED", reasonCode: "MARKETPLACE_PAYMENT_PREPARED", actorType: subject.customerUserId ? "PAYER" : "SYSTEM", actorId: subject.customerUserId ?? null, metadata: { checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint } } });
-    return Object.freeze({ id: payment.id, publicReference: payment.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR" as const, replayed: false });
+    return Object.freeze({ id: payment.id, publicReference: payment.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR" as const, replayed: false, walletSettled: false });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }

@@ -63,7 +63,7 @@ describe("real PostgreSQL superuser customer-wallet grants and ledger authority"
       }) }),
     ]));
     expect(await getCustomerWalletSummary(ids.customer)).toMatchObject({
-      availableBalance: "50.00", refundHeldBalance: "0.00", spendingEnabled: false,
+      availableBalance: "50.00", refundHeldBalance: "0.00", spendingEnabled: true,
     });
     const transactions = await listCustomerWalletTransactions(ids.customer, { page: 1, pageSize: 5 });
     expect(transactions.pagination.total).toBe(1);

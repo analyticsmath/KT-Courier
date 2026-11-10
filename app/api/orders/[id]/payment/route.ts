@@ -31,7 +31,11 @@ export async function POST(
   try {
     const payment = await prepareOrderPayment(
       { id: user.id, email: user.email },
-      { orderId: parsedParams.data.orderId, idempotencyKey: parsed.data.operationId },
+      {
+        orderId: parsedParams.data.orderId,
+        idempotencyKey: parsed.data.operationId,
+        walletAmount: parsed.data.walletAmount,
+      },
     );
     return noStoreJson({
       payment: {

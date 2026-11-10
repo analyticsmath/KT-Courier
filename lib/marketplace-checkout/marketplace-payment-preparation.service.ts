@@ -16,13 +16,14 @@ export type MarketplacePaymentPreparationResult = Readonly<{
     | Readonly<{ type: "REDIRECT_GET"; endpoint: string }>
     | null;
   replayed: boolean;
+  walletSettled?: boolean;
 }>;
 
 export interface MarketplacePaymentOrchestrator {
   prepareMarketplacePayment(input: Readonly<{
     checkoutId: string; checkoutReference: string; customerUserId: string | null;
     guestAccessTokenHash: string | null; payerEmail: string; amount: string; currency: "ZAR";
-    commercialFingerprint: string; operationId: string;
+    commercialFingerprint: string; operationId: string; walletAmount?: string | null;
   }>): Promise<MarketplacePaymentPreparationResult>;
   /** Resume the EXISTING canonical payment, not a new financial intent. */
   resumeMarketplaceProviderAction?(input: Readonly<{
@@ -42,6 +43,17 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
     },
     async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand) {
       const payment = await preparePhase10MarketplacePayment({ ...input });
+      if (payment.walletSettled) {
+        return Object.freeze({
+          paymentReference: payment.publicReference,
+          paymentId: payment.id,
+          amount: payment.amount,
+          currency: "ZAR" as const,
+          providerAction: null,
+          replayed: payment.replayed,
+          walletSettled: true,
+        });
+      }
       if (isLocalFullFlowAllowed()) {
         return Object.freeze({
           paymentReference: payment.publicReference,
@@ -50,6 +62,7 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
           currency: "ZAR" as const,
           providerAction: null,
           replayed: payment.replayed,
+          walletSettled: false,
         });
       }
       const providerAction = await prepareMarketplacePaystackCustomerAction({
@@ -62,6 +75,7 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
       return Object.freeze({
         paymentReference: payment.publicReference, paymentId: payment.id,
         amount: payment.amount, currency: "ZAR" as const, providerAction, replayed: payment.replayed,
+        walletSettled: false,
       });
     },
   });
@@ -88,7 +102,13 @@ export type MarketplacePaymentPreparationRepository = Readonly<{
 export async function prepareMarketplaceCheckoutPayment(
   repository: MarketplacePaymentPreparationRepository,
   orchestrator: MarketplacePaymentOrchestrator,
-  input: Readonly<{ checkoutReference: string; payerEmail: string; operationId: string; testApproval?: { approved: true } }>,
+  input: Readonly<{
+    checkoutReference: string;
+    payerEmail: string;
+    operationId: string;
+    walletAmount?: string | null;
+    testApproval?: { approved: true };
+  }>,
 ): Promise<MarketplacePaymentPreparationResult> {
   const checkout = await repository.readCheckout(input.checkoutReference);
   if (!checkout || !["RESERVED", "PAYMENT_PREPARING", "PAYMENT_PENDING"].includes(checkout.status)
@@ -159,8 +179,12 @@ export async function prepareMarketplaceCheckoutPayment(
     customerUserId: checkout.customerUserId, guestAccessTokenHash: checkout.guestAccessTokenHash,
     payerEmail: input.payerEmail, amount: payable, currency: "ZAR",
     commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId,
+    walletAmount: input.walletAmount,
   });
-  if (prepared.amount !== payable || prepared.currency !== "ZAR") {
+  if (
+    !prepared.walletSettled &&
+    (prepared.amount !== payable && !input.walletAmount)
+  ) {
     throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT",
       "Payment provider preparation returned mismatched commercial evidence.");
   }

@@ -90,11 +90,10 @@ export async function listStores(
         })
       : Promise.resolve(undefined),
   ]);
-  const approvedIdentityStoreIds = sellerIdentities
-    ? new Set(sellerIdentities.map((item) => item.storeId))
-    : null;
-  const hasActiveOperationalPolicy =
-    activeOperationalPolicy === undefined ? undefined : Boolean(activeOperationalPolicy);
+  const approvedIdentityStoreIds = new Set(
+    (sellerIdentities ?? []).map((item) => item.storeId),
+  );
+  const hasActiveOperationalPolicy = Boolean(activeOperationalPolicy);
   const mapped = stores.map((store) => {
     const pickup = selectStorePickupCandidate(store.id, store.defaultPickupAddress, store.savedAddresses);
     return {
@@ -106,9 +105,7 @@ export async function listStores(
         publishedOfferCount: store.storefrontDocument?.publishedOfferCount ?? 0,
         pickup,
         certification: store.checkoutCertification,
-        hasApprovedSellerIdentity: approvedIdentityStoreIds
-          ? approvedIdentityStoreIds.has(store.id)
-          : undefined,
+        hasApprovedSellerIdentity: approvedIdentityStoreIds.has(store.id),
         hasActiveOperationalPolicy,
         now,
       }),

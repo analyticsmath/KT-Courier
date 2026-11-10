@@ -12,6 +12,13 @@ export const DeliveryReviewSchema = z
 export const ReviewResponseSchema = z
   .object({ response: z.string().trim().min(3).max(2000) })
   .strict();
+export const DriverReviewSchema = z
+  .object({
+    orderId: z.string().cuid(),
+    rating: z.number().int().min(1).max(5),
+    body: z.string().trim().min(3).max(2000),
+  })
+  .strict();
 export async function submitDeliveryReview(
   userId: string,
   input: z.infer<typeof DeliveryReviewSchema>,
@@ -34,6 +41,39 @@ export async function submitDeliveryReview(
       );
     return tx.deliveryReview.create({
       data: { ...input, authorUserId: userId, storeId: order.storeId },
+      select: { id: true, rating: true, body: true, createdAt: true },
+    });
+  });
+}
+export async function submitDriverReview(
+  userId: string,
+  input: z.infer<typeof DriverReviewSchema>,
+) {
+  input = DriverReviewSchema.parse(input);
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findFirst({
+      where: {
+        id: input.orderId,
+        customerId: userId,
+        status: { in: ["DELIVERED", "COMPLETED"] },
+        currentDriverProfileId: { not: null },
+      },
+      select: { id: true, currentDriverProfileId: true },
+    });
+    if (!order || !order.currentDriverProfileId)
+      throw new PlatformError(
+        "REVIEW_NOT_ELIGIBLE",
+        "You can review the assigned driver for your completed deliveries.",
+        403,
+      );
+    return tx.driverReview.create({
+      data: {
+        orderId: input.orderId,
+        rating: input.rating,
+        body: input.body,
+        authorUserId: userId,
+        driverProfileId: order.currentDriverProfileId,
+      },
       select: { id: true, rating: true, body: true, createdAt: true },
     });
   });

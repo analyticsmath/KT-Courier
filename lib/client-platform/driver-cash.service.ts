@@ -442,6 +442,13 @@ export async function reviewDriverDeposit(
     const row = await tx.driverCashDeposit.findUnique({ where: { id } });
     if (!row)
       throw new PlatformError("DEPOSIT_NOT_FOUND", "Deposit not found.", 404);
+    const driverProfile = await tx.driverProfile.findUnique({
+      where: { id: row.driverProfileId },
+      select: { userId: true },
+    });
+    if (driverProfile && driverProfile.userId === user.id) {
+      throw new PlatformError("FORBIDDEN", "A driver cannot review or confirm their own cash deposit.", 403);
+    }
     if (input.decision === "CONFIRM") {
       if (row.remittanceMethod === "IN_PERSON" && !input.handoverReceived)
         throw new PlatformError("HANDOVER_RECEIPT_NOT_VERIFIED", "Confirm only after actually receiving and counting the cash in person.", 422);

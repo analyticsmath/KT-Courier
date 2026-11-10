@@ -21,6 +21,7 @@ const cents = (value: string) => {
 export const PrepareOrderPaymentSchema = z.object({
   orderId: boundedId,
   idempotencyKey: boundedKey,
+  walletAmount: moneyString.optional(),
 }).strict();
 
 export const CreateProviderSessionSchema = z.object({
@@ -29,7 +30,10 @@ export const CreateProviderSessionSchema = z.object({
   idempotencyKey: boundedKey,
 }).strict();
 
-export const PaymentOperationSchema = z.object({ operationId }).strict();
+export const PaymentOperationSchema = z.object({
+  operationId,
+  walletAmount: moneyString.optional(),
+}).strict();
 export const OrderPaymentParamsSchema = z.object({ orderId: boundedId }).strict();
 export const CustomerPaymentParamsSchema = z.object({ publicReference: paymentPublicReference }).strict();
 export const PayfastCheckoutParamsSchema = z.object({ attemptReference: attemptPublicReference }).strict();

@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
-import { isStorePubliclyCheckoutReady } from "@/lib/storefront/store-publication-readiness";
+import {
+  isStoreOperationalPolicyEffective,
+  isStorePubliclyCheckoutReady,
+  isStoreSellerIdentityEffective,
+} from "@/lib/storefront/store-publication-readiness";
 
 /** Builds the privacy-minimised store read projection. Store contact/address fields are intentionally absent. */
 export async function rebuildStorefrontStoreDocument(storeId: string, transaction?: Prisma.TransactionClient): Promise<void> {
@@ -13,7 +17,8 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     });
     if (!store) return;
 
-    const [documents, storeMedia, checkoutCertification] = await Promise.all([
+    const now = new Date();
+    const [documents, storeMedia, checkoutCertification, sellerIdentity, operationalPolicy] = await Promise.all([
       tx.$queryRaw<Array<{ categoryPublicReference: string; fulfilmentMode: string }>>`SELECT "categoryPublicReference", "fulfilmentMode" FROM "StorefrontProductDocument" WHERE "storeId" = ${store.id} AND "status" = 'ACTIVE'`,
       tx.catalogMediaAsset?.findMany
         ? tx.catalogMediaAsset.findMany({
@@ -36,6 +41,29 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
           expiresAt: true, routeEvidenceDigest: true, checkoutEvidenceDigest: true,
         },
       }),
+      tx.storeSellerLegalIdentity?.findFirst
+        ? tx.storeSellerLegalIdentity.findFirst({
+            where: {
+              storeId: store.id,
+              status: "APPROVED",
+              effectiveFrom: { lte: now },
+              OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+            },
+            orderBy: [{ effectiveFrom: "desc" }, { id: "asc" }],
+            select: { status: true, effectiveFrom: true, effectiveUntil: true },
+          })
+        : Promise.resolve(null),
+      tx.storeOrderOperationalPolicy?.findFirst
+        ? tx.storeOrderOperationalPolicy.findFirst({
+            where: {
+              status: "ACTIVE",
+              effectiveFrom: { lte: now },
+              OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+            },
+            orderBy: [{ effectiveFrom: "desc" }, { versionNumber: "desc" }],
+            select: { status: true, effectiveFrom: true, effectiveUntil: true },
+          })
+        : Promise.resolve(null),
     ]);
 
     const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO") ?? storeMedia.find((m) => m.purpose === "BRAND_LOGO");
@@ -48,6 +76,9 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
       documentsCount: documents.length,
       pickup,
       certification: checkoutCertification,
+      hasApprovedSellerIdentity: isStoreSellerIdentityEffective(sellerIdentity, now),
+      hasActiveOperationalPolicy: isStoreOperationalPolicyEffective(operationalPolicy, now),
+      now,
     });
     await tx.storefrontStoreDocument.upsert({
       where: { storeId },

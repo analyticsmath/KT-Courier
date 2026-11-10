@@ -34,13 +34,22 @@ function internalDto(row: Readonly<{ id: string; publicReference: string; status
 }
 
 function assertVerifiedPayment(payment: Readonly<{
-  id: string; publicReference: string; orderId: string | null; status: string; currency: string; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; successLedgerJournalId: string | null;
+  id: string; publicReference: string; orderId: string | null; status: string; currency: string; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; successLedgerJournalId: string | null; provider?: string | null;
   successfulAttempt: { status: string } | null; successWebhookEvent: { processingStatus: string; signatureVerified: boolean; merchantVerified: boolean; amountVerified: boolean; providerDataVerified: boolean } | null;
   successLedgerJournal: { type: string; currency: string } | null;
 }>): void {
   const webhook = payment.successWebhookEvent;
-  if (payment.status !== "SUCCEEDED" || payment.currency !== "ZAR" || payment.successfulAttempt?.status !== "SUCCEEDED" || !payment.successLedgerJournalId || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || payment.successLedgerJournal.currency !== "ZAR" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) {
+  if (payment.status !== "SUCCEEDED" || payment.currency !== "ZAR" || !payment.successLedgerJournalId || payment.successLedgerJournal?.currency !== "ZAR") {
     throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Store earning accrual requires a verified successful ZAR payment and receipt journal.");
+  }
+  if (payment.provider === "MANUAL") {
+    if (payment.successLedgerJournal?.type !== "ACCOUNT_TRANSFER") {
+      throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Wallet-funded payment requires a valid account transfer journal.");
+    }
+  } else {
+    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) {
+      throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Store earning accrual requires a verified successful ZAR payment and receipt journal.");
+    }
   }
   if (!payment.totalRefundedAmount.isZero() || !payment.totalRefundReservedAmount.isZero()) {
     throw new StoreEarningError("STORE_EARNING_REFUND_EVIDENCE_REQUIRED", "Store earning accrual is blocked while payment-level refund exposure lacks authoritative store allocation evidence.");

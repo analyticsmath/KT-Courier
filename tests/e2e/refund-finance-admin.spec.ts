@@ -33,7 +33,7 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
   expect((await refundControl(reference, "complete-wallet", { reference: refund.reference })).refunds).toEqual(completed.refunds);
   await login(page, `e2e-paystack-finance-${width}@ktcouriers.local`); await page.goto("/account/wallet");
   await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
-  const wallet = await page.request.get("/api/customer-wallet"); expect(wallet.status()).toBe(200); expect((await wallet.json()).wallet).toMatchObject({ availableBalance: "25.00", refundHeldBalance: "0.00", spendingEnabled: false });
+  const wallet = await page.request.get("/api/customer-wallet"); expect(wallet.status()).toBe(200); expect((await wallet.json()).wallet).toMatchObject({ availableBalance: "25.00", refundHeldBalance: "0.00", spendingEnabled: true });
   const history = await page.request.get("/api/customer-wallet/transactions"); expect(history.status()).toBe(200); expect((await history.json()).data).toEqual([expect.objectContaining({ type: "REFUND_WALLET_CREDIT", amount: "25.00", direction: "CREDIT" })]);
   await testInfo.attach(`wallet-credit-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`wallet-credit-${width}.png`) }), contentType: "image/png" });
   const original = await refundControl(reference, "reserve-original", { amount: "10.00" });

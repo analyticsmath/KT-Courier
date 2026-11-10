@@ -87,7 +87,7 @@ describe("customer points conversion: immutable real-ZAR double-entry and concur
     const visible = await getCustomerWalletSummary(userId);
     expect(visible).toMatchObject({
       availableBalance: "2.00", refundHeldBalance: "0.00",
-      provisioned: true, readable: true, spendingEnabled: false,
+      provisioned: true, readable: true, spendingEnabled: true,
     });
     const activity = await listCustomerWalletTransactions(userId, { page: 1, pageSize: 5 });
     expect(activity.data).toHaveLength(1);

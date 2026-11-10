@@ -26,6 +26,7 @@ import {
   handlePaystackTransferReversed,
 } from "@/lib/services/paystack-transfer-execution.service";
 import { finalizeProviderRefundAttempt } from "@/lib/services/refund-provider-execution.service";
+import { consumeWalletSpendWithinTransaction } from "@/lib/services/wallet-spending.service";
 import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
@@ -736,6 +737,37 @@ export async function applyPaystackWebhookEvent(
           version: { increment: 1 },
         },
       });
+
+      // If this was a split wallet payment, consume the reserved wallet hold into platform held funds
+      const splitMeta = freshPayment.metadata && typeof freshPayment.metadata === "object" && !Array.isArray(freshPayment.metadata)
+        ? (freshPayment.metadata as Record<string, unknown>)
+        : {};
+      const splitWalletAmount = typeof splitMeta.walletAmount === "string" ? splitMeta.walletAmount : null;
+      if (splitWalletAmount && splitMeta.walletSplit) {
+        const ownerType = (splitMeta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
+        const ownerId = (splitMeta.walletOwnerId as string) || (freshPayment.userId ?? "");
+        await consumeWalletSpendWithinTransaction(tx, {
+          owner: { ownerType, ownerId },
+          amount: splitWalletAmount,
+          operationId: `paystack:wallet-consume:${freshPayment.publicReference}`,
+          subject: {
+            subjectType: freshPayment.subjectType as "COURIER_ORDER" | "MARKETPLACE_CHECKOUT",
+            subjectId: freshPayment.orderId ?? freshPayment.marketplaceCheckoutId ?? freshPayment.id,
+            subjectReference: freshPayment.publicReference,
+          },
+          fromReserved: true,
+          actorUserId: freshPayment.userId ?? undefined,
+        });
+      }
+
+      if (freshPayment.orderId) {
+        await tx.order.update({
+          where: { id: freshPayment.orderId },
+          data: {
+            status: "CONFIRMED",
+          },
+        });
+      }
 
       // Record status history
       await tx.paymentStatusHistory.create({

@@ -16,9 +16,48 @@ export type PublicStoreCheckoutCertificate = Readonly<{
   checkoutEvidenceDigest: string | null;
 }>;
 
+export type StoreSellerIdentityReadinessFact = Readonly<{
+  status: string;
+  effectiveFrom: Date;
+  effectiveUntil?: Date | null;
+}> | null | undefined;
+
+export type StoreOperationalPolicyReadinessFact = Readonly<{
+  status: string;
+  effectiveFrom: Date;
+  effectiveUntil?: Date | null;
+}> | null | undefined;
+
+export function isStoreSellerIdentityEffective(
+  identity: StoreSellerIdentityReadinessFact,
+  now = new Date(),
+): boolean {
+  if (!identity) return false;
+  return (
+    identity.status === "APPROVED" &&
+    identity.effectiveFrom instanceof Date &&
+    identity.effectiveFrom.getTime() <= now.getTime() &&
+    (!identity.effectiveUntil || identity.effectiveUntil.getTime() > now.getTime())
+  );
+}
+
+export function isStoreOperationalPolicyEffective(
+  policy: StoreOperationalPolicyReadinessFact,
+  now = new Date(),
+): boolean {
+  if (!policy) return false;
+  return (
+    policy.status === "ACTIVE" &&
+    policy.effectiveFrom instanceof Date &&
+    policy.effectiveFrom.getTime() <= now.getTime() &&
+    (!policy.effectiveUntil || policy.effectiveUntil.getTime() > now.getTime())
+  );
+}
+
 /** Public Live status must not be based on legacy ACTIVE flags or a map pin
  * alone. It requires independently reviewed route AND paid-checkout receipts
- * bound to the exact current store-owned collection point.
+ * bound to the exact current store-owned collection point, plus an effective
+ * approved seller legal identity and active operational policy.
  *
  * An expired/revoked certificate also invalidates a previously-built
  * projection; reading the storefront must separately recheck this authority
@@ -30,12 +69,12 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
   documentsCount: number;
   pickup: StorePickupAddressCandidate | null;
   certification: PublicStoreCheckoutCertificate | null;
-  hasApprovedSellerIdentity?: boolean;
-  hasActiveOperationalPolicy?: boolean;
+  hasApprovedSellerIdentity: boolean;
+  hasActiveOperationalPolicy: boolean;
   now?: Date;
 }>): boolean {
   const { pickup, certification } = input;
-  if (input.hasApprovedSellerIdentity === false || input.hasActiveOperationalPolicy === false) {
+  if (input.hasApprovedSellerIdentity !== true || input.hasActiveOperationalPolicy !== true) {
     return false;
   }
   if (input.status !== "ACTIVE" || input.name.trim().length === 0 ||

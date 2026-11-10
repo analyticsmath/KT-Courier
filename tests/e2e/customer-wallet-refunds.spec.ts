@@ -13,8 +13,8 @@ for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels 
   await page.goto("/account/wallet");
   await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
   await expect(page.getByText("No wallet transactions yet.", { exact: true })).toBeVisible();
-  // Read-only wallet presentation must never promise funded checkout spend.
-  await expect(page.getByText(/It cannot currently be topped up, transferred, withdrawn, or used at parcel or marketplace checkout/)).toBeVisible();
+  // Verified customer wallet presentation reflects supported spend across parcel and marketplace checkout.
+  await expect(page.getByText(/Your wallet receives qualifying refunds and redeemed loyalty credits, and can be spent on parcel bookings and marketplace store orders/)).toBeVisible();
   await testInfo.attach(`wallet-empty-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`wallet-empty-${width}.png`) }), contentType: "image/png" });
   await page.goto("/account/refunds");
   await expect(page.getByRole("heading", { name: "Refunds", exact: true })).toBeVisible();

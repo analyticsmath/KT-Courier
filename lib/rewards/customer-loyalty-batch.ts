@@ -18,28 +18,51 @@ export async function runCustomerParcelLoyaltyBatch(input: {
     throw new Error("Invalid loyalty reconciliation execution mode.");
   }
 
-  // Includes newly completed parcels and prior earnings with updated refund
+  // Includes newly completed parcels/marketplace orders and prior earnings with updated refund
   // or delivery state; ensures cancelled orders reverse earned points.
   const candidates = await prisma.$queryRaw<Array<{ paymentId: string; customerUserId: string }>>(Prisma.sql`
-    SELECT p."id" AS "paymentId", o."customerId" AS "customerUserId"
-    FROM "Payment" p
-    JOIN "Order" o ON o."id" = p."orderId"
-    JOIN "User" u ON u."id" = o."customerId"
-    LEFT JOIN "CustomerLoyaltyEarning" earning ON earning."paymentId" = p."id"
-    WHERE p."subjectType" = 'COURIER_ORDER'
-      AND p."status" = 'SUCCEEDED'
-      AND p."providerConfirmedAt" IS NOT NULL
-      AND p."successLedgerJournalId" IS NOT NULL
-      AND p."successWebhookEventId" IS NOT NULL
-      AND p."successfulAttemptId" IS NOT NULL
-      AND u."role" = 'CUSTOMER' AND u."status" = 'ACTIVE'
-      AND (
-        (earning."paymentId" IS NULL AND o."status" IN ('DELIVERED', 'COMPLETED'))
-        OR
-        (earning."paymentId" IS NOT NULL AND
-          (p."updatedAt" > earning."updatedAt" OR o."updatedAt" > earning."updatedAt"))
-      )
-    ORDER BY p."createdAt" DESC, p."id" DESC
+    WITH candidates AS (
+      SELECT p."id" AS "paymentId", o."customerId" AS "customerUserId", p."createdAt" AS "createdAt"
+      FROM "Payment" p
+      JOIN "Order" o ON o."id" = p."orderId"
+      JOIN "User" u ON u."id" = o."customerId"
+      LEFT JOIN "CustomerLoyaltyEarning" earning ON earning."paymentId" = p."id"
+      WHERE p."subjectType" = 'COURIER_ORDER'
+        AND p."status" = 'SUCCEEDED'
+        AND p."providerConfirmedAt" IS NOT NULL
+        AND p."successLedgerJournalId" IS NOT NULL
+        AND p."successWebhookEventId" IS NOT NULL
+        AND p."successfulAttemptId" IS NOT NULL
+        AND u."role" = 'CUSTOMER' AND u."status" = 'ACTIVE'
+        AND (
+          (earning."paymentId" IS NULL AND o."status" IN ('DELIVERED', 'COMPLETED'))
+          OR
+          (earning."paymentId" IS NOT NULL AND
+            (p."updatedAt" > earning."updatedAt" OR o."updatedAt" > earning."updatedAt"))
+        )
+      UNION ALL
+      SELECT p."id" AS "paymentId", mo."customerUserId" AS "customerUserId", p."createdAt" AS "createdAt"
+      FROM "Payment" p
+      JOIN "MarketplaceOrder" mo ON mo."id" = p."marketplaceOrderId"
+      JOIN "User" u ON u."id" = mo."customerUserId"
+      LEFT JOIN "CustomerLoyaltyEarning" earning ON earning."paymentId" = p."id"
+      WHERE p."subjectType" = 'MARKETPLACE_CHECKOUT'
+        AND p."status" = 'SUCCEEDED'
+        AND p."providerConfirmedAt" IS NOT NULL
+        AND p."successLedgerJournalId" IS NOT NULL
+        AND p."successWebhookEventId" IS NOT NULL
+        AND p."successfulAttemptId" IS NOT NULL
+        AND u."role" = 'CUSTOMER' AND u."status" = 'ACTIVE'
+        AND (
+          (earning."paymentId" IS NULL AND mo."status" = 'CONFIRMED')
+          OR
+          (earning."paymentId" IS NOT NULL AND
+            (p."updatedAt" > earning."updatedAt" OR mo."createdAt" > earning."updatedAt"))
+        )
+    )
+    SELECT "paymentId", "customerUserId"
+    FROM candidates
+    ORDER BY "createdAt" DESC, "paymentId" DESC
     LIMIT ${input.batchSize}
   `);
 

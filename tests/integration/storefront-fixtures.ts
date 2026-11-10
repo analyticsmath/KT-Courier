@@ -23,6 +23,48 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
   } });
   await prisma.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: pickup.id } });
   const certRef = `disposable-storefront-${randomUUID()}`;
+  await prisma.storeSellerLegalIdentity.create({
+    data: {
+      storeId: store.id,
+      publicReference: `SID-DISPOSABLE-${randomUUID()}`,
+      identityVersion: "DISPOSABLE_V1",
+      legalName: `${store.name} Legal Entity`,
+      tradingName: store.name,
+      vatRegistrationStatus: "NOT_REGISTERED",
+      invoiceClassification: "RECEIPT",
+      status: "APPROVED",
+      effectiveFrom: new Date(Date.now() - 60_000),
+      effectiveUntil: null,
+    },
+  });
+  const activePolicy = await prisma.storeOrderOperationalPolicy.findFirst({
+    where: {
+      status: "ACTIVE",
+      effectiveFrom: { lte: new Date() },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: new Date() } }],
+    },
+    select: { id: true },
+  });
+  if (!activePolicy) {
+    await prisma.storeOrderOperationalPolicy.create({
+      data: {
+        publicReference: `SOP-DISPOSABLE-${randomUUID()}`,
+        name: `disposable-storefront-policy-${randomUUID()}`,
+        versionNumber: 1,
+        status: "ACTIVE",
+        acceptanceWindowSeconds: 900,
+        customerDecisionWindowSeconds: 900,
+        maximumPrepMinutes: 60,
+        maximumPrepExtensionMinutes: 30,
+        maximumIssueCount: 3,
+        maximumSubstitutionProposalsPerLine: 2,
+        effectiveFrom: new Date(Date.now() - 60_000),
+        effectiveUntil: null,
+        approvedByUserId: source.adminUser.id,
+        activatedAt: new Date(),
+      },
+    });
+  }
   await prisma.storeCheckoutCertification.create({ data: {
     storeId: store.id, pickupAddressId: pickup.id,
     pickupFingerprint: pickupCertificationFingerprint(pickup),

@@ -212,3 +212,89 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000 }));
 }
+
+export async function processAutomaticOrdinaryReferralAwards(options?: {
+  batchSize?: number;
+  actorUserId?: string;
+}) {
+  const batchSize = options?.batchSize ?? 50;
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 200) {
+    throw new Error("Invalid batch size for automatic referral award processor.");
+  }
+
+  let actorUserId = options?.actorUserId;
+  if (!actorUserId) {
+    const admin = await prisma.user.findFirst({
+      where: { role: "SUPER_ADMIN", status: "ACTIVE" },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    if (!admin) {
+      return {
+        itemsExamined: 0,
+        itemsAwarded: 0,
+        itemsSkipped: 0,
+        itemsFailed: 0,
+        safeSummary: "No active superuser found to execute referral processing.",
+      };
+    }
+    actorUserId = admin.id;
+  }
+
+  const pendingEvents = await prisma.referralEvent.findMany({
+    where: {
+      source: ORDINARY_REFERRAL_SOURCE,
+      status: "PENDING",
+      targetUserId: { not: null },
+    },
+    take: batchSize,
+    orderBy: { createdAt: "asc" },
+  });
+
+  let awarded = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const event of pendingEvents) {
+    try {
+      const priorRewarded = await prisma.referralEvent.count({
+        where: {
+          targetUserId: event.targetUserId,
+          status: "REWARDED",
+        },
+      });
+      if (priorRewarded > 0) {
+        skipped++;
+        continue;
+      }
+
+      const eligibility = await inspectOrdinaryReferralEligibility(event.id);
+      if (!eligibility.eligible) {
+        skipped++;
+        continue;
+      }
+
+      const operationId = `auto-referral-${event.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)}-${Date.now()}`;
+      const result = await awardVerifiedOrdinaryReferral({
+        referralEventId: event.id,
+        actorUserId,
+        operationId,
+      });
+
+      if (result.status === "CREDITED") awarded++;
+      else if (result.status === "REPLAYED") skipped++;
+      else skipped++;
+    } catch {
+      failed++;
+    }
+  }
+
+  return {
+    itemsExamined: pendingEvents.length,
+    itemsAwarded: awarded,
+    itemsSkipped: skipped,
+    itemsFailed: failed,
+    safeSummary: `Automatic referral processing: ${awarded} awarded, ${skipped} skipped, ${failed} failed.`,
+  };
+}
+
