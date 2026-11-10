@@ -44,7 +44,7 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
     <fieldset className="space-y-3 rounded-lg border p-4" disabled={busy || uploading}>
       <legend className="font-bold">Supporting document</legend>
       <label htmlFor="seller-evidence-file">Verification file</label>
-      <FileInput id="seller-evidence-file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={event => setDocumentFile(event.target.files?.[0] ?? null)} />
+      <FileInput id="seller-evidence-file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={event => { setDocumentFile(event.target.files?.[0] ?? null); setEvidenceReference(""); setStatus(""); }} />
       <p className="text-sm">PDF, JPEG, PNG or WebP, up to 10 MB. Files stay private and can be downloaded by authorized reviewers.</p>
       <Button type="button" disabled={!documentFile || uploading} onClick={uploadEvidence}>{uploading ? "Uploading document…" : "Upload supporting document"}</Button>
       {/^PMO-[a-f0-9-]{36}$/.test(evidenceReference) ? <a className="block underline" href={`/api/private-media/${encodeURIComponent(evidenceReference)}`}>Download uploaded document</a> : null}
@@ -55,9 +55,9 @@ export function StoreSellerIdentityForm({ currentReference }: { currentReference
       <label>Trading name (optional)<Input name="tradingName" maxLength={160} placeholder="Pammy Bakes" /></label>
       <div><label htmlFor="seller-registration-reference">Registration reference (optional)</label><Input id="seller-registration-reference" name="registrationReference" maxLength={160} helpText="Leave blank if not formally registered. Do not invent a registration number." /></div>
       <div><label htmlFor="seller-vat-status">VAT registration status</label><select id="seller-vat-status" name="vatRegistrationStatus" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select supplied status</option><option value="NOT_REGISTERED">Not registered</option><option value="REGISTERED">Registered</option></select></div>
-      <label>VAT reference<Input name="vatNumber" maxLength={160} /></label>
+      <label>VAT reference (only if registered)<Input name="vatNumber" maxLength={160} helpText="Leave blank if you are not VAT registered." /></label>
       <div><label htmlFor="seller-receipt-classification">Receipt classification</label><select id="seller-receipt-classification" name="invoiceClassification" required defaultValue="" className="min-h-11 w-full rounded border p-2"><option value="" disabled>Select reviewed classification</option><option value="RECEIPT">Receipt</option><option value="TAX_INVOICE">Tax invoice</option></select></div>
-      <label>Terms reference<Input name="termsReference" maxLength={160} /></label>
+      <label>Terms reference (optional)<Input name="termsReference" maxLength={160} helpText="Leave blank if no terms reference applies." /></label>
       <p className="sm:col-span-2">Enter effective times in UTC. The review window uses these exact UTC times regardless of your device time zone.</p>
       <label>Effective from (UTC)<Input name="effectiveFrom" type="datetime-local" required /></label>
       <label>Effective until (UTC, optional)<Input name="effectiveUntil" type="datetime-local" /></label>
