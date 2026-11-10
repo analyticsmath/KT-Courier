@@ -224,12 +224,15 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
 
   let actorUserId = options?.actorUserId;
   if (!actorUserId) {
-    const admin = await prisma.user.findFirst({
+    const admin = (await prisma.user.findUnique({
+      where: { email: "superadmin@ktcouriers.local" },
+      select: { id: true, role: true, status: true },
+    })) ?? (await prisma.user.findFirst({
       where: { role: "SUPER_ADMIN", status: "ACTIVE" },
-      select: { id: true },
+      select: { id: true, role: true, status: true },
       orderBy: { createdAt: "asc" },
-    });
-    if (!admin) {
+    }));
+    if (!admin || admin.role !== "SUPER_ADMIN" || admin.status !== "ACTIVE") {
       return {
         itemsExamined: 0,
         itemsAwarded: 0,
@@ -274,7 +277,9 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
         continue;
       }
 
-      const operationId = `auto-referral-${event.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 20)}-${Date.now()}`;
+      const eventClean = event.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32);
+      const paymentClean = (eligibility.qualifyingPaymentId ?? "first").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
+      const operationId = `auto-referral-${eventClean}-${paymentClean}`;
       const result = await awardVerifiedOrdinaryReferral({
         referralEventId: event.id,
         actorUserId,

@@ -19,6 +19,8 @@ import {
   spendWalletForParcelOrderWithinTransaction,
 } from "./wallet-spending.service";
 
+const SUCCEEDED_STATUS = "SUCCEEDED" as const;
+
 const PAYMENT_SUMMARY_INCLUDE = {
   order: { select: { id: true, orderNumber: true } },
   user: { select: { id: true, name: true } },
@@ -61,6 +63,8 @@ export async function prepareOrderPayment(
     amount: subject.amount.toString(),
     currency: subject.currency,
     policyVersion: PAYMENT_POLICY_VERSION,
+    walletAmount: parsed.data.walletAmount ?? null,
+    fundingSource: parsed.data.walletAmount && parsed.data.walletAmount !== "0.00" ? "WALLET" : "PROVIDER",
   });
 
   try {
@@ -93,8 +97,6 @@ export async function prepareOrderPayment(
       if (existingForOrder) {
         throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Order already has a payment under a different preparation key.");
       }
-
-const SUCCEEDED_STATUS = "SUCCEEDED" as const;
 
       const succeeded = await tx.payment.findFirst({
         where: { orderId: subject.subjectId, status: SUCCEEDED_STATUS },
@@ -227,6 +229,8 @@ export async function prepareMarketplaceCheckoutPayment(
     currency: command.currency,
     commercialFingerprint: command.commercialFingerprint,
     policyVersion: PAYMENT_POLICY_VERSION,
+    walletAmount: command.walletAmount ?? null,
+    fundingSource: command.walletAmount && command.walletAmount !== "0.00" ? "WALLET_OR_SPLIT" : "CARD_OR_DIRECT",
   });
   return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${command.checkoutId} FOR UPDATE`);
@@ -293,7 +297,7 @@ export async function prepareMarketplaceCheckoutPayment(
             userId: subject.customerUserId,
             provider: "MANUAL",
             purpose: "ORDER",
-            status: "SUCCEEDED",
+            status: SUCCEEDED_STATUS,
             amount: new Prisma.Decimal(command.amount),
             currency: "ZAR",
             creationIdempotencyKey: command.operationId,

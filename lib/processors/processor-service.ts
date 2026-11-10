@@ -63,6 +63,39 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     const { runCustomerParcelLoyaltyBatch } = await import("@/lib/rewards/customer-loyalty-batch");
     return runCustomerParcelLoyaltyBatch({ mode, batchSize });
   },
+  "process-ordinary-referral-awards": async ({ mode, batchSize, actorUserId }) => {
+    if (mode === "DRY_RUN") {
+      const candidates = await prisma.referralEvent.findMany({
+        where: {
+          source: "ORDINARY_SIGNUP",
+          status: "PENDING",
+          targetUserId: { not: null },
+        },
+        take: batchSize,
+        select: { id: true },
+      });
+      return {
+        itemsExamined: candidates.length,
+        itemsClaimed: 0,
+        itemsCompleted: 0,
+        itemsSkipped: candidates.length,
+        itemsRetried: 0,
+        itemsReconciled: 0,
+        safeSummary: `[DRY_RUN] Found ${candidates.length} pending referral events to evaluate.`,
+      };
+    }
+    const { processAutomaticOrdinaryReferralAwards } = await import("@/lib/rewards/ordinary-referral-award.service");
+    const result = await processAutomaticOrdinaryReferralAwards({ batchSize, actorUserId });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsAwarded,
+      itemsCompleted: result.itemsAwarded,
+      itemsSkipped: result.itemsSkipped,
+      itemsRetried: 0,
+      itemsReconciled: result.itemsAwarded,
+      safeSummary: result.safeSummary,
+    };
+  },
   "reconcile-expired-dispatch": async ({ mode, batchSize }) => {
     if (mode === "DRY_RUN") {
       const candidates = await prisma.orderAssignment.findMany({

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { Prisma } from "@prisma/client";
 import { adjustCustomerLoyaltyPoints } from "@/lib/rewards/customer-loyalty-admin.service";
 import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
 import {
@@ -71,14 +72,14 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         adminActivityLog: {
           create: vi.fn().mockResolvedValue({ id: "log-1" }),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       vi.spyOn(mockTx.customerLoyaltyAccount, "update");
 
       // Mock prisma transaction
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
       // Add 100 points: 30 repays debt, 70 goes to available
@@ -127,11 +128,11 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         adminActivityLog: {
           create: vi.fn().mockResolvedValue({ id: "log-2" }),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
       // Deduct 50 points when only 20 available -> 0 available, 30 debt
@@ -171,7 +172,7 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         promotionRedemption: {
           count: vi.fn().mockResolvedValue(0),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const res = await checkFirstStoreWelcomeEligibility("user-new", "100.00", now, mockDb);
       expect(res.eligible).toBe(true);
@@ -200,7 +201,7 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         promotionRedemption: {
           count: vi.fn().mockResolvedValue(0),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const res = await checkFirstStoreWelcomeEligibility("user-old", "100.00", now, mockDb);
       expect(res.eligible).toBe(false);
@@ -229,7 +230,7 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         promotionRedemption: {
           count: vi.fn().mockResolvedValue(0),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const res = await checkFirstStoreWelcomeEligibility("user-repeat", "100.00", now, mockDb);
       expect(res.eligible).toBe(false);

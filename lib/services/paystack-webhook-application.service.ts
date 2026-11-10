@@ -760,15 +760,6 @@ export async function applyPaystackWebhookEvent(
         });
       }
 
-      if (freshPayment.orderId) {
-        await tx.order.update({
-          where: { id: freshPayment.orderId },
-          data: {
-            status: "CONFIRMED",
-          },
-        });
-      }
-
       // Record status history
       await tx.paymentStatusHistory.create({
         data: {

@@ -102,6 +102,23 @@ describe("payment preparation service", () => {
       ),
     ).rejects.toMatchObject({ code: "PAYMENT_IDEMPOTENCY_CONFLICT" });
   });
+  it("rejects idempotency key reuse when walletAmount funding changes", async () => {
+    await prepareOrderPayment(
+      { id: "u", email: "payer@example.test" },
+      { orderId: "o", idempotencyKey: "prepare:key:wallet-1" },
+    );
+    const firstHash = mocks.tx.payment.create.mock.calls[0][0].data.creationRequestHash;
+    mocks.tx.payment.findUnique.mockResolvedValueOnce({
+      ...row,
+      creationRequestHash: firstHash,
+    });
+    await expect(
+      prepareOrderPayment(
+        { id: "u", email: "payer@example.test" },
+        { orderId: "o", idempotencyKey: "prepare:key:wallet-1", walletAmount: "10.00" },
+      ),
+    ).rejects.toMatchObject({ code: "PAYMENT_IDEMPOTENCY_CONFLICT" });
+  });
   it("propagates transaction rollback failures", async () => {
     mocks.tx.paymentStatusHistory.create.mockRejectedValueOnce(
       new Error("rollback"),

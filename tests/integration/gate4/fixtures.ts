@@ -964,6 +964,7 @@ export async function createGate4CapturedPaymentScenario(
               idempotencyKey: `idem_att_${tag}`.slice(0, 128),
               requestHash: "0".repeat(64),
               status: options.status === "SUCCEEDED" ? "SUCCEEDED" : "PROCESSING",
+              providerConfirmedAt: options.status === "SUCCEEDED" ? new Date() : null,
             },
           })
       );

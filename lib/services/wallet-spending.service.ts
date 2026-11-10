@@ -1,6 +1,5 @@
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/db/prisma";
 import { LedgerError } from "@/lib/ledger/errors";
 import { PaymentError } from "@/lib/payments/errors";
 import { PAYMENT_POLICY_VERSION } from "@/lib/payments/types";
@@ -476,18 +475,6 @@ export async function spendWalletForParcelOrderWithinTransaction(
     return null;
   }
 
-  const existingForOrder = await tx.payment.findUnique({
-    where: { orderId: subject.subjectId },
-    include: PAYMENT_SUMMARY_INCLUDE,
-  });
-  if (existingForOrder) {
-    if (existingForOrder.creationIdempotencyKey !== input.idempotencyKey) {
-      throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Order already has a payment under a different key.");
-    }
-    return toPaymentSummaryDto(existingForOrder);
-  }
-
-  const publicReference = newPublicPaymentReference();
   const requestHash = canonicalPaymentHash({
     subjectType: subject.subjectType,
     orderId: subject.subjectId,
@@ -495,7 +482,22 @@ export async function spendWalletForParcelOrderWithinTransaction(
     amount: breakdown.mode === "WALLET_ONLY" ? payable : breakdown.remainingProviderAmount,
     currency: subject.currency,
     policyVersion: PAYMENT_POLICY_VERSION,
+    walletAmount: input.walletAmount,
+    fundingSource: "WALLET",
   });
+
+  const existingForOrder = await tx.payment.findUnique({
+    where: { orderId: subject.subjectId },
+    include: PAYMENT_SUMMARY_INCLUDE,
+  });
+  if (existingForOrder) {
+    if (existingForOrder.creationIdempotencyKey !== input.idempotencyKey || existingForOrder.creationRequestHash !== requestHash) {
+      throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Order already has a payment under different key or evidence.");
+    }
+    return toPaymentSummaryDto(existingForOrder);
+  }
+
+  const publicReference = newPublicPaymentReference();
 
   const now = new Date();
 

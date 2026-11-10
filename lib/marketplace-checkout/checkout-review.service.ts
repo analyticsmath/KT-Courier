@@ -2,6 +2,7 @@ import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCheckoutTotals, canonicalMarketplaceFingerprint, centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import type { MarketplaceDeliveryQuoteAdapter } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
 import type { PromotionEvaluationInput } from "@/lib/promotions/promotion-evaluation.service";
+import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
 import { Decimal } from "@prisma/client/runtime/library";
 
 // Phase 23: Promotion evaluation
@@ -81,6 +82,33 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
         allocations: evalResult.allocations,
         evidence: evalResult.evidence,
       };
+    }
+  }
+
+  // First-store welcome discount if no coupon / automatic promotion took precedence
+  if (input.customerUserId && (!promotionDiscount || promotionDiscount === "0.00")) {
+    try {
+      const welcome = await checkFirstStoreWelcomeEligibility(
+        input.customerUserId,
+        merchandiseSubtotal,
+        new Date(),
+      );
+      if (welcome.eligible && welcome.discountAmountZar && welcome.discountAmountZar !== "0.00") {
+        promotionDiscount = welcome.discountAmountZar;
+        promotionEvidence = {
+          type: "FIRST_STORE_WELCOME",
+          discountAmount: welcome.discountAmountZar,
+          totalStoreFunding: "0.00",
+          totalPlatformFunding: welcome.discountAmountZar,
+          allocations: effectiveGroups.map((g) => ({
+            storeReference: g.storeReference,
+            platformFundedDiscount: welcome.discountAmountZar,
+            storeFundedDiscount: "0.00",
+          })),
+        };
+      }
+    } catch {
+      // Best-effort check; do not block review if welcome lookup fails
     }
   }
 

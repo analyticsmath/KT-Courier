@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import { submitDeliveryReview, submitDriverReview } from "@/lib/client-platform/reviews.service";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { storeAccess } from "@/lib/client-platform/store-access";
@@ -11,11 +12,11 @@ describe("Workstream 5: Post-Fulfilment Reviews & Store Employee RBAC", () => {
         order: {
           findFirst: vi.fn().mockResolvedValue(null), // because status: { in: ["DELIVERED", "COMPLETED"] }
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
       await expect(
@@ -51,11 +52,11 @@ describe("Workstream 5: Post-Fulfilment Reviews & Store Employee RBAC", () => {
             createdAt: new Date(),
           }),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
       const result = await submitDeliveryReview("cust-1", {
@@ -84,11 +85,11 @@ describe("Workstream 5: Post-Fulfilment Reviews & Store Employee RBAC", () => {
             createdAt: new Date(),
           }),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
       const result = await submitDriverReview("cust-1", {
@@ -109,24 +110,14 @@ describe("Workstream 5: Post-Fulfilment Reviews & Store Employee RBAC", () => {
     });
 
     it("denies access immediately when employee membership is inactive or revoked", async () => {
-      const mockDb = {
-        user: {
-          findUnique: vi.fn().mockResolvedValue({ status: "ACTIVE", role: "CUSTOMER" }),
-        },
-        store: {
-          findMany: vi.fn().mockResolvedValue([]), // not an owner
-        },
-        storeEmployeeMembership: {
-          findMany: vi.fn().mockResolvedValue([]), // no active membership
-        },
-      } as any;
-
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma.user, "findUnique").mockImplementation(mockDb.user.findUnique);
-      vi.spyOn(prismaModule.prisma.store, "findMany").mockImplementation(mockDb.store.findMany);
-      vi.spyOn(prismaModule.prisma.storeEmployeeMembership, "findMany").mockImplementation(
-        mockDb.storeEmployeeMembership.findMany,
-      );
+      vi.spyOn(prismaModule.prisma.user, "findUnique").mockResolvedValue({
+        id: "revoked-employee-user",
+        status: "ACTIVE",
+        role: "CUSTOMER",
+      } as never);
+      vi.spyOn(prismaModule.prisma.store, "findMany").mockResolvedValue([]);
+      vi.spyOn(prismaModule.prisma.storeEmployeeMembership, "findMany").mockResolvedValue([]);
 
       await expect(storeAccess("revoked-employee-user", "orders")).rejects.toThrow(
         PlatformError,

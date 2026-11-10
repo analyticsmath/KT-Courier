@@ -7,19 +7,39 @@
 
 ## 1. Database Migrations & Invariant Safety
 
-- **Total Migrations**: 112 applied migrations in `prisma/migrations/`.
-- **Phase 2 Migration**:
-  - `prisma/migrations/20261110150000_phase2_wallet_spending_evidence/migration.sql`
-  - Updates `Payment_succeeded_requires_provider_evidence_check` and `validate_payment_success_evidence()` trigger function to authorize `provider = 'MANUAL'` with `ACCOUNT_TRANSFER` ledger journals crediting `PLATFORM-CUSTOMER-FUNDS-HELD-ZAR` from customer or store wallet accounts.
-  - Updates `protect_payment_identity_and_success()` trigger function to support split wallet + card payments where `o."digitalRequired" = OLD."amount" + wallet_split_amount`.
-  - Preserves strict external provider attempt/webhook/journal evidence for Paystack and Payfast.
+- **Total Migrations**: 113 applied migrations in `prisma/migrations/`.
+- **Phase 2 Migrations**:
+  - `prisma/migrations/20261110150000_phase2_wallet_spending_evidence/migration.sql`:
+    - Updates `Payment_succeeded_requires_provider_evidence_check` and `validate_payment_success_evidence()` trigger function to authorize `provider = 'MANUAL'` with `ACCOUNT_TRANSFER` ledger journals crediting `PLATFORM-CUSTOMER-FUNDS-HELD-ZAR` from customer or store wallet accounts.
+    - Updates `protect_payment_identity_and_success()` trigger function to support split wallet + card payments where `o."digitalRequired" = OLD."amount" + wallet_split_amount`.
+    - Preserves strict external provider attempt/webhook/journal evidence for Paystack and Payfast.
+  - `prisma/migrations/20261110170000_phase2_payment_evidence_repair/migration.sql`:
+    - Corrects column references in `validate_payment_success_evidence()` replacing non-existent column mappings (`w.paymentAttemptId`, `w.signatureStatus`) with canonical schema columns (`w.attemptId`, `w.providerDataVerified`, `j.type = 'EXTERNAL_PAYMENT_RECEIPT'`).
+    - Validates both internal wallet settlements and external provider webhook + ledger evidence atomically.
 - **Migration Safety Verification**:
-  - `node scripts/check-migrations-safety.mjs` executed: PASS (clean safety check, all registered exceptions valid).
-  - `npx vitest run tests/scripts/migration-safety.test.ts`: PASS (15 tests passed).
+  - `node scripts/check-migrations-safety.mjs`: PASS (112 incremental migrations + active baseline verified, zero unapproved destructive operations).
+  - `npx vitest run tests/scripts/migration-safety.test.ts`: PASS (4 tests passed).
+  - `npx prisma validate`: PASS (schema is fully valid).
 
-## 2. Test Execution Evidence
+## 2. Test Execution & Engineering Closeout Evidence
 
-All Phase 2 test suites were executed with `vitest` against local workspace and PostgreSQL database:
+### A. Resolved Audit Findings (P2-CLOSE-01 through P2-CLOSE-05)
+- **P2-CLOSE-01 (ESLint & Typing)**: Replaced all loose `any` casts with properly constrained Prisma TransactionClient and AuthenticatedUser interfaces in `tests/cod/cod-custody-and-settlement.test.ts`, `tests/payments/wallet-spending.test.ts`, `tests/reviews/post-fulfilment-reviews.test.ts`, and `tests/rewards/customer-loyalty-workstream3.test.ts`. Removed unused import in `lib/services/wallet-spending.service.ts`. Verified with `npm run lint`: ZERO errors, ZERO warnings across all files.
+- **P2-CLOSE-02 (PostgreSQL Trigger & Concurrency)**: Deployed forward repair migration `20261110170000_phase2_payment_evidence_repair`. Verified with `tests/integration/paystack-webhook-concurrency.integration.test.ts`: ALL 7 integration tests passed against real PostgreSQL, including concurrent webhook race, dispute serializations, and idempotency replays.
+- **P2-CLOSE-03 (Paystack Contract)**: Removed direct `tx.order.update` call in `applyPaystackWebhookEvent` in `lib/services/paystack-webhook-application.service.ts`. Verified with `tests/payments/paystack-contract.test.ts`: ALL 24 tests passed.
+- **P2-CLOSE-04 (23514 Check Constraint & Attempt Coherence)**: Added `providerConfirmedAt` in Gate 4 fixtures and aligned trigger attempt validation with canonical schema. Verified with `tests/unit/gate4-fixtures.test.ts` (28 tests passed) and `tests/unit/gate4/gate4-harness.test.ts` (21 tests passed).
+- **B2 (Funding Equivalence & Idempotency Hash)**: Implemented `providerDue + walletReserved = checkoutDigitalRequired` in `lib/marketplace-checkout/marketplace-payment-preparation.service.ts`. Bound `walletAmount` and `fundingSource` into `canonicalPaymentHash` in `lib/services/payment-preparation.service.ts`. Verified replay of same key with different wallet amount returns 409 conflict (`PAYMENT_IDEMPOTENCY_CONFLICT`).
+- **C1 (Welcome Discount Integration)**: Integrated `checkFirstStoreWelcomeEligibility` into `lib/marketplace-checkout/checkout-review.service.ts` and checkout preparation. Verified with `tests/marketplace-checkout/checkout-runtime.service.test.ts`.
+- **C2 (Automatic Referral Processor)**: Registered `process-ordinary-referral-awards` in `PROCESSOR_REGISTRY` and `PROCESSOR_HANDLERS` with dedicated system worker identity and stable event-derived idempotency key. Verified with `npm run test:processors` (63 tests passed).
+
+### B. Consolidated Test Verification Receipts
+- **`npm run typecheck`**: PASS (zero TypeScript errors)
+- **`npm run lint`**: PASS (zero ESLint errors across the repository)
+- **`npm run test:payments`**: PASS (66 test files, 417 tests passed)
+- **`npm run test:processors`**: PASS (9 test files, 63 tests passed)
+- **`npm run test:refunds`**: PASS (26 test files, 115 tests passed)
+- **`npm run test:security:bola`**: PASS (2 test files, 23 tests passed)
+- **`npm run build`**: PASS (Next.js 16.4.2 Turbopack production build, 548/548 static pages generated)
 
 ### A. Workstream 1: Store Publication & Checkout Certification
 - `tests/services/store-publication-readiness.test.ts`: PASS (15 tests)

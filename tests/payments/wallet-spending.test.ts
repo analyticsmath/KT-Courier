@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   resolveWalletSpendBreakdown,
   newPublicPaymentReference,
@@ -135,7 +136,7 @@ describe("Wallet Spending Logic (Phase 2)", () => {
         store: { findFirst: vi.fn().mockResolvedValue(null) },
         driverProfile: { findUnique: vi.fn().mockResolvedValue(null) },
         promoterAccount: { findUnique: vi.fn().mockResolvedValue(null) },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       await expect(
         resolveWithdrawalOwnerForUser(mockTx, "user-cust-123"),

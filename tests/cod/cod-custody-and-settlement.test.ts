@@ -6,6 +6,7 @@ import {
 import { DriverCashLimitError } from "@/lib/services/driver-cash-capacity.service";
 import { Prisma } from "@prisma/client";
 import { PlatformError } from "@/lib/client-platform/contracts";
+import type { AuthenticatedUser } from "@/types/domain";
 
 vi.mock("@/lib/auth/permissions", () => ({
   hasPermission: vi.fn().mockResolvedValue(true),
@@ -100,21 +101,23 @@ describe("Workstream 4: COD Custody, Driver Capacity & Deposit Proof", () => {
         driverProfile: {
           findUnique: vi.fn().mockResolvedValue({ userId: mockDriverUserId }),
         },
-      } as any;
+      } as unknown as Prisma.TransactionClient;
 
       const prismaModule = await import("@/lib/db/prisma");
-      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(async (cb: any) =>
-        cb(mockTx),
+      vi.spyOn(prismaModule.prisma, "$transaction").mockImplementation(
+        async (cb: (tx: Prisma.TransactionClient) => Promise<unknown>) => cb(mockTx),
       );
 
-      const reviewingUser = {
+      const reviewingUser: AuthenticatedUser = {
         id: mockDriverUserId,
-        role: "ADMIN" as const,
-        status: "ACTIVE" as const,
+        role: "ADMIN",
+        status: "ACTIVE",
+        email: "admin@ktcourier.co.za",
+        name: "Admin User",
       };
 
       await expect(
-        reviewDriverDeposit(reviewingUser as any, mockDepositId, {
+        reviewDriverDeposit(reviewingUser, mockDepositId, {
           decision: "CONFIRM",
           bankReceiptVerified: true,
           note: "Reviewed bank statement",
@@ -122,7 +125,7 @@ describe("Workstream 4: COD Custody, Driver Capacity & Deposit Proof", () => {
       ).rejects.toThrow(PlatformError);
 
       await expect(
-        reviewDriverDeposit(reviewingUser as any, mockDepositId, {
+        reviewDriverDeposit(reviewingUser, mockDepositId, {
           decision: "CONFIRM",
           bankReceiptVerified: true,
           note: "Reviewed bank statement",

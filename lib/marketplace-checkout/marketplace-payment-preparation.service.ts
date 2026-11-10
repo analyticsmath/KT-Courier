@@ -95,6 +95,7 @@ export type MarketplacePaymentPreparationRepository = Readonly<{
       id: string; publicReference: string; amount: string; currency: string;
       fingerprint?: string | null; status?: string; latestAttemptNumber?: number;
       providerAction?: Readonly<{ type: "REDIRECT_GET"; endpoint: string }> | null;
+      metadata?: Record<string, unknown> | null;
     } | null;
   } | null>;
 }>;
@@ -134,7 +135,15 @@ export async function prepareMarketplaceCheckoutPayment(
     });
   };
   if (checkout.payment) {
-    if (checkout.payment.amount !== payable || checkout.payment.currency !== "ZAR"
+    const meta = (checkout.payment.metadata && typeof checkout.payment.metadata === "object")
+      ? (checkout.payment.metadata as Record<string, unknown>)
+      : null;
+    const walletReserved = typeof meta?.walletAmount === "string" ? meta.walletAmount : "0.00";
+    const paymentMatchesEquivalence =
+      checkout.payment.amount === payable ||
+      (Math.round(Number(checkout.payment.amount) * 100) + Math.round(Number(walletReserved) * 100) === Math.round(Number(payable) * 100));
+
+    if (!paymentMatchesEquivalence || checkout.payment.currency !== "ZAR"
       || (checkout.payment.fingerprint && checkout.payment.fingerprint !== checkout.acceptedFingerprint)) {
       throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Existing payment belongs to different checkout evidence.");
     }
@@ -181,10 +190,9 @@ export async function prepareMarketplaceCheckoutPayment(
     commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId,
     walletAmount: input.walletAmount,
   });
-  if (
-    !prepared.walletSettled &&
-    (prepared.amount !== payable && !input.walletAmount)
-  ) {
+  const prepWalletAmount = input.walletAmount ?? "0.00";
+  const prepMatches = Math.round(Number(prepared.amount) * 100) + Math.round(Number(prepWalletAmount) * 100) === Math.round(Number(payable) * 100);
+  if (!prepared.walletSettled && !prepMatches) {
     throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT",
       "Payment provider preparation returned mismatched commercial evidence.");
   }
