@@ -69,7 +69,7 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
 
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.order.id} FOR UPDATE`);
     const order = await tx.order.findUniqueOrThrow({
-      where: { id: payment.order.id }, select: { status: true, pricingTaxAmount: true },
+      where: { id: payment.order.id }, select: { status: true, pricingTaxAmount: true, updatedAt: true },
     });
     if (!order.pricingTaxAmount) throw new Error("Original parcel tax snapshot is missing.");
     const completed = order.status === "DELIVERED" || order.status === "COMPLETED";
@@ -90,7 +90,16 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
 
     const account = await tx.customerLoyaltyAccount.findUnique({ where: { userId: customerUserId } });
     if (!prior && expected === 0n) return { status: "NOT_ELIGIBLE" as const, recognizedPoints: "0", availablePoints: (account?.availablePoints ?? 0n).toString(), debtPoints: (account?.debtPoints ?? 0n).toString(), revision: 0 };
-    if (prior && prior.recognizedPoints === expected) return { status: "REPLAYED" as const, recognizedPoints: expected.toString(), availablePoints: (account?.availablePoints ?? 0n).toString(), debtPoints: (account?.debtPoints ?? 0n).toString(), revision: prior.revision };
+    if (prior && prior.recognizedPoints === expected) {
+      // The batch selects sources newer than the earning. If a source update
+      // does not change points, record that it was examined so it cannot
+      // indefinitely occupy the front of every subsequent bounded scan.
+      // Locks on the payment and order are held until this update commits.
+      if (payment.updatedAt > prior.updatedAt || order.updatedAt > prior.updatedAt) {
+        await tx.customerLoyaltyEarning.update({ where: { paymentId }, data: { updatedAt: new Date() } });
+      }
+      return { status: "REPLAYED" as const, recognizedPoints: expected.toString(), availablePoints: (account?.availablePoints ?? 0n).toString(), debtPoints: (account?.debtPoints ?? 0n).toString(), revision: prior.revision };
+    }
     const current = account ?? await tx.customerLoyaltyAccount.create({ data: { userId: customerUserId } });
     const next = reconcileLoyaltyPointBalance({
       balance: {

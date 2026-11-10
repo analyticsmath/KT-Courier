@@ -111,6 +111,16 @@ describe("verified customer parcel loyalty PostgreSQL evidence and idempotency",
     expect(duplicate.every(item => item.status === "REPLAYED" && item.availablePoints === "100")).toBe(true);
     expect(await prisma.customerLoyaltyMovement.count({ where: { paymentId: good.paymentId } })).toBe(1);
 
+    // A source update which does not alter the reward must be acknowledged;
+    // otherwise it remains eligible in every bounded batch indefinitely.
+    const oldCheck = new Date(Date.now() - 60_000);
+    await prisma.customerLoyaltyEarning.update({ where: { paymentId: good.paymentId }, data: { updatedAt: oldCheck } });
+    await prisma.order.update({ where: { id: good.orderId }, data: { status: "DELIVERED" } });
+    expect(await reconcileCompletedParcelLoyalty(ids.userId, good.paymentId)).toMatchObject({ status: "REPLAYED", revision: 1 });
+    const acknowledged = await prisma.customerLoyaltyEarning.findUniqueOrThrow({ where: { paymentId: good.paymentId } });
+    expect(acknowledged.updatedAt.getTime()).toBeGreaterThan(oldCheck.getTime());
+    expect(await prisma.customerLoyaltyMovement.count({ where: { paymentId: good.paymentId } })).toBe(1);
+
     // The payment table enforces that refund projections are derived from actual
     // refund evidence and journals. Never bypass that trigger to make tests pass.
     // Cancellation after an earlier hypothetical future point redemption
