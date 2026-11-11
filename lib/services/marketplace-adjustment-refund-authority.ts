@@ -73,7 +73,10 @@ export async function assertCommittedMarketplaceAdjustmentFunding(tx: Prisma.Tra
     const capture = payment?.successLedgerJournal;
     const capturedHeld = capture?.entries.filter(entry => entry.direction === "CREDIT" && entry.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR").reduce((total, entry) => total.add(entry.amount), new Prisma.Decimal(0));
     const frozen = await tx.marketplaceSettlementSnapshot.findMany({ where: { sourcePaymentId: input.paymentId } });
-    if (!payment || payment.status !== "SUCCEEDED" || !capture || capture.type !== "EXTERNAL_PAYMENT_RECEIPT" || capture.currency !== "ZAR" || !capture.totalDebits.equals(payment.amount) || !capture.totalCredits.equals(payment.amount) || !capturedHeld?.equals(payment.amount) || !frozen.reduce((total, item) => total.add(item.sellerBasis).add(item.deliveryFeeResidual), new Prisma.Decimal(0)).equals(payment.amount)) throw invalid();
+    const parentOrder = adjustment.storeOrder.marketplaceOrder;
+    const totalGross = frozen.reduce((total, item) => total.add(item.sellerBasis).add(item.deliveryFeeResidual), new Prisma.Decimal(0));
+    const totalDiscount = new Prisma.Decimal(parentOrder.promotionDiscount ?? 0);
+    if (!payment || payment.status !== "SUCCEEDED" || !capture || capture.type !== "EXTERNAL_PAYMENT_RECEIPT" || capture.currency !== "ZAR" || !capture.totalDebits.equals(payment.amount) || !capture.totalCredits.equals(payment.amount) || !capturedHeld?.equals(payment.amount) || !totalGross.sub(totalDiscount).equals(payment.amount)) throw invalid();
   }
   const commissionReferences = evidence.commissionReversalReferences;
   if (!Array.isArray(commissionReferences) || commissionReferences.some(ref => typeof ref !== "string") || (evidence.storeEarningReversalReference !== undefined && typeof evidence.storeEarningReversalReference !== "string")) throw invalid();
@@ -92,7 +95,8 @@ export async function assertCommittedMarketplaceAdjustmentFunding(tx: Prisma.Tra
     if (credits.length !== 1 || !credits[0].amount.equals(journal.totalCredits) || !credits[0].amount.greaterThan(0)) throw invalid();
     restored = restored.add(credits[0].amount);
   }
-  if (!restored.add(fee).equals(input.amount)) throw invalid();
+  const platformSubsidy = new Prisma.Decimal(((adjustment.financialEvidence as Record<string, unknown> | null)?.platformSubsidyReversal as string) ?? "0.00");
+  if (!restored.add(fee).sub(platformSubsidy).equals(input.amount)) throw invalid();
   const otherRefund = await tx.paymentRefund.findFirst({ where: { creationIdempotencyKey: storeAdjustmentChildOperation(evidence.operationId, "refund") } });
   if (otherRefund && (otherRefund.paymentId !== input.paymentId || !otherRefund.amount.equals(input.amount))) throw invalid();
 }

@@ -43,7 +43,7 @@ export type MarketplaceCheckoutReviewRepository = Readonly<{
     commissionPolicyVersion: string;
     settlementEvidence: readonly FrozenMarketplaceStoreSettlementEvidence[];
   }>): Promise<void>;
-  checkWelcomeEligibility?(customerUserId: string, merchandiseSubtotalZar: string, now: Date): Promise<import("@/lib/promotions/first-store-welcome.service").FirstStoreWelcomeEligibility>;
+  checkWelcomeEligibility?(customerUserId: string, merchandiseSubtotalZar: string, now: Date, checkoutId?: string): Promise<import("@/lib/promotions/first-store-welcome.service").FirstStoreWelcomeEligibility>;
 }>;
 
 export async function reviewMarketplaceCheckout(
@@ -75,7 +75,7 @@ export async function reviewMarketplaceCheckout(
     }
     const welcomeEligibilityAdapter: WelcomeEligibilityAdapter | undefined = input.welcomeEligibilityAdapter ?? (
       repository.checkWelcomeEligibility
-        ? { checkEligibility: (uid, subtotal, now) => repository.checkWelcomeEligibility!(uid, subtotal, now) }
+        ? { checkEligibility: (uid, subtotal, now, chkId) => repository.checkWelcomeEligibility!(uid, subtotal, now, chkId ?? checkout.id) }
         : undefined
     );
     const reviewed = await revalidateMarketplaceCheckout({

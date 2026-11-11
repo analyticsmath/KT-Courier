@@ -37,7 +37,7 @@ describe("Phase 20 PostgreSQL marketplace order scenarios", () => {
       expect(line.includedTaxAmount?.toFixed(2) ?? null).toBe(original.includedTaxAmount?.toFixed(2) ?? null);
       expect(line.lineTotal.equals(line.effectiveUnitPrice.mul(line.quantity))).toBe(true);
     }
-    expect(order.grandTotal.equals(basis.add(snapshots.reduce((sum, row) => sum.add(row.deliveryFeeResidual), new Prisma.Decimal(0))))).toBe(true);
+    expect(order.grandTotal.add(order.promotionDiscount).equals(basis.add(snapshots.reduce((sum, row) => sum.add(row.deliveryFeeResidual), new Prisma.Decimal(0))))).toBe(true);
     expect(f.paid.reservations.flatMap(row => row.items).reduce((sum, item) => sum + item.quantity, 0)).toBe(3);
     const replay = await paymentControl(f.reference, "process");
     expect(replay.orders).toEqual(f.paid.orders);

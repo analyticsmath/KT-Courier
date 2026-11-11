@@ -10,6 +10,7 @@ export interface WelcomeEligibilityAdapter {
     customerUserId: string,
     merchandiseSubtotalZar: string,
     now: Date,
+    checkoutId?: string,
   ): Promise<FirstStoreWelcomeEligibility>;
 }
 
@@ -96,14 +97,15 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
   // First-store welcome discount if no coupon / automatic promotion took precedence
   if (input.customerUserId && (!promotionDiscount || promotionDiscount === "0.00")) {
     const welcomeAdapter = input.welcomeEligibilityAdapter ?? {
-      checkEligibility: (uid: string, subtotal: string, checkedAt: Date) =>
-        checkFirstStoreWelcomeEligibility(uid, subtotal, checkedAt),
+      checkEligibility: (uid: string, subtotal: string, checkedAt: Date, chkId?: string) =>
+        checkFirstStoreWelcomeEligibility(uid, subtotal, checkedAt, undefined, chkId),
     };
     try {
       const welcome = await welcomeAdapter.checkEligibility(
         input.customerUserId,
         merchandiseSubtotal,
         new Date(),
+        input.checkoutId,
       );
       if (welcome.eligible && welcome.discountAmountZar && welcome.discountAmountZar !== "0.00") {
         promotionDiscount = welcome.discountAmountZar;

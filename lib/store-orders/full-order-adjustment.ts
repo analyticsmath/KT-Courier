@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { frozenRefundAllocation, cents, money } from "./allocation";
 import { assertStoreOrder } from "./errors";
 import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
+import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
 
 /** Only an unaccepted, unstarted child with no courier obligation has an
  * automatic full cancellation boundary. Later stages require policy review. */
@@ -43,10 +44,31 @@ export async function createUnstartedFullAdjustment(tx: Prisma.TransactionClient
     const values = frozenRefundAllocation({ sellerBasis: source.SELLER_BASIS, commission: source.COMMISSION, storeEarning: source.STORE_EARNING, includedTax: line.includedTaxAmount?.toFixed(2) ?? "0.00", priorRefund: prior, refund: remaining });
     return line.financialAllocations.map(item => ({ marketplaceOrderLineId: line.id, allocationType: item.type, amount: values[item.type], taxAmount: item.type === "SELLER_BASIS" ? values.taxAmount : null, originalQuantity: line.quantity, resolvedQuantityBefore: line.fulfilment?.resolvedFulfilmentQuantity ?? 0, resolvedQuantityAfter: line.quantity, sourceAllocationVersion: item.allocationVersion, roundingSequence: item.roundingSequence, finalCentRecipient: item.finalCentRecipient }));
   });
-  const refund = allocations.filter(item => item.allocationType === "SELLER_BASIS").reduce((total, item) => total.add(item.amount), fee);
+  const grossRefund = allocations.filter(item => item.allocationType === "SELLER_BASIS").reduce((total, item) => total.add(item.amount), fee);
+  let groupDiscount = new Prisma.Decimal(0);
+  try {
+    if (order.checkoutStoreGroup?.paymentPlan) {
+      const plan = parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan);
+      const netObligation = new Prisma.Decimal(plan.digitalRequired);
+      const grossConsideration = order.groupTotal;
+      if (grossConsideration.greaterThan(netObligation)) {
+        groupDiscount = grossConsideration.sub(netObligation);
+      }
+    }
+  } catch {
+    groupDiscount = new Prisma.Decimal(0);
+  }
+  const priorAdjustments = previous.filter(item => item.status !== "REJECTED");
+  const priorSubsidyReversals = priorAdjustments.reduce((sum, item) => {
+    const evidence = item.financialEvidence as Record<string, unknown> | null;
+    return sum.add(new Prisma.Decimal((evidence?.platformSubsidyReversal as string) ?? "0.00"));
+  }, new Prisma.Decimal(0));
+  const remainingGroupDiscount = Prisma.Decimal.max(0, groupDiscount.sub(priorSubsidyReversals));
+  const customerRefund = Prisma.Decimal.max(0, grossRefund.sub(remainingGroupDiscount));
+  const platformSubsidyReversal = grossRefund.sub(customerRefund);
   const issues = order.lines.flatMap(line => line.issues).filter(issue => ["OPEN", "CUSTOMER_ACTION_REQUIRED"].includes(issue.status));
   const inventory = await reverseUnstartedGoodsCommitments(tx, order, input);
-  const adjustment = await tx.marketplaceStoreOrderAdjustment.create({ data: { publicReference: input.publicReference, marketplaceStoreOrderId: order.id, adjustmentType: input.adjustmentType, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: snapshot.settlementVersion, operationId: input.operationId, requestHash: input.requestHash, refundAmount: refund, deliveryFeeAmount: fee, financialEvidence: { settlementSnapshotReference: snapshot.publicReference, sourceCommercialFingerprint: snapshot.sourceCommercialFingerprint, refundMethod: "ORIGINAL_PAYMENT_METHOD", inventory, issueReferences: issues.map(issue => issue.publicReference), unearnedDeliveryFee: { settlementSnapshotReference: snapshot.publicReference, amount: fee.toFixed(2), preparationStatus: "NOT_STARTED", bridgeAbsent: true } }, allocations: { create: allocations } } });
+  const adjustment = await tx.marketplaceStoreOrderAdjustment.create({ data: { publicReference: input.publicReference, marketplaceStoreOrderId: order.id, adjustmentType: input.adjustmentType, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: snapshot.settlementVersion, operationId: input.operationId, requestHash: input.requestHash, refundAmount: customerRefund, deliveryFeeAmount: fee, financialEvidence: { settlementSnapshotReference: snapshot.publicReference, sourceCommercialFingerprint: snapshot.sourceCommercialFingerprint, refundMethod: "ORIGINAL_PAYMENT_METHOD", inventory, issueReferences: issues.map(issue => issue.publicReference), unearnedDeliveryFee: { settlementSnapshotReference: snapshot.publicReference, amount: fee.toFixed(2), preparationStatus: "NOT_STARTED", bridgeAbsent: true }, platformSubsidyReversal: platformSubsidyReversal.toFixed(2), grossRefundAmount: grossRefund.toFixed(2) }, allocations: { create: allocations } } });
   await tx.marketplaceStoreOrderIssue.updateMany({ where: { id: { in: issues.map(issue => issue.id) } }, data: { status: "REFUND_PENDING", version: { increment: 1 } } });
   return adjustment.publicReference;
 }

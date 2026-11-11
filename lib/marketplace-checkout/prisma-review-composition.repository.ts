@@ -88,8 +88,8 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
       const row = await db.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId, operationId } } });
       return row ? { requestHash: row.requestHash, response: row.response as MarketplaceCheckoutReviewResult } : null;
     },
-    checkWelcomeEligibility: async (customerUserId: string, merchandiseSubtotalZar: string, now: Date) => {
-      return checkFirstStoreWelcomeEligibility(customerUserId, merchandiseSubtotalZar, now, db);
+    checkWelcomeEligibility: async (customerUserId: string, merchandiseSubtotalZar: string, now: Date, checkoutId?: string) => {
+      return checkFirstStoreWelcomeEligibility(customerUserId, merchandiseSubtotalZar, now, db, checkoutId);
     },
     freezeSettlementEvidence: async ({ checkout, result }) => {
       if (result.revalidatedGroups.length !== checkout.sourceGroups.length) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Every checkout store must produce complete reviewed settlement evidence.");

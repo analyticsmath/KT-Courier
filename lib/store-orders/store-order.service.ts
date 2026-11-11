@@ -399,14 +399,37 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   const adjustmentReference = ref("soadj");
   const originalCharge = money(cents(sourceLine.effectiveUnitPrice.toFixed(2)) * BigInt(issue.affectedQuantity));
   const replacementCharge = input.replacementCharge ?? "0.00";
-  const refundAmount = cents(originalCharge) > cents(replacementCharge) ? money(cents(originalCharge) - cents(replacementCharge)) : "0.00";
-  const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").create({ data: { publicReference: adjustmentReference, marketplaceStoreOrderId: order.id, adjustmentType: input.type, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: order.settlementSnapshots[0]?.settlementVersion ?? "phase20-v1", operationId: input.operationId, requestHash: input.requestHash, customerDecisionReference: input.decisionReference ?? null, refundAmount, financialEvidence: { settlementSnapshotReference: order.settlementSnapshots[0]?.publicReference ?? null, issueReference: issue.publicReference, originalLineId: sourceLine.id, originalQuantity: sourceLine.quantity, affectedQuantity: issue.affectedQuantity, replacementCharge, sourceCommercialFingerprint: order.operationalSnapshot?.sourceCommercialFingerprint ?? null } } });
+  const grossRefundAmount = cents(originalCharge) > cents(replacementCharge) ? money(cents(originalCharge) - cents(replacementCharge)) : "0.00";
+  let groupDiscount = new Prisma.Decimal(0);
+  try {
+    if (order.checkoutStoreGroup?.paymentPlan) {
+      const plan = parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan);
+      const netObligation = new Prisma.Decimal(plan.digitalRequired);
+      const grossConsideration = order.groupTotal;
+      if (grossConsideration.greaterThan(netObligation)) {
+        groupDiscount = grossConsideration.sub(netObligation);
+      }
+    }
+  } catch {
+    groupDiscount = new Prisma.Decimal(0);
+  }
+  let customerRefund = grossRefundAmount;
+  let platformSubsidyReversal = "0.00";
+  if (groupDiscount.greaterThan(0)) {
+    const merchandiseTotal = new Prisma.Decimal(order.merchandiseSubtotal);
+    const lineProportion = merchandiseTotal.greaterThan(0) ? new Prisma.Decimal(originalCharge).dividedBy(merchandiseTotal) : new Prisma.Decimal(0);
+    const lineDiscount = groupDiscount.mul(lineProportion).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+    customerRefund = Prisma.Decimal.max(0, new Prisma.Decimal(grossRefundAmount).sub(lineDiscount)).toFixed(2);
+    platformSubsidyReversal = new Prisma.Decimal(grossRefundAmount).sub(new Prisma.Decimal(customerRefund)).toFixed(2);
+  }
+  const refundAmount = customerRefund;
+  const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").create({ data: { publicReference: adjustmentReference, marketplaceStoreOrderId: order.id, adjustmentType: input.type, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: order.settlementSnapshots[0]?.settlementVersion ?? "phase20-v1", operationId: input.operationId, requestHash: input.requestHash, customerDecisionReference: input.decisionReference ?? null, refundAmount, financialEvidence: { settlementSnapshotReference: order.settlementSnapshots[0]?.publicReference ?? null, issueReference: issue.publicReference, originalLineId: sourceLine.id, originalQuantity: sourceLine.quantity, affectedQuantity: issue.affectedQuantity, replacementCharge, grossRefundAmount, platformSubsidyReversal, sourceCommercialFingerprint: order.operationalSnapshot?.sourceCommercialFingerprint ?? null } } });
   const allocations = sourceLine.financialAllocations ?? [];
   assertStoreOrder(allocations.length === 3 && new Set(allocations.map((allocation: any) => allocation.type)).size === 3, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "All three immutable line allocations are required.");
   const sourceAmounts = Object.fromEntries(allocations.map((allocation: any) => [allocation.type, allocation.amount.toFixed(2)]));
   const priorAllocations = await model(tx, "marketplaceStoreOrderAdjustmentAllocation").findMany({ where: { marketplaceOrderLineId: sourceLine.id, allocationType: "SELLER_BASIS", adjustmentId: { not: adjustment.id }, adjustment: { status: { not: "REJECTED" } } } });
   const priorRefund = money(priorAllocations.reduce((sum, allocation) => sum + cents(allocation.amount.toFixed(2)), BigInt(0)));
-  const valueAllocation = frozenRefundAllocation({ sellerBasis: sourceAmounts.SELLER_BASIS, commission: sourceAmounts.COMMISSION, storeEarning: sourceAmounts.STORE_EARNING, includedTax: sourceLine.includedTaxAmount?.toFixed(2) ?? "0.00", priorRefund, refund: refundAmount });
+  const valueAllocation = frozenRefundAllocation({ sellerBasis: sourceAmounts.SELLER_BASIS, commission: sourceAmounts.COMMISSION, storeEarning: sourceAmounts.STORE_EARNING, includedTax: sourceLine.includedTaxAmount?.toFixed(2) ?? "0.00", priorRefund, refund: grossRefundAmount });
   for (const allocation of allocations) {
     const amount = valueAllocation[allocation.type as "SELLER_BASIS" | "COMMISSION" | "STORE_EARNING"];
     await model(tx, "marketplaceStoreOrderAdjustmentAllocation").create({ data: { adjustmentId: adjustment.id, marketplaceOrderLineId: sourceLine.id, allocationType: allocation.type, resolvedQuantityBefore: before, resolvedQuantityAfter: after, originalQuantity: sourceLine.quantity, amount, taxAmount: allocation.type === "SELLER_BASIS" ? valueAllocation.taxAmount : null, sourceAllocationVersion: allocation.allocationVersion, roundingSequence: allocation.roundingSequence, finalCentRecipient: allocation.finalCentRecipient } });

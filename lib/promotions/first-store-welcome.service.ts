@@ -1,9 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { promotionsProductionReady } from "@/lib/promotions/production-lock";
 import { loadCustomerRewardPolicy } from "@/lib/rewards/customer-reward-configuration";
 import {
   type CustomerRewardPolicy,
-  DEFAULT_CUSTOMER_REWARD_POLICY,
   firstStoreWelcomeDiscount,
 } from "@/lib/rewards/customer-reward-policy";
 
@@ -20,7 +20,12 @@ export async function checkFirstStoreWelcomeEligibility(
   merchandiseSubtotalZar: string,
   now: Date = new Date(),
   db: Prisma.TransactionClient = prisma,
+  checkoutId?: string,
 ): Promise<FirstStoreWelcomeEligibility> {
+  if (!promotionsProductionReady(process.env)) {
+    return { eligible: false, discountAmountZar: "0.00", reason: "PROMOTIONS_NOT_ACTIVATED" };
+  }
+
   if (!customerUserId) {
     return { eligible: false, discountAmountZar: "0.00", reason: "GUEST_NOT_ELIGIBLE" };
   }
@@ -38,7 +43,11 @@ export async function checkFirstStoreWelcomeEligibility(
   try {
     policy = await loadCustomerRewardPolicy(db);
   } catch {
-    policy = DEFAULT_CUSTOMER_REWARD_POLICY;
+    return {
+      eligible: false,
+      discountAmountZar: "0.00",
+      reason: "POLICY_UNAVAILABLE",
+    };
   }
   const expiresAt = new Date(customer.createdAt.getTime() + policy.firstStoreValidDays * 86_400_000);
   if (now.getTime() >= expiresAt.getTime()) {
@@ -68,6 +77,25 @@ export async function checkFirstStoreWelcomeEligibility(
       },
     },
   });
+
+  const priorWelcomeCheckouts = await db.marketplaceCheckout.count({
+    where: {
+      customerUserId,
+      status: { in: ["RESERVED", "PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "COMPLETED"] },
+      promotionDiscount: { gt: 0 },
+      ...(checkoutId ? { id: { not: checkoutId } } : {}),
+    },
+  });
+
+  if (priorWelcomeCheckouts > 0) {
+    return {
+      eligible: false,
+      discountAmountZar: "0.00",
+      reason: "WELCOME_OFFER_ALREADY_RESERVED",
+      customerSignupAt: customer.createdAt,
+      expiresAt,
+    };
+  }
 
   const discountZar = firstStoreWelcomeDiscount({
     orderType: "MARKETPLACE",

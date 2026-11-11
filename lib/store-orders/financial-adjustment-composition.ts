@@ -119,7 +119,8 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       const commission = sum(adjustment.allocations, "COMMISSION");
       const storeEarning = sum(adjustment.allocations, "STORE_EARNING");
       const refund = new Prisma.Decimal(adjustment.refundAmount);
-      if (sellerBasis.lessThan(0) || commission.lessThan(0) || storeEarning.lessThan(0) || !sellerBasis.sub(commission).equals(storeEarning) || !refund.equals(sellerBasis.add(new Prisma.Decimal(adjustment.deliveryFeeAmount)))) throw new StoreOrderError("STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Frozen adjustment allocations do not reconcile to seller basis, commission, store earning and refund evidence.");
+      const platformSubsidy = new Prisma.Decimal((adjustment.financialEvidence as any)?.platformSubsidyReversal ?? "0.00");
+      if (sellerBasis.lessThan(0) || commission.lessThan(0) || storeEarning.lessThan(0) || !sellerBasis.sub(commission).equals(storeEarning) || !refund.add(platformSubsidy).equals(sellerBasis.add(new Prisma.Decimal(adjustment.deliveryFeeAmount)))) throw new StoreOrderError("STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Frozen adjustment allocations do not reconcile to seller basis, commission, store earning and refund evidence.");
       const accrual = await tx.commissionAccrual.findUnique({ where: { publicReference: snapshot.commissionAccrualReference }, include: { allocations: { orderBy: { publicReference: "asc" } } } });
       const earning = await tx.storeEarning.findUnique({ where: { publicReference: snapshot.storeEarningReference } });
       if (!accrual || !earning || accrual.totalAmount.lessThan(commission) || earning.amount.lessThan(storeEarning)) throw new StoreOrderError("STORE_ORDER_FINANCIAL_EVIDENCE_INVALID", "Original Phase 14 or Phase 16 evidence is unavailable.");
@@ -140,7 +141,45 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
         commissionReversals.push(reversed.reversalLedgerJournalReference);
       }
       const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: storeAdjustmentChildOperation(input.operationId, "store-earning"), reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
-      const committedEvidence = { operationId: input.operationId, paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), commissionReversalReferences: commissionReversals, ...(earningReversal ? { storeEarningReversalReference: earningReversal.reversalLedgerJournalReference } : {}) };
+      let platformSubsidyReversalReference: string | undefined;
+      if (platformSubsidy.greaterThan(0)) {
+        const platformExpenseAccount = await tx.ledgerAccount.findUnique({
+          where: { code: "PLATFORM-PROMOTION-EXPENSE-ZAR" },
+        });
+        const customerHeldAccount = await tx.ledgerAccount.findUnique({
+          where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" },
+        });
+        if (platformExpenseAccount && customerHeldAccount) {
+          const { postLedgerJournalWithinTransaction } = await import("@/lib/services/ledger-posting.service");
+          const reversalJournal = await postLedgerJournalWithinTransaction(tx, {
+            idempotencyKey: `LJ-PROMO-REV-${adjustment.id}`,
+            type: "GENERAL",
+            currency: "ZAR",
+            sourceReference: adjustment.publicReference,
+            correlationId: adjustment.id,
+            memo: `Platform Promotion Subsidy Reversal for adjustment ${adjustment.publicReference}`,
+            actor: { kind: "SYSTEM" },
+            entries: [
+              {
+                accountId: customerHeldAccount.id,
+                direction: "DEBIT",
+                amount: platformSubsidy.toFixed(2),
+                lineCode: "CUSTOMER_FUNDS_PROMO_DEBIT",
+                memo: `Debit customer funds held platform subsidy reversal`,
+              },
+              {
+                accountId: platformExpenseAccount.id,
+                direction: "CREDIT",
+                amount: platformSubsidy.toFixed(2),
+                lineCode: "PLATFORM_PROMO_CREDIT",
+                memo: `Credit platform promotional expense reversal`,
+              },
+            ],
+          });
+          platformSubsidyReversalReference = reversalJournal.reference;
+        }
+      }
+      const committedEvidence = { operationId: input.operationId, paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), platformSubsidyReversalAmount: platformSubsidy.toFixed(2), commissionReversalReferences: commissionReversals, ...(earningReversal ? { storeEarningReversalReference: earningReversal.reversalLedgerJournalReference } : {}), ...(platformSubsidyReversalReference ? { platformSubsidyReversalReference } : {}) };
       await database.marketplaceStoreOrderAdjustment.update({ where: { id: adjustment.id }, data: { financialEvidence: { ...(adjustment.financialEvidence ?? {}), phase21CommittedReversals: committedEvidence } } });
       return committedEvidence;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
