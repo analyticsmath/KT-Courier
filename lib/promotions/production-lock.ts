@@ -1,3 +1,8 @@
+import {
+  isSafeLocalTestDatabaseUrl,
+  isDisposableBrowserValidationAllowed,
+} from "@/lib/testing/safe-postgres-validator";
+
 export const PROMOTIONS_PRODUCTION_VALIDATION_APPROVED = false as const;
 export const PROMOTIONS_PRODUCTION_BLOCK_REASON = "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
@@ -14,19 +19,55 @@ export type PromotionsReleaseGate = Readonly<{
   reason: string | null;
 }>;
 
+/**
+ * Detects whether the given environment is an actual production or live money environment.
+ * A bare environment variable or test approval argument must NEVER turn an actual production
+ * instance into an authorized promotion environment.
+ */
+export function isActualProductionInstance(
+  source: Record<string, string | undefined> = process.env,
+): boolean {
+  // Live credentials always mean production / live money
+  if (source.PAYSTACK_MODE === "live" || source.PAYSTACK_SECRET_KEY?.startsWith("sk_live_")) {
+    return true;
+  }
+
+  // If a database URL is present and unsafe (e.g. live, production, remote cloud), it is production
+  if (source.DATABASE_URL && !isSafeLocalTestDatabaseUrl(source.DATABASE_URL)) {
+    return true;
+  }
+
+  // If NODE_ENV is production and not the authenticated isolated disposable browser runtime, it is production
+  if (source.NODE_ENV === "production") {
+    const isDisposable = isDisposableBrowserValidationAllowed(source as NodeJS.ProcessEnv);
+    if (!isDisposable) return true;
+  }
+
+  return false;
+}
+
 export function evaluatePromotionsReleaseGate(
   source: Record<string, string | undefined> = process.env,
 ): PromotionsReleaseGate {
-  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e";
-  const isTestOrDisposable =
+  if (PROMOTIONS_PRODUCTION_VALIDATION_APPROVED) {
+    return Object.freeze({ approved: true, reason: null });
+  }
+
+  // An actual production instance ALWAYS fails closed
+  if (isActualProductionInstance(source)) {
+    return Object.freeze({ approved: false, reason: PROMOTIONS_PRODUCTION_BLOCK_REASON });
+  }
+
+  // Outside production, allow execution only in verified test contexts:
+  // 1. Vitest unit & integration test runner (NODE_ENV === "test")
+  // 2. Authenticated disposable browser runner (isDisposableBrowserValidationAllowed)
+  const isAuthorizedTestContext =
     source.NODE_ENV === "test" ||
-    source.KT_RUNTIME_ENV === "e2e" ||
-    source.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" ||
-    source.KT_PROMOTIONS_TEST_APPROVED === "true";
-  const approved = (!isProduction && isTestOrDisposable) || PROMOTIONS_PRODUCTION_VALIDATION_APPROVED;
+    isDisposableBrowserValidationAllowed(source as NodeJS.ProcessEnv);
+
   return Object.freeze({
-    approved,
-    reason: approved ? null : PROMOTIONS_PRODUCTION_BLOCK_REASON,
+    approved: isAuthorizedTestContext,
+    reason: isAuthorizedTestContext ? null : PROMOTIONS_PRODUCTION_BLOCK_REASON,
   });
 }
 
@@ -36,7 +77,14 @@ export function assertPromotionsProductionReady(
   testApproval?: { approved: true },
   source: Record<string, string | undefined> = process.env,
 ): void {
+  // If PROMOTIONS_PRODUCTION_VALIDATION_APPROVED is false, a bare testApproval argument must NOT
+  // turn an actual production instance into an authorized environment.
+  if (isActualProductionInstance(source)) {
+    throw new PromotionsProductionLockedError(operation);
+  }
+
   if (testApproval?.approved === true) return;
+
   const gate = evaluatePromotionsReleaseGate(source);
   if (gate.approved) return;
   throw new PromotionsProductionLockedError(operation);

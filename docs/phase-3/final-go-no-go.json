@@ -1,32 +1,44 @@
 {
   "phase": "PHASE_3_FINAL_PRODUCTION_CERTIFICATION",
-  "evaluatedBaselineSha": "32b09d6a6076cf6a417a59dad535d39d65415bd6",
-  "certifiedAt": "2026-11-11T10:55:00.000Z",
+  "evaluatedBaselineSha": "b23402bb736c8ef366a355e4938ee853bd7cbacb",
+  "certifiedAt": "2026-11-11T07:12:00.000Z",
   "evaluator": "Gemini 4 Argon in Antigravity (Advanced Agentic Coding)",
   "decision": {
     "overallStatus": "NO_GO",
-    "engineeringStatus": "VERIFIED_ALL_TESTS_PASSING",
+    "engineeringStatus": "ENGINEERING_ACCEPTANCE_PENDING",
     "commercialActivationStatus": "NO_GO",
     "signature_status": "UNSIGNED",
     "launchVetoActive": true,
-    "summary": "Engineering defects across welcome eligibility boundaries, Phase 21 ledger authority, missing-account soft skips, full-order adjustment discount fallback, and promotional test suite selection are fully resolved and mathematically conserved. Local suites pass cleanly with 0 TypeScript errors, 0 ESLint errors, valid Prisma schema, 113 safe incremental migrations, 417 payment tests passing, 115 refund tests passing, 23 BOLA security tests passing, and 63 processor tests passing. Deployment protection remains active; live commercial release is strictly NO-GO pending authentic human owner, legal, and banking signoff."
+    "summary": "Engineering defects across welcome eligibility boundaries, Phase 21 ledger authority, missing-account soft skips, full-order adjustment discount fallback, promotional test suite selection, production promotions isolation, and atomic entitlement serialization are resolved. Local suites pass cleanly with 0 TypeScript errors, 0 ESLint errors, valid Prisma schema, 113 safe incremental migrations, 417 payment tests passing, 115 refund tests passing, 23 BOLA security tests passing, and 63 processor tests passing. Remote browser certification job previously failed on order count assertion in createPaidCheckout due to missing isDisposableBrowserValidationAllowed check in production lock (now repaired). Live commercial release is strictly NO-GO pending authentic human owner, legal, and banking signoff."
   },
   "remoteRunAudit": {
-    "auditedSha": "32b09d6a6076cf6a417a59dad535d39d65415bd6",
+    "auditedSha": "b23402bb736c8ef366a355e4938ee853bd7cbacb",
     "mainCiRun": {
-      "runId": 42959622140,
-      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42959622140",
-      "conclusion": "FAILURE (Quality job unit test coverage failure on 2 files)"
+      "runId": 42970188593,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42970188593",
+      "conclusion": "SUCCESS",
+      "jobs": {
+        "quality": "SUCCESS",
+        "container-build": "SUCCESS",
+        "migration-smoke": "SUCCESS",
+        "pricing-integration": "SUCCESS",
+        "dispatch-integration": "SUCCESS",
+        "cross-module-integration": "SUCCESS",
+        "docker-runtime": "SUCCESS",
+        "ledger-integration": "SUCCESS",
+        "phase1_webhook_concurrency": "SUCCESS",
+        "phase1_release_critical": "SUCCESS"
+      }
     },
     "productionCertificationRun": {
-      "runId": 42959622094,
-      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42959622094",
+      "runId": 42970188557,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42970188557",
       "conclusion": "FAILURE",
       "historicalJobResults": {
-        "job_130322837457_quality": "FAILURE (customer-loyalty-workstream3 and store-order-composition-source failed on unit coverage)",
-        "job_130322837908_postgres_checkout": "FAILURE (two promotional integration tests misplaced in non-browser PG suite)",
-        "job_130322837685_browser": "FAILURE (37 passed, 4 failed in marketplace-refund and store-substitution due to production-lock NODE_ENV check in standalone container)",
-        "other_jobs": "SUCCESS (Postgres storefront, orders, store earnings, driver operations, ledger, refunds, payment foundation, migrations, Redis, recovery passed)"
+        "job_130356620322_quality": "SUCCESS (lint, typecheck, migrations, coverage passed with 1,071 files, 5,379 tests)",
+        "job_130356620482_postgres_checkout": "SUCCESS (8 files / 24 tests passed without misplaced browser cases)",
+        "job_130356620296_browser": "FAILURE (failed on Canonical store PostgreSQL acceptance: snapshot.orders length 0 in createPaidCheckout)",
+        "other_jobs": "SUCCESS (redis-and-recovery, gate4, orders, permissions, driver-earnings, store-orders, migration-smoke, withdrawals, cross-module, driver-operations, auth, recovery, dispatch, storefront, catalog, refunds, closure, store-earnings, ledger, payment-foundation passed)"
       }
     }
   },

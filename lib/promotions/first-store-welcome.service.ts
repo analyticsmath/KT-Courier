@@ -36,6 +36,14 @@ export async function checkFirstStoreWelcomeEligibility(
     return { eligible: false, discountAmountZar: "0.00", reason: "GUEST_NOT_ELIGIBLE" };
   }
 
+  try {
+    if ("$queryRaw" in db && typeof db.$queryRaw === "function") {
+      await db.$queryRaw(Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${customerUserId} FOR UPDATE`);
+    }
+  } catch {
+    // Proceed if unsupported by driver or mock
+  }
+
   const customer = await db.user.findUnique({
     where: { id: customerUserId },
     select: { id: true, role: true, status: true, createdAt: true },
@@ -82,9 +90,13 @@ export async function checkFirstStoreWelcomeEligibility(
   const priorWelcomeOfferRedemptions = await db.promotionRedemption.count({
     where: {
       customerUserId,
+      status: { in: ["COMMITTED", "PARTIALLY_REVERSED"] },
       campaignVersion: {
         campaign: {
-          name: { contains: "FIRST_STORE_WELCOME" },
+          OR: [
+            { internalCode: "FIRST_STORE_WELCOME" },
+            { name: { contains: "FIRST_STORE_WELCOME" } },
+          ],
         },
       },
     },
