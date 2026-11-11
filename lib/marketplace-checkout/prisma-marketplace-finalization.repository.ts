@@ -48,7 +48,7 @@ export function buildPaidMarketplaceCheckoutFromFrozenEvidence(row: any, evidenc
   const acknowledgedVersions = Array.isArray(acknowledgement?.settlementEvidenceVersions) ? [...acknowledgement.settlementEvidenceVersions].sort() : [];
   if (!commercialFingerprint || acknowledgement?.commercialFingerprint !== commercialFingerprint || JSON.stringify(expectedVersions) !== JSON.stringify(acknowledgedVersions)) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "The accepted checkout does not bind the complete frozen seller settlement evidence.");
   return {
-    id: row.id, publicReference: row.publicReference, cartId: row.cartId, status: row.status, currency: row.currency, grandTotal: money(row.grandTotal), digitalRequired: money(row.digitalRequired ?? row.grandTotal), cashRequired: money(row.cashRequired), commercialFingerprint, customerUserId: row.customerUserId,
+    id: row.id, publicReference: row.publicReference, cartId: row.cartId, status: row.status, currency: row.currency, promotionDiscount: row.promotionDiscount ? money(row.promotionDiscount) : "0.00", grandTotal: money(row.grandTotal), digitalRequired: money(row.digitalRequired ?? row.grandTotal), cashRequired: money(row.cashRequired), commercialFingerprint, customerUserId: row.customerUserId,
     storeGroups: row.storeGroups.map((group: any) => {
       const frozenEvidence = evidence.find((item: any) => item.checkoutStoreGroupId === group.id);
       const frozen = settlement(group, frozenEvidence, commercialFingerprint);
@@ -108,7 +108,7 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
     },
     createMarketplaceOrder: async ({ checkout: paid, paymentId, paymentReference, guestConfirmationHash }) => {
       void paymentReference;
-      const created = await db.marketplaceOrder.create({ data: { publicReference: reference("morder"), checkoutId: paid.id, paymentId, customerUserId: paid.customerUserId, guestConfirmationHash, currency: "ZAR", merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)), modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)), deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)), grandTotal: paid.grandTotal, digitalRequired: paid.digitalRequired ?? paid.grandTotal, cashRequired: paid.cashRequired ?? "0.00", commercialFingerprint: paid.commercialFingerprint, status: "CONFIRMED" } });
+      const created = await db.marketplaceOrder.create({ data: { publicReference: reference("morder"), checkoutId: paid.id, paymentId, customerUserId: paid.customerUserId, guestConfirmationHash, currency: "ZAR", merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)), modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)), deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)), promotionDiscount: paid.promotionDiscount ?? "0.00", grandTotal: paid.grandTotal, digitalRequired: paid.digitalRequired ?? paid.grandTotal, cashRequired: paid.cashRequired ?? "0.00", commercialFingerprint: paid.commercialFingerprint, status: "CONFIRMED" } });
       await db.payment.update({ where: { id: paymentId }, data: { marketplaceOrderId: created.id } });
       return { id: created.id, publicReference: created.publicReference };
     },

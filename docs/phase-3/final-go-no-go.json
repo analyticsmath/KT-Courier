@@ -1,49 +1,62 @@
 {
   "phase": "PHASE_3_FINAL_PRODUCTION_CERTIFICATION",
-  "evaluatedBaselineSha": "e47fdae93fa8ce8d1113a63617443a2b774cf6bb",
-  "certifiedAt": "2026-11-11T03:40:00.000Z",
-  "evaluator": "Gemini in Antigravity (Advanced Agentic Coding)",
+  "evaluatedBaselineSha": "1a400ae12e94a2a204a4378204cf8d77c403efaf",
+  "certifiedAt": "2026-11-11T05:16:00.000Z",
+  "evaluator": "Gemini 4 Argon in Antigravity (Advanced Agentic Coding)",
   "decision": {
     "overallStatus": "NO_GO",
-    "engineeringStatus": "GO",
+    "engineeringStatus": "LOCAL_PASSED_REMOTE_PENDING_PUSH",
     "commercialActivationStatus": "NO_GO",
-    "summary": "Engineering implementation and quality gates are 100% complete and passing with zero skips or flakiness. Live financial and commercial release remains strictly FAIL-CLOSED pending execution of the Owner Activation Register."
+    "signature_status": "UNSIGNED",
+    "launchVetoActive": true,
+    "summary": "Both release-blocking P0 defects (P0-01 Marketplace Discount check constraint violation and P0-02 Storefront Publication predicate mismatch in PostgreSQL) have been fully resolved and verified across local PostgreSQL, migration smoke, and full test suites. Remote GitHub Actions acceptance on the new commit is pending human developer review and push to main. Live commercial and financial activation remains strictly FAIL-CLOSED."
+  },
+  "remoteRunAudit": {
+    "auditedSha": "1a400ae12e94a2a204a4378204cf8d77c403efaf",
+    "mainCiRun": {
+      "runId": 42919126640,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42919126640",
+      "conclusion": "SUCCESS"
+    },
+    "productionCertificationRun": {
+      "runId": 42919126839,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42919126839",
+      "conclusion": "FAILURE",
+      "failedJobs": [
+        "browser-e2e (job 130189178903) - MarketplaceCheckout_totals_check check constraint violation (code 23514)",
+        "postgres-integration (job 130189179425) - approvedCheckoutEvidence predicate evaluated to false in real PG"
+      ]
+    }
   },
   "gateResults": {
-    "gate0Defects": {
-      "status": "CLOSED",
-      "g0A_storePublicationFingerprint": "RESOLVED",
-      "g0B_welcomeOfferPaymentSplit": "RESOLVED",
-      "g0C_promotionsLockdownEnvironment": "RESOLVED",
-      "g0D_schemaAssertionAndRouteInventory": "RESOLVED"
+    "p0Defects": {
+      "P0_01_marketplaceDiscountCheckConstraint": "RESOLVED_MIGRATION_20261111000000",
+      "P0_02_storefrontPublicationPgPredicate": "RESOLVED_POSIX_SPACE_REGEX"
     },
     "staticVerification": {
       "eslint": "PASSED_0_ERRORS",
       "typescript": "PASSED_0_ERRORS",
       "prismaSchema": "VALID",
-      "forwardMigrations": "PASSED_112_MIGRATIONS",
+      "forwardMigrations": "PASSED_114_MIGRATIONS",
       "nextjsProductionBuild": "PASSED_548_ROUTES"
     },
+    "migrationVerification": {
+      "migrationsCheck": "PASSED_113_INCREMENTAL_1_BASELINE_8_ARCHIVED",
+      "dockerMigrationSmoke": "PASSED_CLEAN_CONTAINER",
+      "historicalMigrationUpgrade": "PASSED_SEQUENTIAL_UPGRADE_1_TO_114"
+    },
     "automatedSuites": {
-      "fullUnitTestSuite": {
-        "filesTotal": 1070,
-        "filesPassed": 1070,
-        "testsTotal": 5370,
-        "testsPassed": 5370,
-        "failures": 0,
-        "skipped": 0
-      },
-      "paymentsSuite": {
-        "files": 66,
-        "testsPassed": 417,
-        "failures": 0
-      },
       "paystackContract": {
         "testsPassed": 24,
         "failures": 0
       },
       "paystackFinancialInvariants": {
         "testsPassed": 23,
+        "failures": 0
+      },
+      "paymentsSuite": {
+        "files": 66,
+        "testsPassed": 417,
         "failures": 0
       },
       "refundsSuite": {
@@ -61,9 +74,14 @@
         "testsPassed": 63,
         "failures": 0
       },
-      "routeAuthorizationInventory": {
-        "totalRoutesIndexed": 787,
-        "coverage": "100%",
+      "parcelAndClientPlatform": {
+        "files": 58,
+        "testsPassed": 401,
+        "failures": 0
+      },
+      "storefrontRealPostgres": {
+        "files": 2,
+        "testsPassed": 4,
         "failures": 0
       }
     },
@@ -82,6 +100,7 @@
     "No feature branches created; all work localized on main working copy.",
     "Zero destructive database migrations; historical ledgers and orders immutable.",
     "PostgreSQL check constraint MarketplaceCheckout_payment_split strictly enforced.",
+    "PostgreSQL check constraint MarketplaceCheckout_totals_check accounts for promotionDiscount.",
     "Double-entry balanced accounting preserved on all financial transactions.",
     "Fail-closed launch veto maintained; no live money charged without explicit owner signoff."
   ]

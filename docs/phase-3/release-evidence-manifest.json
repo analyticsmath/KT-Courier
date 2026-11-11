@@ -1,0 +1,171 @@
+{
+  "manifestVersion": "1.0.0",
+  "phase": "PHASE_3_FINAL_PRODUCTION_CERTIFICATION",
+  "generatedAt": "2026-11-11T05:15:00.000Z",
+  "repository": {
+    "name": "analyticsmath/KT-Courier",
+    "branch": "main",
+    "auditedBaselineSha": "1a400ae12e94a2a204a4378204cf8d77c403efaf"
+  },
+  "remoteCiAudit": {
+    "mainCiRun": {
+      "runId": 42919126640,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42919126640",
+      "status": "SUCCESS",
+      "conclusion": "SUCCESS"
+    },
+    "productionCertificationRun": {
+      "runId": 42919126839,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42919126839",
+      "status": "FAILURE",
+      "conclusion": "FAILURE",
+      "failedJobs": [
+        {
+          "jobId": 130189178903,
+          "name": "browser-e2e",
+          "failureReason": "PostgreSQL check constraint MarketplaceCheckout_totals_check violation (code 23514) on promotionDiscount"
+        },
+        {
+          "jobId": 130189179425,
+          "name": "postgres-integration",
+          "failureReason": "approvedCheckoutEvidence predicate failed due to unescaped \\s+ in Prisma.sql template literal"
+        }
+      ]
+    }
+  },
+  "resolvedP0Defects": [
+    {
+      "id": "P0-01",
+      "title": "Marketplace Discount SQL Check Constraint Violation",
+      "rootCause": "MarketplaceCheckout_totals_check and MarketplaceOrder_total_check enforced grandTotal = sum(gross) without subtracting promotionDiscount.",
+      "resolution": "Created forward migration 20261111000000_marketplace_promotion_discount adding promotionDiscount DECIMAL(18,2) and updating check constraints. Updated review composition with exact BigInt/Decimal integer cent arithmetic and replaced silent catch in welcome eligibility.",
+      "filesChanged": [
+        "prisma/migrations/20261111000000_marketplace_promotion_discount/migration.sql",
+        "prisma/schema.prisma",
+        "scripts/check-migrations-safety.mjs",
+        "lib/marketplace-checkout/checkout-review.service.ts",
+        "lib/marketplace-checkout/prisma-review-composition.repository.ts",
+        "lib/marketplace-checkout/prisma-marketplace-finalization.repository.ts",
+        "lib/marketplace-checkout/marketplace-checkout-finalization.service.ts"
+      ],
+      "verification": "Applied to local Docker PostgreSQL (kt-couriers-db-1); docker:migration-smoke passed; migration-upgrade passed; static checks passed."
+    },
+    {
+      "id": "P0-02",
+      "title": "Storefront Publication Predicate False in Real PostgreSQL",
+      "rootCause": "Unescaped '\\s+' in Prisma.sql template string in lib/storefront/sql-store-publication.ts evaluated to 's+' in PostgreSQL regexp_replace, replacing every letter 's' with a space and corrupting the SHA-256 pickup fingerprint digest.",
+      "resolution": "Replaced '\\s+' with POSIX bracket expression '[[:space:]]+' across all pickup address normalization fields.",
+      "filesChanged": [
+        "lib/storefront/sql-store-publication.ts"
+      ],
+      "verification": "tests/integration/storefront-search.integration.test.ts (1/1 passed) and tests/integration/storefront-publication-withdrawal.integration.test.ts (3/3 passed) on real Docker PostgreSQL."
+    }
+  ],
+  "verificationEvidence": {
+    "migrationChecks": {
+      "command": "npm run migrations:check",
+      "result": "PASS",
+      "activeBaseline": "20260710010000_initial_baseline",
+      "incrementalMigrations": 113,
+      "archivedMigrations": 8
+    },
+    "dockerMigrationSmoke": {
+      "command": "npm run docker:migration-smoke",
+      "result": "PASS",
+      "output": "Fresh migration smoke passed: the complete migration chain, idempotent seed, and schema drift check succeeded from an empty database."
+    },
+    "historicalMigrationUpgrade": {
+      "command": "npm run test:integration:migration-upgrade",
+      "result": "PASS",
+      "output": "HISTORICAL DATABASE UPGRADE PROOF PASSED: sequentially applied migrations 1-62 historical state through 114 forward migrations, verified immutable triggers."
+    },
+    "staticAnalysis": {
+      "eslint": {
+        "command": "npm run lint",
+        "result": "PASS",
+        "errors": 0,
+        "warnings": 0
+      },
+      "typecheck": {
+        "command": "npm run typecheck",
+        "result": "PASS",
+        "errors": 0
+      },
+      "prismaValidation": {
+        "command": "npx prisma validate",
+        "result": "PASS"
+      }
+    },
+    "productionBuild": {
+      "command": "npm run build",
+      "result": "PASS",
+      "turbopackRoutesCompiled": 548,
+      "errors": 0
+    },
+    "automatedSuites": {
+      "paystackContract": {
+        "command": "npm run test:paystack:contract",
+        "result": "PASS",
+        "files": 1,
+        "testsPassed": 24,
+        "failures": 0
+      },
+      "paystackFinancialInvariants": {
+        "command": "npm run test:paystack:invariants",
+        "result": "PASS",
+        "files": 1,
+        "testsPassed": 23,
+        "failures": 0
+      },
+      "paymentsSuite": {
+        "command": "npm run test:payments",
+        "result": "PASS",
+        "files": 66,
+        "testsPassed": 417,
+        "failures": 0
+      },
+      "refundsSuite": {
+        "command": "npm run test:refunds",
+        "result": "PASS",
+        "files": 26,
+        "testsPassed": 115,
+        "failures": 0
+      },
+      "bolaSecuritySuite": {
+        "command": "npm run test:security:bola",
+        "result": "PASS",
+        "files": 2,
+        "testsPassed": 23,
+        "failures": 0
+      },
+      "processorsSuite": {
+        "command": "npm run test:processors",
+        "result": "PASS",
+        "files": 9,
+        "testsPassed": 63,
+        "failures": 0
+      },
+      "parcelAndClientPlatform": {
+        "command": "npx vitest run tests/api/parcel-payment-methods.test.ts tests/client-platform/ tests/driver-operations/parcel-sender-pickup-otp.test.ts tests/marketplace-checkout/parcel-*.test.ts tests/pricing/ tests/tracking/parcel-tracking-reference.test.ts",
+        "result": "PASS",
+        "files": 58,
+        "testsPassed": 401,
+        "failures": 0
+      },
+      "storefrontRealPostgres": {
+        "command": "npx vitest run --config vitest.integration.config.ts tests/integration/storefront-search.integration.test.ts tests/integration/storefront-publication-withdrawal.integration.test.ts",
+        "result": "PASS",
+        "files": 2,
+        "testsPassed": 4,
+        "failures": 0
+      }
+    }
+  },
+  "overallDisposition": {
+    "engineeringStatus": "LOCAL_PASSED_REMOTE_PENDING_PUSH",
+    "commercialActivationStatus": "NO_GO",
+    "launchVetoActive": true,
+    "signatureStatus": "UNSIGNED",
+    "developerActionRequired": "Review unpushed changes on main, commit, and push to trigger remote GitHub Actions CI run."
+  }
+}

@@ -8,6 +8,7 @@ import type { MarketplaceAcknowledgementRepository, MarketplaceCheckoutReviewRep
 import type { MarketplaceCheckoutReviewResult, ReviewGroup } from "@/lib/marketplace-checkout/checkout-review.service";
 import { freezeMarketplaceStoreSettlementEvidence } from "@/lib/marketplace-checkout/frozen-seller-settlement-evidence.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import { centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import { digitalMarketplacePaymentPlan, resolveMarketplacePaymentPlan } from "./payment-plan";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
@@ -183,12 +184,12 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         const sumAllocated = Array.from(groupDiscounts.values()).reduce((sum, d) => sum.add(d), new Prisma.Decimal(0));
         if (!sumAllocated.equals(totalPromoDiscount)) {
           groupDiscounts.clear();
-          const totalDiscountCents = BigInt(Math.round(totalPromoDiscount.toNumber() * 100));
+          const totalDiscountCents = BigInt(parseZarToCents(totalPromoDiscount.toFixed(2)));
           const grossCentsList = authority.map(({ group }) => {
             const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
-            const fee = reviewedQuote ? Number(reviewedQuote.deliveryFee) : 0;
-            const linesTotal = group.lines.reduce((acc, l) => acc + Number(l.lineTotal), 0);
-            return BigInt(Math.round((linesTotal + fee) * 100));
+            const feeCents = reviewedQuote ? BigInt(parseZarToCents(new Prisma.Decimal(reviewedQuote.deliveryFee).toFixed(2))) : 0n;
+            const linesTotalCents = group.lines.reduce((acc, l) => acc + BigInt(parseZarToCents(new Prisma.Decimal(l.lineTotal).toFixed(2))), 0n);
+            return linesTotalCents + feeCents;
           });
           const totalGrossCents = grossCentsList.reduce((acc, c) => acc + c, 0n);
           let distributed = 0n;
@@ -200,7 +201,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
               allocated = (totalDiscountCents * grossCentsList[idx]) / totalGrossCents;
               distributed += allocated;
             }
-            groupDiscounts.set(group.storeReference, new Prisma.Decimal((Number(allocated) / 100).toFixed(2)));
+            groupDiscounts.set(group.storeReference, new Prisma.Decimal(centsToZar(allocated.toString())));
           });
         }
       }
@@ -246,13 +247,14 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         if (result.promotionEvidence && typeof result.promotionEvidence === "object" && "allocations" in result.promotionEvidence) {
           const allocs = (result.promotionEvidence as any).allocations;
           if (Array.isArray(allocs)) {
-            let sum = 0;
+            let sumCents = 0n;
             for (const a of allocs) {
               if (a.storeReference === group.storeReference) {
-                sum += Number(a.storeFunding || 0);
+                const storeFund = new Prisma.Decimal(a.storeFundedDiscount ?? a.storeFunding ?? 0).toFixed(2);
+                sumCents += BigInt(parseZarToCents(storeFund));
               }
             }
-            storeFundedPromotionAmount = sum.toFixed(2);
+            storeFundedPromotionAmount = centsToZar(sumCents.toString());
           }
         }
 
@@ -321,7 +323,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
       if (result.changes.length) await db.marketplaceCheckoutChange.createMany({ data: result.changes.map((change) => ({ checkoutId: checkout.id, reviewVersion: result.reviewVersion, type: change.type, lineReference: change.lineReference ?? null, details: change.details })) });
       await db.marketplaceCheckout.update({ where: { id: checkout.id }, data: {
         status: result.status, reviewVersion: result.reviewVersion, merchandiseSubtotal: result.merchandiseSubtotal, modifierSubtotal: result.modifierSubtotal,
-        deliveryFeeTotal: result.deliveryFeeTotal, grandTotal: result.grandTotal, digitalRequired: result.digitalRequired ?? result.grandTotal, cashRequired: result.cashRequired ?? "0.00", commercialFingerprint: result.commercialFingerprint,
+        deliveryFeeTotal: result.deliveryFeeTotal, promotionDiscount: result.promotionDiscount ?? "0.00", grandTotal: result.grandTotal, digitalRequired: result.digitalRequired ?? result.grandTotal, cashRequired: result.cashRequired ?? "0.00", commercialFingerprint: result.commercialFingerprint,
         acceptedFingerprint: null, changesAcknowledgedAt: null, reviewAcceptedAt: null, termsAcknowledgedAt: null, version: { increment: 1 },
       } });
       await db.marketplaceCheckoutOperation.create({ data: { checkoutId: checkout.id, operationId, requestHash, type: "REVIEW", response: publicReview(result) } });

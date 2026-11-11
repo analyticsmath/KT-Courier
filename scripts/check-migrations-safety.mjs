@@ -143,6 +143,18 @@ const approvedDestructiveOperations = [
     statement: /^\s*ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_succeeded_requires_provider_evidence_check"\s*;\s*$/i,
     reason: "Replaces Payment_succeeded_requires_provider_evidence_check in-place to allow provider='MANUAL' internal wallet ledger evidence while preserving strict external provider attempt/webhook/journal checks.",
   },
+  {
+    migration: "20261111000000_marketplace_promotion_discount",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"MarketplaceCheckout"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"MarketplaceCheckout_totals_check"\s*;\s*$/i,
+    reason: "Updates MarketplaceCheckout_totals_check to account for promotional discounts while preserving non-negative invariant and ledger reconciliation.",
+  },
+  {
+    migration: "20261111000000_marketplace_promotion_discount",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"MarketplaceOrder"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"MarketplaceOrder_total_check"\s*;\s*$/i,
+    reason: "Updates MarketplaceOrder_total_check to account for promotional discounts while preserving non-negative invariant and ledger reconciliation.",
+  },
 ];
 
 function checksum(file) {

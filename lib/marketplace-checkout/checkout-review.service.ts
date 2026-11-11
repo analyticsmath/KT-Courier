@@ -125,8 +125,12 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
           allocations,
         };
       }
-    } catch {
-      // Best-effort check; do not block review if welcome lookup fails
+    } catch (error) {
+      if (error instanceof MarketplaceCheckoutError) throw error;
+      throw new MarketplaceCheckoutError(
+        "CHECKOUT_REVIEW_REQUIRED",
+        "Checkout review requires revalidation. Welcome promotion eligibility could not be verified safely.",
+      );
     }
   }
 
