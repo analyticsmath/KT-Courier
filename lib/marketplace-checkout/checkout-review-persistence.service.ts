@@ -6,6 +6,7 @@ import {
   type ReviewGroup,
   type ReviewLine,
   type RevalidatedLine,
+  type WelcomeEligibilityAdapter,
 } from "@/lib/marketplace-checkout/checkout-review.service";
 import type { MarketplaceDeliveryQuoteAdapter } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
 import type { PromotionEvaluationAdapter } from "@/lib/marketplace-checkout/checkout-review.service";
@@ -42,6 +43,7 @@ export type MarketplaceCheckoutReviewRepository = Readonly<{
     commissionPolicyVersion: string;
     settlementEvidence: readonly FrozenMarketplaceStoreSettlementEvidence[];
   }>): Promise<void>;
+  checkWelcomeEligibility?(customerUserId: string, merchandiseSubtotalZar: string, now: Date): Promise<import("@/lib/promotions/first-store-welcome.service").FirstStoreWelcomeEligibility>;
 }>;
 
 export async function reviewMarketplaceCheckout(
@@ -55,6 +57,7 @@ export async function reviewMarketplaceCheckout(
     commissionPolicyVersion: string;
     quoteAdapter: MarketplaceDeliveryQuoteAdapter;
     promotionAdapter?: PromotionEvaluationAdapter;
+    welcomeEligibilityAdapter?: WelcomeEligibilityAdapter;
     resolveLine(line: ReviewLine): Promise<RevalidatedLine>;
   }>,
 ): Promise<MarketplaceCheckoutReviewResult> {
@@ -70,6 +73,11 @@ export async function reviewMarketplaceCheckout(
     if (!["CREATED", "VALIDATING", "CHANGES_REQUIRED", "READY_FOR_REVIEW"].includes(checkout.status) || checkout.currency !== "ZAR" || !checkout.contactSnapshotId || !checkout.addressSnapshotId || !checkout.groups.length) {
       throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A complete mutable checkout is required for review.");
     }
+    const welcomeEligibilityAdapter: WelcomeEligibilityAdapter | undefined = input.welcomeEligibilityAdapter ?? (
+      repository.checkWelcomeEligibility
+        ? { checkEligibility: (uid, subtotal, now) => repository.checkWelcomeEligibility!(uid, subtotal, now) }
+        : undefined
+    );
     const reviewed = await revalidateMarketplaceCheckout({
       checkoutId: checkout.id,
       checkoutReference: checkout.publicReference,
@@ -81,6 +89,7 @@ export async function reviewMarketplaceCheckout(
       resolveLine: input.resolveLine,
       quoteAdapter: input.quoteAdapter,
       promotionAdapter: input.promotionAdapter,
+      welcomeEligibilityAdapter,
       commissionPolicyVersion: input.commissionPolicyVersion,
     });
     const frozen = await repository.freezeSettlementEvidence({ checkout, result: reviewed });

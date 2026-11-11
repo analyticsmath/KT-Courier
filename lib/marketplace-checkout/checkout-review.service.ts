@@ -2,8 +2,16 @@ import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCheckoutTotals, canonicalMarketplaceFingerprint, centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import type { MarketplaceDeliveryQuoteAdapter } from "@/lib/marketplace-checkout/marketplace-delivery-quote.service";
 import type { PromotionEvaluationInput } from "@/lib/promotions/promotion-evaluation.service";
-import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
+import { checkFirstStoreWelcomeEligibility, type FirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
 import { Decimal } from "@prisma/client/runtime/library";
+
+export interface WelcomeEligibilityAdapter {
+  checkEligibility(
+    customerUserId: string,
+    merchandiseSubtotalZar: string,
+    now: Date,
+  ): Promise<FirstStoreWelcomeEligibility>;
+}
 
 // Phase 23: Promotion evaluation
 export interface PromotionEvaluationAdapter {
@@ -20,7 +28,7 @@ function add(left: string, right: string): string { let carry = 0; let out = "";
 function sum(values: readonly string[]): string { return centsToZar(values.reduce((total, value) => add(total, parseZarToCents(value)), "0")); }
 function multiplied(unit: string, quantity: number): string { let total = "0"; const cents = parseZarToCents(unit); for (let index = 0; index < quantity; index += 1) total = add(total, cents); return centsToZar(total); }
 
-export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId: string; checkoutReference: string; customerUserId?: string; guestEvidenceReference?: string; appliedCouponCode?: string; serviceAreaReference: string | null; reviewVersion: number; groups: readonly ReviewGroup[]; resolveLine(line: ReviewLine): Promise<RevalidatedLine>; quoteAdapter: MarketplaceDeliveryQuoteAdapter; promotionAdapter?: PromotionEvaluationAdapter; previousDeliveryFees?: Readonly<Record<string, string>>; commissionPolicyVersion: string }>): Promise<MarketplaceCheckoutReviewResult> {
+export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId: string; checkoutReference: string; customerUserId?: string; guestEvidenceReference?: string; appliedCouponCode?: string; serviceAreaReference: string | null; reviewVersion: number; groups: readonly ReviewGroup[]; resolveLine(line: ReviewLine): Promise<RevalidatedLine>; quoteAdapter: MarketplaceDeliveryQuoteAdapter; promotionAdapter?: PromotionEvaluationAdapter; welcomeEligibilityAdapter?: WelcomeEligibilityAdapter; previousDeliveryFees?: Readonly<Record<string, string>>; commissionPolicyVersion: string }>): Promise<MarketplaceCheckoutReviewResult> {
   const changes: CheckoutReviewChange[] = []; const effectiveGroups: { storeReference: string; lines: ReviewLine[]; deliveryFee: string }[] = []; const quotes: Array<{ storeReference: string; quoteReference: string; quoteVersion: string; quoteExpiresAt: Date; deliveryFee: string; serviceabilityReference: string }> = [];
   for (const group of input.groups) {
     const lines: ReviewLine[] = [];
@@ -87,8 +95,12 @@ export async function revalidateMarketplaceCheckout(input: Readonly<{ checkoutId
 
   // First-store welcome discount if no coupon / automatic promotion took precedence
   if (input.customerUserId && (!promotionDiscount || promotionDiscount === "0.00")) {
+    const welcomeAdapter = input.welcomeEligibilityAdapter ?? {
+      checkEligibility: (uid: string, subtotal: string, checkedAt: Date) =>
+        checkFirstStoreWelcomeEligibility(uid, subtotal, checkedAt),
+    };
     try {
-      const welcome = await checkFirstStoreWelcomeEligibility(
+      const welcome = await welcomeAdapter.checkEligibility(
         input.customerUserId,
         merchandiseSubtotal,
         new Date(),

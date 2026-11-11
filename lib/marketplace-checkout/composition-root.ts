@@ -4,7 +4,7 @@ import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-chec
 import { createPrismaMarketplaceAcknowledgementRepository, createPrismaMarketplaceReviewRepository } from "@/lib/marketplace-checkout/prisma-review-composition.repository";
 import { acknowledgeMarketplaceCheckoutReviewPersisted, reviewMarketplaceCheckout } from "@/lib/marketplace-checkout/checkout-review-persistence.service";
 import { resolveMarketplaceCartLine, type CartOwner } from "@/lib/marketplace-checkout/cart.service";
-import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine } from "@/lib/marketplace-checkout/checkout-review.service";
+import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine, WelcomeEligibilityAdapter } from "@/lib/marketplace-checkout/checkout-review.service";
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
 import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
 import { Prisma } from "@prisma/client";
@@ -80,6 +80,7 @@ function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
 
 export async function executeMarketplaceCheckoutReview(input: Readonly<{
   reference: string; owner: CartOwner; operationId: string; requestHash: string; expectedVersion: number;
+  welcomeEligibilityAdapter?: WelcomeEligibilityAdapter;
 }>) {
   const composition = resolveAndAssertMarketplaceCheckoutOperation("CHECKOUT_REVIEW");
   const quoteAdapter = input.owner.type === "CUSTOMER"
@@ -90,6 +91,7 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
     commissionPolicyVersion: "phase14-frozen-policy-v1",
     quoteAdapter,
     promotionAdapter: new Phase23PromotionEvaluationAdapter(),
+    welcomeEligibilityAdapter: input.welcomeEligibilityAdapter,
     resolveLine: revalidatedLine,
   });
 }

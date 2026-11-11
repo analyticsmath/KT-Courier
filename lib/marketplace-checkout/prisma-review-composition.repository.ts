@@ -12,6 +12,7 @@ import { centsToZar, parseZarToCents } from "@/lib/marketplace-checkout/policy";
 import { digitalMarketplacePaymentPlan, resolveMarketplacePaymentPlan } from "./payment-plan";
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
+import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
 
 const money = (value: any) => typeof value === "string" ? value : value?.toFixed?.(2) ?? "0.00";
 const ownerWhere = (owner: CartOwner) => owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash };
@@ -86,6 +87,9 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
     findOperation: async (checkoutId: string, operationId: string) => {
       const row = await db.marketplaceCheckoutOperation.findUnique({ where: { checkoutId_operationId: { checkoutId, operationId } } });
       return row ? { requestHash: row.requestHash, response: row.response as MarketplaceCheckoutReviewResult } : null;
+    },
+    checkWelcomeEligibility: async (customerUserId: string, merchandiseSubtotalZar: string, now: Date) => {
+      return checkFirstStoreWelcomeEligibility(customerUserId, merchandiseSubtotalZar, now, db);
     },
     freezeSettlementEvidence: async ({ checkout, result }) => {
       if (result.revalidatedGroups.length !== checkout.sourceGroups.length) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Every checkout store must produce complete reviewed settlement evidence.");

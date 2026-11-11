@@ -4,6 +4,9 @@ import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import type { ReviewLine } from "@/lib/marketplace-checkout/checkout-review.service";
 
 const owner = { type: "CUSTOMER" as const, userId: "customer-1" };
+const ineligibleWelcomeAdapter = {
+  checkEligibility: vi.fn().mockResolvedValue({ eligible: false, discountAmountZar: "0.00" }),
+};
 const checkout = {
   id: "checkout-id", publicReference: "checkout-1", status: "VALIDATING", version: 2, reviewVersion: 1, currency: "ZAR", grandTotal: "10.00",
   commercialFingerprint: null, acceptedFingerprint: null, contactSnapshotId: "contact-1", addressSnapshotId: "address-1", addressServiceAreaReference: "area-1", sourceGroups: [{ id: "group-1", storeId: "store-1" }],
@@ -17,6 +20,7 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
     const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue(checkout), findOperation: vi.fn().mockResolvedValue(null), freezeSettlementEvidence: vi.fn().mockResolvedValue({ commercialFingerprint: "frozen-fingerprint", evidence: [] }), persistReview };
     const result = await reviewMarketplaceCheckout(repository as never, {
       reference: "checkout-1", owner, operationId: "review-0001", requestHash: "same", expectedVersion: 2, commissionPolicyVersion: "plan-1",
+      welcomeEligibilityAdapter: ineligibleWelcomeAdapter,
       quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
       resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
     });
@@ -36,9 +40,54 @@ describe("marketplace checkout review and acknowledgement persistence", () => {
     const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue(checkout), findOperation: vi.fn().mockResolvedValue(null), freezeSettlementEvidence: vi.fn().mockRejectedValue(new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "missing seller settlement authority")), persistReview };
     await expect(reviewMarketplaceCheckout(repository as never, {
       reference: "checkout-1", owner, operationId: "review-evidence-missing", requestHash: "same", expectedVersion: 2, commissionPolicyVersion: "plan-1",
+      welcomeEligibilityAdapter: ineligibleWelcomeAdapter,
       quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
       resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
     })).rejects.toMatchObject({ code: "SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE" });
+    expect(persistReview).not.toHaveBeenCalled();
+  });
+  it("applies first-store welcome discount for an eligible customer and persists distributed allocation evidence", async () => {
+    const persistReview = vi.fn();
+    const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue(checkout), findOperation: vi.fn().mockResolvedValue(null), freezeSettlementEvidence: vi.fn().mockResolvedValue({ commercialFingerprint: "frozen-fingerprint-welcome", evidence: [] }), persistReview };
+    const eligibleAdapter = {
+      checkEligibility: vi.fn().mockResolvedValue({ eligible: true, discountAmountZar: "10.00" }),
+    };
+    const result = await reviewMarketplaceCheckout(repository as never, {
+      reference: "checkout-1", owner, operationId: "review-welcome-001", requestHash: "same-welcome", expectedVersion: 2, commissionPolicyVersion: "plan-1",
+      welcomeEligibilityAdapter: eligibleAdapter,
+      quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
+      resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
+    });
+    expect(result).toMatchObject({
+      status: "READY_FOR_REVIEW",
+      merchandiseSubtotal: "10.00",
+      deliveryFeeTotal: "5.00",
+      promotionDiscount: "10.00",
+      grandTotal: "5.00",
+      promotionEvidence: expect.objectContaining({
+        type: "FIRST_STORE_WELCOME",
+        discountAmount: "10.00",
+        totalPlatformFunding: "10.00",
+        allocations: [{ storeReference: "store-1", platformFundedDiscount: "10.00", storeFundedDiscount: "0.00" }],
+      }),
+    });
+    expect(persistReview).toHaveBeenCalledOnce();
+  });
+  it("fails closed with CHECKOUT_REVIEW_REQUIRED when welcome eligibility lookup fails", async () => {
+    const persistReview = vi.fn();
+    const repository = { transaction: async (work: () => Promise<unknown>) => work(), lockCheckout: vi.fn().mockResolvedValue(checkout), findOperation: vi.fn().mockResolvedValue(null), freezeSettlementEvidence: vi.fn(), persistReview };
+    const failingAdapter = {
+      checkEligibility: vi.fn().mockRejectedValue(new Error("Lookup timeout or database failure")),
+    };
+    await expect(reviewMarketplaceCheckout(repository as never, {
+      reference: "checkout-1", owner, operationId: "review-welcome-fail", requestHash: "same", expectedVersion: 2, commissionPolicyVersion: "plan-1",
+      welcomeEligibilityAdapter: failingAdapter,
+      quoteAdapter: { quoteStoreGroup: async () => ({ fee: "5.00", currency: "ZAR", publicReference: "quote-1", version: "rule-1", expiresAt: new Date(Date.now() + 60_000), serviceabilityReference: "area-1", serviceLevel: "SAME_DAY" }) },
+      resolveLine: async (line: ReviewLine) => ({ lineReference: line.lineReference, available: true, quantity: 1, priceVersion: "price-1", publicationVersion: "pub-1", baseUnitPrice: "10.00", modifierUnitTotal: "0.00", lineTotal: "10.00", modifierValid: true }),
+    })).rejects.toMatchObject({
+      code: "CHECKOUT_REVIEW_REQUIRED",
+      message: expect.stringContaining("Welcome promotion eligibility could not be verified safely"),
+    });
     expect(persistReview).not.toHaveBeenCalled();
   });
   it("persists an exact acknowledgement after matching commercial evidence", async () => {
