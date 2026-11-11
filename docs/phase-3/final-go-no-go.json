@@ -1,7 +1,7 @@
 {
   "phase": "PHASE_3_FINAL_PRODUCTION_CERTIFICATION",
-  "evaluatedBaselineSha": "046684e86dcb997184253a51b8b84241d6d9b246",
-  "certifiedAt": "2026-11-11T09:15:00.000Z",
+  "evaluatedBaselineSha": "32b09d6a6076cf6a417a59dad535d39d65415bd6",
+  "certifiedAt": "2026-11-11T10:55:00.000Z",
   "evaluator": "Gemini 4 Argon in Antigravity (Advanced Agentic Coding)",
   "decision": {
     "overallStatus": "NO_GO",
@@ -9,24 +9,24 @@
     "commercialActivationStatus": "NO_GO",
     "signature_status": "UNSIGNED",
     "launchVetoActive": true,
-    "summary": "Engineering defects across checkout revalidation, welcome eligibility boundaries, and promotional accounting (P0-FIN-01 customer-funded vs platform-funded subsidy journals, bounded partial refunds, and full cancellation reversal semantics) are fully resolved and mathematically conserved. Local suites pass cleanly with 0 TypeScript errors, 0 ESLint errors, valid Prisma schema, 113 safe incremental migrations, 417 payment tests passing, 115 refund tests passing, 23 BOLA security tests passing, and 63 processor tests passing. Deployment protection remains active; live commercial release is strictly NO-GO pending authentic human owner, legal, and banking signoff."
+    "summary": "Engineering defects across welcome eligibility boundaries, Phase 21 ledger authority, missing-account soft skips, full-order adjustment discount fallback, and promotional test suite selection are fully resolved and mathematically conserved. Local suites pass cleanly with 0 TypeScript errors, 0 ESLint errors, valid Prisma schema, 113 safe incremental migrations, 417 payment tests passing, 115 refund tests passing, 23 BOLA security tests passing, and 63 processor tests passing. Deployment protection remains active; live commercial release is strictly NO-GO pending authentic human owner, legal, and banking signoff."
   },
   "remoteRunAudit": {
-    "auditedSha": "046684e86dcb997184253a51b8b84241d6d9b246",
+    "auditedSha": "32b09d6a6076cf6a417a59dad535d39d65415bd6",
     "mainCiRun": {
-      "runId": 42944856825,
-      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42944856825",
-      "conclusion": "SUCCESS"
+      "runId": 42959622140,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42959622140",
+      "conclusion": "FAILURE (Quality job unit test coverage failure on 2 files)"
     },
     "productionCertificationRun": {
-      "runId": 42944856866,
-      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42944856866",
+      "runId": 42959622094,
+      "url": "https://github.com/analyticsmath/KT-Courier/actions/runs/42959622094",
       "conclusion": "FAILURE",
       "historicalJobResults": {
-        "job_130275085015_browser": "FAILURE (36 passed, 5 failed across 3 test files due to P0-FIN-01 promotional accounting mismatches)",
-        "job_quality": "SUCCESS (lint, typecheck, migrations, coverage passed)",
-        "job_downstream_acceptance": "SKIPPED_DEPENDENCY",
-        "job_live_commercial_veto": "SKIPPED_DEPENDENCY"
+        "job_130322837457_quality": "FAILURE (customer-loyalty-workstream3 and store-order-composition-source failed on unit coverage)",
+        "job_130322837908_postgres_checkout": "FAILURE (two promotional integration tests misplaced in non-browser PG suite)",
+        "job_130322837685_browser": "FAILURE (37 passed, 4 failed in marketplace-refund and store-substitution due to production-lock NODE_ENV check in standalone container)",
+        "other_jobs": "SUCCESS (Postgres storefront, orders, store earnings, driver operations, ledger, refunds, payment foundation, migrations, Redis, recovery passed)"
       }
     }
   },

@@ -142,7 +142,7 @@ function writePlaywrightReceipt(args, timeoutMs, result, startedAtMs, runtimeEnv
     endedAt: new Date(endedAtMs).toISOString(),
     durationMs: endedAtMs - startedAtMs,
     timeoutMs,
-    expectedTests: isExactPhase2And3DirectedSelection(args) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : phase1Acceptance ? null : phase2Canonical ? 41 : null,
+    expectedTests: isExactPhase2And3DirectedSelection(args) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : phase1Acceptance ? null : phase2Canonical ? 43 : null,
     expectedTestCountSource: phase1Acceptance ? "dynamic discovery and per-stage counts in phase1-browser-stages.json" : "fixed selection or custom runner report",
     process: { exitCode: result.status, signal: result.signal ?? null, errorCode: result.error?.code ?? null },
     environment: {
@@ -275,11 +275,12 @@ try {
   if (phase2Canonical) {
     const report = path.resolve("output/production-closure/phase2-canonical-vitest.json");
     mkdirSync(path.dirname(report), { recursive: true });
-    // Forty-one mandatory canonical cases include three additional paid
-    // replacement price/expiry boundaries; keep execution finite at 20 minutes.
+    // Forty-three mandatory canonical cases include three additional paid
+    // replacement price/expiry boundaries and two canonical promotional lifecycle cases;
+    // keep execution finite at 20 minutes.
     const result = spawnSync(process.execPath, ["node_modules/vitest/vitest.mjs", "run", "--config=vitest.phase2-canonical-acceptance.config.ts", "--reporter=default", "--reporter=json", `--outputFile.json=${report}`], { cwd: process.cwd(), env, stdio: "inherit", shell: false, timeout: 1_200_000 });
     const counts = JSON.parse(readFileSync(report, "utf8"));
-    if (result.status !== 0 || counts.numTotalTests !== 41 || counts.numPassedTests !== 41 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All forty-one canonical marketplace/store/refund/driver/COD PostgreSQL cases must execute and pass without deferrals.");
+    if (result.status !== 0 || counts.numTotalTests !== 43 || counts.numPassedTests !== 43 || counts.numFailedTests || counts.numPendingTests || counts.numTodoTests) throw new Error("All forty-three canonical marketplace/store/refund/driver/COD PostgreSQL cases must execute and pass without deferrals.");
   } else if (phase1Acceptance) runPhase1BrowserPlan(env);
   else {
     if (playwrightArgs.includes("tests/e2e/marketplace-checkout-payment.spec.ts")) {
@@ -335,7 +336,7 @@ writeFileSync(harnessReceiptPath, JSON.stringify({
   startedAt: new Date(harnessStartedAt).toISOString(),
   endedAt: new Date(harnessEndedAt).toISOString(),
   durationMs: harnessEndedAt - harnessStartedAt,
-  expectedTests: phase1Acceptance ? fullChromiumExpectedTests : phase2Canonical ? 41 : isExactPhase2And3DirectedSelection(playwrightArgs) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : null,
+  expectedTests: phase1Acceptance ? fullChromiumExpectedTests : phase2Canonical ? 43 : isExactPhase2And3DirectedSelection(playwrightArgs) ? PHASE2_3_DIRECTED_EXPECTED_TESTS : null,
   process: { exitCode: failed ? 1 : 0 },
   cleanup: cleanupFailed ? "FAIL" : "PASS",
   environment: {

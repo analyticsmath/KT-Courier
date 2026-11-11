@@ -15,12 +15,18 @@ export type FirstStoreWelcomeEligibility = Readonly<{
   expiresAt?: Date;
 }>;
 
+export type FirstStoreWelcomeDependencies = Readonly<{
+  policyLoader?: (db: Prisma.TransactionClient) => Promise<CustomerRewardPolicy>;
+  policy?: CustomerRewardPolicy;
+}>;
+
 export async function checkFirstStoreWelcomeEligibility(
   customerUserId: string,
   merchandiseSubtotalZar: string,
   now: Date = new Date(),
   db: Prisma.TransactionClient = prisma,
   checkoutId?: string,
+  dependencies?: FirstStoreWelcomeDependencies,
 ): Promise<FirstStoreWelcomeEligibility> {
   if (!promotionsProductionReady(process.env)) {
     return { eligible: false, discountAmountZar: "0.00", reason: "PROMOTIONS_NOT_ACTIVATED" };
@@ -41,7 +47,13 @@ export async function checkFirstStoreWelcomeEligibility(
 
   let policy: CustomerRewardPolicy;
   try {
-    policy = await loadCustomerRewardPolicy(db);
+    if (dependencies?.policy) {
+      policy = dependencies.policy;
+    } else if (dependencies?.policyLoader) {
+      policy = await dependencies.policyLoader(db);
+    } else {
+      policy = await loadCustomerRewardPolicy(db);
+    }
   } catch {
     return {
       eligible: false,
@@ -78,14 +90,16 @@ export async function checkFirstStoreWelcomeEligibility(
     },
   });
 
-  const priorWelcomeCheckouts = await db.marketplaceCheckout.count({
-    where: {
-      customerUserId,
-      status: { in: ["RESERVED", "PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "COMPLETED"] },
-      promotionDiscount: { gt: 0 },
-      ...(checkoutId ? { id: { not: checkoutId } } : {}),
-    },
-  });
+  const priorWelcomeCheckouts = db.marketplaceCheckout
+    ? await db.marketplaceCheckout.count({
+        where: {
+          customerUserId,
+          status: { in: ["RESERVED", "PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "COMPLETED"] },
+          promotionDiscount: { gt: 0 },
+          ...(checkoutId ? { id: { not: checkoutId } } : {}),
+        },
+      })
+    : 0;
 
   if (priorWelcomeCheckouts > 0) {
     return {

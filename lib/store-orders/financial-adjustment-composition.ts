@@ -8,6 +8,7 @@ import type { StoreOrderFinancialAuthority } from "@/lib/store-orders/contracts"
 import { StoreOrderError } from "@/lib/store-orders/errors";
 import { storeAdjustmentChildOperation } from "./financial-operation";
 import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
+import { reversePlatformSubsidyJournalInTx } from "@/lib/promotions/platform-subsidy-ledger.service";
 
 const zero = () => new Prisma.Decimal(0);
 
@@ -143,40 +144,18 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
       const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: storeAdjustmentChildOperation(input.operationId, "store-earning"), reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
       let platformSubsidyReversalReference: string | undefined;
       if (platformSubsidy.greaterThan(0)) {
-        const platformExpenseAccount = await tx.ledgerAccount.findUnique({
-          where: { code: "PLATFORM-PROMOTION-EXPENSE-ZAR" },
-        });
-        const customerHeldAccount = await tx.ledgerAccount.findUnique({
-          where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" },
-        });
-        if (platformExpenseAccount && customerHeldAccount) {
-          const { postLedgerJournalWithinTransaction } = await import("@/lib/services/ledger-posting.service");
-          const reversalJournal = await postLedgerJournalWithinTransaction(tx, {
-            idempotencyKey: `LJ-PROMO-REV-${adjustment.id}`,
-            type: "GENERAL",
-            currency: "ZAR",
-            sourceReference: adjustment.publicReference,
-            correlationId: adjustment.id,
-            memo: `Platform Promotion Subsidy Reversal for adjustment ${adjustment.publicReference}`,
-            actor: { kind: "SYSTEM" },
-            entries: [
-              {
-                accountId: customerHeldAccount.id,
-                direction: "DEBIT",
-                amount: platformSubsidy.toFixed(2),
-                lineCode: "CUSTOMER_FUNDS_PROMO_DEBIT",
-                memo: `Debit customer funds held platform subsidy reversal`,
-              },
-              {
-                accountId: platformExpenseAccount.id,
-                direction: "CREDIT",
-                amount: platformSubsidy.toFixed(2),
-                lineCode: "PLATFORM_PROMO_CREDIT",
-                memo: `Credit platform promotional expense reversal`,
-              },
-            ],
+        try {
+          const reversalJournal = await reversePlatformSubsidyJournalInTx(tx, {
+            adjustmentId: adjustment.id,
+            adjustmentPublicReference: adjustment.publicReference,
+            amount: platformSubsidy,
           });
           platformSubsidyReversalReference = reversalJournal.reference;
+        } catch (error) {
+          throw new StoreOrderError(
+            "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID",
+            error instanceof Error ? error.message : "Failed to post canonical platform subsidy reversal journal."
+          );
         }
       }
       const committedEvidence = { operationId: input.operationId, paymentReference: adjustment.storeOrder.marketplaceOrder.payment.publicReference, customerUserId: adjustment.storeOrder.marketplaceOrder.customerUserId, refundAmount: refund.toFixed(2), platformSubsidyReversalAmount: platformSubsidy.toFixed(2), commissionReversalReferences: commissionReversals, ...(earningReversal ? { storeEarningReversalReference: earningReversal.reversalLedgerJournalReference } : {}), ...(platformSubsidyReversalReference ? { platformSubsidyReversalReference } : {}) };

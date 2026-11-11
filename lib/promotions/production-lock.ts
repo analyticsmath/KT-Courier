@@ -17,9 +17,10 @@ export type PromotionsReleaseGate = Readonly<{
 export function evaluatePromotionsReleaseGate(
   source: Record<string, string | undefined> = process.env,
 ): PromotionsReleaseGate {
-  const isProduction = source.NODE_ENV === "production";
+  const isProduction = source.NODE_ENV === "production" && source.KT_RUNTIME_ENV !== "e2e";
   const isTestOrDisposable =
     source.NODE_ENV === "test" ||
+    source.KT_RUNTIME_ENV === "e2e" ||
     source.KT_ALLOW_ISOLATED_POSTGRES_TESTS === "1" ||
     source.KT_PROMOTIONS_TEST_APPROVED === "true";
   const approved = (!isProduction && isTestOrDisposable) || PROMOTIONS_PRODUCTION_VALIDATION_APPROVED;

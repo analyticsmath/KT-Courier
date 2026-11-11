@@ -150,6 +150,16 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
   });
 
   describe("First Store Welcome Offer Policy", () => {
+    const mockSettingRows = [
+      { key: "loyalty.points_per_zar", type: "NUMBER", value: 1 },
+      { key: "loyalty.conversion_points", type: "NUMBER", value: 100 },
+      { key: "loyalty.conversion_wallet_zar", type: "NUMBER", value: 2 },
+      { key: "referral.reward_zar", type: "NUMBER", value: 5 },
+      { key: "welcome.store.discount_zar", type: "NUMBER", value: 50 },
+      { key: "welcome.store.valid_days", type: "NUMBER", value: 7 },
+      { key: "welcome.store.minimum_order_zar", type: "NUMBER", value: 0 },
+    ];
+
     it("identifies eligible customer within 7 days of signup and 0 orders", async () => {
       const now = new Date("2026-11-10T12:00:00Z");
       const createdAt = new Date("2026-11-05T12:00:00Z"); // 5 days ago
@@ -164,12 +174,15 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
           }),
         },
         systemSetting: {
-          findMany: vi.fn().mockResolvedValue([]),
+          findMany: vi.fn().mockResolvedValue(mockSettingRows),
         },
         marketplaceOrder: {
           count: vi.fn().mockResolvedValue(0),
         },
         promotionRedemption: {
+          count: vi.fn().mockResolvedValue(0),
+        },
+        marketplaceCheckout: {
           count: vi.fn().mockResolvedValue(0),
         },
       } as unknown as Prisma.TransactionClient;
@@ -193,12 +206,15 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
           }),
         },
         systemSetting: {
-          findMany: vi.fn().mockResolvedValue([]),
+          findMany: vi.fn().mockResolvedValue(mockSettingRows),
         },
         marketplaceOrder: {
           count: vi.fn().mockResolvedValue(0),
         },
         promotionRedemption: {
+          count: vi.fn().mockResolvedValue(0),
+        },
+        marketplaceCheckout: {
           count: vi.fn().mockResolvedValue(0),
         },
       } as unknown as Prisma.TransactionClient;
@@ -222,7 +238,7 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
           }),
         },
         systemSetting: {
-          findMany: vi.fn().mockResolvedValue([]),
+          findMany: vi.fn().mockResolvedValue(mockSettingRows),
         },
         marketplaceOrder: {
           count: vi.fn().mockResolvedValue(1),
@@ -230,11 +246,130 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
         promotionRedemption: {
           count: vi.fn().mockResolvedValue(0),
         },
+        marketplaceCheckout: {
+          count: vi.fn().mockResolvedValue(0),
+        },
       } as unknown as Prisma.TransactionClient;
 
       const res = await checkFirstStoreWelcomeEligibility("user-repeat", "100.00", now, mockDb);
       expect(res.eligible).toBe(false);
       expect(res.reason).toBe("NOT_FIRST_ORDER");
+    });
+
+    it("denies award with POLICY_UNAVAILABLE when policy settings cannot be loaded", async () => {
+      const now = new Date("2026-11-10T12:00:00Z");
+      const createdAt = new Date("2026-11-08T12:00:00Z");
+
+      const mockDb = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "user-new",
+            role: "CUSTOMER",
+            status: "ACTIVE",
+            createdAt,
+          }),
+        },
+        systemSetting: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      const res = await checkFirstStoreWelcomeEligibility("user-new", "100.00", now, mockDb);
+      expect(res.eligible).toBe(false);
+      expect(res.reason).toBe("POLICY_UNAVAILABLE");
+    });
+
+    it("denies award when customer has an active held checkout reservation", async () => {
+      const now = new Date("2026-11-10T12:00:00Z");
+      const createdAt = new Date("2026-11-08T12:00:00Z");
+
+      const mockDb = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "user-held",
+            role: "CUSTOMER",
+            status: "ACTIVE",
+            createdAt,
+          }),
+        },
+        systemSetting: {
+          findMany: vi.fn().mockResolvedValue(mockSettingRows),
+        },
+        marketplaceOrder: {
+          count: vi.fn().mockResolvedValue(0),
+        },
+        promotionRedemption: {
+          count: vi.fn().mockResolvedValue(0),
+        },
+        marketplaceCheckout: {
+          count: vi.fn().mockResolvedValue(1),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      const res = await checkFirstStoreWelcomeEligibility("user-held", "100.00", now, mockDb);
+      expect(res.eligible).toBe(false);
+      expect(res.reason).toBe("WELCOME_OFFER_ALREADY_RESERVED");
+    });
+
+    it("denies award for guest users and inactive customer status", async () => {
+      const resGuest = await checkFirstStoreWelcomeEligibility("", "100.00");
+      expect(resGuest.eligible).toBe(false);
+      expect(resGuest.reason).toBe("GUEST_NOT_ELIGIBLE");
+
+      const mockDb = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "user-suspended",
+            role: "CUSTOMER",
+            status: "SUSPENDED",
+            createdAt: new Date(),
+          }),
+        },
+      } as unknown as Prisma.TransactionClient;
+
+      const resSuspended = await checkFirstStoreWelcomeEligibility("user-suspended", "100.00", new Date(), mockDb);
+      expect(resSuspended.eligible).toBe(false);
+      expect(resSuspended.reason).toBe("CUSTOMER_NOT_ELIGIBLE");
+    });
+
+    it("allows typed injected policy dependencies without querying system settings", async () => {
+      const now = new Date("2026-11-10T12:00:00Z");
+      const createdAt = new Date("2026-11-08T12:00:00Z");
+
+      const mockDb = {
+        user: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: "user-injected",
+            role: "CUSTOMER",
+            status: "ACTIVE",
+            createdAt,
+          }),
+        },
+        marketplaceOrder: { count: vi.fn().mockResolvedValue(0) },
+        promotionRedemption: { count: vi.fn().mockResolvedValue(0) },
+        marketplaceCheckout: { count: vi.fn().mockResolvedValue(0) },
+      } as unknown as Prisma.TransactionClient;
+
+      const res = await checkFirstStoreWelcomeEligibility(
+        "user-injected",
+        "100.00",
+        now,
+        mockDb,
+        undefined,
+        {
+          policy: {
+            pointsPerZar: 1,
+            conversionPoints: 100,
+            conversionWalletZar: "2.00",
+            referralRewardZar: "5.00",
+            firstStoreDiscountZar: "50.00",
+            firstStoreValidDays: 7,
+            firstStoreMinimumZar: "0.00",
+          },
+        },
+      );
+      expect(res.eligible).toBe(true);
+      expect(res.discountAmountZar).toBe("50.00");
     });
   });
 

@@ -6,6 +6,7 @@ import { assertMarketplacePaymentPlanTotals } from "./payment-plan";
 import { prisma } from "@/lib/db/prisma";
 import { createTransactionContext } from "@/lib/db/transaction-context";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import { postPlatformSubsidyJournalInTx } from "@/lib/promotions/platform-subsidy-ledger.service";
 import type { MarketplaceFinalizationRepository, MarketplacePaidLine, MarketplacePaidStoreGroup, PaidMarketplaceCheckout } from "@/lib/marketplace-checkout/marketplace-checkout-finalization.service";
 
 const reference = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
@@ -112,39 +113,17 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
       await db.payment.update({ where: { id: paymentId }, data: { marketplaceOrderId: created.id } });
       const promoDiscount = new Prisma.Decimal(paid.promotionDiscount ?? "0.00");
       if (promoDiscount.greaterThan(0)) {
-        const platformExpenseAccount = await db.ledgerAccount.findUnique({
-          where: { code: "PLATFORM-PROMOTION-EXPENSE-ZAR" },
-        });
-        const customerHeldAccount = await db.ledgerAccount.findUnique({
-          where: { code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" },
-        });
-        if (platformExpenseAccount && customerHeldAccount) {
-          const { postLedgerJournalWithinTransaction } = await import("@/lib/services/ledger-posting.service");
-          await postLedgerJournalWithinTransaction(db, {
-            idempotencyKey: `LJ-PROMO-SUBSIDY-${created.id}`,
-            type: "GENERAL",
-            currency: "ZAR",
-            sourceReference: created.publicReference,
-            correlationId: created.id,
-            memo: `Platform Promotion Subsidy for order ${created.publicReference}`,
-            actor: { kind: "SYSTEM" },
-            entries: [
-              {
-                accountId: platformExpenseAccount.id,
-                direction: "DEBIT",
-                amount: promoDiscount.toFixed(2),
-                lineCode: "PLATFORM_PROMO_EXPENSE",
-                memo: `Debit platform promotional subsidy for order ${created.publicReference}`,
-              },
-              {
-                accountId: customerHeldAccount.id,
-                direction: "CREDIT",
-                amount: promoDiscount.toFixed(2),
-                lineCode: "CUSTOMER_FUNDS_PROMO_CREDIT",
-                memo: `Credit customer funds held promotional subsidy for order ${created.publicReference}`,
-              },
-            ],
+        try {
+          await postPlatformSubsidyJournalInTx(db, {
+            orderId: created.id,
+            orderPublicReference: created.publicReference,
+            amount: promoDiscount,
           });
+        } catch (error) {
+          throw new MarketplaceCheckoutError(
+            "CHECKOUT_REVIEW_REQUIRED",
+            error instanceof Error ? error.message : "Failed to post canonical platform subsidy journal."
+          );
         }
       }
       return { id: created.id, publicReference: created.publicReference };

@@ -196,13 +196,16 @@
      - Platform subsidy $D_1$ (R45.77) is reversed back to promotional expense via balanced journal (`PLATFORM-CUSTOMER-FUNDS-HELD-ZAR` [Debit] / `PLATFORM-PROMOTION-EXPENSE-ZAR` [Credit]).
      - Held funds reduced by $N_1 + D_1 = G_1$ (R3,300.00), perfectly offsetting gross merchant/commission reversal. No external refund exceeds remaining customer payment.
 
-### Test Runner Evidence & Executed Schema Receipt:
-- **Verified Suites:**
+### Test Runner Evidence & Illustrative Structural Receipt:
+> [!NOTE]
+> The database entity structure below is a **descriptive structural template and contract specification** illustrating the schema payload, double-entry conservation, and balancing behavior. Real runtime test executions (such as in `tests/integration/marketplace-promotional-order-canonical-postgres.integration.test.ts`) generate cryptographically random UUID identifiers (e.g. `morder_[hex]`, `pay_[hex]`, and `LJ-PROMO-SUBSIDY-[id]`). They are executed against disposable databases and are not static production receipts.
+
+- **Verified Automated Suites:**
   - `tests/integration/marketplace-order.integration.test.ts`
   - `tests/integration/marketplace-promotional-order-canonical-postgres.integration.test.ts`
   - `tests/integration/store-financial-recovery-canonical-postgres.integration.test.ts`
   - `tests/integration/store-full-cancellation-canonical-postgres.integration.test.ts`
-- **Database Entity Receipt (Machine-Sanitized):**
+- **Descriptive Entity Template (Structural Example — Not Live-Money Receipt):**
 ```json
 {
   "journey": "JOURNEY_C_MARKETPLACE_PURCHASE",

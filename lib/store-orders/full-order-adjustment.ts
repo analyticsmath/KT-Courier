@@ -46,17 +46,17 @@ export async function createUnstartedFullAdjustment(tx: Prisma.TransactionClient
   });
   const grossRefund = allocations.filter(item => item.allocationType === "SELLER_BASIS").reduce((total, item) => total.add(item.amount), fee);
   let groupDiscount = new Prisma.Decimal(0);
-  try {
-    if (order.checkoutStoreGroup?.paymentPlan) {
+  if (order.checkoutStoreGroup?.paymentPlan) {
+    try {
       const plan = parseMarketplacePaymentPlan(order.checkoutStoreGroup.paymentPlan);
       const netObligation = new Prisma.Decimal(plan.digitalRequired);
       const grossConsideration = order.groupTotal;
       if (grossConsideration.greaterThan(netObligation)) {
         groupDiscount = grossConsideration.sub(netObligation);
       }
+    } catch {
+      assertStoreOrder(false, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Malformed or unavailable frozen payment plan evidence.");
     }
-  } catch {
-    groupDiscount = new Prisma.Decimal(0);
   }
   const priorAdjustments = previous.filter(item => item.status !== "REJECTED");
   const priorSubsidyReversals = priorAdjustments.reduce((sum, item) => {
