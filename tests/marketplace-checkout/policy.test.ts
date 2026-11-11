@@ -157,4 +157,32 @@ describe("marketplace checkout policy", () => {
       assertMarketplaceCheckoutProductionReady("RESERVATION"),
     ).toThrow();
   });
+  it("rejects testApproval bypass in actual production or live money environments", () => {
+    expect(() =>
+      assertMarketplaceCheckoutProductionReady("RESERVATION", { approved: true }, {
+        NODE_ENV: "production",
+      }),
+    ).toThrow("RESERVATION is inactive: PRODUCTION_TEST_APPROVAL_FORBIDDEN.");
+
+    expect(() =>
+      assertMarketplaceCheckoutProductionReady("PAYMENT", { approved: true }, {
+        NODE_ENV: "test",
+        PAYSTACK_MODE: "live",
+      }),
+    ).toThrow("PAYMENT is inactive: PRODUCTION_TEST_APPROVAL_FORBIDDEN.");
+
+    expect(() =>
+      assertMarketplaceCheckoutProductionReady("ORDER_FINALIZATION", { approved: true }, {
+        NODE_ENV: "test",
+        PAYSTACK_SECRET_KEY: "sk_live_1234567890",
+      }),
+    ).toThrow("ORDER_FINALIZATION is inactive: PRODUCTION_TEST_APPROVAL_FORBIDDEN.");
+
+    expect(() =>
+      assertMarketplaceCheckoutProductionReady("RESERVATION", { approved: true }, {
+        NODE_ENV: "test",
+        PAYSTACK_MODE: "test",
+      }),
+    ).not.toThrow();
+  });
 });

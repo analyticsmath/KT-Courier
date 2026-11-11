@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
+import {
+  checkFirstStoreWelcomeEligibility,
+  WelcomeEligibilityLockUnavailableError,
+} from "@/lib/promotions/first-store-welcome.service";
 import {
   postPlatformSubsidyJournalInTx,
   reversePlatformSubsidyJournalInTx,
@@ -56,6 +59,42 @@ describe("Atomic First-Store Entitlement & Subsidy Conservation", () => {
     expect(result2.eligible).toBe(false);
     expect(result2.discountAmountZar).toBe("0.00");
     expect(result2.reason).toBe("WELCOME_OFFER_ALREADY_RESERVED");
+  });
+
+  it("fails closed with WelcomeEligibilityLockUnavailableError if customer row lock fails", async () => {
+    const customerId = "cust-lock-fail";
+    const now = new Date();
+    const dbLockFail = {
+      $queryRaw: vi.fn().mockRejectedValue(new Error("could not serialize access due to concurrent update")),
+    } as unknown as Prisma.TransactionClient;
+
+    await expect(
+      checkFirstStoreWelcomeEligibility(customerId, "250.00", now, dbLockFail, undefined, { policy }),
+    ).rejects.toThrow(WelcomeEligibilityLockUnavailableError);
+  });
+
+  it("supports injected typed lockAdapter for customizable locking behavior", async () => {
+    const customerId = "cust-adapter-test";
+    const now = new Date();
+    const signupAt = new Date(now.getTime() - 24 * 3600 * 1000);
+    const mockLockAdapter = vi.fn().mockResolvedValue(undefined);
+
+    const db = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: customerId, role: "CUSTOMER", status: "ACTIVE", createdAt: signupAt }),
+      },
+      marketplaceOrder: { count: vi.fn().mockResolvedValue(0) },
+      promotionRedemption: { count: vi.fn().mockResolvedValue(0) },
+      marketplaceCheckout: { count: vi.fn().mockResolvedValue(0) },
+    } as unknown as Prisma.TransactionClient;
+
+    const result = await checkFirstStoreWelcomeEligibility(customerId, "250.00", now, db, undefined, {
+      policy,
+      lockAdapter: mockLockAdapter,
+    });
+    expect(mockLockAdapter).toHaveBeenCalledWith(db, customerId);
+    expect(result.eligible).toBe(true);
+    expect(result.discountAmountZar).toBe("50.00");
   });
 
   it("fails closed in postPlatformSubsidyJournalInTx if accounts are missing or inactive", async () => {
@@ -140,5 +179,72 @@ describe("Atomic First-Store Entitlement & Subsidy Conservation", () => {
     expect(netCustomerRefund1.lessThan(gross1)).toBe(true);
     // 3. Perfect monetary conservation
     expect(netCustomerRefund1.add(subsidyReversal1).equals(gross1)).toBe(true);
+  });
+
+  it("passes compliant namespaced sourceReference matching LEDGER_SOURCE_REFERENCE_INVALID regex", async () => {
+    const { postLedgerJournalWithinTransaction } = await import("@/lib/services/ledger-posting.service");
+    const mockPostJournal = vi.spyOn({ postLedgerJournalWithinTransaction }, "postLedgerJournalWithinTransaction");
+
+    const mockTx = {
+      ledgerAccount: {
+        findUnique: vi.fn().mockImplementation(({ where }) => {
+          if (where.code === PLATFORM_PROMOTION_EXPENSE_ACCOUNT_CODE) {
+            return Promise.resolve({ id: "acc-exp", code: PLATFORM_PROMOTION_EXPENSE_ACCOUNT_CODE, currency: "ZAR", status: "ACTIVE" });
+          }
+          return Promise.resolve({ id: "acc-held", code: PLATFORM_CUSTOMER_FUNDS_HELD_ACCOUNT_CODE, currency: "ZAR", status: "ACTIVE" });
+        }),
+      },
+    } as unknown as Prisma.TransactionClient;
+
+    // Direct invocation check to confirm sourceReference adheres to `/^[A-Z0-9_-]+:[A-Z0-9_:-]+$/`
+    const { normalizeLedgerPosting } = await import("@/lib/ledger/posting-normalization");
+    const sampleOrderRef = "morder_cm3v9abcd1234efgh";
+    const sampleAdjRef = "msadj_cm3v9ijkl5678mnop";
+
+    const normalizedOrderSource = `order:${sampleOrderRef}`;
+    const normalizedAdjSource = `adjustment:${sampleAdjRef}`;
+
+    expect(() =>
+      normalizeLedgerPosting({
+        idempotencyKey: "test-post-1",
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: normalizedOrderSource,
+        actor: { kind: "SYSTEM" },
+        entries: [
+          { accountId: "acc-exp", direction: "DEBIT", amount: "50.00", lineCode: "PLATFORM_PROMO_EXPENSE" },
+          { accountId: "acc-held", direction: "CREDIT", amount: "50.00", lineCode: "PLATFORM_PROMO_CUSTOMER_HELD" },
+        ],
+      })
+    ).not.toThrow();
+
+    expect(() =>
+      normalizeLedgerPosting({
+        idempotencyKey: "test-post-2",
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: normalizedAdjSource,
+        actor: { kind: "SYSTEM" },
+        entries: [
+          { accountId: "acc-held", direction: "DEBIT", amount: "50.00", lineCode: "PLATFORM_PROMO_CUSTOMER_HELD_REV" },
+          { accountId: "acc-exp", direction: "CREDIT", amount: "50.00", lineCode: "PLATFORM_PROMO_EXPENSE_REV" },
+        ],
+      })
+    ).not.toThrow();
+
+    // Verify un-namespaced bare references fail
+    expect(() =>
+      normalizeLedgerPosting({
+        idempotencyKey: "test-post-3",
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: sampleOrderRef,
+        actor: { kind: "SYSTEM" },
+        entries: [
+          { accountId: "acc-exp", direction: "DEBIT", amount: "50.00", lineCode: "PLATFORM_PROMO_EXPENSE" },
+          { accountId: "acc-held", direction: "CREDIT", amount: "50.00", lineCode: "PLATFORM_PROMO_CUSTOMER_HELD" },
+        ],
+      })
+    ).toThrow(/canonical namespaced format/);
   });
 });

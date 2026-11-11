@@ -5,6 +5,7 @@ import {
   isLocalFullFlowAllowed,
 } from "@/lib/testing/safe-postgres-validator";
 import { isCheckoutExposureAllowed } from "@/lib/runtime/deployment-classification";
+import { isActualProductionInstance } from "@/lib/promotions/production-lock";
 
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED =
   true as const;
@@ -89,7 +90,15 @@ export function assertMarketplaceCheckoutProductionReady(
   testApproval?: { approved: true },
   source: Record<string, string | undefined> = process.env,
 ): void {
-  if (testApproval?.approved === true) return;
+  if (testApproval?.approved === true) {
+    if (isActualProductionInstance(source)) {
+      throw new MarketplaceCheckoutProductionLockedError(
+        operation,
+        "PRODUCTION_TEST_APPROVAL_FORBIDDEN",
+      );
+    }
+    return;
+  }
   if (
     isLocalFullFlowAllowed(source as NodeJS.ProcessEnv) ||
     isDisposableBrowserValidationAllowed(source as NodeJS.ProcessEnv)

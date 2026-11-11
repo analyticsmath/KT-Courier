@@ -6,11 +6,15 @@ describe('Promotion Reservation Expiry', () => {
     expect(() => assertPromotionsProductionReady('RESERVATION', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
   });
 
-  it('returns false for promotionsProductionReady', () => {
+  it('returns false for promotionsProductionReady in production', () => {
     expect(promotionsProductionReady({ NODE_ENV: 'production' })).toBe(false);
   });
 
-  it('does NOT throw when test approval is provided', () => {
-    expect(() => assertPromotionsProductionReady('RESERVATION', { approved: true }, { NODE_ENV: 'production' })).not.toThrow();
+  it('throws when test approval is provided under production environment', () => {
+    expect(() => assertPromotionsProductionReady('RESERVATION', { approved: true }, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
+  });
+
+  it('allows RESERVATION with test approval in verified test-only environment', () => {
+    expect(() => assertPromotionsProductionReady('RESERVATION', { approved: true }, { NODE_ENV: 'test', PAYSTACK_MODE: 'test' })).not.toThrow();
   });
 });

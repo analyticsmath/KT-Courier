@@ -7,6 +7,14 @@ import {
   firstStoreWelcomeDiscount,
 } from "@/lib/rewards/customer-reward-policy";
 
+export class WelcomeEligibilityLockUnavailableError extends Error {
+  readonly code = "WELCOME_ELIGIBILITY_LOCK_UNAVAILABLE" as const;
+  constructor(message = "Customer lock unavailable for welcome eligibility review.") {
+    super(message);
+    this.name = "WelcomeEligibilityLockUnavailableError";
+  }
+}
+
 export type FirstStoreWelcomeEligibility = Readonly<{
   eligible: boolean;
   discountAmountZar: string;
@@ -18,6 +26,7 @@ export type FirstStoreWelcomeEligibility = Readonly<{
 export type FirstStoreWelcomeDependencies = Readonly<{
   policyLoader?: (db: Prisma.TransactionClient) => Promise<CustomerRewardPolicy>;
   policy?: CustomerRewardPolicy;
+  lockAdapter?: (db: Prisma.TransactionClient, userId: string) => Promise<void>;
 }>;
 
 export async function checkFirstStoreWelcomeEligibility(
@@ -36,12 +45,16 @@ export async function checkFirstStoreWelcomeEligibility(
     return { eligible: false, discountAmountZar: "0.00", reason: "GUEST_NOT_ELIGIBLE" };
   }
 
-  try {
-    if ("$queryRaw" in db && typeof db.$queryRaw === "function") {
+  if (dependencies?.lockAdapter) {
+    await dependencies.lockAdapter(db, customerUserId);
+  } else if ("$queryRaw" in db && typeof db.$queryRaw === "function") {
+    try {
       await db.$queryRaw(Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${customerUserId} FOR UPDATE`);
+    } catch (error) {
+      throw new WelcomeEligibilityLockUnavailableError(
+        error instanceof Error ? error.message : "Customer lock unavailable for welcome eligibility review."
+      );
     }
-  } catch {
-    // Proceed if unsupported by driver or mock
   }
 
   const customer = await db.user.findUnique({
@@ -93,10 +106,7 @@ export async function checkFirstStoreWelcomeEligibility(
       status: { in: ["COMMITTED", "PARTIALLY_REVERSED"] },
       campaignVersion: {
         campaign: {
-          OR: [
-            { internalCode: "FIRST_STORE_WELCOME" },
-            { name: { contains: "FIRST_STORE_WELCOME" } },
-          ],
+          internalCode: "FIRST_STORE_WELCOME",
         },
       },
     },
