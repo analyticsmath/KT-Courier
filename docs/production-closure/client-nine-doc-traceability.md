@@ -2,6 +2,13 @@
 
 > **Historical evidence notice, 12 November 2026:** The labels and audited baseline below describe earlier evidence, not current-commit browser or production proof. The client's later explicit answers control the specific choices they address. Current work, test limitations and open acceptance are recorded in `CODEX_SOL_CODE_LEVEL_CLOSEOUT.md`; this table has not yet been re-certified row by row.
 
+| Current incident | Evidence at application commit `e0399c47c9cd75ec8a6066d44eeb2ec13552314a` | Remaining acceptance |
+| --- | --- | --- |
+| Seller identity screenshot: readable identity-version error and unregistered seller | Browser pattern corrected; `tests/client-platform/unregistered-seller-identity-form.test.ts`, `tests/client-platform/store-seller-identity-api.test.ts`, and seven disposable PostgreSQL cases in `tests/integration/store-seller-identity.integration.test.ts`. | Genuine uploaded evidence and independent human review; current-commit browser journey. |
+| Video: map selection followed by address rejection | Original video visually inspected; provider-outage and unresolved-address paths distinguished in `tests/maps/geocoding-failure-observability.test.ts` and `tests/client-platform/quotes.test.ts`. Precise-place acceptance is covered by `tests/maps/google-place-quote-verification.test.ts`. | The recording contains no provider trace; the actual incident cause and a real authorized route remain unverified. |
+| Video: marketplace fee stays pending | Checkout rejects unknown coverage and reports provider outages; `tests/client-platform/checkout-address-safety.test.ts`. | Actual reviewed merchant pickup, route and complete browser checkout on current commit. |
+| Payment truth and webhook integrity | Exact raw-byte signature, bounded ingress and bounded provider responses covered by `tests/payments/paystack-webhook-durability.test.ts`, `tests/payments/paystack-adapter-recovery.test.ts`, and `tests/integration/paystack-webhook-concurrency.integration.test.ts`. | Exact-commit browser/provider acceptance and genuine authorized settlement; test results are not live funds. |
+
 **Audited Baseline Commit:** `046684e86dcb997184253a51b8b84241d6d9b246` (Phase 3 commit, 2026-11-11 02:16 UTC)  
 **Engineering Release Status:** CERTIFICATION_CLOSEOUT_PENDING (Canonical 41-case suite and leaf financial assertions verified locally)  
 **Commercial Launch Decision:** COMMERCIAL_LAUNCH_NO_GO (Strictly retained pending authentic owner, legal, and operational signoff)  
