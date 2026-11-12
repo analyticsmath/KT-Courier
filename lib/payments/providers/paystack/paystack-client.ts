@@ -1,6 +1,7 @@
 import { PaymentError } from "../../errors";
 
 export const MAX_PAYSTACK_TRANSACTION_CENTS = 1_000_000_000; // R10,000,000.00 cap
+const DEFAULT_PAYSTACK_API_TIMEOUT_MS = 20_000;
 
 export function assertValidPaystackTransactionAmount(cents: number): void {
   if (!Number.isSafeInteger(cents) || cents <= 0 || cents > MAX_PAYSTACK_TRANSACTION_CENTS) {
@@ -292,10 +293,13 @@ export class PaystackClient {
         method: options.method,
         headers,
         body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-        signal: options.signal,
+        // Session initialization supplies its shorter, operation-scoped
+        // deadline. Other provider callers (refund, transfer, reconciliation)
+        // must not be allowed to hang indefinitely awaiting a network reply.
+        signal: options.signal ?? AbortSignal.timeout(DEFAULT_PAYSTACK_API_TIMEOUT_MS),
       });
     } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
+      if (error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")) {
         throw error;
       }
       throw new PaymentError("PAYMENT_PROVIDER_UNAVAILABLE", "Network communication with Paystack failed.", true);
@@ -306,6 +310,24 @@ export class PaystackClient {
       payload = await response.json();
     } catch {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack response was not valid JSON.", true);
+    }
+
+    // Paystack's verify API can report a missing reference using either
+    // HTTP 404 or HTTP 200 with status:false. Only its explicit, narrowly
+    // recognized missing-reference message permits first-time initialization.
+    // A generic 200 status:false is not evidence that no charge exists.
+    if (
+      options.method === "GET" &&
+      path.startsWith("/transaction/verify/") &&
+      (response.status === 200 || response.status === 404) &&
+      payload && typeof payload === "object" &&
+      (payload as { status?: unknown }).status === false &&
+      typeof (payload as { message?: unknown }).message === "string" &&
+      /^transaction (?:reference )?not found[.!]?$/i.test(
+        (payload as { message: string }).message.trim(),
+      )
+    ) {
+      throw new PaymentError("PAYSTACK_TRANSACTION_NOT_FOUND", "Paystack has no transaction for this reference.");
     }
 
     if (!response.ok || !payload || typeof payload !== "object") {

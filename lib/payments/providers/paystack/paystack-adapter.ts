@@ -80,11 +80,15 @@ export class PaystackAdapter implements PaymentProviderAdapter {
     let existing: PaystackVerifyData | null = null;
     try {
       existing = await this.client.verifyTransaction(input.merchantReference, context.signal);
-    } catch {
-      // Existing retry behavior: the provider may not know this reference yet.
-      // Initialize with the SAME immutable merchant reference below.
+    } catch (error) {
+      // A validated 200/404 "Transaction reference not found" means this exact
+      // reference has not been initialized. Other 400s, auth faults, provider
+      // outages and timeouts are ambiguous, so leave the attempt unresolved.
+      if (!(error instanceof PaymentError) || error.code !== "PAYSTACK_TRANSACTION_NOT_FOUND") {
+        throw error;
+      }
     }
-    if (existing?.status === "success") {
+    if (existing) {
       if (existing.reference !== input.merchantReference) {
         throw new PaymentError("PAYMENT_PROVIDER_REFERENCE_CONFLICT", "Paystack recovered a different transaction reference.");
       }
@@ -94,16 +98,26 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       if (existing.domain !== (this.configuration.environment === "production" ? "live" : "test")) {
         throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack recovered a transaction from another provider environment.");
       }
-      return Object.freeze({
-        status: "SUCCEEDED" as const,
-        providerReference: existing.reference,
-        providerStatusCode: existing.status,
-        definitive: true,
-        safeMetadata: Object.freeze({
-          channel: existing.channel,
-          gatewayResponse: existing.gateway_response,
-        }),
-      });
+      if (existing.status === "success") {
+        return Object.freeze({
+          status: "SUCCEEDED" as const,
+          providerReference: existing.reference,
+          providerStatusCode: existing.status,
+          definitive: true,
+          safeMetadata: Object.freeze({
+            channel: existing.channel,
+            gatewayResponse: existing.gateway_response,
+          }),
+        });
+      }
+      // Existing pending/failed/reversed transactions have already consumed
+      // this merchant reference at Paystack. Never initialize a second
+      // transaction with that same reference; reconcile the original instead.
+      throw new PaymentError(
+        "PAYMENT_PROVIDER_OUTCOME_UNKNOWN",
+        "The existing Paystack transaction requires status reconciliation before another checkout attempt.",
+        true,
+      );
     }
 
     const initData = await this.client.initializeTransaction({
