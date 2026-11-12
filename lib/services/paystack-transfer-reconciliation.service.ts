@@ -32,8 +32,15 @@ export async function scanPaystackTransferReconciliation(
   const staleThresholdMinutes = options.staleThresholdMinutes ?? 15;
   const staleCutoff = new Date(Date.now() - staleThresholdMinutes * 60 * 1000);
 
-  const secretKey = resolvePaystackConfiguration().runtime?.secretKey ?? process.env.PAYSTACK_SECRET_KEY?.trim();
-  const client = options.clientOverride ?? (secretKey ? new PaystackClient({ secretKey }) : null);
+  const configuration = resolvePaystackConfiguration();
+  const client = options.clientOverride ?? (
+    configuration.state.active && configuration.runtime
+      ? new PaystackClient({
+          secretKey: configuration.runtime.secretKey,
+          baseUrl: configuration.runtime.apiBaseUrl,
+        })
+      : null
+  );
 
   if (!client) {
     return {
@@ -85,28 +92,41 @@ export async function scanPaystackTransferReconciliation(
           ? (transferData.recipient as { recipient_code?: string }).recipient_code
           : undefined;
 
-        await handlePaystackTransferSuccess({
+        const result = await handlePaystackTransferSuccess({
           merchantReference: attempt.externalReference,
           transferCode: transferData.transfer_code,
           amountCents: transferData.amount,
-          currency: transferData.currency || "ZAR",
+          // Missing provider currency is never affirmative ZAR evidence.
+          currency: transferData.currency || "UNKNOWN",
           recipientCode,
+          providerReference: transferData.reference ?? "",
+          providerDomain: transferData.domain,
+          expectedProviderDomain: configuration.runtime?.environment === "production"
+            ? "live" : configuration.runtime?.environment === "sandbox" ? "test" : undefined,
         });
-        itemsSucceeded += 1;
+        if (result.outcome === "APPLIED" || result.outcome === "DUPLICATE") {
+          itemsSucceeded += 1;
+        } else {
+          itemsReconciliationRequired += 1;
+        }
       } else if (providerStatus === "failed" || providerStatus === "rejected") {
-        await handlePaystackTransferFailed({
+        const result = await handlePaystackTransferFailed({
           merchantReference: attempt.externalReference,
           transferCode: transferData.transfer_code,
           failureMessage: transferData.reason || "Paystack reported transfer failure during reconciliation scan.",
         });
-        itemsFailed += 1;
+        if (result.outcome === "APPLIED" || result.outcome === "DUPLICATE") itemsFailed += 1;
+        else if (result.outcome === "RECONCILIATION_REQUIRED") itemsReconciliationRequired += 1;
+        else itemsErrored += 1;
       } else if (providerStatus === "reversed") {
-        await handlePaystackTransferReversed({
+        const result = await handlePaystackTransferReversed({
           merchantReference: attempt.externalReference,
           transferCode: transferData.transfer_code,
           reason: transferData.reason || "Paystack reported transfer reversed during reconciliation scan.",
         });
-        itemsReversed += 1;
+        if (result.outcome === "APPLIED" || result.outcome === "DUPLICATE") itemsReversed += 1;
+        else if (result.outcome === "RECONCILIATION_REQUIRED") itemsReconciliationRequired += 1;
+        else itemsErrored += 1;
       } else if (providerStatus === "blocked" || providerStatus === "abandoned") {
         await handlePaystackTransferBlockedOrAbandoned({
           merchantReference: attempt.externalReference,

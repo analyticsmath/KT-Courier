@@ -975,7 +975,7 @@ export async function processClaimedPaystackWebhookEvent(
 
       if (eventName === "transfer.success") {
         const amountCents = typeof data.amount === "number" ? data.amount : 0;
-        const currency = typeof data.currency === "string" ? data.currency : "ZAR";
+        const currency = typeof data.currency === "string" ? data.currency : "UNKNOWN";
         const recipientCode = typeof data.recipient === "object" && data.recipient !== null
           ? (data.recipient as { recipient_code?: string }).recipient_code
           : undefined;

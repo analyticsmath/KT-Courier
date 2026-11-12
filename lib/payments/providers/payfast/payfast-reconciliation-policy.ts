@@ -13,7 +13,7 @@ export function reconciliationSummary(reason: PaymentReconciliationReasonCode): 
   const summaries: Record<PaymentReconciliationReasonCode, string> = {
     UNKNOWN_OUTCOME: "The provider outcome remains unknown and requires verified evidence.",
     CREDENTIAL_VERSION_MISMATCH: "The attempt credential version differs from the active credential set.",
-    PROVIDER_CONFIRMATION_UNAVAILABLE: "Payfast query validation was temporarily unavailable.",
+    PROVIDER_CONFIRMATION_UNAVAILABLE: "The provider receipt confirmation needed for ledger settlement is not yet available.",
     CONFLICTING_PROVIDER_STATUS: "Verified provider status conflicts with established successful evidence.",
     OUT_OF_ORDER_EVENT: "Verified provider evidence arrived out of order and was not allowed to downgrade state.",
     AMOUNT_MISMATCH: "Payfast gross amount differs from the authoritative payment amount.",

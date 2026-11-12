@@ -27,6 +27,7 @@ import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { PAYMENT_SESSION_POLICY_VERSION, type PaymentAttemptState, type PaymentProviderCode, type PaymentState } from "@/lib/payments/types";
 import { CreateProviderSessionSchema, type CreateProviderSessionInput } from "@/lib/validation/payments";
 import { assertPaymentSubjectIntegrity } from "@/lib/payments/payment-subject-policy";
+import { openPaymentReconciliationCaseWithinTransaction } from "@/lib/services/payment-reconciliation.service";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const UNRESOLVED_ATTEMPTS = ["RESERVED", "REQUESTING", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN"] as const;
@@ -366,9 +367,20 @@ async function finalizeAttempt(
     if (!payment) throw new PaymentError("PAYMENT_NOT_FOUND", "Payment was not found during provider finalization.");
     if (!attempt) throw new PaymentError("PAYMENT_ATTEMPT_NOT_FOUND", "Payment attempt was not found during provider finalization.");
 
-    const targetAttemptStatus = outcomeAttemptStatus(outcome);
+    const reportedAttemptStatus = outcomeAttemptStatus(outcome);
+    // Provider Verify success during session recovery is not a posted receipt.
+    // Only the signed verified-event authority may mark payment SUCCEEDED,
+    // post the receipt, consume wallet funds and activate COD.
+    const providerSuccessAwaitingLedger = reportedAttemptStatus === "SUCCEEDED";
+    const targetAttemptStatus = providerSuccessAwaitingLedger ? "PROCESSING" : reportedAttemptStatus;
     const targetPaymentStatus = paymentTargetForAttempt(targetAttemptStatus);
     if (!["RESERVED", "REQUESTING"].includes(attempt.status)) {
+      // A signed webhook can win the race against session initialization.
+      // Preserve a fully journaled success rather than treating its normal
+      // terminal state as a conflicting checkout-session response.
+      if (attempt.status === "SUCCEEDED" && payment.status === "SUCCEEDED" && payment.successLedgerJournalId) {
+        return sessionDto({ paymentId: payment.id, paymentStatus: payment.status, attempt, replayed: true });
+      }
       if (attempt.status === targetAttemptStatus) return sessionDto({ paymentId: payment.id, paymentStatus: payment.status, attempt, replayed: true });
       throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment attempt was finalized with an incompatible result.");
     }
@@ -449,33 +461,45 @@ async function finalizeAttempt(
       actorType: "PROVIDER";
       metadata: { provider: string };
     }> = [];
-    let versionIncrement = 1;
-    if (targetPaymentStatus === "SUCCEEDED") {
-      assertPaymentTransition(fromPaymentStatus, "PROCESSING");
-      assertPaymentTransition("PROCESSING", "SUCCEEDED");
-      versionIncrement = 2;
-      historyRows.push(
-        { paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: "PROCESSING", reasonCode: "PROVIDER_ACCEPTED", actorType: "PROVIDER", metadata: { provider: attempt.provider } },
-        { paymentId: payment.id, attemptId: attempt.id, fromStatus: "PROCESSING", toStatus: "SUCCEEDED", reasonCode: "PROVIDER_CONFIRMED_SUCCESS", actorType: "PROVIDER", metadata: { provider: attempt.provider } },
-      );
-    } else {
-      assertPaymentTransition(fromPaymentStatus, targetPaymentStatus);
-      historyRows.push({ paymentId: payment.id, attemptId: attempt.id, fromStatus: fromPaymentStatus, toStatus: targetPaymentStatus, reasonCode: `PROVIDER_${targetAttemptStatus}`, actorType: "PROVIDER", metadata: { provider: attempt.provider } });
-    }
+    assertPaymentTransition(fromPaymentStatus, targetPaymentStatus);
+    historyRows.push({
+      paymentId: payment.id,
+      attemptId: attempt.id,
+      fromStatus: fromPaymentStatus,
+      toStatus: targetPaymentStatus,
+      reasonCode: providerSuccessAwaitingLedger
+        ? "PROVIDER_SUCCESS_AWAITING_RECEIPT" : "PROVIDER_" + targetAttemptStatus,
+      actorType: "PROVIDER",
+      metadata: { provider: attempt.provider },
+    });
 
     const paymentUpdate = await tx.payment.updateMany({
       where: { id: payment.id, version: payment.version, status: payment.status },
       data: {
         status: targetPaymentStatus,
-        version: { increment: versionIncrement },
+        version: { increment: 1 },
         expiresAt: result?.customerAction?.expiresAt ? new Date(result.customerAction.expiresAt) : null,
-        succeededAt: targetPaymentStatus === "SUCCEEDED" ? now : null,
+        succeededAt: null,
         failedAt: targetPaymentStatus === "FAILED" ? now : null,
         cancelledAt: targetPaymentStatus === "CANCELLED" ? now : null,
+        ...(providerSuccessAwaitingLedger ? { reconciliationStatus: "REQUIRED" as const } : {}),
       },
     });
     if (paymentUpdate.count !== 1) throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment finalization lost a concurrent update.", true);
     await tx.paymentStatusHistory.createMany({ data: historyRows });
+    if (providerSuccessAwaitingLedger) {
+      await openPaymentReconciliationCaseWithinTransaction(tx, {
+        paymentId: payment.id,
+        attemptId: attempt.id,
+        provider: attempt.provider as "PAYSTACK" | "PAYFAST",
+        reason: "PROVIDER_CONFIRMATION_UNAVAILABLE",
+        safeEvidence: {
+          attemptReference: attempt.publicReference ?? "",
+          providerStatusCode: result?.providerStatusCode ?? "success",
+          providerSuccessUnsettled: true,
+        },
+      });
+    }
 
     const finalized = await tx.paymentAttempt.findUnique({ where: { id: attempt.id } });
     if (!finalized) throw new PaymentError("PAYMENT_ATTEMPT_NOT_FOUND", "Finalized payment attempt could not be read.");

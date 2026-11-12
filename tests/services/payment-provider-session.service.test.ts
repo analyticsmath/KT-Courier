@@ -51,6 +51,11 @@ function installTransactionMock() {
       }),
     },
     paymentStatusHistory: { create: historyCreate, createMany: historyCreateMany },
+    paymentReconciliationCase: {
+      findUnique: vi.fn(async () => null),
+      create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "reconciliation-1", ...data })),
+      update: vi.fn(),
+    },
   };
   mocks.tx = tx;
   mocks.prisma.$transaction.mockImplementation(async (callback: (value: typeof tx) => unknown) => {
@@ -120,6 +125,53 @@ describe("payment provider session service", () => {
     await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
     const replay = await createProviderCheckoutSession({ id: "payer-1" }, { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:key:1" }, { registry, callbackUrls });
     expect(replay.replayed).toBe(true); expect(fake.calls).toBe(1);
+  });
+
+  it("holds provider-confirmed success until a verified receipt and its ledger journal are posted", async () => {
+    const fake = new FakePaymentProvider("succeeded", "PAYSTACK");
+    const registry = new PaymentProviderRegistry({ adapters: [fake] });
+    const command = { paymentId: "payment-1", provider: "PAYSTACK" as const, idempotencyKey: "attempt:recovered:success" };
+    const result = await createProviderCheckoutSession({ id: "payer-1" }, command, { registry, callbackUrls });
+    expect(result).toMatchObject({ paymentStatus: "PROCESSING", attempt: { status: "PROCESSING" } });
+    expect(payment).toMatchObject({ status: "PROCESSING", succeededAt: null, reconciliationStatus: "REQUIRED" });
+    expect(payment.successLedgerJournalId).toBeUndefined();
+    expect((mocks.tx.paymentReconciliationCase as { create: ReturnType<typeof vi.fn> }).create)
+      .toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ reason: "PROVIDER_CONFIRMATION_UNAVAILABLE", status: "OPEN" }),
+      }));
+    expect(historyCreateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.arrayContaining([expect.objectContaining({
+        toStatus: "PROCESSING", reasonCode: "PROVIDER_SUCCESS_AWAITING_RECEIPT",
+      })]),
+    }));
+    const replay = await createProviderCheckoutSession({ id: "payer-1" }, command, { registry, callbackUrls });
+    expect(replay.replayed).toBe(true);
+    expect(fake.calls).toBe(1);
+  });
+
+  it("replays a concurrently signed and journaled Paystack success instead of downgrading it", async () => {
+    const fake = new FakePaymentProvider("succeeded", "PAYSTACK");
+    const originallyCalled = fake.createCheckoutSession.bind(fake);
+    vi.spyOn(fake, "createCheckoutSession").mockImplementation(async (...args) => {
+      const providerStatus = await originallyCalled(...args);
+      // The independent verified-webhook transaction wins the race.
+      payment = { ...payment, status: "SUCCEEDED", successLedgerJournalId: "journal_verified" };
+      attempt = { ...attempt, status: "SUCCEEDED" };
+      return providerStatus;
+    });
+    const result = await createProviderCheckoutSession(
+      { id: "payer-1" },
+      { paymentId: "payment-1", provider: "PAYSTACK", idempotencyKey: "attempt:concurrent:verified" },
+      { registry: new PaymentProviderRegistry({ adapters: [fake] }), callbackUrls },
+    );
+    expect(result).toMatchObject({
+      paymentStatus: "SUCCEEDED",
+      replayed: true,
+      attempt: { status: "SUCCEEDED" },
+    });
+    expect(payment.successLedgerJournalId).toBe("journal_verified");
+    expect((mocks.tx.paymentReconciliationCase as { create: ReturnType<typeof vi.fn> }).create)
+      .not.toHaveBeenCalled();
   });
 
   it("classifies a timeout as UNKNOWN/PROCESSING and never auto-creates a second attempt", async () => {

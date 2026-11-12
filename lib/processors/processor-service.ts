@@ -259,7 +259,9 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       itemsCompleted: result.itemsSucceeded + result.itemsFailed + result.itemsReversed,
       itemsSkipped: result.itemsPending,
       itemsRetried: result.itemsErrored,
-      itemsReconciled: result.itemsReversed,
+      // Reconciled anomalies are cases opened by the transfer authority,
+      // not only actual reversals. A reversed payout is a separate terminal state.
+      itemsReconciled: result.itemsReconciliationRequired,
       safeSummary: result.safeSummary,
     };
   },
@@ -442,10 +444,12 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     };
   },
 
-  "scan-withdrawal-reconciliation": async ({ mode }) => {
+  "scan-withdrawal-reconciliation": async ({ mode, batchSize }) => {
     const threshold = new Date(Date.now() - 30 * 60_000);
     const stale = await prisma.withdrawalPayoutAttempt.findMany({
       where: { status: { in: ["PROCESSING", "UNKNOWN"] }, updatedAt: { lt: threshold } },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      take: batchSize,
       include: { withdrawal: { select: { id: true, publicReference: true, status: true } } },
     });
     const itemsExamined = stale.length;
@@ -499,7 +503,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     };
   },
 
-  "scan-payment-reconciliation": async ({ mode }) => {
+  "scan-payment-reconciliation": async ({ mode, batchSize }) => {
     const threshold = new Date(Date.now() - 30 * 60_000);
     const staleAttempts = await prisma.paymentAttempt.findMany({
       where: {
@@ -510,6 +514,8 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
           { status: "REQUIRES_ACTION", expiresAt: { lt: new Date() } },
         ],
       },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      take: batchSize,
       select: { id: true, paymentId: true, status: true, publicReference: true, provider: true },
     });
     const itemsExamined = staleAttempts.length;

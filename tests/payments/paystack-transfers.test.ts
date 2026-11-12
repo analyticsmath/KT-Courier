@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
 import {
   generatePaystackTransferReference,
   initiatePaystackTransferPayout,
@@ -262,6 +263,71 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
   });
 
   describe("Transfer Payout Initiation Boundary", () => {
+    it("never reserves a withdrawal if the reviewed Paystack configuration is unavailable", async () => {
+      vi.stubEnv("PAYSTACK_MODE", "disabled");
+      try {
+        (prisma.withdrawalRequest.findUnique as any).mockResolvedValue({
+          id: "wd_unconfigured", publicReference: "WTH-UNCONFIGURED",
+          status: "APPROVED", amount: new Prisma.Decimal("100.00"),
+          requestedByUserId: "requester", approvedByUserId: "approver",
+          latestAttemptNumber: 0,
+          payoutDestination: { method: "PAYSTACK_TRANSFER", status: "ACTIVE", externalReference: "RCP_TEST" },
+        });
+        (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(null);
+        await expect(initiatePaystackTransferPayout({
+          actorUserId: "finance_executor",
+          publicReference: "WTH-UNCONFIGURED",
+          operationId: "op-no-config-00001",
+        })).rejects.toMatchObject({ code: "WITHDRAWAL_INVALID_STATE" });
+        expect(prisma.withdrawalPayoutAttempt.create).not.toHaveBeenCalled();
+        expect(prisma.withdrawalRequest.update).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("replays the same payout command while processing without invoking Paystack twice", async () => {
+      const operationId = "op-original-processing-00001";
+      const actorUserId = "finance_executor";
+      const withdrawalId = "wd_processing";
+      const existing = {
+        id: "wpa_processing", publicReference: "WPA-PROCESSING",
+        withdrawalId, initiatedByUserId: actorUserId,
+        status: "UNKNOWN", idempotencyKey: operationId,
+        requestHash: createHash("sha256")
+          .update(JSON.stringify({ withdrawalId, operationId, actorUserId })).digest("hex"),
+      };
+      (prisma.withdrawalRequest.findUnique as any).mockResolvedValue({
+        id: withdrawalId, publicReference: "WTH-PROCESSING",
+        status: "RECONCILIATION_REQUIRED", amount: new Prisma.Decimal("100.00"),
+      });
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(existing);
+      const provider = { initiateTransfer: vi.fn() };
+      const result = await initiatePaystackTransferPayout({
+        actorUserId, publicReference: "WTH-PROCESSING", operationId,
+        clientOverride: provider as unknown as PaystackClient,
+      });
+      expect(result).toEqual(existing);
+      expect(prisma.withdrawalPayoutAttempt.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalRequest.update).not.toHaveBeenCalled();
+      expect(provider.initiateTransfer).not.toHaveBeenCalled();
+    });
+
+    it("rejects a replay operation ID bound to another actor or withdrawal", async () => {
+      const operationId = "op-reuse-conflict-00001";
+      (prisma.withdrawalRequest.findUnique as any).mockResolvedValue({
+        id: "wd_other", status: "APPROVED", amount: new Prisma.Decimal("50.00"),
+      });
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        id: "wpa_original", withdrawalId: "wd_original",
+        initiatedByUserId: "original_actor", requestHash: "original-hash",
+      });
+      await expect(initiatePaystackTransferPayout({
+        actorUserId: "new_actor", publicReference: "WTH-OTHER",
+        operationId, clientOverride: { initiateTransfer: vi.fn() } as unknown as PaystackClient,
+      })).rejects.toMatchObject({ code: "WITHDRAWAL_INVALID_INPUT" });
+      expect(prisma.withdrawalPayoutAttempt.create).not.toHaveBeenCalled();
+    });
     it("creates DB attempt record first with kt_wpa_ reference before provider call", async () => {
       const mockWithdrawal = {
         id: "wd_001",
@@ -479,6 +545,60 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
     });
   });
 
+  describe("Provider payout reversal idempotency and identity", () => {
+    const baseAttempt = {
+      id: "wpa_reversal", publicReference: "WPA-REVERSAL",
+      status: "SUCCEEDED", transferCode: "TRF_EXPECTED",
+      externalReference: "kt_wpa_reverse_00001",
+      withdrawal: {
+        id: "wd_reversal", publicReference: "WTH-REVERSAL",
+        status: "PAID", amount: new Prisma.Decimal("45.00"),
+        heldAccountId: "acc_held", payoutLedgerJournalId: "original_journal",
+      },
+    };
+
+    it("does not post a second reversal journal on provider webhook or scanner replay", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...baseAttempt, safeEvidenceReference: "REVERSED:journal_reversal_original",
+      });
+      const result = await handlePaystackTransferReversed({
+        merchantReference: baseAttempt.externalReference, transferCode: "TRF_EXPECTED",
+      });
+      expect(result.outcome).toBe("DUPLICATE");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalRequest.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalStatusHistory.create).not.toHaveBeenCalled();
+    });
+
+    it("keeps an unmatched reversal recoverable when cash-clearing journal authority is missing", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(baseAttempt);
+      (prisma.wallet.findUnique as any).mockResolvedValue({ id: "wallet_platform" });
+      (prisma.ledgerAccount.findUnique as any).mockResolvedValue(null);
+      const result = await handlePaystackTransferReversed({
+        merchantReference: baseAttempt.externalReference, transferCode: "TRF_EXPECTED",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ reason: "INSUFFICIENT_CASH_CLEARING" }),
+      }));
+    });
+
+    it("requires the original transfer code before restoring a reversed payout liability", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(baseAttempt);
+      const result = await handlePaystackTransferReversed({
+        merchantReference: baseAttempt.externalReference, transferCode: "TRF_WRONG",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: "RECONCILIATION_REQUIRED" }),
+      }));
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
+    });
+  });
+
   describe("Scheduled Transfer Reconciliation Scanner", () => {
     it("scans and resolves stale processing attempts", async () => {
       const staleAttempt = {
@@ -516,6 +636,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
       const mockClient: any = {
         verifyTransfer: vi.fn(async () => ({
           status: "success",
+          reference: "kt_wpa_stale_123",
           amount: 30000,
           currency: "ZAR",
           transfer_code: "TRF_STALE",
@@ -530,6 +651,39 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
       expect(result.itemsExamined).toBe(1);
       expect(result.itemsSucceeded).toBe(1);
       expect(mockClient.verifyTransfer).toHaveBeenCalledWith("kt_wpa_stale_123");
+    });
+  });
+
+  describe("Transfer reconciliation refuses incomplete or mismatched provider evidence", () => {
+    it.each([
+      ["missing currency", { currency: undefined, recipient: { recipient_code: "RCP_OK" }, reference: "kt_wpa_verify_00001" }],
+      ["wrong provider reference", { currency: "ZAR", recipient: { recipient_code: "RCP_OK" }, reference: "kt_wpa_another_00002" }],
+      ["missing recipient", { currency: "ZAR", recipient: undefined, reference: "kt_wpa_verify_00001" }],
+      ["wrong transfer code", { currency: "ZAR", recipient: { recipient_code: "RCP_OK" }, reference: "kt_wpa_verify_00001", transfer_code: "TRF_OTHER" }],
+    ])("%s does not post a payout ledger journal", async (_reason, partial) => {
+      const attempt = {
+        id: "wpa_verify", publicReference: "WPA-VERIFY",
+        status: "PROCESSING", transferCode: "TRF_OK",
+        externalReference: "kt_wpa_verify_00001",
+        withdrawal: {
+          id: "wd_verify", publicReference: "WTH-VERIFY",
+          status: "PROCESSING", amount: new Prisma.Decimal("120.00"),
+          payoutDestination: { externalReference: "RCP_OK" },
+        },
+      };
+      (prisma.withdrawalPayoutAttempt.findMany as any).mockResolvedValue([attempt]);
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(attempt);
+      const client = { verifyTransfer: vi.fn(async () => ({
+        status: "success", amount: 12000,
+        transfer_code: "TRF_OK",
+        ...partial,
+      })) };
+      const result = await scanPaystackTransferReconciliation({ clientOverride: client as unknown as PaystackClient });
+      expect(result.itemsExamined).toBe(1);
+      expect(result.itemsSucceeded).toBe(0);
+      expect(result.itemsReconciliationRequired).toBe(1);
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
     });
   });
 

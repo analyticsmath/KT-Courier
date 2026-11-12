@@ -104,13 +104,44 @@ export async function initiatePaystackTransferPayout(
     throw new WithdrawalError("WITHDRAWAL_INVALID_INPUT", "A valid operation ID is required.");
   }
 
+  // Resolve the reviewed provider configuration *before* touching withdrawal state.
+  // An invalid or disabled Paystack configuration must not create an orphaned
+  // PROCESSING payout attempt. Explicit client injection is for isolated tests.
+  const configuredProvider = resolvePaystackConfiguration();
+  const client = input.clientOverride ?? (
+    configuredProvider.state.active && configuredProvider.runtime
+      ? new PaystackClient({
+          secretKey: configuredProvider.runtime.secretKey,
+          baseUrl: configuredProvider.runtime.apiBaseUrl,
+        })
+      : null
+  );
+
   // Step 1: Create local payout attempt + unique merchant transfer reference inside short DB transaction
   const step1Result = await withLedgerRetry(() =>
     prisma.$transaction(
       async (tx) => {
         const withdrawal = await lockWithdrawal(tx, input.publicReference);
+        const requestHash = crypto.createHash("sha256")
+          .update(JSON.stringify({ withdrawalId: withdrawal.id, operationId, actorUserId: input.actorUserId }))
+          .digest("hex");
+        // Replay must precede the APPROVED-state and active-attempt checks.
+        // The original operation legitimately moved the withdrawal to PROCESSING
+        // or RECONCILIATION_REQUIRED; it must never initiate a second transfer.
+        const existing = await tx.withdrawalPayoutAttempt.findUnique({ where: { idempotencyKey: operationId } });
+        if (existing) {
+          if (existing.withdrawalId !== withdrawal.id ||
+              existing.initiatedByUserId !== input.actorUserId ||
+              existing.requestHash !== requestHash) {
+            throw new WithdrawalError("WITHDRAWAL_INVALID_INPUT", "Payout operation ID is already bound to another command.");
+          }
+          return { replay: true as const, attempt: existing, withdrawal };
+        }
         if (withdrawal.status !== "APPROVED" || !withdrawal.approvedByUserId) {
           throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Only approved withdrawals can start payout processing.");
+        }
+        if (!client) {
+          throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Paystack transfer provider is not configured or active.");
         }
         assertWithdrawalDualControl({
           requestedByUserId: withdrawal.requestedByUserId,
@@ -133,11 +164,6 @@ export async function initiatePaystackTransferPayout(
           throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "This withdrawal already has an active payout attempt.");
         }
 
-        const existing = await tx.withdrawalPayoutAttempt.findUnique({ where: { idempotencyKey: operationId } });
-        if (existing) {
-          return { replay: true as const, attempt: existing, withdrawal };
-        }
-
         const merchantReference = generatePaystackTransferReference();
         const now = new Date();
         const attempt = await tx.withdrawalPayoutAttempt.create({
@@ -148,7 +174,7 @@ export async function initiatePaystackTransferPayout(
             method: "PAYSTACK_TRANSFER",
             status: "PROCESSING",
             idempotencyKey: operationId,
-            requestHash: crypto.createHash("sha256").update(JSON.stringify({ withdrawalId: withdrawal.id, operationId, actorUserId: input.actorUserId })).digest("hex"),
+            requestHash,
             externalReference: merchantReference, // merchant transfer reference (16-50 chars)
             initiatedByUserId: input.actorUserId,
             startedAt: now,
@@ -198,12 +224,8 @@ export async function initiatePaystackTransferPayout(
   const recipientCode = withdrawal.payoutDestination.externalReference;
 
   // Step 2: Call Paystack Transfer API OUTSIDE DB transaction (no lock held!)
-  const secretKey = resolvePaystackConfiguration().runtime?.secretKey ?? process.env.PAYSTACK_SECRET_KEY?.trim();
-  const client = input.clientOverride ?? (secretKey ? new PaystackClient({ secretKey }) : null);
-
-  if (!client) {
-    throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Paystack client is not configured for transfers.");
-  }
+  // The client was resolved and verified before the local payout attempt was created.
+  if (!client) throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", "Paystack transfer provider is not configured or active.");
 
   let transferResult: PaystackTransferData | null = null;
   let callFailed = false;
@@ -358,6 +380,9 @@ export async function handlePaystackTransferSuccess(
     amountCents: number;
     currency: string;
     recipientCode?: string;
+    providerReference?: string;
+    providerDomain?: string;
+    expectedProviderDomain?: "live" | "test";
     sourceAddress?: string;
   }>,
 ) {
@@ -379,10 +404,15 @@ export async function handlePaystackTransferSuccess(
         const expectedCents = zarToSubunitCents(withdrawal.amount.toString());
         const isAmountMatch = input.amountCents === expectedCents;
         const isCurrencyMatch = input.currency === "ZAR";
-        const isRecipientMatch = !input.recipientCode || input.recipientCode === withdrawal.payoutDestination.externalReference;
-        const isTransferCodeMatch = !input.transferCode || !attempt.transferCode || input.transferCode === attempt.transferCode;
+        // Missing identifiers are not affirmative evidence of the intended
+        // beneficiary or transfer. A provider API scan must additionally bind
+        // the returned reference to the immutable payout attempt reference.
+        const isRecipientMatch = !!input.recipientCode && input.recipientCode === withdrawal.payoutDestination.externalReference;
+        const isTransferCodeMatch = !!input.transferCode && (!attempt.transferCode || input.transferCode === attempt.transferCode);
+        const isProviderReferenceMatch = input.providerReference === undefined || input.providerReference === input.merchantReference;
+        const isProviderEnvironmentMatch = !input.expectedProviderDomain || input.providerDomain === input.expectedProviderDomain;
 
-        if (!isAmountMatch || !isCurrencyMatch || !isRecipientMatch || !isTransferCodeMatch) {
+        if (!isAmountMatch || !isCurrencyMatch || !isRecipientMatch || !isTransferCodeMatch || !isProviderReferenceMatch || !isProviderEnvironmentMatch) {
           const now = new Date();
           await tx.withdrawalRequest.update({
             where: { id: withdrawal.id },
@@ -691,6 +721,27 @@ export async function handlePaystackTransferReversed(
 
         const withdrawal = attempt.withdrawal;
         const now = new Date();
+        // Signed provider retries and periodic scans must never duplicate a
+        // prior cash-clearing reversal or its status history.
+        if (attempt.safeEvidenceReference?.startsWith("REVERSED:")) {
+          return { outcome: "DUPLICATE" as const };
+        }
+        // A wrong or missing transfer code is not evidence of the same payout.
+        if (attempt.transferCode && attempt.transferCode !== input.transferCode) {
+          await tx.withdrawalRequest.update({
+            where: { id: withdrawal.id },
+            data: { status: "RECONCILIATION_REQUIRED", reconciliationRequiredAt: now, version: { increment: 1 } },
+          });
+          await openReconciliationCase(tx, {
+            withdrawalId: withdrawal.id,
+            withdrawalReference: withdrawal.publicReference,
+            attemptId: attempt.id,
+            attemptReference: attempt.publicReference,
+            reason: "CONFLICTING_EXTERNAL_REFERENCE",
+            summary: "Transfer reversal code did not match the original payout attempt.",
+          });
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "TRANSFER_CODE_MISMATCH" };
+        }
 
         // If previously marked PAID, post explicit reversal journal
         let reversalJournalId: string | null = null;
@@ -704,10 +755,28 @@ export async function handlePaystackTransferReversed(
               })
             : null;
 
+          if (!cash) {
+            // Never finalize a reversal with the misleading REVERSED:NO_JOURNAL
+            // receipt. Keep the financial case open so it can be safely
+            // retried after missing ledger authority is restored.
+            await tx.withdrawalRequest.update({
+              where: { id: withdrawal.id },
+              data: { status: "RECONCILIATION_REQUIRED", reconciliationRequiredAt: now, version: { increment: 1 } },
+            });
+            await openReconciliationCase(tx, {
+              withdrawalId: withdrawal.id,
+              withdrawalReference: withdrawal.publicReference,
+              attemptId: attempt.id,
+              attemptReference: attempt.publicReference,
+              reason: "INSUFFICIENT_CASH_CLEARING",
+              summary: "A Paystack reversal was confirmed but the platform cash-clearing ledger account is unavailable.",
+            });
+            return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "CASH_CLEARING_UNAVAILABLE" };
+          }
           if (cash) {
             // Reversal posting: Debit CASH_CLEARING, Credit WITHDRAWAL_HELD
             const revJournal = await postLedgerJournalWithinTransaction(tx, {
-              idempotencyKey: `rev-payout:${attempt.publicReference}:${now.getTime()}`,
+              idempotencyKey: `rev-payout:${attempt.publicReference}`,
               type: "REVERSAL",
               currency: "ZAR",
               sourceReference: `withdrawal:${withdrawal.publicReference}:reversal`,

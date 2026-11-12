@@ -182,20 +182,6 @@ describe("Atomic First-Store Entitlement & Subsidy Conservation", () => {
   });
 
   it("passes compliant namespaced sourceReference matching LEDGER_SOURCE_REFERENCE_INVALID regex", async () => {
-    const { postLedgerJournalWithinTransaction } = await import("@/lib/services/ledger-posting.service");
-    const mockPostJournal = vi.spyOn({ postLedgerJournalWithinTransaction }, "postLedgerJournalWithinTransaction");
-
-    const mockTx = {
-      ledgerAccount: {
-        findUnique: vi.fn().mockImplementation(({ where }) => {
-          if (where.code === PLATFORM_PROMOTION_EXPENSE_ACCOUNT_CODE) {
-            return Promise.resolve({ id: "acc-exp", code: PLATFORM_PROMOTION_EXPENSE_ACCOUNT_CODE, currency: "ZAR", status: "ACTIVE" });
-          }
-          return Promise.resolve({ id: "acc-held", code: PLATFORM_CUSTOMER_FUNDS_HELD_ACCOUNT_CODE, currency: "ZAR", status: "ACTIVE" });
-        }),
-      },
-    } as unknown as Prisma.TransactionClient;
-
     // Direct invocation check to confirm sourceReference adheres to `/^[A-Z0-9_-]+:[A-Z0-9_:-]+$/`
     const { normalizeLedgerPosting } = await import("@/lib/ledger/posting-normalization");
     const sampleOrderRef = "morder_cm3v9abcd1234efgh";
