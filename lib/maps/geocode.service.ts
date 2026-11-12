@@ -216,7 +216,8 @@ export async function geocodeSouthAfricanAddress(
     // that unreliable string equality check, not provider verification.
     const location = result.geometry?.location;
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return reject("GEOCODE_INVALID_COORDINATES");
-    if (address.placeId && !placeMarkerMatches(address, location.lat!, location.lng!)) return reject("GEOCODE_PLACE_MARKER_MISMATCH");
+    if ((address.placeId || address.latitude !== undefined || address.longitude !== undefined) &&
+        !placeMarkerMatches(address, location.lat!, location.lng!)) return reject("GEOCODE_PLACE_MARKER_MISMATCH");
 
     return Object.freeze({
       latitude: location.lat as number,

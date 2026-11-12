@@ -23,6 +23,12 @@ describe("forward geocoding must preserve the requested address identity", () =>
     expect(await geocodeSouthAfricanAddress(address, config)).toEqual({ latitude: -26.1906, longitude: 28.0391 });
   });
   it("refuses multiple conflicting location results", async () => { provider([good, { ...good, geometry: { ...good.geometry, location: { lat: -26.2, lng: 28.1 } } }]); expect(await geocodeSouthAfricanAddress(address, config)).toBeNull(); });
+  it("rejects stale saved coordinates even when a legacy pickup has no place ID", async () => {
+    const fetch = provider([good]);
+    expect(await geocodeSouthAfricanAddress({ ...address, latitude: -25.7, longitude: 28.3 }, config)).toBeNull();
+    fetch.mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [good] })));
+    expect(await geocodeSouthAfricanAddress({ ...address, latitude: -26.1906, longitude: 28.0391 }, config)).toEqual({ latitude: -26.1906, longitude: 28.0391 });
+  });
   it("requires provider-confirmed suburb and postal identity for store pickup verification", async () => {
     const complete = { ...good, address_components: [
       ...good.address_components,
