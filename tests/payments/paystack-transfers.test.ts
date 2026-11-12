@@ -583,6 +583,28 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
       expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
     });
 
+    it("leaves an already PAID newer withdrawal untouched by an older failure", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...current,
+        withdrawal: {
+          ...current.withdrawal,
+          status: "PAID",
+          payoutLedgerJournalId: "verified_paid_receipt",
+          currentPayoutAttemptId: "wpa_new",
+        },
+      });
+      const result = await handlePaystackTransferFailed({
+        merchantReference: current.externalReference, transferCode: "TRF_OLD",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.withdrawalRequest.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ reason: "CONFLICTING_EXTERNAL_REFERENCE" }),
+      }));
+    });
+
     it("never returns the newer active withdrawal to APPROVED on an old failure", async () => {
       (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(current);
       const result = await handlePaystackTransferFailed({

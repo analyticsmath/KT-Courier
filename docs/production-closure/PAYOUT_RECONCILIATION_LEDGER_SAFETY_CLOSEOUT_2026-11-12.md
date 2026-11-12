@@ -23,11 +23,11 @@ These changes do not manufacture a charge, simulate bank settlement, reverse acc
 ## B. Validation evidence
 
 Local source verification on the audited baseline plus patch:
-- Payment suite: 66 files / 437 tests passed.
+- Payment suite: 66 files / 438 tests passed.
 - Refund suite: 26 files / 115 tests passed.
 - Processor suite: 10 files / 66 tests passed.
 - Withdrawal, driver-earning, store-earning and ledger suites: 59 files / 184 tests passed.
-- Focused transfer suite: 38 tests passed (included within payment suite), with new late-event, reversal, insufficient-journal and replay cases.
+- Focused transfer suite: 39 tests passed (included within payment suite), with new late-event, reversal, insufficient-journal and replay cases.
 - TypeScript: typecheck passed with zero errors.
 - Targeted ESLint: zero errors; migrations:check passed, 113 incremental and 8 archived.
 - Full coverage was attempted but exceeded the local test-runner window before emitting a final receipt. Do NOT record that run as a pass.

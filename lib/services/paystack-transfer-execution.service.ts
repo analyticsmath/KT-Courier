@@ -598,21 +598,27 @@ export async function handlePaystackTransferFailed(
 
         const withdrawal = attempt.withdrawal;
         if (withdrawal.status === "PAID") {
-          // Internal says paid but provider says failed! Serious discrepancy!
-          const now = new Date();
-          await tx.withdrawalRequest.update({
-            where: { id: withdrawal.id },
-            data: { status: "RECONCILIATION_REQUIRED", reconciliationRequiredAt: now, version: { increment: 1 } },
-          });
+          // A failure for an older payout must not reopen a newer PAID receipt.
+          // It still requires finance investigation, but no financial mutation.
+          const current = withdrawal.currentPayoutAttemptId === attempt.id;
+          if (current) {
+            const now = new Date();
+            await tx.withdrawalRequest.update({
+              where: { id: withdrawal.id },
+              data: { status: "RECONCILIATION_REQUIRED", reconciliationRequiredAt: now, version: { increment: 1 } },
+            });
+          }
           await openReconciliationCase(tx, {
             withdrawalId: withdrawal.id,
             withdrawalReference: withdrawal.publicReference,
             attemptId: attempt.id,
             attemptReference: attempt.publicReference,
-            reason: "UNKNOWN_PAYOUT_OUTCOME",
-            summary: "Paystack reported transfer failure after payout was already marked PAID locally.",
+            reason: current ? "UNKNOWN_PAYOUT_OUTCOME" : "CONFLICTING_EXTERNAL_REFERENCE",
+            summary: current
+              ? "Paystack reported transfer failure after its payout was already marked PAID locally."
+              : "An earlier payout attempt reported failure after a different attempt settled. Review without changing the paid receipt.",
           });
-          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "PAID_CONFUSED_WITH_FAILED" };
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: current ? "PAID_CONFUSED_WITH_FAILED" : "STALE_PAID_ATTEMPT" };
         }
 
         if (attempt.status === "FAILED") {
