@@ -85,6 +85,51 @@ async function openReconciliationCase(
 }
 
 /**
+ * Late provider events must not settle or reset a superseded payout attempt.
+ * The current in-flight attempt is the only authority for a new posting.
+ */
+async function assertCurrentUnsettledPayoutAttempt(
+  tx: Prisma.TransactionClient,
+  attempt: Readonly<{
+    id: string;
+    publicReference: string;
+    status: string;
+    safeEvidenceReference?: string | null;
+    withdrawal: {
+      id: string;
+      publicReference: string;
+      status: string;
+      currentPayoutAttemptId: string | null;
+    };
+  }>,
+): Promise<boolean> {
+  const withdrawal = attempt.withdrawal;
+  if (
+    withdrawal.currentPayoutAttemptId === attempt.id &&
+    (withdrawal.status === "PROCESSING" || withdrawal.status === "RECONCILIATION_REQUIRED") &&
+    (attempt.status === "PROCESSING" || attempt.status === "UNKNOWN") &&
+    !attempt.safeEvidenceReference?.startsWith("REVERSED:")
+  ) return true;
+
+  const now = new Date();
+  if (!["PAID", "CANCELLED", "RECONCILIATION_REQUIRED"].includes(withdrawal.status)) {
+    await tx.withdrawalRequest.update({
+      where: { id: withdrawal.id },
+      data: { status: "RECONCILIATION_REQUIRED", reconciliationRequiredAt: now, version: { increment: 1 } },
+    });
+  }
+  await openReconciliationCase(tx, {
+    withdrawalId: withdrawal.id,
+    withdrawalReference: withdrawal.publicReference,
+    attemptId: attempt.id,
+    attemptReference: attempt.publicReference,
+    reason: "CONFLICTING_EXTERNAL_REFERENCE",
+    summary: "Provider transfer event is not bound to the current unresolved payout attempt. Finance review required.",
+  });
+  return false;
+}
+
+/**
  * Initiates an automated Paystack Transfer for an approved withdrawal.
  * Creates local payout attempt and unique reference in DB FIRST, then invokes Paystack Transfer API.
  * If network call fails or times out, transitions attempt to UNKNOWN and prevents duplicate initiation.
@@ -400,6 +445,15 @@ export async function handlePaystackTransferSuccess(
 
         const withdrawal = attempt.withdrawal;
 
+        // Replays of the same paid attempt are harmless. Any late success
+        // from another attempt is NOT a second ledger settlement authority.
+        const completedReplay = withdrawal.status === "PAID" &&
+          attempt.status === "SUCCEEDED" &&
+          withdrawal.currentPayoutAttemptId === attempt.id;
+        if (!completedReplay && !await assertCurrentUnsettledPayoutAttempt(tx, attempt)) {
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "STALE_OR_TERMINAL_ATTEMPT" };
+        }
+
         // Verify transfer details match exactly (Amendment 11)
         const expectedCents = zarToSubunitCents(withdrawal.amount.toString());
         const isAmountMatch = input.amountCents === expectedCents;
@@ -434,8 +488,9 @@ export async function handlePaystackTransferSuccess(
           return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "MISMATCH" };
         }
 
-        // Idempotency: if already paid, return duplicate safely
-        if (withdrawal.status === "PAID" && attempt.status === "SUCCEEDED") {
+        // Even replays must have the same immutable amount, beneficiary
+        // and transfer identity. Inconsistent provider data needs review.
+        if (completedReplay) {
           return { outcome: "DUPLICATE" as const, withdrawalId: withdrawal.id };
         }
 
@@ -563,8 +618,25 @@ export async function handlePaystackTransferFailed(
         if (attempt.status === "FAILED") {
           return { outcome: "DUPLICATE" as const, withdrawalId: withdrawal.id };
         }
+        if (!await assertCurrentUnsettledPayoutAttempt(tx, attempt)) {
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "STALE_OR_TERMINAL_ATTEMPT" };
+        }
+        if (attempt.transferCode && input.transferCode !== attempt.transferCode) {
+          await openReconciliationCase(tx, {
+            withdrawalId: withdrawal.id, withdrawalReference: withdrawal.publicReference,
+            attemptId: attempt.id, attemptReference: attempt.publicReference,
+            reason: "CONFLICTING_EXTERNAL_REFERENCE",
+            summary: "A failed transfer event did not match the stored transfer code.",
+          });
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "TRANSFER_CODE_MISMATCH" };
+        }
 
-        assertPayoutAttemptTransition(attempt.status, "FAILED");
+        // UNKNOWN remains terminal in the generic state machine; only a
+        // signed webhook or independently verified Paystack reconciliation
+        // may resolve an ambiguous provider outcome as definitively FAILED.
+        if (attempt.status !== "UNKNOWN") {
+          assertPayoutAttemptTransition(attempt.status, "FAILED");
+        }
 
         const unresolvedInFlightAllocations = tx.paymentDisputeAllocation
           ? await tx.paymentDisputeAllocation.findMany({
@@ -743,6 +815,28 @@ export async function handlePaystackTransferReversed(
           return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "TRANSFER_CODE_MISMATCH" };
         }
 
+        // Reversal cannot debit the clearing ledger or change a newer payout.
+        // A PAID withdrawal must have its original settlement journal.
+        const isCurrent = withdrawal.currentPayoutAttemptId === attempt.id;
+        const hasOriginalJournal = Boolean(withdrawal.payoutLedgerJournalId);
+        const eligibleSettled = hasOriginalJournal &&
+          attempt.status === "SUCCEEDED" &&
+          (withdrawal.status === "PAID" || withdrawal.status === "RECONCILIATION_REQUIRED");
+        const eligibleUnsettled = !hasOriginalJournal &&
+          (attempt.status === "PROCESSING" || attempt.status === "UNKNOWN") &&
+          (withdrawal.status === "PROCESSING" || withdrawal.status === "RECONCILIATION_REQUIRED");
+        if (!isCurrent || (!eligibleSettled && !eligibleUnsettled)) {
+          await openReconciliationCase(tx, {
+            withdrawalId: withdrawal.id,
+            withdrawalReference: withdrawal.publicReference,
+            attemptId: attempt.id,
+            attemptReference: attempt.publicReference,
+            reason: "CONFLICTING_EXTERNAL_REFERENCE",
+            summary: "Provider reversal did not match a current payout with coherent posting evidence.",
+          });
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "STALE_OR_UNPOSTED_REVERSAL" };
+        }
+
         // If previously marked PAID, post explicit reversal journal
         let reversalJournalId: string | null = null;
         if (withdrawal.payoutLedgerJournalId) {
@@ -779,6 +873,8 @@ export async function handlePaystackTransferReversed(
               idempotencyKey: `rev-payout:${attempt.publicReference}`,
               type: "REVERSAL",
               currency: "ZAR",
+              // The original payout receipt is mandatory for a true ledger reversal.
+              reversalOfJournalId: withdrawal.payoutLedgerJournalId,
               sourceReference: `withdrawal:${withdrawal.publicReference}:reversal`,
               correlationId: attempt.publicReference,
               memo: `Reversal of Paystack transfer payout ${withdrawal.publicReference}`,
@@ -806,7 +902,7 @@ export async function handlePaystackTransferReversed(
         await tx.withdrawalPayoutAttempt.update({
           where: { id: attempt.id },
           data: {
-            safeEvidenceReference: `REVERSED:${reversalJournalId ?? "NO_JOURNAL"}`,
+            safeEvidenceReference: `REVERSED:${reversalJournalId ?? "PRE_SETTLEMENT"}`,
             version: { increment: 1 },
           },
         });
@@ -817,7 +913,7 @@ export async function handlePaystackTransferReversed(
           attemptId: attempt.id,
           attemptReference: attempt.publicReference,
           reason: "UNKNOWN_PAYOUT_OUTCOME",
-          summary: `Paystack reported transfer reversed: ${input.reason ?? "Provider reversal"}. Held funds restored.`,
+          summary: reversalJournalId ? "Provider reversed the settled payout; liability was restored by a verified reversal journal." : "Provider reversed the transfer before any payout journal; held funds remain under finance review.",
           safeEvidence: { merchantReference: input.merchantReference, reversalJournalId },
         });
 
@@ -865,6 +961,18 @@ export async function handlePaystackTransferBlockedOrAbandoned(
         const withdrawal = attempt.withdrawal;
         if (withdrawal.status === "PAID") {
           return { outcome: "IGNORED" as const, reason: "ALREADY_PAID" };
+        }
+        if (!await assertCurrentUnsettledPayoutAttempt(tx, attempt)) {
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "STALE_OR_TERMINAL_ATTEMPT" };
+        }
+        if (attempt.transferCode && input.transferCode !== attempt.transferCode) {
+          await openReconciliationCase(tx, {
+            withdrawalId: withdrawal.id, withdrawalReference: withdrawal.publicReference,
+            attemptId: attempt.id, attemptReference: attempt.publicReference,
+            reason: "CONFLICTING_EXTERNAL_REFERENCE",
+            summary: "A pending or blocked transfer event did not match the stored transfer code.",
+          });
+          return { outcome: "RECONCILIATION_REQUIRED" as const, reason: "TRANSFER_CODE_MISMATCH" };
         }
 
         const now = new Date();
@@ -969,7 +1077,9 @@ export async function finalizePaystackTransferOtp(
     return { outcome: "SUCCESS", message: "Transfer is already paid." };
   }
 
-  if (attempt.status !== "PROCESSING" && attempt.status !== "UNKNOWN") {
+  if (attempt.withdrawal.currentPayoutAttemptId !== attempt.id ||
+      !["PROCESSING", "RECONCILIATION_REQUIRED"].includes(attempt.withdrawal.status) ||
+      (attempt.status !== "PROCESSING" && attempt.status !== "UNKNOWN")) {
     throw new WithdrawalError("WITHDRAWAL_INVALID_STATE", `Cannot finalize OTP for attempt in ${attempt.status} status.`);
   }
 

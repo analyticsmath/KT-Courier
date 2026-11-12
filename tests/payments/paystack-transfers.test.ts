@@ -462,6 +462,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
           id: "wd_succ",
           publicReference: "WTH-SUCC",
           status: "PROCESSING",
+          currentPayoutAttemptId: "wpa_succ",
           amount: new Prisma.Decimal("1200.00"),
           currency: "ZAR",
           sourceAccountId: "acc_source",
@@ -516,9 +517,11 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
           id: "wd_rev",
           publicReference: "WTH-REV",
           status: "PAID",
-          amount: new Prisma.Decimal("450.00"),
+          amount: new Prisma.Decimal("1200.00"),
           currency: "ZAR",
-          heldAccountId: "acc_held_liability",
+          heldAccountId: "acc_held",
+          payoutLedgerJournalId: "jnl_original_paid",
+          currentPayoutAttemptId: "wpa_rev",
         },
       };
 
@@ -534,6 +537,14 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
       });
 
       expect(result.outcome).toBe("APPLIED");
+      expect(prisma.ledgerJournal.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          reversalOfJournalId: "jnl_original_paid",
+          type: "REVERSAL",
+          totalDebits: new Prisma.Decimal("1200.00"),
+          totalCredits: new Prisma.Decimal("1200.00"),
+        }),
+      }));
       // Must not restore to wallet available without finance review; must require reconciliation
       expect(prisma.withdrawalRequest.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -542,6 +553,104 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
         }),
       );
       expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
+    });
+  });
+
+  describe("Late and conflicting transfer evidence does not corrupt another payout", () => {
+    const current = {
+      id: "wpa_old", publicReference: "WPA-OLD",
+      status: "PROCESSING", transferCode: "TRF_OLD",
+      externalReference: "kt_wpa_old",
+      initiatedByUserId: "finance_actor",
+      withdrawal: {
+        id: "wd_current", publicReference: "WTH-CURRENT",
+        status: "PROCESSING", amount: new Prisma.Decimal("250.00"),
+        currency: "ZAR", currentPayoutAttemptId: "wpa_new",
+        payoutDestination: { externalReference: "RCP_MATCH" },
+      },
+    };
+
+    it("never posts a payout journal for success from an earlier attempt", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(current);
+      const result = await handlePaystackTransferSuccess({
+        merchantReference: current.externalReference,
+        transferCode: "TRF_OLD", amountCents: 25000,
+        currency: "ZAR", recipientCode: "RCP_MATCH",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
+    });
+
+    it("never returns the newer active withdrawal to APPROVED on an old failure", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(current);
+      const result = await handlePaystackTransferFailed({
+        merchantReference: current.externalReference, transferCode: "TRF_OLD",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalRequest.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "APPROVED" }) }),
+      );
+    });
+
+    it("requires matching transfer code even for failure events", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...current, withdrawal: { ...current.withdrawal, currentPayoutAttemptId: current.id },
+      });
+      const result = await handlePaystackTransferFailed({
+        merchantReference: current.externalReference, transferCode: "TRF_UNRELATED",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+    });
+
+    it("does not mark an old blocked transfer unknown after a replacement exists", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(current);
+      const result = await handlePaystackTransferBlockedOrAbandoned({
+        merchantReference: current.externalReference, transferCode: "TRF_OLD", status: "blocked",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+    });
+
+    it("cannot settle a payout after Paystack previously reversed it before settlement", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...current,
+        safeEvidenceReference: "REVERSED:PRE_SETTLEMENT",
+        withdrawal: {
+          ...current.withdrawal,
+          status: "RECONCILIATION_REQUIRED",
+          currentPayoutAttemptId: current.id,
+        },
+      });
+      const result = await handlePaystackTransferSuccess({
+        merchantReference: current.externalReference,
+        transferCode: "TRF_OLD", amountCents: 25000,
+        currency: "ZAR", recipientCode: "RCP_MATCH",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+    });
+
+    it("allows a provider-verified definitive failure to resolve an unknown attempt", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...current, status: "UNKNOWN",
+        withdrawal: {
+          ...current.withdrawal,
+          status: "RECONCILIATION_REQUIRED",
+          currentPayoutAttemptId: current.id,
+        },
+      });
+      const result = await handlePaystackTransferFailed({
+        merchantReference: current.externalReference, transferCode: "TRF_OLD",
+      });
+      expect(result.outcome).toBe("APPLIED");
+      expect(prisma.withdrawalPayoutAttempt.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }),
+      );
     });
   });
 
@@ -554,6 +663,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
         id: "wd_reversal", publicReference: "WTH-REVERSAL",
         status: "PAID", amount: new Prisma.Decimal("45.00"),
         heldAccountId: "acc_held", payoutLedgerJournalId: "original_journal",
+        currentPayoutAttemptId: "wpa_reversal",
       },
     };
 
@@ -599,6 +709,77 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
     });
   });
 
+  describe("Confirmed payout webhook replay identity", () => {
+    const paid = {
+      id: "wpa_paid", publicReference: "WPA-PAID", status: "SUCCEEDED",
+      transferCode: "TRF_PAID", externalReference: "kt_wpa_paid_00001",
+      withdrawal: {
+        id: "wd_paid", publicReference: "WTH-PAID", status: "PAID",
+        currentPayoutAttemptId: "wpa_paid", payoutLedgerJournalId: "journal_paid",
+        amount: new Prisma.Decimal("84.00"), currency: "ZAR",
+        payoutDestination: { externalReference: "RCP_PAID" },
+      },
+    };
+    it("ignores an identical provider replay without a second journal", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(paid);
+      const result = await handlePaystackTransferSuccess({
+        merchantReference: paid.externalReference, transferCode: "TRF_PAID",
+        amountCents: 8400, currency: "ZAR", recipientCode: "RCP_PAID",
+      });
+      expect(result.outcome).toBe("DUPLICATE");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).not.toHaveBeenCalled();
+    });
+    it("does not conceal a changed amount behind an existing receipt", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue(paid);
+      const result = await handlePaystackTransferSuccess({
+        merchantReference: paid.externalReference, transferCode: "TRF_PAID",
+        amountCents: 8500, currency: "ZAR", recipientCode: "RCP_PAID",
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
+    });
+  });
+
+  describe("Reversal cannot falsify a paid receipt or reverse a replaced attempt", () => {
+    const original = {
+      id: "wpa_rev_guard", publicReference: "WPA-REV-GUARD",
+      status: "SUCCEEDED", transferCode: "TRF_REV_GUARD",
+      externalReference: "kt_wpa_rev_guard_001",
+      withdrawal: {
+        id: "wd_rev_guard", publicReference: "WTH-REV-GUARD",
+        status: "PAID", currentPayoutAttemptId: "wpa_rev_guard",
+        amount: new Prisma.Decimal("1200.00"), currency: "ZAR",
+        heldAccountId: "acc_held",
+        payoutLedgerJournalId: "jnl_original_paid",
+      },
+    };
+    it("refuses to manufacture reversal when PAID has no original ledger receipt", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...original, withdrawal: { ...original.withdrawal, payoutLedgerJournalId: null },
+      });
+      const result = await handlePaystackTransferReversed({
+        merchantReference: original.externalReference, transferCode: original.transferCode,
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+      expect(prisma.withdrawalReconciliationCase.create).toHaveBeenCalled();
+    });
+    it("refuses an older reversal when another attempt owns withdrawal", async () => {
+      (prisma.withdrawalPayoutAttempt.findUnique as any).mockResolvedValue({
+        ...original, withdrawal: { ...original.withdrawal, currentPayoutAttemptId: "wpa_new" },
+      });
+      const result = await handlePaystackTransferReversed({
+        merchantReference: original.externalReference, transferCode: original.transferCode,
+      });
+      expect(result.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(prisma.ledgerJournal.create).not.toHaveBeenCalled();
+      expect(prisma.withdrawalPayoutAttempt.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe("Scheduled Transfer Reconciliation Scanner", () => {
     it("scans and resolves stale processing attempts", async () => {
       const staleAttempt = {
@@ -613,6 +794,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
           id: "wd_stale",
           publicReference: "WTH-STALE",
           status: "PROCESSING",
+          currentPayoutAttemptId: "wpa_stale",
           amount: new Prisma.Decimal("300.00"),
           currency: "ZAR",
           sourceAccountId: "acc_source",
@@ -667,7 +849,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
         externalReference: "kt_wpa_verify_00001",
         withdrawal: {
           id: "wd_verify", publicReference: "WTH-VERIFY",
-          status: "PROCESSING", amount: new Prisma.Decimal("120.00"),
+          status: "PROCESSING", currentPayoutAttemptId: "wpa_verify", amount: new Prisma.Decimal("120.00"),
           payoutDestination: { externalReference: "RCP_OK" },
         },
       };
@@ -850,7 +1032,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
 
       const result = await handlePaystackTransferBlockedOrAbandoned({
         merchantReference: "kt_wpa_otp_test_ref",
-        transferCode: "TRF_BLOCKED",
+        transferCode: "TRF_OTP_CODE",
         status: "blocked",
         reason: "Compliance account check blocked transfer",
       });
@@ -879,7 +1061,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
 
       const result = await handlePaystackTransferBlockedOrAbandoned({
         merchantReference: "kt_wpa_otp_test_ref",
-        transferCode: "TRF_ABANDONED",
+        transferCode: "TRF_OTP_CODE",
         status: "abandoned",
         reason: "User abandoned OTP session",
       });
@@ -907,7 +1089,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
 
       const result = await handlePaystackTransferFailed({
         merchantReference: "kt_wpa_otp_test_ref",
-        transferCode: "TRF_REJECTED",
+        transferCode: "TRF_OTP_CODE",
         failureMessage: "Bank account resolved invalid by provider",
       });
 
@@ -991,7 +1173,7 @@ describe("Phase 1: Paystack Automated Transfers & Dual-Control Ledger Integratio
 
       const result = await handlePaystackTransferFailed({
         merchantReference: "kt_wpa_otp_test_ref",
-        transferCode: "TRF_REJECTED",
+        transferCode: "TRF_OTP_CODE",
         failureMessage: "Bank account resolved invalid by provider",
       });
 

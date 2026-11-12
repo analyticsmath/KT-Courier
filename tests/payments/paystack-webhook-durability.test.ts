@@ -395,6 +395,7 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
           id: "wd_1",
           publicReference: "WTH-001",
           status: "PROCESSING",
+          currentPayoutAttemptId: "wpa_1",
           amount: new Prisma.Decimal("100.00"),
         },
       });
