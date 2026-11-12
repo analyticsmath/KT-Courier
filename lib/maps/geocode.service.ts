@@ -188,7 +188,10 @@ export async function geocodeSouthAfricanAddress(
     if (payload.results?.length !== 1) return reject("GEOCODE_AMBIGUOUS_RESULT");
     const result = payload.results[0];
     if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return reject("GEOCODE_LOW_CONFIDENCE");
-    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return reject("GEOCODE_UNSUPPORTED_PLACE_TYPE");
+    const types = result.types ?? [];
+    const preciseAddress = types.some(type => ["street_address", "premise", "subpremise"].includes(type));
+    const selectedPlace = Boolean(address.placeId) && types.some(type => ["establishment", "point_of_interest"].includes(type));
+    if (!preciseAddress && !selectedPlace) return reject("GEOCODE_UNSUPPORTED_PLACE_TYPE");
     const components = result.address_components ?? [];
     if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return reject("GEOCODE_COUNTRY_MISMATCH");
     if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return reject("GEOCODE_PROVINCE_MISMATCH");

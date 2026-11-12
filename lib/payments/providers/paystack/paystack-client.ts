@@ -2,6 +2,29 @@ import { PaymentError } from "../../errors";
 
 export const MAX_PAYSTACK_TRANSACTION_CENTS = 1_000_000_000; // R10,000,000.00 cap
 const DEFAULT_PAYSTACK_API_TIMEOUT_MS = 20_000;
+const MAX_PAYSTACK_RESPONSE_BYTES = 1_048_576;
+
+async function readPaystackJson(response: Response): Promise<unknown> {
+  if (!response.body) throw new Error("Empty provider response");
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_PAYSTACK_RESPONSE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error("Provider response exceeds size limit");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, size))) as unknown;
+}
 
 export function assertValidPaystackTransactionAmount(cents: number): void {
   if (!Number.isSafeInteger(cents) || cents <= 0 || cents > MAX_PAYSTACK_TRANSACTION_CENTS) {
@@ -307,7 +330,7 @@ export class PaystackClient {
 
     let payload: unknown;
     try {
-      payload = await response.json();
+      payload = await readPaystackJson(response);
     } catch {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack response was not valid JSON.", true);
     }

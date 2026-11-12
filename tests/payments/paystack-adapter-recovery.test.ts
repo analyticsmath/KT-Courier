@@ -38,13 +38,15 @@ function setup() {
 
 describe("Paystack missing-reference classification", () => {
   const client = new PaystackClient({ secretKey: "sk_test_disposable", baseUrl: "https://api.paystack.co" });
+  it("rejects an oversized verify response without treating it as a missing reference", async () => {
+    const body = JSON.stringify({ status: false, message: "Transaction reference not found", padding: "x".repeat(1_048_577) });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 404 })));
+    await expect(client.verifyTransaction("merchant_ref_1")).rejects.toMatchObject({ code: "PAYMENT_PROVIDER_RESPONSE_INVALID" });
+  });
   it("bounds Paystack verification calls even when the caller supplies no abort signal", async () => {
-    const fetcher = vi.fn().mockResolvedValue({
-      ok: true, status: 200,
-      json: async () => ({ status: true, data: {
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: true, data: {
         ...verified, id: 123, created_at: "2026-11-12T10:00:00Z",
-      } }),
-    });
+      } }), { status: 200 }));
     vi.stubGlobal("fetch", fetcher);
     const result = await client.verifyTransaction("merchant_ref_1");
     expect(result.status).toBe("success");
@@ -55,11 +57,7 @@ describe("Paystack missing-reference classification", () => {
   it.each([200, 404])(
     "accepts only an explicit not-found verify response on HTTP %s",
     async status => {
-      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-        ok: status === 200,
-        status,
-        json: async () => ({ status: false, message: "Transaction reference not found" }),
-      }));
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: false, message: "Transaction reference not found" }), { status })));
       await expect(client.verifyTransaction("merchant_ref_1")).rejects.toMatchObject({
         code: "PAYSTACK_TRANSACTION_NOT_FOUND",
       });
@@ -71,11 +69,7 @@ describe("Paystack missing-reference classification", () => {
     { status: 503, message: "Transaction reference not found" },
     { status: 404, message: "Transaction not found yet; retry" },
   ])("never treats provider failure as proven missing transaction: %o", async entry => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: entry.status === 200,
-      status: entry.status,
-      json: async () => ({ status: false, message: entry.message }),
-    }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: false, message: entry.message }), { status: entry.status })));
     await expect(client.verifyTransaction("merchant_ref_1")).rejects.not.toMatchObject({
       code: "PAYSTACK_TRANSACTION_NOT_FOUND",
     });

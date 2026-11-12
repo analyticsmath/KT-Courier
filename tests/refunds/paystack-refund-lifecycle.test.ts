@@ -181,12 +181,7 @@ describe("Phase 1: Paystack Refund Lifecycle & Needs-Attention Boundary", () => 
         },
       };
 
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => mockResponseData,
-        text: async () => JSON.stringify(mockResponseData),
-      });
+      const mockFetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(mockResponseData), { status: 200 }));
       (globalThis as any).fetch = mockFetch;
 
       const retryResult = await client.retryRefundWithCustomerDetails(998877, {

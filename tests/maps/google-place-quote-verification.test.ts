@@ -67,4 +67,14 @@ describe("quotes verify a browser-selected Google Place server-side", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [{ ...exactPlace, partial_match: true }] })));
     expect(await geocodeSouthAfricanAddress(selected, config)).toBeNull();
   });
+
+  it("does not treat an intersection as a verified building or entrance", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [{ ...exactPlace, types: ["intersection"] }] })));
+    expect(await geocodeSouthAfricanAddress(selected, config)).toBeNull();
+  });
+
+  it("requires a selected place ID before accepting a named point of interest", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [exactPlace] })));
+    expect(await geocodeSouthAfricanAddress({ ...selected, city: "Pretoria", placeId: undefined, latitude: undefined, longitude: undefined }, config)).toBeNull();
+  });
 });
