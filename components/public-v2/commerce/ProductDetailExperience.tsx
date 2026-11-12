@@ -27,7 +27,7 @@ import { CommerceBreadcrumbs } from "./CommerceBreadcrumbs";
 import type { CommerceCategoryNode } from "@/lib/public-marketplace/category-presentation";
 import { cn } from "@/lib/utils/cn";
 import styles from "./commerce.module.css";
-import { computeCenteredStickyPlacement } from "./pdp-geometry";
+import { computeCenteredStickyPlacement, focusedPurchaseRailScrollDelta } from "./pdp-geometry";
 
 interface ProductStoreInfo {
   slug: string;
@@ -479,6 +479,24 @@ export function ProductDetailExperience({
         <div className={styles.pdpPurchaseRail} ref={purchaseRailRef}>
           <section
             aria-label="Purchase product"
+            onFocusCapture={(event) => {
+              if (!planePlacement?.purchase.tooTall) return;
+              const rail = purchasePlaneRef.current;
+              if (!rail) return;
+              const focused = event.target;
+              const bounds = focused.getBoundingClientRect();
+              const railBounds = rail.getBoundingClientRect();
+              const headerBottom = parseFloat(getComputedStyle(rail).getPropertyValue("--shop-header-offset")) || 66;
+              const delta = focusedPurchaseRailScrollDelta({
+                targetTop: bounds.top,
+                targetBottom: bounds.bottom,
+                railTop: railBounds.top,
+                railBottom: railBounds.bottom,
+                viewportHeight: window.innerHeight,
+                headerBottom,
+              });
+              if (delta !== 0) rail.scrollTop += delta;
+            }}
             className={cn(styles.pdpPurchasePlane, planePlacement?.purchase.tooTall && styles.pdpPurchasePlaneTall)}
             ref={purchasePlaneRef}
             style={planePlacement ? {

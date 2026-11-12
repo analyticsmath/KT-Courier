@@ -3,7 +3,7 @@ import { join } from "node:path";
 import postcss from "postcss";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
-import { computeCenteredStickyPlacement } from "@/components/public-v2/commerce/pdp-geometry";
+import { computeCenteredStickyPlacement, focusedPurchaseRailScrollDelta } from "@/components/public-v2/commerce/pdp-geometry";
 
 const root = process.cwd();
 const detailSource = readFileSync(
@@ -236,6 +236,18 @@ describe("PDP three-column presentation contract", () => {
     }
     expect(computeCenteredStickyPlacement({ ...base, planeHeight: 850 }))
       .toEqual({ viewportCenter: 495, stickyTop: 82, initialOffset: 0, tooTall: true });
+  });
+
+  it("scrolls overflowing keyboard-focused cart buttons into a short desktop viewport", () => {
+    const shortDesktop = {
+      railTop: 143, railBottom: 749, viewportHeight: 768, headerBottom: 66,
+      targetTop: 833, targetBottom: 885.609375,
+    };
+    expect(focusedPurchaseRailScrollDelta(shortDesktop)).toBeCloseTo(148.609375);
+    expect(shortDesktop.targetBottom - focusedPurchaseRailScrollDelta(shortDesktop)).toBeLessThanOrEqual(768);
+    expect(focusedPurchaseRailScrollDelta({ ...shortDesktop, targetTop: 680, targetBottom: 730 })).toBe(0);
+    expect(focusedPurchaseRailScrollDelta({ ...shortDesktop, targetTop: 120, targetBottom: 155 })).toBeLessThan(0);
+    expect(focusedPurchaseRailScrollDelta({ ...shortDesktop, railTop: 790, railBottom: 850 })).toBe(0);
   });
 
   it("preserves compact and mobile layouts", () => {
