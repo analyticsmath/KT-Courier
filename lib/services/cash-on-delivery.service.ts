@@ -67,6 +67,38 @@ export async function activateDepositCashOnDeliveryWithinTransaction(tx: Prisma.
   return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { paymentId: input.paymentId, digitalPaid: input.amount, status: "READY_FOR_COLLECTION", version: { increment: 1 }, events: { create: { operationId: `deposit-verified:${input.paymentId}`, requestHash: hash({ paymentId: input.paymentId, event: input.verifiedEventReference, amount: input.amount.toFixed(2) }), eventType: "DEPOSIT_VERIFIED", safeEvidence: { verifiedEventReference: input.verifiedEventReference } } } } });
 }
 
+/**
+ * A duplicate COD collection is recoverable after delivery and driver unassignment,
+ * but only by the original recorded driver actor. Possession of an operation ID,
+ * the amount and the original driver-profile ID is not authorization.
+ */
+export async function assertCashCollectionReplayAuthority(
+  db: Pick<Prisma.TransactionClient, "cashOnDeliveryEvent">,
+  receipt: Readonly<{ id: string; collectorDriverId: string | null }>,
+  input: Readonly<{ collectorDriverId: string; actorUserId: string; operationId: string }>,
+  requestHash: string,
+): Promise<void> {
+  if (receipt.collectorDriverId !== input.collectorDriverId) {
+    throw new CashOnDeliveryError("COD_COLLECTOR_NOT_AUTHORIZED", "Cash collection belongs to another driver.");
+  }
+  const evidence = await db.cashOnDeliveryEvent.findUnique({
+    where: { operationId: `collection:${input.operationId}` },
+    select: {
+      cashOnDeliveryId: true, eventType: true, actorUserId: true,
+      requestHash: true,
+    },
+  });
+  if (
+    !evidence ||
+    evidence.cashOnDeliveryId !== receipt.id ||
+    evidence.eventType !== "COLLECTED" ||
+    evidence.actorUserId !== input.actorUserId ||
+    evidence.requestHash !== requestHash
+  ) {
+    throw new CashOnDeliveryError("COD_COLLECTOR_NOT_AUTHORIZED", "Cash collection receipt is unavailable for this driver.");
+  }
+}
+
 export async function recordCashCollection(input: { orderId: string; collectorDriverId: string; actorUserId: string; amount: string; operationId: string }) {
   const amount = money(input.amount); const requestHash = hash({ orderId: input.orderId, collectorDriverId: input.collectorDriverId, amount: amount.toFixed(2) });
   const run = () => prisma.$transaction(async (tx) => {
@@ -76,6 +108,7 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
     if (!cod) throw new CashOnDeliveryError("NOT_COD_ORDER", "Order has no COD obligation.");
     if (cod.collectionOperationId === input.operationId) {
       if (cod.collectionRequestHash !== requestHash) throw new CashOnDeliveryError("COD_COLLECTION_CONFLICT", "Collection operation conflicts with existing evidence.");
+      await assertCashCollectionReplayAuthority(tx, cod, input, requestHash);
       return cod;
     }
     if (cod.status === "COLLECTED" || cod.status === "RECONCILED") throw new CashOnDeliveryError("COD_ALREADY_COLLECTED", "Cash is already collected.");
@@ -93,7 +126,18 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
     return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt: new Date(), collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  try { return await withLedgerRetry(run); } catch (error) { if ((error as { code?: string }).code === "P2002") { const winner = await prisma.cashOnDelivery.findUnique({ where: { orderId: input.orderId } }); if (winner?.collectionOperationId === input.operationId && winner.collectionRequestHash === requestHash) return winner; } throw error; }
+  try {
+    return await withLedgerRetry(run);
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      const winner = await prisma.cashOnDelivery.findUnique({ where: { orderId: input.orderId } });
+      if (winner?.collectionOperationId === input.operationId && winner.collectionRequestHash === requestHash) {
+        await assertCashCollectionReplayAuthority(prisma, winner, input, requestHash);
+        return winner;
+      }
+    }
+    throw error;
+  }
 }
 
 export async function reconcileCashCollection(input: { orderId: string; actorUserId: string; receivedAmount: string; operationId: string; evidenceReference?: string }) {

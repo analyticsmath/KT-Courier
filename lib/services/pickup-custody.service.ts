@@ -20,6 +20,7 @@ import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
 import { completeOperationReceiptInTx, createOperationReceiptInTx, findOperationReplay, getCompletedOperationResult, isOperationReceiptConflict, type DriverOperationSnapshot } from "@/lib/driver-operations/idempotency";
 import { DriverOperationError } from "@/lib/driver-operations/errors";
+import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -200,6 +201,7 @@ export async function startPickup(
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
+      await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replayResult);
       const replay = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: WORKBENCH_ASSIGNMENT_INCLUDE });
       return replay ? { ok: true, assignment: toWorkbenchAssignmentDto(replay), operationResult: replayResult } : { ok: false, error: "Assignment not found." };
     }
@@ -270,7 +272,10 @@ export async function startPickup(
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);
       const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: WORKBENCH_ASSIGNMENT_INCLUDE });
-      if (replay && current) return { ok: true, assignment: toWorkbenchAssignmentDto(current), operationResult: replay };
+      if (replay && current) {
+        await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay);
+        return { ok: true, assignment: toWorkbenchAssignmentDto(current), operationResult: replay };
+      }
     }
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
@@ -306,6 +311,7 @@ export async function completePickup(
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
+      await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replayResult);
       const replay = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: WORKBENCH_ASSIGNMENT_INCLUDE });
       return replay ? { ok: true, assignment: toWorkbenchAssignmentDto(replay), operationResult: replayResult } : { ok: false, error: "Assignment not found." };
     }
@@ -430,7 +436,10 @@ export async function completePickup(
     if (isOperationReceiptConflict(error)) {
       const replay = await findOperationReplay(input.operationId, input);
       const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: WORKBENCH_ASSIGNMENT_INCLUDE });
-      if (replay && current) return { ok: true, assignment: toWorkbenchAssignmentDto(current), operationResult: replay };
+      if (replay && current) {
+        await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay);
+        return { ok: true, assignment: toWorkbenchAssignmentDto(current), operationResult: replay };
+      }
     }
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };

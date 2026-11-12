@@ -14,6 +14,10 @@ describe("canonical offline 50/50 COD custody and shortage persistence", () => {
       const f = await codBooking(page, suffix); await verifyCodDeposit(page, f); await codTransit(f);
       const input = { orderId: f.order.id, collectorDriverId: f.driver.id, actorUserId: f.driver.userId, operationId: randomUUID(), amount: f.before.cod.cashObligation.toFixed(2) };
       const collections = await Promise.all([recordCashCollection(input), recordCashCollection(input)]); expect(collections[0].id).toBe(collections[1].id);
+      // Even a correctly guessed operation ID/amount cannot replay the
+      // driver's original financial receipt under another authenticated actor.
+      await expect(recordCashCollection({ ...input, actorUserId: f.admin.id }))
+        .rejects.toMatchObject({ code: "COD_COLLECTOR_NOT_AUTHORIZED" });
       const collected = await codState(f.order.id); expect(collected.journals).toHaveLength(1); expect(collected.cod.events.filter(row => row.eventType === "COLLECTED")).toHaveLength(1);
       const promotionExpense = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: "PLATFORM-PROMOTION-EXPENSE-ZAR" } });
       const suspense = await prisma.ledgerAccount.findUniqueOrThrow({ where: { code: "PLATFORM-CASH-SHORT-OVER-SUSPENSE-ZAR" } });
