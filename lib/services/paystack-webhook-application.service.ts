@@ -744,10 +744,11 @@ export async function applyPaystackWebhookEvent(
         ? (freshPayment.metadata as Record<string, unknown>)
         : {};
       const splitWalletAmount = typeof splitMeta.walletAmount === "string" ? splitMeta.walletAmount : null;
+      let walletReceipt: { amount: string; journalId: string } | null = null;
       if (splitWalletAmount && splitMeta.walletSplit) {
         const ownerType = (splitMeta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
         const ownerId = (splitMeta.walletOwnerId as string) || (freshPayment.userId ?? "");
-        await consumeWalletSpendWithinTransaction(tx, {
+        walletReceipt = await consumeWalletSpendWithinTransaction(tx, {
           owner: { ownerType, ownerId },
           amount: splitWalletAmount,
           operationId: `paystack:wallet-consume:${freshPayment.publicReference}`,
@@ -784,6 +785,7 @@ export async function applyPaystackWebhookEvent(
         orderId: freshPayment.orderId,
         amount: freshPayment.amount,
         verifiedEventReference: resolvedEvent.publicReference,
+        walletReceipt: walletReceipt ?? undefined,
       });
       await confirmVerifiedCourierOrderWithinTransaction(tx, {
         subjectType: freshPayment.subjectType,

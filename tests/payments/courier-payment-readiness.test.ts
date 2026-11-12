@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getCourierPaymentReadiness, requirePaymentBeforeCourierProgress } from "@/lib/services/courier-payment-readiness.service";
-const payment = { publicReference: "pay_123", status: "SUCCEEDED", amount: { toFixed: () => "205.85" }, successLedgerJournalId: "journal_1", providerConfirmedAt: new Date(), provider: "PAYSTACK", succeededAt: new Date() };
+const payment = { id: "payment-id", publicReference: "pay_123", status: "SUCCEEDED", amount: { toFixed: () => "205.85" }, successLedgerJournalId: "journal_1", providerConfirmedAt: new Date(), provider: "PAYSTACK", succeededAt: new Date() };
 const query = (order: Record<string, unknown>) => ({ order: { findMany: vi.fn().mockResolvedValue([order]) } });
 const base = { id: "order-1", payments: [], cashOnDelivery: null, marketplaceStoreOrderBridge: null };
 describe("courier payment readiness", () => {
@@ -41,8 +41,8 @@ describe("courier payment readiness", () => {
   });
   it("does not call a paid deposit a fully paid delivery when cash is still outstanding", async () => {
     const db=query({...base,payments:[{ ...payment, amount: { toFixed: () => "85.00" } }],cashOnDelivery:{
-      policyMode:"DEPOSIT_PLUS_COD", status: "READY_FOR_COLLECTION",
-      digitalRequired:{toNumber:()=>85},cashObligation:{toFixed:()=>"120.85"},
+      policyMode:"DEPOSIT_PLUS_COD", status: "READY_FOR_COLLECTION", paymentId: "payment-id",
+      digitalRequired:{toNumber:()=>85},digitalPaid:{toFixed:()=> "85.00"},cashObligation:{toFixed:()=>"120.85"},
     }});
     expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({
       status:"DEPOSIT_PAID_CASH_DUE",dispatchEligible:true,cashDue:"120.85",paymentReference:"pay_123",
@@ -62,8 +62,45 @@ describe("courier payment readiness", () => {
       ["READY_FOR_COLLECTION", "85.01"],
     ]) {
       const db = query({ ...base, payments: [{ ...payment, amount: { toFixed: () => amount } }], cashOnDelivery: {
-        policyMode: "DEPOSIT_PLUS_COD", status,
-        digitalRequired: { toNumber: () => 85 }, cashObligation: { toFixed: () => "120.85" },
+        policyMode: "DEPOSIT_PLUS_COD", status, paymentId: "payment-id",
+        digitalRequired: { toNumber: () => 85 }, digitalPaid: { toFixed: () => "85.00" },
+        cashObligation: { toFixed: () => "120.85" },
+      } });
+      expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+        status: "RECONCILIATION_REQUIRED", dispatchEligible: false,
+      });
+    }
+  });
+  it("accepts actual provider + reserved wallet deposit when immutable COD evidence agrees", async () => {
+    const db = query({ ...base, payments: [{
+      ...payment,
+      amount: { toFixed: () => "60.00" },
+      metadata: { walletSplit: true, walletAmount: "25.00" },
+    }], cashOnDelivery: {
+      paymentId: "payment-id",
+      policyMode: "DEPOSIT_PLUS_COD", status: "READY_FOR_COLLECTION",
+      digitalRequired: { toNumber: () => 85 }, digitalPaid: { toFixed: () => "85.00" },
+      cashObligation: { toFixed: () => "85.00" },
+      events: [{ safeEvidence: { walletJournalId: "posted-wallet-consume-journal", walletAmount: "25.00", providerAmount: "60.00" } }],
+    } });
+    expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+      status: "DEPOSIT_PAID_CASH_DUE", dispatchEligible: true, cashDue: "85.00",
+    });
+  });
+  it("refuses split-wallet COD when journal link is missing or wallet/provider sums disagree", async () => {
+    for (const evidence of [
+      { walletJournalId: null, walletAmount: "25.00", providerAmount: "60.00" },
+      { walletJournalId: "journal", walletAmount: "24.00", providerAmount: "60.00" },
+      { walletJournalId: "journal", walletAmount: "25.00", providerAmount: "59.00" },
+    ]) {
+      const db = query({ ...base, payments: [{
+        ...payment, amount: { toFixed: () => "60.00" },
+        metadata: { walletSplit: true, walletAmount: "25.00" },
+      }], cashOnDelivery: {
+        paymentId: "payment-id", policyMode: "DEPOSIT_PLUS_COD", status: "READY_FOR_COLLECTION",
+        digitalRequired: { toNumber: () => 85 }, digitalPaid: { toFixed: () => "85.00" },
+        cashObligation: { toFixed: () => "85.00" },
+        events: [{ safeEvidence: evidence }],
       } });
       expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
         status: "RECONCILIATION_REQUIRED", dispatchEligible: false,

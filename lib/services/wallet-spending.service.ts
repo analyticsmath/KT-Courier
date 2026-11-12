@@ -13,6 +13,7 @@ import {
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { resolveOrderPaymentSubject } from "./payment-subject.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
+import { transitionOrderStatusInTx } from "./order-status.service";
 import { customerAccountPrefix } from "./customer-wallet.service";
 
 export type WalletOwner = Readonly<{
@@ -436,6 +437,48 @@ export async function consumeWalletSpendWithinTransaction(
   };
 }
 
+/** Wallet-funded parcels use the same audited status history as card funding. */
+export async function recordWalletCourierConfirmationInTx(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    orderId: string;
+    orderStatus: import("@prisma/client").OrderStatus;
+    payerUserId: string;
+    pricingSnapshot: unknown;
+    walletAmount: string;
+    journalId: string;
+    settledAt: Date;
+  }>,
+): Promise<void> {
+  await transitionOrderStatusInTx(tx, {
+    orderId: input.orderId,
+    fromStatus: input.orderStatus,
+    toStatus: "CONFIRMED",
+    actorRole: "SYSTEM",
+    actorUserId: input.payerUserId,
+    source: "wallet_funded_courier_order",
+    note: "Parcel funded using verified wallet balance.",
+    context: { isPaid: true },
+  });
+  await tx.order.update({
+    where: { id: input.orderId },
+    data: {
+      pricingSnapshot: {
+        ...(input.pricingSnapshot && typeof input.pricingSnapshot === "object" &&
+          !Array.isArray(input.pricingSnapshot)
+          ? input.pricingSnapshot as Record<string, unknown>
+          : {}),
+        walletFunding: {
+          walletAmount: input.walletAmount,
+          providerAmount: "0.00",
+          journalId: input.journalId,
+          settledAt: input.settledAt.toISOString(),
+        },
+      } as Prisma.InputJsonValue,
+    },
+  });
+}
+
 export async function spendWalletForParcelOrderWithinTransaction(
   tx: Prisma.TransactionClient,
   input: {
@@ -562,23 +605,14 @@ export async function spendWalletForParcelOrderWithinTransaction(
       },
     });
 
-    // Update Order to CONFIRMED
-    await tx.order.update({
-      where: { id: order.id },
-      data: {
-        status: "CONFIRMED",
-        pricingSnapshot: {
-          ...(order.pricingSnapshot && typeof order.pricingSnapshot === "object"
-            ? (order.pricingSnapshot as Record<string, unknown>)
-            : {}),
-          walletFunding: {
-            walletAmount: payable,
-            providerAmount: "0.00",
-            journalId: consume.journalId,
-            settledAt: now.toISOString(),
-          },
-        },
-      },
+    await recordWalletCourierConfirmationInTx(tx, {
+      orderId: order.id,
+      orderStatus: order.status,
+      payerUserId: input.payer.id,
+      pricingSnapshot: order.pricingSnapshot,
+      walletAmount: payable,
+      journalId: consume.journalId,
+      settledAt: now,
     });
 
     // If COD was zero digital requirement, activate COD

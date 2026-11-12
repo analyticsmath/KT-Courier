@@ -57,14 +57,110 @@ export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma
   return tx.cashOnDelivery.create({ data: { publicReference: `COD-${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`, orderId: input.orderId, paymentId: input.paymentId, policyMode: input.policyMode, authoritativePayable: payable, digitalRequired, digitalPaid, cashObligation, status: input.policyMode === "FULL_COD" ? "READY_FOR_COLLECTION" : "PENDING", events: { create: { operationId: `commit:${input.orderId}`, requestHash: hash({ orderId: input.orderId, policyMode: input.policyMode, payable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2) }), eventType: "COMMITTED", safeEvidence: input.policyEvidence as Prisma.InputJsonValue | undefined } } } });
 }
 
+/**
+ * A wallet contribution is real only after the reserved-wallet consumption
+ * journal is posted. The caller must pass the receipt returned by the canonical
+ * wallet service; neither a client-provided amount nor Payment.metadata alone
+ * can fund COD delivery.
+ */
+async function verifiedWalletDepositContribution(
+  tx: Prisma.TransactionClient,
+  input: {
+    paymentId: string;
+    orderId: string;
+    walletReceipt?: { amount: string; journalId: string };
+  },
+): Promise<Prisma.Decimal> {
+  if (!input.walletReceipt) return new Prisma.Decimal(0);
+  const amount = money(input.walletReceipt.amount);
+  if (amount.lessThanOrEqualTo(0)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Wallet contribution must be positive.");
+  const payment = await tx.payment.findUnique({
+    where: { id: input.paymentId },
+    select: { id: true, publicReference: true, orderId: true, subjectType: true, status: true, successLedgerJournalId: true, metadata: true },
+  });
+  const meta = payment?.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+    ? payment.metadata as Record<string, unknown>
+    : {};
+  if (
+    !payment || payment.orderId !== input.orderId || payment.subjectType !== "COURIER_ORDER" ||
+    payment.status !== "SUCCEEDED" || !payment.successLedgerJournalId ||
+    meta.walletSplit !== true || meta.walletAmount !== amount.toFixed(2)
+  ) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Wallet split is not backed by a verified parcel payment.");
+
+  const journal = await tx.ledgerJournal.findUnique({
+    where: { id: input.walletReceipt.journalId },
+    select: {
+      idempotencyKey: true, currency: true, sourceReference: true, metadata: true,
+      totalDebits: true, totalCredits: true, reversalOfJournalId: true,
+      reversalJournal: { select: { id: true } },
+    },
+  });
+  const evidence = journal?.metadata && typeof journal.metadata === "object" && !Array.isArray(journal.metadata)
+    ? journal.metadata as Record<string, unknown>
+    : {};
+  if (
+    !journal || journal.currency !== "ZAR" ||
+    journal.idempotencyKey !== `wallet-consume:paystack:wallet-consume:${payment.publicReference}` ||
+    journal.sourceReference !== `WALLET_CONSUME:${payment.publicReference}` ||
+    !journal.totalDebits.equals(amount) || !journal.totalCredits.equals(amount) ||
+    journal.reversalOfJournalId || journal.reversalJournal ||
+    evidence.category !== "WALLET_SPEND_CONSUMPTION" ||
+    evidence.subjectType !== "COURIER_ORDER" || evidence.subjectId !== input.orderId ||
+    evidence.subjectReference !== payment.publicReference ||
+    evidence.fromReserved !== true || evidence.amount !== amount.toFixed(2) ||
+    evidence.ownerType !== meta.walletOwnerType || evidence.ownerId !== meta.walletOwnerId
+  ) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Wallet contribution has no matching immutable consumption journal.");
+  return amount;
+}
+
 /** Called only by the verified payment-success transaction after its ledger receipt is posted. */
-export async function activateDepositCashOnDeliveryWithinTransaction(tx: Prisma.TransactionClient, input: { paymentId: string; orderId: string | null; amount: Prisma.Decimal; verifiedEventReference: string }) {
+export async function activateDepositCashOnDeliveryWithinTransaction(
+  tx: Prisma.TransactionClient,
+  input: {
+    paymentId: string;
+    orderId: string | null;
+    amount: Prisma.Decimal;
+    verifiedEventReference: string;
+    walletReceipt?: { amount: string; journalId: string };
+  },
+) {
   if (!input.orderId) return null;
   const cod = await tx.cashOnDelivery.findUnique({ where: { orderId: input.orderId } });
   if (!cod || cod.policyMode !== "DEPOSIT_PLUS_COD") return null;
-  if (cod.status === "READY_FOR_COLLECTION" && cod.paymentId === input.paymentId && cod.digitalPaid.equals(cod.digitalRequired)) return cod;
-  if (cod.status !== "PENDING" || !input.amount.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified digital payment does not satisfy the committed COD deposit.");
-  return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { paymentId: input.paymentId, digitalPaid: input.amount, status: "READY_FOR_COLLECTION", version: { increment: 1 }, events: { create: { operationId: `deposit-verified:${input.paymentId}`, requestHash: hash({ paymentId: input.paymentId, event: input.verifiedEventReference, amount: input.amount.toFixed(2) }), eventType: "DEPOSIT_VERIFIED", safeEvidence: { verifiedEventReference: input.verifiedEventReference } } } } });
+  const walletAmount = await verifiedWalletDepositContribution(tx, {
+    paymentId: input.paymentId, orderId: input.orderId, walletReceipt: input.walletReceipt,
+  });
+  const digitallyFunded = input.amount.add(walletAmount);
+  if (cod.status === "READY_FOR_COLLECTION" && cod.paymentId === input.paymentId && cod.digitalPaid.equals(cod.digitalRequired) && digitallyFunded.equals(cod.digitalRequired)) return cod;
+  if (cod.status !== "PENDING" || !digitallyFunded.equals(cod.digitalRequired)) throw new CashOnDeliveryError("COD_DEPOSIT_NOT_SATISFIED", "Verified provider and wallet contributions do not satisfy the committed COD deposit.");
+  return tx.cashOnDelivery.update({
+    where: { id: cod.id },
+    data: {
+      paymentId: input.paymentId,
+      digitalPaid: digitallyFunded,
+      status: "READY_FOR_COLLECTION",
+      version: { increment: 1 },
+      events: {
+        create: {
+          operationId: `deposit-verified:${input.paymentId}`,
+          requestHash: hash({
+            paymentId: input.paymentId,
+            event: input.verifiedEventReference,
+            providerAmount: input.amount.toFixed(2),
+            walletAmount: walletAmount.toFixed(2),
+            walletJournalId: input.walletReceipt?.journalId ?? null,
+          }),
+          eventType: "DEPOSIT_VERIFIED",
+          safeEvidence: {
+            verifiedEventReference: input.verifiedEventReference,
+            providerAmount: input.amount.toFixed(2),
+            walletAmount: walletAmount.toFixed(2),
+            walletJournalId: input.walletReceipt?.journalId ?? null,
+          },
+        },
+      },
+    },
+  });
 }
 
 /**

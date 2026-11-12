@@ -21,6 +21,8 @@ export type CourierPaymentReadiness = Readonly<{
 }>;
 
 type PaymentEvidence = {
+  id?: string;
+  metadata?: unknown;
   publicReference: string;
   status: string;
   amount: { toFixed(n: number): string };
@@ -28,6 +30,9 @@ type PaymentEvidence = {
   reconciliationStatus?: string | null;
 };
 type CodEvidence = {
+  paymentId?: string | null;
+  digitalPaid?: { toFixed(n: number): string };
+  events?: readonly { safeEvidence: unknown }[];
   policyMode: string;
   digitalRequired: { toNumber(): number };
   cashObligation: { toFixed(n: number): string };
@@ -84,14 +89,38 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
     const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD";
     if (depositOnly) {
       // A provider success alone cannot activate a deposit-backed COD order.
-      // This state is written only after exact digital deposit verification.
+      // For a wallet split, the exact consumed wallet journal must already be
+      // embedded in the COD deposit event by the canonical money transaction.
       const required = new Prisma.Decimal(cod.digitalRequired.toNumber());
-      const paid = new Prisma.Decimal(payment.amount.toFixed(2));
+      const funded = new Prisma.Decimal(cod.digitalPaid?.toFixed(2) ?? "0.00");
+      const provider = new Prisma.Decimal(payment.amount.toFixed(2));
       const outstanding = new Prisma.Decimal(cod.cashObligation.toFixed(2));
+      const meta = payment.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+        ? payment.metadata as Record<string, unknown>
+        : {};
+      const split = meta.walletSplit === true;
+      const deposited = cod.events?.[0]?.safeEvidence;
+      const depositEvidence = deposited && typeof deposited === "object" && !Array.isArray(deposited)
+        ? deposited as Record<string, unknown>
+        : {};
+      const walletAmount = split && typeof meta.walletAmount === "string" &&
+        /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(meta.walletAmount)
+        ? new Prisma.Decimal(meta.walletAmount)
+        : new Prisma.Decimal(0);
+      const splitMatches = split
+        ? walletAmount.greaterThan(0) &&
+          provider.add(walletAmount).equals(required) &&
+          typeof depositEvidence.walletJournalId === "string" &&
+          depositEvidence.walletJournalId.length > 0 &&
+          depositEvidence.walletAmount === walletAmount.toFixed(2) &&
+          depositEvidence.providerAmount === provider.toFixed(2)
+        : provider.equals(required);
       if (
         cod.status !== "READY_FOR_COLLECTION" ||
+        !cod.paymentId || !payment.id || cod.paymentId !== payment.id ||
         !required.isFinite() || required.lessThanOrEqualTo(0) ||
-        !paid.equals(required) || outstanding.lessThanOrEqualTo(0)
+        !funded.equals(required) || outstanding.lessThanOrEqualTo(0) ||
+        !splitMatches
       ) {
         return Object.freeze({
           ...empty("RECONCILIATION_REQUIRED"),
@@ -110,6 +139,8 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
 }
 
 const financialPaymentSelect = {
+  id: true,
+  metadata: true,
   publicReference: true,
   status: true,
   amount: true,
@@ -128,7 +159,16 @@ export async function listCourierPaymentReadiness(
     select: {
       id: true,
       cashOnDelivery: {
-        select: { policyMode: true, digitalRequired: true, cashObligation: true, cashCollected: true, status: true },
+        select: {
+          paymentId: true,
+          policyMode: true, digitalRequired: true, digitalPaid: true, cashObligation: true, cashCollected: true, status: true,
+          events: {
+            where: { eventType: "DEPOSIT_VERIFIED" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { safeEvidence: true },
+          },
+        },
       },
       payments: {
         where: { subjectType: "COURIER_ORDER" },

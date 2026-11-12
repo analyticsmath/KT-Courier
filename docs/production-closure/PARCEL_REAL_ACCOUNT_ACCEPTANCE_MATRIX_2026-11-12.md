@@ -55,6 +55,10 @@
 | Customer cancels before dispatch | Correct cancellation state, refund method subject to actual funds and policy |
 | FULL_COD booking, only if independently enabled | Immediate CONFIRMED booking with CASH_DUE_ON_DELIVERY, **never** labelled PAID |
 | DEPOSIT_PLUS_COD booking | PENDING until exact provider-ledger-backed deposit activates COD; collection allowed only after pickup |
+| Full wallet funding for a parcel | Wallet spend posts a single settled journal and order status history, then unlocks dispatch; retries do not debit twice |
+| Partial wallet + online card for a parcel | Only the provider remainder is charged, and the reserved wallet portion is consumed once after verified payment |
+| Partial wallet + approved 50/50 COD | Exact provider remainder plus independently posted wallet consumption must equal committed digital deposit; verified wallet journal ID is stored in COD deposit evidence |
+| Tampered wallet contribution or wrong ledger journal | Cash deposit remains PENDING, parcel is not confirmed, and no driver cash obligation is activated |
 | Full or split cash collected by driver | Correct original actor, collected amount and double-entry cash custody |
 | Bank deposit evidence | Real uploaded evidence, finance review, independently confirmed settlement and shortage handling |
 | Duplicate cash operation | Same authorized collector may replay; different actor or conflicting payload denied |
