@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
 import type { AddressDto } from "@/lib/maps/google-maps.types";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability } from "@/components/forms/ParcelPaymentChoice";
 import { parcelBookingDestination } from "@/lib/client-platform/parcel-booking-navigation";
+import { ParcelBookedNextStep } from "@/components/forms/ParcelBookedNextStep";
 import {
   PROVINCES,
   type DeliveryConfiguration,
@@ -69,8 +70,14 @@ export function PublicDeliveryQuoteForm({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<ParcelPaymentMethod>("DIGITAL_ONLY");
   const [methodError, setMethodError] = useState("");
   const [methodRevision, setMethodRevision] = useState(0);
+  // The canonical quote may be consumed even if the browser navigation fails.
+  // Retain the confirmed next step and never silently submit it again.
+  const bookingInFlight = useRef(false);
+  const [bookedNextStep, setBookedNextStep] = useState<{ href: string; paymentMethod: ParcelPaymentMethod } | null>(null);
   const setQuote = (next: Quote | null) => {
     rawSetQuote(next);
+    setBookedNextStep(null);
+    bookingInFlight.current = false;
     setSelectedPaymentMethod("DIGITAL_ONLY");
     setMethods(null);
     setMethodError("");
@@ -430,6 +437,7 @@ export function PublicDeliveryQuoteForm({
               className="grid gap-4 sm:grid-cols-2"
               onSubmit={async (e) => {
                 e.preventDefault();
+                if (bookingInFlight.current || bookedNextStep) return;
                 const f = new FormData(e.currentTarget);
                 // Server revalidates the COD policy at booking; guard against stale client options too.
                 if (selectedPaymentMethod !== "DIGITAL_ONLY" &&
@@ -437,8 +445,10 @@ export function PublicDeliveryQuoteForm({
                   setError("This cash payment split is not approved for this delivery. Choose online payment or refresh availability.");
                   return;
                 }
+                bookingInFlight.current = true;
                 setBusy(true);
                 setError("");
+                let bookingCommitted = false;
                 try {
                   const scheduled = f.get("scheduledFor");
                   const r = await fetch(
@@ -470,20 +480,23 @@ export function PublicDeliveryQuoteForm({
                   );
                   const v = await r.json();
                   if (!r.ok) throw new Error(v.error);
-                  // An online payer should reach the secure, owner-authorized
-                  // card payment screen immediately after booking, not have to
-                  // find the separate Payment link on order details.
-                  router.push(parcelBookingDestination({
+                  // Booking is committed. A failed client-side route transition must
+                  // not strand the payer with a USED quote and a live submit button.
+                  const destination = parcelBookingDestination({
                     business,
                     paymentMethod: selectedPaymentMethod,
                     orderId: v.id,
                     orderNumber: v.orderNumber,
-                  }));
+                  });
+                  bookingCommitted = true;
+                  setBookedNextStep({ href: destination, paymentMethod: selectedPaymentMethod });
+                  router.push(destination);
                 } catch (e) {
-                  setError(
-                    e instanceof Error ? e.message : "Booking unavailable.",
-                  );
+                  setError(bookingCommitted
+                    ? "Your delivery was booked, but automatic navigation did not complete. Use the secure continuation link below."
+                    : e instanceof Error ? e.message : "Booking unavailable.");
                 } finally {
+                  if (!bookingCommitted) bookingInFlight.current = false;
                   setBusy(false);
                 }
               }}
@@ -551,9 +564,10 @@ export function PublicDeliveryQuoteForm({
                   Retry cash availability
                 </Button>
               </div>}
-              <Button type="submit" loading={busy} className="sm:col-span-2 sm:justify-self-start sm:min-w-64">
-                Book this delivery
+              <Button type="submit" loading={busy} disabled={busy || Boolean(bookedNextStep)} className="sm:col-span-2 sm:justify-self-start sm:min-w-64">
+                {bookedNextStep ? "Delivery booked" : selectedPaymentMethod === "DIGITAL_ONLY" ? "Book and continue to card payment" : "Book this delivery"}
               </Button>
+              {bookedNextStep && <ParcelBookedNextStep href={bookedNextStep.href} paymentMethod={bookedNextStep.paymentMethod} />}
             </form>
           ) : (
             <Button

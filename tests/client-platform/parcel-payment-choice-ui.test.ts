@@ -6,7 +6,8 @@ const base = { total: "205.85", value: "DIGITAL_ONLY" as const, onChange: () => 
 describe("parcel payment choice UX", () => {
   it("presents two clearly distinguished payment options when full cash is authorized", () => {
     const html = renderToStaticMarkup(createElement(ParcelPaymentChoice, { ...base, cod: {eligible:true,amountDueAtDelivery:"205.85"}, authorizedMethods: [{mode:"FULL_COD",digitalRequired:"0.00",cashRequired:"205.85"}] }));
-    expect(html).toContain("Online payment");
+    expect(html).toContain("Card / online payment");
+    expect(html).toContain("Pay securely by card through Paystack after booking");
     expect(html).toContain("Cash on delivery");
     expect(html).toContain("R0 upfront");
     expect(html).toContain("205.85");

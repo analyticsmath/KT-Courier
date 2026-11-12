@@ -29,8 +29,8 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, authorizedMet
   const methods = [
     {
       id: "DIGITAL_ONLY" as const,
-      label: "Online payment",
-      summary: "Pay securely when you book",
+      label: "Card / online payment",
+      summary: "Pay securely by card through Paystack after booking",
       amount: `R ${total}`,
       badge: "Pay now",
       disabled: false,
