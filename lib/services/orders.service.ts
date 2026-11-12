@@ -26,6 +26,7 @@ import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { resolvePaymentBreakdown } from "@/lib/payments/payment-policy.service";
 import { assertParcelPaymentChoice, assertSelectedPaymentMode } from "@/lib/payments/parcel-payment-method-selection";
 import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
+import { initialCourierBookingStatus } from "@/lib/orders/courier-confirmation-policy";
 
 // ─── Full include for order queries ──────────────────────────────────────────
 
@@ -113,6 +114,7 @@ export async function createOrder(
           )
         : null;
     assertSelectedPaymentMode(input.paymentMethod, committedPayment?.mode);
+    const bookingStatus = initialCourierBookingStatus(committedPayment);
     const pickup = await tx.address.create({
       data: {
         type: "PICKUP",
@@ -155,7 +157,7 @@ export async function createOrder(
       data: {
         orderNumber,
         source,
-        status: OrderStatus.PENDING,
+        status: bookingStatus,
         deliveryType: input.deliveryType,
         currency: quote.currency,
         customerId,
@@ -213,8 +215,10 @@ export async function createOrder(
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
-        status: OrderStatus.PENDING,
-        note: "Order created",
+        status: bookingStatus,
+        note: bookingStatus === OrderStatus.CONFIRMED
+          ? "Approved full cash-on-delivery booking accepted; payment remains due on delivery."
+          : "Order created; digital payment is pending.",
         actorUserId: user.id,
       },
     });

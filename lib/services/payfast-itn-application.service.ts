@@ -9,6 +9,7 @@ import { decidePayfastItnApplication } from "@/lib/payments/providers/payfast/pa
 import { buildPayfastReceiptPosting } from "@/lib/payments/providers/payfast/payfast-ledger-posting-policy";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "@/lib/services/cash-on-delivery.service";
+import { confirmVerifiedCourierOrderWithinTransaction } from "@/lib/services/courier-order-confirmation.service";
 import {
   openPaymentReconciliationCaseWithinTransaction,
   resolvePaymentReconciliationCasesWithinTransaction,
@@ -467,6 +468,11 @@ async function applyVerifiedEventTransaction(eventId: string, verified: Verified
         orderId: payment.orderId,
         amount: payment.amount,
         verifiedEventReference: event.publicReference,
+      });
+      await confirmVerifiedCourierOrderWithinTransaction(tx, {
+        subjectType: payment.subjectType,
+        orderId: payment.orderId,
+        publicReference: payment.publicReference,
       });
       await tx.paymentStatusHistory.create({
         data: {

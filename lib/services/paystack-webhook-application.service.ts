@@ -10,6 +10,7 @@ import { resolvePaystackStoredEventSecretKey, resolvePaystackWebhookSecretKey } 
 import { buildPaystackReceiptPosting } from "@/lib/payments/providers/paystack/paystack-ledger-posting-policy";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "@/lib/services/cash-on-delivery.service";
+import { confirmVerifiedCourierOrderWithinTransaction } from "@/lib/services/courier-order-confirmation.service";
 import {
   openPaymentReconciliationCaseWithinTransaction,
   resolvePaymentReconciliationCasesWithinTransaction,
@@ -783,6 +784,11 @@ export async function applyPaystackWebhookEvent(
         orderId: freshPayment.orderId,
         amount: freshPayment.amount,
         verifiedEventReference: resolvedEvent.publicReference,
+      });
+      await confirmVerifiedCourierOrderWithinTransaction(tx, {
+        subjectType: freshPayment.subjectType,
+        orderId: freshPayment.orderId,
+        publicReference: freshPayment.publicReference,
       });
 
       // Resolve open reconciliation cases if any

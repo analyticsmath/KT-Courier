@@ -10,6 +10,11 @@ const db = vi.hoisted(() => ({
   eventUpdate: vi.fn(),
   transaction: vi.fn(),
 }));
+const confirmCourierHook = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/services/courier-order-confirmation.service", () => ({
+  confirmVerifiedCourierOrderWithinTransaction: confirmCourierHook,
+}));
+
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     paymentWebhookEvent: { findUnique: db.eventFindUnique, create: db.eventCreate, update: db.eventUpdate },
@@ -104,6 +109,11 @@ describe("Payfast ITN application service transaction contract", () => {
     expect(tx.ledgerAccount.updateMany).toHaveBeenCalledTimes(2);
     expect(tx.paymentAttempt.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUCCEEDED" }) }));
     expect(tx.payment.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUCCEEDED", successWebhookEventId: event.id, successLedgerJournalId: "journal-id" }) }));
+    expect(confirmCourierHook).toHaveBeenCalledWith(tx, {
+      subjectType: "COURIER_ORDER",
+      orderId: "order-id",
+      publicReference: fixedAttempt.payment.publicReference,
+    });
     expect(tx.paymentStatusHistory.create).toHaveBeenCalledTimes(1);
     expect(tx.paymentReconciliationCase.updateMany).toHaveBeenCalledTimes(1);
     expect(tx.cashOnDelivery.findUnique).toHaveBeenCalledWith({ where: { orderId: "order-id" } });

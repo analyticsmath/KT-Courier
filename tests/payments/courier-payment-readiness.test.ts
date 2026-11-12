@@ -40,8 +40,8 @@ describe("courier payment readiness", () => {
     });
   });
   it("does not call a paid deposit a fully paid delivery when cash is still outstanding", async () => {
-    const db=query({...base,payments:[payment],cashOnDelivery:{
-      policyMode:"DEPOSIT_PLUS_COD",
+    const db=query({...base,payments:[{ ...payment, amount: { toFixed: () => "85.00" } }],cashOnDelivery:{
+      policyMode:"DEPOSIT_PLUS_COD", status: "READY_FOR_COLLECTION",
       digitalRequired:{toNumber:()=>85},cashObligation:{toFixed:()=>"120.85"},
     }});
     expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({
@@ -49,6 +49,27 @@ describe("courier payment readiness", () => {
     });
   });
   it("requires verified digital deposit for mixed COD", async () => { const db=query({...base,cashOnDelivery:{policyMode:"DEPOSIT_PLUS_COD",digitalRequired:{toNumber:()=>85},cashObligation:{toFixed:()=>"85.00"}}}); expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({status:"PAYMENT_REQUIRED",dispatchEligible:false}); });
+  it("blocks a payment explicitly held for reconciliation despite a posted journal", async () => {
+    const db = query({ ...base, payments: [{ ...payment, reconciliationStatus: "REQUIRED" }] });
+    expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+      status: "RECONCILIATION_REQUIRED", dispatchEligible: false,
+    });
+  });
+  it("blocks deposit COD dispatch until deposit activation and exact amount agree", async () => {
+    for (const [status, amount] of [
+      ["PENDING", "85.00"],
+      ["COLLECTION_FAILED", "85.00"],
+      ["READY_FOR_COLLECTION", "85.01"],
+    ]) {
+      const db = query({ ...base, payments: [{ ...payment, amount: { toFixed: () => amount } }], cashOnDelivery: {
+        policyMode: "DEPOSIT_PLUS_COD", status,
+        digitalRequired: { toNumber: () => 85 }, cashObligation: { toFixed: () => "120.85" },
+      } });
+      expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+        status: "RECONCILIATION_REQUIRED", dispatchEligible: false,
+      });
+    }
+  });
   it("uses parent checkout payment for bridged marketplace courier orders", async () => { const db=query({...base,marketplaceStoreOrderBridge:{storeOrder:{marketplaceOrder:{payment}}}}); expect(await getCourierPaymentReadiness("order-1",db as never)).toMatchObject({status:"PAID",dispatchEligible:true,paymentReference:"pay_123"}); });
   it("missing orders cannot be cleared for dispatch", async () => { const db = { order: { findMany: vi.fn().mockResolvedValue([]) } }; expect(await getCourierPaymentReadiness("missing", db as never)).toMatchObject({status:"UNKNOWN",dispatchEligible:false}); });
 });

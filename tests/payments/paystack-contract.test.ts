@@ -24,6 +24,11 @@ import { pollAndApplyRefundProviderStatus } from "@/lib/services/refund-reconcil
 import { executeRegisteredProcessor } from "@/lib/processors/processor-service";
 import { prisma } from "@/lib/db/prisma";
 
+const confirmCourierHook = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/services/courier-order-confirmation.service", () => ({
+  confirmVerifiedCourierOrderWithinTransaction: confirmCourierHook,
+}));
+
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     paymentAttempt: {

@@ -25,6 +25,7 @@ type PaymentEvidence = {
   status: string;
   amount: { toFixed(n: number): string };
   successLedgerJournalId: string | null;
+  reconciliationStatus?: string | null;
 };
 type CodEvidence = {
   policyMode: string;
@@ -49,6 +50,16 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
   const cod = evidence.cashOnDelivery;
   const cashDue = cod ? cod.cashObligation.toFixed(2) : null;
   const payment = evidence.payments[0] ?? evidence.marketplaceStoreOrderBridge?.storeOrder.marketplaceOrder.payment ?? null;
+  // A posted receipt still must not release custody while its payment is
+  // explicitly held for financial reconciliation.
+  if (payment?.reconciliationStatus === "REQUIRED") {
+    return Object.freeze({
+      ...empty("RECONCILIATION_REQUIRED"),
+      paymentReference: payment.publicReference,
+      amount: payment.amount.toFixed(2),
+      cashDue,
+    });
+  }
   if (cod?.policyMode === "FULL_COD" && cod.digitalRequired.toNumber() === 0) {
     const collected = new Prisma.Decimal(cod.cashCollected?.toFixed(2) ?? "0.00");
     const obligation = new Prisma.Decimal(cod.cashObligation.toFixed(2));
@@ -70,7 +81,26 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
     return empty("RECONCILIATION_REQUIRED");
   }
   if (payment?.status === "SUCCEEDED" && payment.successLedgerJournalId) {
-    const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD" && Number(cashDue) > 0;
+    const depositOnly = cod?.policyMode === "DEPOSIT_PLUS_COD";
+    if (depositOnly) {
+      // A provider success alone cannot activate a deposit-backed COD order.
+      // This state is written only after exact digital deposit verification.
+      const required = new Prisma.Decimal(cod.digitalRequired.toNumber());
+      const paid = new Prisma.Decimal(payment.amount.toFixed(2));
+      const outstanding = new Prisma.Decimal(cod.cashObligation.toFixed(2));
+      if (
+        cod.status !== "READY_FOR_COLLECTION" ||
+        !required.isFinite() || required.lessThanOrEqualTo(0) ||
+        !paid.equals(required) || outstanding.lessThanOrEqualTo(0)
+      ) {
+        return Object.freeze({
+          ...empty("RECONCILIATION_REQUIRED"),
+          paymentReference: payment.publicReference,
+          amount: payment.amount.toFixed(2),
+          cashDue,
+        });
+      }
+    }
     return Object.freeze({ status: depositOnly ? "DEPOSIT_PAID_CASH_DUE" : "PAID", dispatchEligible: true, paymentReference: payment.publicReference, amount: payment.amount.toFixed(2), cashDue });
   }
   if (payment?.status === "SUCCEEDED" && !payment.successLedgerJournalId) {
@@ -84,6 +114,7 @@ const financialPaymentSelect = {
   status: true,
   amount: true,
   successLedgerJournalId: true,
+  reconciliationStatus: true,
 } as const;
 
 /** One bounded, ownership-independent admin/dispatch read from canonical order and payment links. */

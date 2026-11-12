@@ -27,6 +27,11 @@ import { withdrawalProductionReadiness } from "@/lib/withdrawals/withdrawal-prod
 import { processPaystackWebhook } from "@/lib/services/paystack-webhook-application.service";
 import { prisma } from "@/lib/db/prisma";
 
+const confirmCourierHook = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/services/courier-order-confirmation.service", () => ({
+  confirmVerifiedCourierOrderWithinTransaction: confirmCourierHook,
+}));
+
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     paymentAttempt: {
