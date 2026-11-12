@@ -33,7 +33,8 @@
 6. **PAY-FIN-06 — false-positive scanner receipts:** Transfer scan results distinguish successful payout application from reconciliation-required outcomes; unknown/missing provider fields do not inflate itemsSucceeded.
 7. **PAY-FIN-07 — unbounded scheduled finance scans:** Stale payment and withdrawal scan records are ordered by (updatedAt, id) and bounded by the requested batch size; source/pending records are not discarded.
 8. **PAY-FIN-08 — phantom paid checkout:** A provider-side Paystack success returned during payment-session recovery may not directly set Payment=SUCCEEDED. The system records PROCESSING plus an explicit PROVIDER_CONFIRMATION_UNAVAILABLE case (providerSuccessUnsettled evidence) until the independent signed webhook posts the balanced receipt and verified-event outbox; an already-journaled concurrent success is replayed safely.
-9. **QA hygiene:** Two unused variables in an existing promotion test removed without changing accounting assertions.
+9. **PAY-FIN-09 — live operations scheduler parity:** Railway's production-processors service now includes the four registered payment/refund/withdrawal/Paystack-transfer reconciliation processors. All are cadence-limited independently of the separate scheduler-runner, which Railway was not configured to run. Registry, workers and finance result counters remain the canonical authority.
+10. **QA hygiene:** Two unused variables in an existing promotion test removed without changing accounting assertions.
 
 ## C. Automated code verification
 

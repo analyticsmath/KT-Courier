@@ -21,6 +21,10 @@ describe("production processor orchestration", () => {
       "deliver-notifications",
       "reconcile-expired-dispatch",
       "dispatch-marketplace-orders",
+      "scan-payment-reconciliation",
+      "scan-refund-reconciliation",
+      "scan-withdrawal-reconciliation",
+      "scan-paystack-transfer-reconciliation",
     ]);
   });
   it("avoids creating processor receipts for empty queues", async () => {
@@ -136,6 +140,27 @@ describe("production processor orchestration", () => {
     expect(tracker.isDue("reconcile-expired-dispatch")).toBe(true);
     expect(tracker.isDue("dispatch-marketplace-orders")).toBe(true);
   });
+  it("runs all four finance reconciliation processors in operations on their bounded cadence", async () => {
+    let now = 2_000_000;
+    const scans = [
+      "scan-payment-reconciliation",
+      "scan-refund-reconciliation",
+      "scan-withdrawal-reconciliation",
+      "scan-paystack-transfer-reconciliation",
+    ] as const;
+    const tracker = createProcessorCadenceTracker(DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS, () => now);
+    const hasWork = vi.fn(async () => true);
+    const workCheck = createProductionCycleWorkCheck(hasWork, false, tracker);
+    for (const name of scans) expect(await workCheck(name)).toBe(true);
+    expect(hasWork).toHaveBeenCalledTimes(4);
+    for (const name of scans) expect(await workCheck(name)).toBe(false);
+    expect(hasWork).toHaveBeenCalledTimes(4);
+    now += 900_000;
+    for (const name of scans) expect(await workCheck(name)).toBe(true);
+    expect(hasWork).toHaveBeenCalledTimes(8);
+    expect(scans.every(name => productionProcessors.includes(name))).toBe(true);
+  });
+
   it("integrates cadence filter into work check to prevent empty database sweeps", async () => {
     let mockTime = 1_000_000;
     const tracker = createProcessorCadenceTracker({ "reconcile-expired-dispatch": 60_000 }, () => mockTime);

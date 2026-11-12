@@ -13,6 +13,12 @@ export const productionProcessors = [
   "deliver-notifications",
   "reconcile-expired-dispatch",
   "dispatch-marketplace-orders",
+  // Live operations must scan unresolved money movements, not merely
+  // register their processors in a separate unused scheduler executable.
+  "scan-payment-reconciliation",
+  "scan-refund-reconciliation",
+  "scan-withdrawal-reconciliation",
+  "scan-paystack-transfer-reconciliation",
 ] as const satisfies readonly ImplementedProcessorName[];
 
 export type ProductionCycleResult = Readonly<{
@@ -39,6 +45,10 @@ type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
 export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<ProductionProcessor, number>>> = {
   "reconcile-expired-dispatch": 60_000,
   "dispatch-marketplace-orders": 60_000,
+  "scan-payment-reconciliation": 900_000,
+  "scan-refund-reconciliation": 900_000,
+  "scan-withdrawal-reconciliation": 900_000,
+  "scan-paystack-transfer-reconciliation": 900_000,
 };
 
 export interface ProcessorCadenceTracker {

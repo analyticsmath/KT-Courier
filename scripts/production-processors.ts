@@ -54,16 +54,12 @@ async function main() {
       || !!await prisma.storeEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } })
       || !!await prisma.driverEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } });
     if (name === "reconcile-expired-dispatch") {
-      if (!cadenceTracker.isDue(name)) return false;
-      cadenceTracker.markChecked(name);
       return !!await prisma.orderAssignment.findFirst({
         where: { status: "ASSIGNED", expiresAt: { lte: new Date() } },
         select: { id: true },
       });
     }
     if (name === "dispatch-marketplace-orders") {
-      if (!cadenceTracker.isDue(name)) return false;
-      cadenceTracker.markChecked(name);
       return !!await prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
         where: {
           courierOrderId: { not: null },
@@ -92,11 +88,18 @@ async function main() {
         select: { id: true },
       });
     }
+    // Finance reconcilers are deliberate periodic checks, even when no
+    // existing case is visible. The cadence tracker prevents empty sweeps
+    // every 30 seconds; the processors enforce their own batch limits.
+    if (name === "scan-payment-reconciliation" ||
+        name === "scan-refund-reconciliation" ||
+        name === "scan-withdrawal-reconciliation" ||
+        name === "scan-paystack-transfer-reconciliation") return true;
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
   }
   while (!stopping) {
     readinessBlockers = [];
-    const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, createProductionCycleWorkCheck(hasWork, firstCycle));
+    const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, createProductionCycleWorkCheck(hasWork, firstCycle, cadenceTracker));
     firstCycle = false;
     lastCycleAt = Date.now();
     const cycleReadiness = summarizeProductionCycleReadiness(results, readinessBlockers);
