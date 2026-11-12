@@ -1,8 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PaymentError } from "@/lib/payments/errors";
 import { paymentApiError } from "@/lib/payments/customer-api-policy";
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("customer card checkout actionable payment errors", () => {
+  it("never logs sensitive provider diagnostics when returning a safe payment error", () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    paymentApiError(new PaymentError(
+      "PAYMENT_PROVIDER_UNAVAILABLE",
+      "private customer=email@example.test transaction=123 provider detail",
+      true,
+    ));
+    expect(warning).toHaveBeenCalledWith(
+      "PAYMENT_API_ERROR_CODE:",
+      "PAYMENT_PROVIDER_UNAVAILABLE",
+    );
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("email@example.test");
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("transaction=123");
+  });
+
   it.each([
     ["PAYMENT_PROVIDER_NOT_CONFIGURED", 503],
     ["PAYMENT_PROVIDER_CONFIGURATION_INVALID", 503],

@@ -71,7 +71,10 @@ export async function readBoundedPaymentJsonRequest(
 
 export function paymentApiError(error: unknown): NextResponse {
   if (!(error instanceof PaymentError)) return noStoreJson({ error: "Payment service is temporarily unavailable." }, 503);
-  console.log("PAYMENT_API_ERROR_CODE:", error.code, error.message);
+  // Error messages may contain untrusted provider diagnostics or payer data.
+  // Record only the stable safe code; detailed financial evidence belongs in
+  // the restricted reconciliation/audit records, not general application logs.
+  console.warn("PAYMENT_API_ERROR_CODE:", error.code);
   switch (error.code) {
     case "PAYMENT_NOT_FOUND":
     case "PAYMENT_ATTEMPT_NOT_FOUND":

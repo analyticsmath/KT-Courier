@@ -40,6 +40,12 @@ This change preserves the existing provider model: Paystack test/live configurat
 
 **Tests:** `tests/payments/paystack-adapter-recovery.test.ts` now verifies explicit missing-reference classification for 200/404, other provider errors remaining blocked, no repeat init for pending/ongoing/failed/abandoned/reversed/processing references, preservation of amount/currency/environment, and default deadline. Existing signed webhook, finance and provider-session tests remain in place.
 
+## 3A. Provider error message privacy hardening
+
+The shared customer payment API handler previously logged `PaymentError.message` in addition to the error code. That message can contain untrusted upstream provider diagnostics, payer addresses or transaction details. Only a stable non-PII error code is now emitted to general application logs; owner-facing HTTP error translations remain unchanged, and durable financial evidence belongs in restricted reconciliation/audit records.
+
+**Changed:** `lib/payments/customer-api-policy.ts`, `tests/payments/customer-payment-api-errors.test.ts`. Added a test proving sensitive provider diagnostics are absent from the recorded log arguments. No provider call, financial event or response status mapping changed.
+
 ## 4. Independent provider research
 
 - Paystack [Transaction Errors](https://paystack.com/docs/api/errors/transaction/) differentiates an unknown transaction reference from duplicate-reference initiation and other provider errors.
@@ -52,7 +58,7 @@ These references justify a conservative decision boundary. They do not establish
 ## 5. Evidence for the source patch
 
 - Focused Paystack/recovery/provider-session suite: **5 test files / 87 tests passed**.
-- Full Vitest source suite (from a directory name that does not accidentally trigger a legacy test filter): **1,090 test files / 5,524 tests passed**.
+- Full Vitest source suite (from a directory name that does not accidentally trigger a legacy test filter): **1,090 test files / 5,525 tests passed**.
 - Generated Next.js route typing and strict TypeScript `tsc --noEmit`: **passed**.
 - Focused ESLint: **passed**. Repository-wide lint and migration safety were exercised before the default deadline change; migration safety reports unchanged 113 incremental, 8 archived.
 - No migration, production database row, provider secret, Paystack mode, commission policy, payout status or operator approval was mutated by this patch.
