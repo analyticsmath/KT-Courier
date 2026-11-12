@@ -65,14 +65,28 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);
   for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Sender email for pickup code", `sender-${width}@ktcouriers.local`], ["Recipient name", "Disposable recipient"], ["Recipient email for delivery code", `recipient-${width}@ktcouriers.local`], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
-  const booked = page.waitForResponse(result => result.url().endsWith(endpoint)); await page.getByRole("button", { name: "Book this delivery", exact: true }).click();
+  // A DIGITAL_ONLY parcel must take the customer to the payment screen.
+  // The explicit CTA also prevents cash users from mistaking booking for payment.
+  const booked = page.waitForResponse(result => result.url().endsWith(endpoint));
+  await page.getByRole("button", { name: "Book and continue to card payment", exact: true }).click();
   const created = await booked; expect(created.status(), await created.text()).toBe(201); const result = await created.json();
+  // A successful online booking must continue into the authenticated payment
+  // journey; it is not yet a paid or dispatch-ready parcel.
+  await expect(page).toHaveURL(new RegExp(`/orders/${encodeURIComponent(result.orderNumber)}/payment$`));
   const order = await prisma.order.findUniqueOrThrow({ where: { id: result.id } });
   expect(order.pricingQuoteId).toBe(dto.id); expect(order.status).toBe("PENDING");
   expect(order.recipientEmail).toBe(`recipient-${width}@ktcouriers.local`);
   expect((order.pricingSnapshot as { senderContact?: { email?: string } } | null)?.senderContact?.email).toBe(`sender-${width}@ktcouriers.local`); expect(order.customerId).toBe((await prisma.user.findUniqueOrThrow({ where: { email: "customer@ktcouriers.local" } })).id);
   const consumed = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: dto.id } }); expect(consumed.status).toBe("USED"); expect(consumed.total.equals(before.total)).toBe(true);
   expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(1); expect(await prisma.payment.count({ where: { orderId: result.id, status: "SUCCEEDED" } })).toBe(0);
-  const replay = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: created.request().postDataJSON() }); expect(replay.status()).toBe(409); expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(1);
+  // An identical retry after a lost booking response returns the same committed
+  // order. It must not create a second parcel, financial obligation or payment.
+  const replay = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: created.request().postDataJSON() });
+  expect(replay.status(), await replay.text()).toBe(200);
+  const replayOrder = await replay.json();
+  expect(replayOrder.id).toBe(result.id);
+  expect(replayOrder.orderNumber).toBe(result.orderNumber);
+  expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(1);
+  expect(await prisma.payment.count({ where: { orderId: result.id, status: "SUCCEEDED" } })).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });
