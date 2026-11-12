@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
 import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability } from "@/components/forms/ParcelPaymentChoice";
-import { parcelBookingDestination } from "@/lib/client-platform/parcel-booking-navigation";
+import { parcelBookingDestination, parcelBookingStepHref } from "@/lib/client-platform/parcel-booking-navigation";
 import { ParcelBookedNextStep } from "@/components/forms/ParcelBookedNextStep";
 import {
   PROVINCES,
@@ -40,14 +40,18 @@ type Quote = {
 export function PublicDeliveryQuoteForm({
   signedIn = false,
   business = false,
+  bookingOnly = false,
   reference,
+  senderDefaults,
   savedAddresses = [],
   prefill,
   defaultPickup,
 }: {
   signedIn?: boolean;
   business?: boolean;
+  bookingOnly?: boolean;
   reference?: string;
+  senderDefaults?: { name?: string | null; email?: string | null; phone?: string | null };
   savedAddresses?: SavedAddressDto[];
   prefill?: RepeatDeliveryPrefillDto | null;
   defaultPickup?: Address;
@@ -117,7 +121,9 @@ export function PublicDeliveryQuoteForm({
   );
   useEffect(() => {
     let live = true;
-    const parcelRequest = fetch("/api/public/parcel-profiles", { cache: "no-store" })
+    // A resumed booking has already received its canonical server-priced quote.
+    // Do not delay the contact/payment step with an unrelated catalogue fetch.
+    const parcelRequest = bookingOnly ? Promise.resolve() : fetch("/api/public/parcel-profiles", { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error("Parcel profiles unavailable.");
         const profiles: unknown = await r.json();
@@ -133,7 +139,7 @@ export function PublicDeliveryQuoteForm({
           setParcelCatalogError("Parcel sizes could not be loaded. Check your connection and refresh availability.");
         }
       });
-    const serviceRequest = fetch("/api/public/delivery-quotes", { cache: "no-store" })
+    const serviceRequest = bookingOnly ? Promise.resolve() : fetch("/api/public/delivery-quotes", { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error("Delivery services unavailable.");
         const items: unknown = await r.json();
@@ -163,7 +169,7 @@ export function PublicDeliveryQuoteForm({
           if (live) setError(e instanceof Error ? e.message : "Could not load this quote.");
         });
     return () => { live = false; };
-  }, [reference, catalogRevision]);
+  }, [reference, catalogRevision, bookingOnly]);
   const address = (f: FormData, p: string, selected: Address) => ({
     line1: String(f.get(`${p}-line1`)),
     ...(selected.line2 ? { line2: selected.line2 } : {}),
@@ -300,7 +306,17 @@ export function PublicDeliveryQuoteForm({
     );
   }
   return (
-    <div className="space-y-8">
+    <div className={bookingOnly ? "space-y-6" : "space-y-8"}>
+      {bookingOnly && !quote && !error && (
+        <p role="status" className="rounded-xl border border-[var(--kt-border-strong)] bg-white p-6 text-sm">
+          Loading your saved delivery quotation…
+        </p>
+      )}
+      {bookingOnly && error && (
+        <Link className="inline-flex rounded-xl border border-[var(--kt-border-strong)] bg-white px-5 py-3 font-semibold underline" href="/quote">
+          Get a new delivery quote
+        </Link>
+      )}
       {error && (
         <div className="space-y-2" aria-live="polite">
           <p role="alert">{error}</p>
@@ -319,7 +335,7 @@ export function PublicDeliveryQuoteForm({
         </div>
       )}
       {catalogLoading && <p id="quote-configuration-status" role="status">Loading delivery services and parcel limits…</p>}
-      <form onSubmit={estimate} className="space-y-6" aria-busy={busy || catalogLoading}>
+      {!bookingOnly && <form onSubmit={estimate} className="space-y-6" aria-busy={busy || catalogLoading}>
         <div className="grid gap-8 md:grid-cols-2">
           {addressFields("pickup", "Collection address", pickup, setPickup)}
           {addressFields("dropoff", "Delivery address", dropoff, setDropoff)}
@@ -407,10 +423,12 @@ export function PublicDeliveryQuoteForm({
         >
           Calculate delivery price
         </Button>
-      </form>
+      </form>}
       {quote && (
-        <section className="space-y-5 border-t pt-6" aria-live="polite">
-          <h2 className="text-2xl">
+        <section className={bookingOnly
+          ? "space-y-6 rounded-2xl border border-[var(--kt-border-strong)] bg-white p-5 shadow-sm sm:p-8"
+          : "space-y-5 border-t pt-6"} aria-live="polite">
+          <h2 className="text-2xl font-semibold text-[var(--kt-brand-navy)]">
             R{quote.total} · {quote.serviceName}
           </h2>
           <p>
@@ -432,7 +450,7 @@ export function PublicDeliveryQuoteForm({
             Quote valid until {new Date(quote.expiresAt).toLocaleString()}.
             Choose online payment or a cash-on-delivery option only when your store, service and area are independently approved.
           </p>
-          {signedIn ? (
+          {bookingOnly && signedIn ? (
             <form
               className="grid gap-4 sm:grid-cols-2"
               onSubmit={async (e) => {
@@ -503,9 +521,9 @@ export function PublicDeliveryQuoteForm({
             >
               {(
                 [
-                  ["pickupContactName", "Sender name", pickup.contactName],
-                  ["pickupContactPhone", "Sender phone", pickup.contactPhone],
-                  ["pickupContactEmail", "Sender email for pickup code", ""],
+                  ["pickupContactName", "Sender name", pickup.contactName ?? senderDefaults?.name],
+                  ["pickupContactPhone", "Sender phone", pickup.contactPhone ?? senderDefaults?.phone],
+                  ["pickupContactEmail", "Sender email for pickup code", senderDefaults?.email],
                   ["recipientName", "Recipient name", prefill?.recipientName],
                   ["recipientEmail", "Recipient email for delivery code", prefill?.recipientEmail],
                   [
@@ -570,11 +588,22 @@ export function PublicDeliveryQuoteForm({
               {bookedNextStep && <ParcelBookedNextStep href={bookedNextStep.href} paymentMethod={bookedNextStep.paymentMethod} />}
             </form>
           ) : (
-            <Button
-              href={`/login?returnUrl=${encodeURIComponent(`/quote?reference=${quote.id}`)}`}
-            >
-              Sign in to book
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              {signedIn ? (
+                <Button href={parcelBookingStepHref(quote.id, business)}>
+                  Continue to delivery details
+                </Button>
+              ) : (
+                <>
+                  <Button href={`/login?returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business))}`}>
+                    Sign in to book
+                  </Button>
+                  <Link className="rounded-xl border border-[var(--kt-border-strong)] px-5 py-3 text-sm font-semibold underline underline-offset-4" href={`/signup?role=customer&returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business))}`}>
+                    Create an account to book
+                  </Link>
+                </>
+              )}
+            </div>
           )}
         </section>
       )}

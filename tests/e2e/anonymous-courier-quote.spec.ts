@@ -43,7 +43,10 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   await page.getByLabel(/^Email address(?:\s*\*)?$/).fill("customer@ktcouriers.local");
   await page.getByLabel(/^Password(?:\s*\*)?$/).fill("ChangeMe123!");
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page).toHaveURL(new RegExp(`/quote\\?reference=${dto.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/quote/book\\?reference=${dto.id}$`));
+  await expect(page.getByRole("heading", { name: "Complete your delivery" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Collection address" })).toHaveCount(0);
+  await expect(page.getByLabel("Sender name", { exact: true })).toBeVisible();
   expect((await page.context().cookies()).find(cookie => cookie.name === "kt_public_quote")?.value).toBe(ownedCookie.value);
   // The signed-in booking renders both options; an unapproved cash method
   // remains visible and disabled instead of disappearing or being accepted.

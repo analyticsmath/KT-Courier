@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { noStoreJson, paymentApiError, validatePaymentJsonRequest } from "@/lib/payments/customer-api-policy";
+import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest } from "@/lib/payments/customer-api-policy";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
@@ -19,14 +19,12 @@ export async function POST(
   if (!ALLOWED_ROLES.has(user.role)) return noStoreJson({ error: "Payment is unavailable for this account." }, 403);
   const rate = await checkIpRateLimit(request, `payment-prepare:${user.id}`, RATE_LIMITS.PAYMENT_PREPARE);
   if (!rate.ok) return noStoreJson({ error: "Too many payment requests." }, 429);
-  const requestFailure = validatePaymentJsonRequest(request);
-  if (requestFailure) return requestFailure;
+  const validated = await readBoundedPaymentJsonRequest(request);
+  if ("response" in validated) return validated.response;
   const resolvedParams = await params;
   const parsedParams = OrderPaymentParamsSchema.safeParse({ orderId: resolvedParams.id });
   if (!parsedParams.success) return noStoreJson({ error: "Order not found." }, 404);
-  let body: unknown;
-  try { body = await request.json(); } catch { return noStoreJson({ error: "Invalid JSON body." }, 422); }
-  const parsed = PaymentOperationSchema.safeParse(body);
+  const parsed = PaymentOperationSchema.safeParse(validated.body);
   if (!parsed.success) return noStoreJson({ error: "A valid operationId is required." }, 422);
   try {
     const payment = await prepareOrderPayment(

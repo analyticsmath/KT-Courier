@@ -13,3 +13,11 @@ export function parcelBookingDestination(input: Readonly<{
   if (!input.orderNumber?.trim()) return detail;
   return `/orders/${encodeURIComponent(input.orderNumber)}/payment`;
 }
+
+
+/** Carry only the opaque server quote identifier across sign-in/signup.
+ * No personal data, prices, or payment outcomes are trusted from this URL.
+ */
+export function parcelBookingStepHref(quoteId: string, business = false): string {
+  return `/quote/book?reference=${encodeURIComponent(quoteId)}${business ? "&workspace=store" : ""}`;
+}

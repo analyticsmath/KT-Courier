@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parcelBookingDestination } from "@/lib/client-platform/parcel-booking-navigation";
+import { parcelBookingDestination, parcelBookingStepHref } from "@/lib/client-platform/parcel-booking-navigation";
 
 describe("secure parcel booking next step", () => {
   it("takes a booked consumer card payment straight to the server-authorized payment page", () => {
@@ -40,5 +40,16 @@ describe("secure parcel booking next step", () => {
       business: false, paymentMethod: "DIGITAL_ONLY", orderId: "order-123",
       orderNumber: "KT/2026?redirect=1",
     })).toBe("/orders/KT%2F2026%3Fredirect%3D1/payment");
+  });
+});
+
+
+describe("dedicated quote-to-booking handoff", () => {
+  it("keeps the quote identifier in a single encoded search parameter", () => {
+    expect(parcelBookingStepHref("quote_test_123")).toBe("/quote/book?reference=quote_test_123");
+    expect(parcelBookingStepHref("quote_test_123", true))
+      .toBe("/quote/book?reference=quote_test_123&workspace=store");
+    expect(parcelBookingStepHref("quote/x&continue=https://attacker.test"))
+      .toBe("/quote/book?reference=quote%2Fx%26continue%3Dhttps%3A%2F%2Fattacker.test");
   });
 });

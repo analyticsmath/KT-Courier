@@ -52,7 +52,7 @@ export async function prepareOrderPayment(
   const parsed = PrepareOrderPaymentSchema.safeParse(rawInput);
   if (!parsed.success) throw new PaymentError("PAYMENT_METADATA_INVALID", "Payment preparation request is invalid.");
   if (!payer.email || payer.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payer.email)) {
-    throw new PaymentError("PAYFAST_PAYER_EMAIL_REQUIRED", "A valid payer email is required to prepare Payfast checkout.");
+    throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required to prepare secure payment checkout.");
   }
 
   const subject = await resolveOrderPaymentSubject(parsed.data.orderId, payer.id);

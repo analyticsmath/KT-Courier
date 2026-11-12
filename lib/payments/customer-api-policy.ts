@@ -14,14 +14,59 @@ export function noStoreJson<T>(data: T, status = 200): NextResponse<T> {
   });
 }
 
-export function validatePaymentJsonRequest(request: NextRequest): NextResponse | null {
+/** Read payment operations by their actual byte count, not Content-Length.
+ * HTTP/2 and edge proxies may omit that header on legitimate JSON POSTs.
+ * This streaming cap must remain enforced even when declared length is absent.
+ */
+export async function readBoundedPaymentJsonRequest(
+  request: NextRequest,
+): Promise<{ body: unknown } | { response: NextResponse }> {
   const contentType = request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
-  const length = Number(request.headers.get("content-length") ?? "0");
-  if (contentType !== "application/json") return noStoreJson({ error: "Content-Type must be application/json." }, 415);
-  if (!Number.isFinite(length) || length < 1 || length > PAYMENT_API_BODY_LIMIT) {
-    return noStoreJson({ error: "Request body is too large." }, 413);
+  if (contentType !== "application/json") {
+    return { response: noStoreJson({ error: "Content-Type must be application/json." }, 415) };
   }
-  return null;
+  const declared = request.headers.get("content-length");
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > PAYMENT_API_BODY_LIMIT)) {
+    return { response: noStoreJson({ error: "Request body exceeds the payment request size limit." }, 413) };
+  }
+  if (!request.body) {
+    return { response: noStoreJson({ error: "Invalid JSON body." }, 422) };
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      receivedBytes += value.byteLength;
+      if (receivedBytes > PAYMENT_API_BODY_LIMIT) {
+        await reader.cancel().catch(() => undefined);
+        return { response: noStoreJson({ error: "Request body exceeds the payment request size limit." }, 413) };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { response: noStoreJson({ error: "Could not read payment request." }, 400) };
+  } finally {
+    reader.releaseLock();
+  }
+  if (!receivedBytes) {
+    return { response: noStoreJson({ error: "Invalid JSON body." }, 422) };
+  }
+  try {
+    const bytes = new Uint8Array(receivedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const source = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return { body: JSON.parse(source) as unknown };
+  } catch {
+    return { response: noStoreJson({ error: "Invalid JSON body." }, 422) };
+  }
 }
 
 export function paymentApiError(error: unknown): NextResponse {

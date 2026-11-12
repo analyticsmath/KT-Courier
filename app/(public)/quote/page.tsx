@@ -1,6 +1,8 @@
 import { EditorialMotion } from "@/components/public-v3/redesign/EditorialMotion";
 import styles from "@/components/public-v3/foundation/utility-experience.module.css";
 import { getCurrentUser } from "@/lib/auth/current-user";
+import { redirect } from "next/navigation";
+import { parcelBookingStepHref } from "@/lib/client-platform/parcel-booking-navigation";
 import { PublicDeliveryQuoteForm } from "@/components/forms/PublicDeliveryQuoteForm";
 import { type DefaultPickupAddress } from "@/components/forms/DeliveryRequestForm";
 import { listCustomerAddresses } from "@/lib/services/customer-addresses.service";
@@ -14,9 +16,14 @@ export const metadata = publicPageMetadata({
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string }>;
+  searchParams: Promise<{ reference?: string; workspace?: string }>;
 }) {
   const [u, p] = await Promise.all([getCurrentUser(), searchParams]);
+  // Backwards compatible with quote links issued before the dedicated booking
+  // page. Authenticated customers never return to the long quote form.
+  if (p.reference && (u?.role === "CUSTOMER" || u?.role === "STORE")) {
+    redirect(parcelBookingStepHref(p.reference, u.role === "STORE" || p.workspace === "store"));
+  }
   const [savedAddresses, pickupState] = await Promise.all([
     u?.role === "CUSTOMER" ? listCustomerAddresses(u.id).catch(() => []) : Promise.resolve([]),
     u?.role === "STORE" ? getStorePickupAddress(u.id, "deliveries").catch(() => null) : Promise.resolve(null),

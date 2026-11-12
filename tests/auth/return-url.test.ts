@@ -7,6 +7,7 @@ import {
 describe("authentication continuation", () => {
   it.each([
     "/quote?reference=cquote123",
+    "/quote/book?reference=cquote123",
     "/business-invitation?token=abc",
     "/store/orders",
     "/account",
@@ -70,5 +71,19 @@ describe("authentication continuation", () => {
       "https://example.test",
     );
     expect(url.searchParams.get("returnUrl")).toBe("/driver/onboarding");
+  });
+});
+
+
+describe("delivery quotation signup continuation", () => {
+  it("preserves the dedicated booking step after customer email verification", () => {
+    const url = new URL(
+      signupVerificationReturnUrl(
+        "customer@example.test", "customer", "/quote/book?reference=cquote123",
+      ),
+      "https://example.test",
+    );
+    expect(url.pathname).toBe("/verify-otp");
+    expect(url.searchParams.get("returnUrl")).toBe("/quote/book?reference=cquote123");
   });
 });

@@ -25,7 +25,9 @@ export function PaymentCheckoutClient({
   const operations = useRef(createPaymentOperationIdStore());
   const [payment, setPayment] = useState(initialPayment);
   const [busy, setBusy] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const terminal = payment && ["SUCCEEDED", "PROCESSING", "CANCELLED"].includes(payment.status);
 
   async function readJson(response: Response): Promise<Record<string, unknown>> {
@@ -39,10 +41,47 @@ export function PaymentCheckoutClient({
     return fallback;
   }
 
+  /** A Paystack redirect or webhook may be delayed. Poll only on explicit
+   * customer action, from the same authenticated owner-scoped API. The browser
+   * never decides success from the return URL or prepares another attempt.
+   */
+  async function refreshPaymentStatus() {
+    if (!payment || checkingStatus || busy) return;
+    setCheckingStatus(true);
+    setError(null);
+    setStatusNotice(null);
+    try {
+      const response = await fetch(`/api/payments/${encodeURIComponent(payment.publicReference)}`, {
+        method: "GET",
+        cache: "no-store",
+      });
+      const payload = await readJson(response);
+      if (!response.ok) throw new Error(safeCheckoutError(response.status, "Payment status could not be checked."));
+      const latest = payload.payment as CustomerPaymentStatusDto | undefined;
+      if (!latest || latest.publicReference !== payment.publicReference
+        || latest.orderReference !== orderReference || latest.currency !== "ZAR") {
+        throw new Error("The payment status response could not be verified for this delivery.");
+      }
+      setPayment(latest);
+      setStatusNotice(latest.status === "SUCCEEDED"
+        ? "Your payment was verified. You can view your delivery in your account."
+        : latest.status === "PROCESSING" || latest.status === "PROVIDER_PENDING" || latest.status === "REQUIRES_ACTION"
+          ? "Payment is still awaiting confirmed provider processing. No further charge was started."
+          : latest.status === "CANCELLED"
+            ? "This payment was cancelled. Review the delivery in your account."
+            : "Your payment record has been refreshed. Continue only if checkout is available.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Payment status is temporarily unavailable.");
+    } finally {
+      setCheckingStatus(false);
+    }
+  }
+
   async function startCheckout() {
-    if (busy || !provider.active || terminal) return;
+    if (busy || checkingStatus || !provider.active || terminal) return;
     setBusy(true);
     setError(null);
+    setStatusNotice(null);
     try {
       let current = payment;
       if (!current) {
@@ -105,16 +144,35 @@ export function PaymentCheckoutClient({
         </p>
       )}
       {error && <p role="alert" className="text-sm font-semibold text-[var(--kt-red)]">{error}</p>}
+      {statusNotice && <p role="status" className="rounded-xl bg-[var(--kt-surface-muted)] px-4 py-3 text-sm font-medium text-[var(--kt-brand-navy)]">{statusNotice}</p>}
+      {payment?.status === "PROCESSING" && (
+        <p role="status" className="rounded-xl border border-[var(--kt-border-strong)] bg-white px-4 py-3 text-sm">
+          Your payment is being verified with Paystack. Do not submit another charge.
+          Check the latest status below.
+        </p>
+      )}
       <button
         type="button"
         onClick={startCheckout}
-        disabled={busy || !provider.active || Boolean(terminal)}
+        disabled={busy || checkingStatus || !provider.active || Boolean(terminal)}
         aria-busy={busy}
         className="inline-flex h-11 items-center justify-center rounded-xl bg-[var(--kt-brand-blue)] px-5 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? "Preparing payment…" : terminal ? `Payment ${getCustomerPaymentStatusPresentation(payment!.status).label.toLowerCase()}` : "Pay with Paystack"}
       </button>
-      {payment ? <p className="text-sm text-[var(--kt-text-muted)]" role="status">Current payment state: {getCustomerPaymentStatusPresentation(payment.status).label}.</p> : null}
+      {payment && (
+        <div className="flex flex-wrap items-center gap-4">
+          <p className="text-sm text-[var(--kt-text-muted)]" role="status">
+            Current payment state: {getCustomerPaymentStatusPresentation(payment.status).label}.
+          </p>
+          <button type="button" onClick={refreshPaymentStatus}
+            disabled={checkingStatus || busy}
+            aria-busy={checkingStatus}
+            className="inline-flex min-h-11 items-center rounded-xl border border-[var(--kt-border-strong)] bg-white px-4 text-sm font-semibold text-[var(--kt-brand-navy)] disabled:opacity-50">
+            {checkingStatus ? "Checking payment…" : "Check payment status"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
