@@ -48,9 +48,13 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   // The signed-in booking renders both options; an unapproved cash method
   // remains visible and disabled instead of disappearing or being accepted.
   const onlineChoice = page.getByRole("radio", { name: /Online payment/i });
-  const cashChoice = page.getByRole("radio", { name: /Cash on delivery/i });
+  // Distinguish FULL_COD from the separate approved-policy DEPOSIT_PLUS_COD radio.
+  // Both names contain "cash on delivery", so unanchored role queries are ambiguous.
+  const cashChoice = page.getByRole("radio", { name: /^Cash on delivery\b/i });
+  const depositChoice = page.getByRole("radio", { name: /^Online deposit \+ cash on delivery\b/i });
   await expect(onlineChoice).toBeChecked();
   await expect(cashChoice).toBeDisabled();
+  await expect(depositChoice).toBeDisabled();
   await expect(page.getByRole("status").filter({ hasText: /Cash on delivery is not currently enabled/i })).toBeVisible();
   const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "FULL_COD" } });
   expect(forbiddenCash.status(), await forbiddenCash.text()).toBe(422);
