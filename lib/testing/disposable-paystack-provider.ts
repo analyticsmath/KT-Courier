@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { PaymentError } from "@/lib/payments/errors";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail, disposablePaystackKey } from "./disposable-paystack-policy";
 
 export type DisposablePaystackTransaction = {
@@ -22,7 +23,10 @@ export async function requestDisposablePaystack(path: string, method: string, bo
       const key = disposablePaystackKey(reference);
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "SystemSetting" WHERE "key" = ${key} FOR UPDATE`);
       const row = await tx.systemSetting.findUnique({ where: { key } });
-      if (!row) throw new Error("Synthetic provider transaction not found.");
+      // The real Paystack client classifies an explicitly absent reference. Keep
+      // this isolated, identity-checked test provider on the same typed contract
+      // so first-time checkout is not mistaken for an ambiguous provider outage.
+      if (!row) throw new PaymentError("PAYSTACK_TRANSACTION_NOT_FOUND", "Synthetic provider transaction not found.");
       const record = row.value as unknown as DisposablePaystackTransaction;
       assertDisposablePaystackEmail(record.email);
       const updated = { ...record, verifyCalls: record.verifyCalls + 1 };
