@@ -416,7 +416,7 @@ export function PublicDeliveryQuoteForm({
           </dl>
           <p className="text-sm">
             Quote valid until {new Date(quote.expiresAt).toLocaleString()}.
-            Choose online payment or approved 100% cash on delivery after sign-in.
+            Choose online payment or a cash-on-delivery option only when your store, service and area are independently approved.
           </p>
           {signedIn ? (
             <form
@@ -425,8 +425,9 @@ export function PublicDeliveryQuoteForm({
                 e.preventDefault();
                 const f = new FormData(e.currentTarget);
                 // Server revalidates the COD policy at booking; guard against stale client options too.
-                if (selectedPaymentMethod === "FULL_COD" && !(methods?.quoteId === quote?.id && methods.cod.eligible)) {
-                  setError("Cash on delivery is not currently available. Choose online payment or refresh availability.");
+                if (selectedPaymentMethod !== "DIGITAL_ONLY" &&
+                    !(methods?.quoteId === quote?.id && methods.items.some(item => item.mode === selectedPaymentMethod) && methods.cod.eligible)) {
+                  setError("This cash payment split is not approved for this delivery. Choose online payment or refresh availability.");
                   return;
                 }
                 setBusy(true);
@@ -534,6 +535,7 @@ export function PublicDeliveryQuoteForm({
                 value={selectedPaymentMethod}
                 onChange={setSelectedPaymentMethod}
                 cod={methods?.quoteId === quote.id ? methods.cod : null}
+                authorizedMethods={methods?.quoteId === quote.id ? methods.items : []}
                 loading={methods?.quoteId !== quote.id && !methodError}
                 error={methodError}
               />

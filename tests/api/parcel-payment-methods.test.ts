@@ -49,6 +49,23 @@ describe("parcel booking payment choices", () => {
       destinationLocality: { city: "Pretoria", suburb: "Sunnyside", province: "Gauteng" },
     }));
   });
+  it("shows a 50/50 deposit only when the approved store policy returns it", async () => {
+    mocks.user.mockResolvedValue({ id: "store-owner", role: "STORE", status: "ACTIVE" });
+    mocks.storeAccess.mockResolvedValue({ store: { id: "store-abc" }, owner: true });
+    mocks.breakdown.mockResolvedValue({
+      mode: "DEPOSIT_PLUS_COD", digitalRequired: "102.93", cashRequired: "102.92",
+    });
+    const requestForStore = { headers: new Headers({ "X-KT-Workspace": "STORE" }) } as never;
+    const response = await GET(requestForStore, context);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.methods).toEqual([
+      { mode: "DIGITAL_ONLY", digitalRequired: "205.85", cashRequired: "0.00" },
+      { mode: "DEPOSIT_PLUS_COD", digitalRequired: "102.93", cashRequired: "102.92" },
+    ]);
+    expect(body.cod).toMatchObject({ eligible: true, amountDueAtDelivery: "102.92" });
+    expect(mocks.breakdown).toHaveBeenCalledWith(expect.objectContaining({ storeId: "store-abc", orderType: "PARCEL_DOCUMENT" }));
+  });
   it("suppresses cash at the quote choice screen when a trusted suburb is high risk", async () => {
     mocks.breakdown.mockRejectedValue(new PaymentPolicyError("HIGH_RISK_CASH_RESTRICTED", "Cash is not allowed in the selected area."));
     const result = await read();

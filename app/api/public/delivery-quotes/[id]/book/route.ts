@@ -12,6 +12,8 @@ import { createOrder } from "@/lib/services/orders.service";
 import { CreateOrderSchema } from "@/lib/validation/order";
 import { json, failure, mutation } from "@/lib/client-platform/api";
 import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
+import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
+import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -61,6 +63,13 @@ export async function POST(
         actualWeightKg: string;
       };
     };
+    if (store) {
+      const savedPickup = await getStorePickupAddressForStore(store.id);
+      const quotePickup = (quote.metadata as {
+        bookingInput?: { pickupAddress?: { line1?: string; line2?: string; city?: string; province?: string; postalCode?: string; placeId?: string } }
+      }).bookingInput?.pickupAddress ?? {};
+      assertStoreParcelPickupMatches(quotePickup, savedPickup?.pickupAddress);
+    }
     const negotiated=(quote.ruleSnapshot as {personalizedRate?:{ownerType?:string;ownerId?:string}}).personalizedRate;
     if(negotiated && (
       negotiated.ownerType !== (business?"STORE":"CUSTOMER") ||

@@ -72,7 +72,7 @@ export async function GET(
           },
           authoritativeTotal: q.total.toFixed(2),
         });
-        if (b.mode === "FULL_COD") {
+        if (b.mode === "FULL_COD" || b.mode === "DEPOSIT_PLUS_COD") {
           methods.push({
             mode: b.mode,
             digitalRequired: b.digitalRequired,

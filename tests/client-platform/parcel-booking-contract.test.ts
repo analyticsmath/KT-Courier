@@ -10,8 +10,8 @@ describe("public personal parcel booking contract", () => {
   it("accepts fully populated contact details for 100% cash choice", () => {
     expect(QuoteBookingSchema.safeParse({ ...contacts, paymentMethod: "FULL_COD" }).success).toBe(true);
   });
-  it("rejects the legacy 50/50 parcel payment choice before creating an order", () => {
-    expect(QuoteBookingSchema.safeParse({ ...contacts, paymentMethod: "DEPOSIT_PLUS_COD" }).success).toBe(false);
+  it("parses a 50/50 request, leaving actual permission to the independently approved server policy", () => {
+    expect(QuoteBookingSchema.safeParse({ ...contacts, paymentMethod: "DEPOSIT_PLUS_COD" }).success).toBe(true);
   });
   it("requires both sender and recipient email addresses", () => {
     expect(QuoteBookingSchema.safeParse({ ...contacts, recipientEmail: "" }).success).toBe(false);

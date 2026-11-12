@@ -8,6 +8,8 @@ import { regionRouteLimitKm } from "@/lib/maps/region-boundaries";
 import { calculateRoute } from "@/lib/maps/routes.service";
 import { getPricingConfiguration } from "@/lib/pricing/config";
 import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
+import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
+import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 import { activeCommercialSurcharges, commercialSurchargeSnapshot } from "@/lib/commercial/configuration.service";
 import { activePersonalizedDeliveryRate, personalizedDeliveryRateSnapshot } from "@/lib/pricing/personalized-delivery-rates";
 import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
@@ -125,6 +127,10 @@ export async function saveDeliveryConfiguration(
   });
 }
 export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerType:"CUSTOMER"|"STORE";ownerId:string}|null = null) {
+  if (scope?.ownerType === "STORE") {
+    const pickup = await getStorePickupAddressForStore(scope.ownerId);
+    assertStoreParcelPickupMatches(input.pickupAddress, pickup?.pickupAddress);
+  }
   const parcelProfile = await requireParcelProfile(input.parcelSize, input.weightKg);
   const selected = (await deliveryCatalog()).find(
     (c) => c.stableKey === input.serviceKey && c.active,

@@ -115,8 +115,13 @@ describe("canonical promotional marketplace order and financial reversal lifecyc
       const client = new CanonicalOfflineRefundClient(payment.successfulAttempt!.providerReference!);
       const registry = new RefundProviderRegistry([new PaystackRefundAdapter(client)]);
       const dependencies = { assertProductionReady: () => assertDisposablePaystackAcceptance(), registry, providerRegistry: registry };
+      // A financial adjustment is a distinct command from rejecting the order.
+      // Reusing the rejection operationId correctly replays its stored response.
+      const applyOperationId = randomUUID();
       const apply = {
         ...action,
+        operationId: applyOperationId,
+        requestHash: createHash("sha256").update(applyOperationId).digest("hex"),
         adjustmentReference: adj.publicReference,
         dependencies: { financialAuthority: new ExistingPhaseFinancialAdjustmentAuthority(dependencies) },
       };

@@ -14,7 +14,13 @@ describe("secure parcel booking next step", () => {
       orderNumber: "KT-2026-0020",
     })).toBe("/orders/KT-2026-0020/payment");
   });
-  it("keeps approved cash-on-delivery bookings on their existing order detail page", () => {
+  it("takes an approved 50/50 deposit to the server-authorized payment page", () => {
+    expect(parcelBookingDestination({
+      business: true, paymentMethod: "DEPOSIT_PLUS_COD", orderId: "order-deposit",
+      orderNumber: "KT-2026-DP01",
+    })).toBe("/orders/KT-2026-DP01/payment");
+  });
+  it("keeps approved 100% cash-on-delivery bookings on their existing order detail page", () => {
     expect(parcelBookingDestination({
       business: false, paymentMethod: "FULL_COD", orderId: "order-123",
       orderNumber: "KT-2026-0001",

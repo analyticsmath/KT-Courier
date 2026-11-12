@@ -8,19 +8,24 @@ export type ParcelCodAvailability = {
   reasonCode?: string;
   message?: string;
 };
-export type ParcelPaymentMethod = "DIGITAL_ONLY" | "FULL_COD";
+export type ParcelPaymentMethod = "DIGITAL_ONLY" | "FULL_COD" | "DEPOSIT_PLUS_COD";
 
 /** Explicitly show all payment choices; never confuse an ineligible COD policy with a missing feature. */
-export function ParcelPaymentChoice({ total, value, onChange, cod, loading = false, error }: {
+export function ParcelPaymentChoice({ total, value, onChange, cod, authorizedMethods = [], loading = false, error }: {
   total: string;
   value: ParcelPaymentMethod;
   onChange: (method: ParcelPaymentMethod) => void;
   cod?: ParcelCodAvailability | null;
+  authorizedMethods?: readonly { mode: string; digitalRequired: string; cashRequired: string }[];
   loading?: boolean;
   error?: string;
 }) {
   const legendId = useId();
-  const eligible = cod?.eligible === true && !loading && !error;
+  const codEnabled = cod?.eligible === true && !loading && !error;
+  const cashMethod = authorizedMethods.find(method => method.mode === "FULL_COD");
+  const depositMethod = authorizedMethods.find(method => method.mode === "DEPOSIT_PLUS_COD");
+  const fullCashEligible = codEnabled && !!cashMethod;
+  const depositEligible = codEnabled && !!depositMethod;
   const methods = [
     {
       id: "DIGITAL_ONLY" as const,
@@ -35,8 +40,16 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
       label: "Cash on delivery",
       summary: "Pay the assigned driver when your parcel arrives",
       amount: `R ${cod?.amountDueAtDelivery ?? total}`,
-      badge: eligible ? "R0 upfront" : "Not available yet",
-      disabled: !eligible,
+      badge: fullCashEligible ? "R0 upfront" : "Not available yet",
+      disabled: !fullCashEligible,
+    },
+    {
+      id: "DEPOSIT_PLUS_COD" as const,
+      label: "Online deposit + cash on delivery",
+      summary: "Pay the approved deposit securely now, then settle the balance with your driver",
+      amount: depositEligible ? "R " + depositMethod!.digitalRequired + " now + R " + depositMethod!.cashRequired + " cash" : "Requires approval",
+      badge: depositEligible ? "Approved split" : "Not available yet",
+      disabled: !depositEligible,
     },
   ];
 
@@ -69,7 +82,7 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
               <span className="flex items-start justify-between gap-3">
                 <span className="flex items-start gap-3">
                   <span aria-hidden="true" className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[var(--kt-brand-blue)] text-white" : method.disabled ? "bg-[var(--kt-surface-muted)] text-[var(--kt-public-text-muted-on-surface)]" : "bg-[var(--kt-surface-muted)] text-[var(--kt-brand-navy)]"}`}>
-                    {method.id === "FULL_COD" ? <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9h.01M18 15h.01"/></svg> : <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h3"/></svg>}
+                    {method.id !== "DIGITAL_ONLY" ? <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 9h.01M18 15h.01"/></svg> : <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M2 10h20M6 15h3"/></svg>}
                   </span>
                   <span className="min-w-0">
                     <span className={`block text-base font-semibold ${method.disabled ? "text-[var(--kt-public-text-muted-on-surface)]" : "text-[var(--kt-brand-navy)]"}`}>{method.label}</span>
@@ -82,7 +95,7 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
               </span>
               <span className="flex flex-wrap items-end justify-between gap-2">
                 <span className={`text-xl font-semibold tracking-tight ${method.disabled ? "text-[var(--kt-public-text-muted-on-surface)]" : "text-[var(--kt-brand-navy)]"}`}>{method.amount}</span>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${eligible && method.id === "FULL_COD" ? "bg-[#E8F4ED] text-[#21643F]" : "bg-[var(--kt-surface-muted)] text-[var(--kt-text-soft)]"}`}>{method.badge}</span>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${!method.disabled && method.id !== "DIGITAL_ONLY" ? "bg-[#E8F4ED] text-[#21643F]" : "bg-[var(--kt-surface-muted)] text-[var(--kt-text-soft)]"}`}>{method.badge}</span>
               </span>
             </label>
           );
@@ -90,10 +103,11 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, loading = fal
       </div>
       <p className="mt-3 text-sm leading-6 text-[var(--kt-text-soft)]" role="status" aria-live="polite">
         {loading ? "Checking cash availability for this address and service…"
-          : error ? `We couldn't check cash availability. ${error} You can still pay online.`
-          : eligible && value === "FULL_COD" ? `Nothing is charged online. Pay R ${cod!.amountDueAtDelivery} in cash to your assigned driver at delivery. Your driver will record collection before completing the handover.`
-          : eligible ? "Both payment methods are available for this booking. Select cash to pay at delivery."
-          : cod?.message ?? "Cash on delivery is not available for this booking right now. Online payment remains available."}
+          : error ? "Cash availability could not be checked. " + error + " You can still pay online."
+          : fullCashEligible && value === "FULL_COD" ? "Pay R " + cashMethod!.cashRequired + " to your assigned driver upon delivery. Driver cash must be recorded and reconciled."
+          : depositEligible && value === "DEPOSIT_PLUS_COD" ? "Pay R " + depositMethod!.digitalRequired + " securely before dispatch, then R " + depositMethod!.cashRequired + " to your assigned driver on delivery."
+          : fullCashEligible || depositEligible ? "Choose the approved cash option or pay fully online."
+          : cod?.message ?? "Cash on delivery is unavailable for this booking. Online payment remains available."}
       </p>
     </fieldset>
   );
