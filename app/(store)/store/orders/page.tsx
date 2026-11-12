@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: "Store orders" };
 export default async function StoreOrdersPage() {
   await requireBusinessPage("/store/orders");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const [courierRequests, ownedStore] = await Promise.all([
     listOrders(user, { page: 1, pageSize: 50 }, true),
     storeAccess(user.id, "orders").then((a) => a.store),

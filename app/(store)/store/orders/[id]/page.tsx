@@ -30,7 +30,7 @@ export default async function StoreOrderDetailPage({
   await requireBusinessPage("/store/orders/[id]");
   const { id } = await params;
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const order = await getOrder(user, id, true);
   if (!order) notFound();
   const cod = await prisma.cashOnDelivery.findUnique({

@@ -20,7 +20,7 @@ import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-sum
 export default async function StoreEarningsPage() {
   await requireBusinessPage("/store/earnings");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const data = await Promise.all([
     getStoreEarningSummaryForOwner(user.id),
     listStoreEarningsForOwner(user.id, { page: 1, pageSize: 50 }),

@@ -26,7 +26,7 @@ const service = new ManagedMarketingService();
 export default async function StoreAdvertisingPage() {
   const access=await requireBusinessPage("/store/advertising");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
 
   const store=access.store;
   const storeName = store?.name || "Merchant Store";

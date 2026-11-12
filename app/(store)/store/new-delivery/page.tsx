@@ -18,7 +18,7 @@ export default async function StoreNewDeliveryPage({
 }) {
   await requireBusinessPage("/store/new-delivery");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const { repeatFrom } = await searchParams;
   const [pickupState, repeatPrefill] = await Promise.all([
     getStorePickupAddress(user.id, "deliveries"),

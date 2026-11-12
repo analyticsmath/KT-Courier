@@ -18,7 +18,7 @@ export default async function StoreEarningDetailPage({
 }) {
   await requireBusinessPage("/store/earnings/[publicReference]");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const { publicReference } = await params;
   const earning = await getStoreEarningForOwner(user.id, publicReference).catch((error: unknown) => {
     if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return undefined;

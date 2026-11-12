@@ -123,7 +123,7 @@ describe("R14 customer account experience", () => {
   it("allows short tracking numbers only after authenticated order ownership", () => {
     const orders = source("app/(account)/account/orders/page.tsx");
     expect(orders).toContain("getCurrentUser()");
-    expect(orders).toContain('if (!user) redirect("/auth/login")');
+    expect(orders).toContain('if (!user) redirect("/login")');
     expect(orders).toContain("customerId: user.id, orderNumber: tracking");
     expect(orders).toContain('name="tracking"');
     expect(orders).not.toMatch(/where:\\s*\\{\\s*orderNumber:\\s*tracking\\s*\\}/);

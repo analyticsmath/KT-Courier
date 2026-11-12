@@ -15,7 +15,7 @@ export default async function RequestDeliveryPage({
   searchParams: Promise<{ repeatFrom?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
 
   const { repeatFrom } = await searchParams;
   const [savedAddresses, repeatPrefill] = await Promise.all([

@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 export default async function StoreNotificationsPage() {
   await requireBusinessPage("/store/notifications");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   return (
     <ProtectedPageFrame>
       <NotificationCentre userId={user.id} title="Store notifications" />

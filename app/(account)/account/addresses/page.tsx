@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Saved Addresses" };
 
 export default async function AccountAddressesPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
 
   const addresses = await listCustomerAddresses(user.id);
 

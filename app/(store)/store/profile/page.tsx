@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: "Store settings" };
 export default async function StoreProfilePage() {
   const access = await requireBusinessPage("/store/profile");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const [profile, pickupState] = await Promise.all([
     getStoreProfile(user.id),
     getStorePickupAddress(user.id, "settings"),

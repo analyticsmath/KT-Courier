@@ -18,7 +18,7 @@ export default async function MarketplaceStoreOrderPage({
 }) {
   const access = await requireBusinessPage("/store/marketplace-orders/[reference]");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const { reference } = await params;
   const order = await (prisma as any).marketplaceStoreOrder.findFirst({
     where: { publicReference: reference, storeId: access.store.id },

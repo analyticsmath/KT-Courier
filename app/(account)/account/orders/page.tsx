@@ -29,7 +29,7 @@ export default async function AccountOrdersPage({
   searchParams: Promise<{ status?: string; page?: string; tracking?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const query = await searchParams;
   const tracking = typeof query.tracking === "string" ? query.tracking.trim().toUpperCase() : "";
   if (tracking) {

@@ -27,7 +27,7 @@ export default async function StoreDashboardPage({
 }) {
   await requireBusinessPage("/store");
   const user = await getCurrentUser();
-  if (!user) redirect("/auth/login");
+  if (!user) redirect("/login");
   const period = parseDashboardPeriod(
     (await searchParams).period ?? "12_WEEKS",
   );
