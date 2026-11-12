@@ -57,3 +57,14 @@ Tests: tests/orders/cash-on-delivery-replay-authority.test.ts; additional canoni
 6. Actual multi-recipient owner notification settings and provider delivery, claims/refunds, reviewed legal/compliance requirements, disaster recovery and exact-commit source/deployment acceptance.
 
 Unqualified production status remains NOT_READY until actual external and field acceptance is obtained. Do not fabricate address/location, approval, driver identity, provider signature, paid status, bank deposit, refund or ledger receipt.
+
+
+## Dispatch funding authority hardening — follow-up
+
+A further source review found that the newer canonical dispatch-assignment service checked order status, driver compliance and marketplace store-order readiness but lacked the explicit parcel money-readiness check present in the older assignment service. The source now enforces canonical courier payment readiness inside its serializable assignment transaction for PARCEL_DOCUMENT at initial driver offer, driver acceptance and reassignment, using getCourierPaymentReadiness(order.id, tx). This permits only source-verified ledger funds or server-classified, independently approved collectible full COD; outstanding digital payment or ledger reconciliation is rejected. A pending or failed payment is never silently treated as confirmed.
+
+Files: lib/services/dispatch-assignment.service.ts and tests/dispatch/parcel-dispatch-funding-gate.test.ts.
+
+Verification: 4 focused files / 26 tests passed; broader driver/orders/services/dispatch/payments/client-platform selection 278 files / 1,505 tests passed. Focused ESLint and TypeScript pass. No financial statuses, commission rates or production data were modified.
+
+A separate lifecycle review question remains: approved full-COD direct bookings currently persist PENDING at creation while dispatch normally requires CONFIRMED. The presence of a collectible COD obligation alone does not prove that operational confirmation has occurred. Before any auto-confirm code is shipped, verify the existing confirmation mechanism and operational approval policy, and add exact database lifecycle acceptance tests. Do not automatically promote unpaid digital orders.

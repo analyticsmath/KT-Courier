@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma as PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { assertDriverCashCapacityForAssignment } from "@/lib/services/driver-cash-capacity.service";
+import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { canTransitionAssignment } from "@/lib/dispatch/assignment-state-machine";
 import { dispatchError } from "@/lib/dispatch/errors";
 import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
@@ -91,6 +92,23 @@ function assertAssignable(order: { status: OrderStatus } | null) {
 }
 function assertBeforeCustody(status: OrderStatus) { if (CUSTODY.includes(status)) throw dispatchError.custody(); }
 
+/** Direct parcel dispatch may only advance with canonical ledger-backed
+ * digital funds or an independently approved collectible FULL_COD obligation.
+ * This is a transactional guard, not an admin UI preflight.
+ */
+export async function assertParcelDispatchFundingInTx(
+  tx: Prisma.TransactionClient,
+  order: { id: string; deliveryType?: string | null },
+): Promise<void> {
+  if (order.deliveryType !== "PARCEL_DOCUMENT") return;
+  const readiness = await getCourierPaymentReadiness(order.id, tx);
+  if (!readiness.dispatchEligible) {
+    throw dispatchError.orderNotAssignable(
+      "Parcel payment is not authorized for dispatch. Complete or reconcile payment before assigning a driver.",
+    );
+  }
+}
+
 export async function resolveBridgeManualDispatchInTx(
   tx: Tx,
   orderId: string,
@@ -154,8 +172,9 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
 
   return withDispatchRetry(() => prisma.$transaction(async (tx) => {
     await lockOrderAndDrivers(tx, orderId, [input.driverProfileId]);
-    const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true } });
+    const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true, deliveryType: true } });
     assertAssignable(order);
+    await assertParcelDispatchFundingInTx(tx, order!);
 
     if (tx.marketplaceStoreOrderDeliveryBridge?.findFirst) {
       const bridge = await tx.marketplaceStoreOrderDeliveryBridge.findFirst({
@@ -300,6 +319,7 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
     if (assignment.version !== input.expectedVersion) throw dispatchError.stale();
     if (assignment.expiresAt && assignment.expiresAt <= new Date()) { await reconcileExpired(tx, assignment.orderId, assignment.driverProfile.userId); throw dispatchError.expired(); }
     assertAssignable(assignment.order);
+    await assertParcelDispatchFundingInTx(tx, assignment.order);
     await validateDriver(tx, driverProfileId, assignment.order, assignmentId);
     // Recheck at acceptance: custody may have changed since the offer was created.
     await assertDriverCashCapacityForAssignment(tx, driverProfileId, assignment.orderId);
@@ -464,8 +484,9 @@ export async function reassignDispatchOrder(adminUserId: string, orderId: string
     const current = await tx.orderAssignment.findUnique({ where: { id: input.currentAssignmentId }, select: { orderId: true, driverProfileId: true } });
     if (!current || current.orderId !== orderId) throw dispatchError.assignmentNotFound();
     await lockOrderAndDrivers(tx, orderId, [current.driverProfileId, input.newDriverProfileId]);
-    const [order, assignment] = await Promise.all([tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true, currentDriverProfileId: true } }), tx.orderAssignment.findUniqueOrThrow({ where: { id: input.currentAssignmentId } })]);
+    const [order, assignment] = await Promise.all([tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true, currentDriverProfileId: true, deliveryType: true } }), tx.orderAssignment.findUniqueOrThrow({ where: { id: input.currentAssignmentId } })]);
     assertBeforeCustody(order!.status); assertAssignable(order);
+    await assertParcelDispatchFundingInTx(tx, order!);
     if (assignment.activeOrderGuard !== orderId || assignment.version !== input.expectedVersion) throw dispatchError.stale();
     if (assignment.driverProfileId === input.newDriverProfileId) throw dispatchError.driverIneligible("A reassignment must use a different driver.");
     const evaluation = await createDispatchCandidateEvaluationInTx(tx, {
@@ -485,7 +506,7 @@ export async function reassignDispatchOrder(adminUserId: string, orderId: string
     const replacement = await (tx as unknown as { orderAssignment: { create(args: unknown): Promise<{ id: string; status: OrderAssignmentStatus; version: number; expiresAt: Date | null }> } }).orderAssignment.create({ data: { orderId, driverProfileId: input.newDriverProfileId, assignedByAdminId: adminUserId, status: OrderAssignmentStatus.ASSIGNED, assignedAt: new Date(), offeredAt: new Date(), expiresAt: new Date(Date.now() + config.ttlMinutes * 60_000), activeOrderGuard: orderId, dispatchPolicyVersion: config.policyVersion, reassignedFromId: assignment.id, reasonCode: input.reasonCode, reasonNote: input.note ?? null, dispatchCandidateEvaluationId: evaluation.evaluationId } });
     await selectDispatchCandidateInTx(tx, evaluation.evaluationId, input.newDriverProfileId, replacement.id);
     await writeEvents(tx, { assignmentId: replacement.id, orderId, driverProfileId: input.newDriverProfileId, actorUserId: adminUserId, actorRole: "ADMIN", eventType: OrderAssignmentEventType.ASSIGNMENT_REASSIGNED, operationalType: OrderOperationalEventType.ASSIGNMENT_OFFERED, previousStatus: null, nextStatus: OrderAssignmentStatus.ASSIGNED, reasonCode: input.reasonCode, note: input.note });
-    await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.UPDATE, entityType: "OrderAssignment", entityId: replacement.id, message: "Dispatch assignment reassigned.", metadata: { orderId, previousAssignmentId: assignment.id, reasonCode: input.reasonCode } } });
+    await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: AdminActionType.UPDATE, entityType: "OrderAssignment", entityId: replacement.id, message: "Dispatch assignment reassigned.", metadata: { orderId, previousAssignmentId: assignment.id, reasonCode: input.reasonCode } } });
     return replacement;
   }, { isolationLevel: PrismaClient.TransactionIsolationLevel.Serializable, maxWait: 5_000, timeout: 10_000 }));
 }
