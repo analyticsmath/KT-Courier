@@ -48,3 +48,26 @@
 | P2 | Other nine-document feature acceptance: loyalty, R5 paid-first-order referral, R50 first marketplace offer, marketing, promotions, notifications, exports, reports, social/profile, growth and admin-configured nationwide expansion | Engineering + commercial owner |
 
 **Required operating discipline:** Main branch only as requested; no staged production environments. Use isolated/disposable local resources to run tests without touching live customer funds or production database rows. Do not manufacture approvals, force database status flags, disable webhook verification, fabricate merchant coordinates or real-money transaction receipts. A genuine production readiness claim needs exact-commit CI, security, database/browser, restore and actual provider/field acceptance.
+
+
+## 12 November additional code-level closure — lost-response parcel booking recovery
+
+**Finding:** The direct parcel quote is single-use, with a unique `Order.pricingQuoteId`. This correctly prevents duplicate orders, but an HTTP response lost after a successfully committed booking caused a retry to see a USED quote and receive a misleading expired/used error, even though the order and payment handoff were already created.
+
+**Repair:** `POST /api/public/delivery-quotes/[id]/book` now recovers an already committed parcel order with HTTP 200 when its quote belongs to the same authenticated actor and workspace, the order is genuinely tied to a USED `client-delivery-v1` quote, and the normalized sender/recipient, parcel description, scheduled time and digital/COD method match. New bookings retain HTTP 201 and the original transactional quote claim. A conflicting replay returns a typed HTTP 409 and makes no payment/order changes. A concurrent winner between initial lookup and quote read/claim is also recovered. Existing separate Paystack payment preparation, signed events, double-entry ledger and dispatch authority are untouched.
+
+**Code:** `lib/client-platform/parcel-booking-recovery.ts`, `app/api/public/delivery-quotes/[id]/book/route.ts`, `lib/client-platform/contracts.ts` and `tests/client-platform/parcel-booking-recovery.test.ts`.
+
+**Verified before publication:** focused TypeScript with generated Next.js route types, ESLint and five focused files (22 tests) passed. An additional **191 test files / 1,201 tests** across client-platform, payments, driver operations, marketplace checkout, parcel payment methods and storefront readiness passed. A separate **98 files / 390 tests** covering refunds, ledger, withdrawals, store/driver earnings, processors, tracking and notifications passed. These are source-level regression results, **not real-money receipts or a physically completed delivery**. The exact published GitHub commit must subsequently pass its CI and prescribed certification checks, then reach Railway web/operations and Vercel production.
+
+**No shortcuts:** The independent seller pickup, marketplace fulfilment policy, active coverage, driver/vehicle, high-risk cash policy, real payment-provider confirmation, journal idempotency and commercial approvals remain enforced. No new database migration, production row mutation or payment activation flag accompanies this repair.
+
+### Remaining user-visible decisions for an unqualified commercial go-live claim
+
+- **Parcel + marketplace customer payment:** Test an authorized card charge against the configured provider and verify webhook signature, transaction reference, currency, minor-unit amount, one balanced receipt, fulfilment readiness, bank settlement and client invoice. A deployed Paystack variable name or CI pass is not a card receipt.
+- **Marketplace checkout:** Onboard genuine verified collection addresses and independently approve store pickup certification, serviceable route and active StoreOrderOperationalPolicy before making a merchant purchasable. Incomplete stores must remain non-purchasable rather than inventing coordinates or overriding fail-closed policy.
+- **Driver handover:** Run a genuine, approved driver/vehicle and connected user journey for dispatch acceptance, sender pickup OTP, recipient delivery OTP, private POD, GPS/exception handling, driver earning and the corresponding notification delivery.
+- **Financial closure:** Reconcile provider confirmation, wallet debit/split, refund liabilities, dispute and payout authorization, driver COD custody and bank proof against the immutable ledger with maker/checker protections.
+- **Additional client requirements:** Complete acceptance of VAT switches, editable pricing/regions, high-risk exclusions, referrals, first-store offer, loyalty/wallet, owner notifications and all nine-document requirements. Do not supply fake business emails, real bank details, merchant verification or owner signoff.
+
+**Launch classification remains NOT_READY until the live acceptance evidence exists.** Code completeness and operator readiness must be reported as distinct states.

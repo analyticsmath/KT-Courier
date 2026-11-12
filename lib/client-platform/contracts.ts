@@ -123,3 +123,4 @@ export const QuoteBookingSchema = z
       .optional(),
   })
   .strict();
+export type QuoteBookingInput = z.infer<typeof QuoteBookingSchema>;
