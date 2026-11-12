@@ -326,11 +326,13 @@ export function AddressAutocomplete({
           {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
 
           {typeof value?.latitude === "number" && typeof value.longitude === "number" && (
-            <p className="mt-1 text-xs text-[var(--kt-teal-emerald)] flex items-center gap-1">
+            <p className="mt-1 text-xs text-[var(--kt-teal-emerald)] flex items-center gap-1" role="status">
               <svg className="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              Address confirmed
+              {value?.placeId
+                ? "Map location selected. The delivery point is independently verified when a quote is requested."
+                : "Map pin selected. Choose a mapped address with a verified place before requesting a quote."}
             </p>
           )}
         </div>

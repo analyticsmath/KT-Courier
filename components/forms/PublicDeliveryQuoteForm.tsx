@@ -297,6 +297,13 @@ export function PublicDeliveryQuoteForm({
       {error && (
         <div className="space-y-2" aria-live="polite">
           <p role="alert">{error}</p>
+          {errorCode === "ADDRESS_UNRESOLVED" && (
+            <p role="status" className="text-sm">
+              Google Maps locating a pin does not by itself verify delivery eligibility.
+              Please select a specific building or entrance and confirm the map pin.
+              If the location is correct, <Link href="/contact" className="underline">contact operations</Link> for assistance.
+            </p>
+          )}
           {errorCode === "COVERAGE_UNAVAILABLE" || errorCode === "COVERAGE_DISTANCE_EXCEEDED" ? (
             <p className="text-sm">
               Route availability is confirmed against active operating areas and capacity. Check <Link className="underline" href="/coverage-areas">current coverage</Link> or <Link className="underline" href="/contact">contact operations</Link> to verify this route.

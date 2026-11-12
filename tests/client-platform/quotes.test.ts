@@ -122,6 +122,16 @@ describe("anonymous client delivery quotations", () => {
     await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "PARCEL_CONFIGURATION_REQUIRED" });
     expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
   });
+  it("fails before pricing if a map-selected delivery location cannot be independently verified", async () => {
+    mocks.geocode.mockResolvedValueOnce({ latitude: -26.2, longitude: 28.03 }).mockResolvedValueOnce(null);
+    await expect(createPublicQuote(input)).rejects.toMatchObject({
+      code: "ADDRESS_UNRESOLVED",
+      message: expect.stringContaining("precise street or building entrance"),
+    });
+    expect(mocks.zone).not.toHaveBeenCalled();
+    expect(mocks.route).not.toHaveBeenCalled();
+    expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
   it("requires both pickup and dropoff coverage", async () => {
     mocks.zone.mockResolvedValueOnce({ matched: true, regionId: "region-a", withinMaxDistance: true }).mockResolvedValueOnce({ matched: false, regionId: null });
     await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE" });

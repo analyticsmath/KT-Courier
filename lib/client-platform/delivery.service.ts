@@ -161,8 +161,8 @@ export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerTy
       !coordinates[0] && !coordinates[1]
         ? "Neither address could be verified. Re-select both locations from the map suggestions."
         : !coordinates[0]
-          ? "Collection address could not be verified. Re-select the collection location from the map suggestions."
-          : "Delivery address could not be verified. Re-select the delivery location from the map suggestions.",
+          ? "Collection location could not be independently verified. Select a precise street or building entrance on the map and retry; contact support if it still fails."
+          : "Delivery location could not be independently verified. Select a precise street or building entrance on the map and retry; contact support if it still fails.",
       422,
     );
   const zones = await Promise.all(
