@@ -96,6 +96,7 @@
     "test:integration:withdrawals": "node scripts/withdrawal-integration-test.mjs",
     "test:integration:commissions": "node scripts/commission-integration-test.mjs",
     "test:integration:closure": "node scripts/disposable-closure-tests.mjs",
+    "test:integration:closure:host": "node scripts/disposable-closure-host.mjs",
     "recovery:drill": "node scripts/recovery-drill.mjs",
     "test:e2e": "node scripts/e2e-test.mjs",
     "dispatch:reconcile-expired": "tsx scripts/reconcile-expired-dispatch.ts",
@@ -181,7 +182,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "jsdom": "^26.1.0",
@@ -191,6 +192,11 @@
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.8"
+    }
   }
 }
