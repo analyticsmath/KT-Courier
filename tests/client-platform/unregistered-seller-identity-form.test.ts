@@ -13,7 +13,11 @@ describe("unregistered seller identity onboarding", () => {
     expect(html).toMatch(/legal name of the owner/i);
     expect(html).toMatch(/Registration reference.*optional/i);
     expect(html).toMatch(/PAMMY_BAKES_V1/);
-    expect(html).toMatch(/pattern="\[A-Za-z0-9\]\[A-Za-z0-9_\.\-\]\*"[^>]*name="identityVersion"/);
+    const pattern = html.match(/pattern="([^"]+)"[^>]*name="identityVersion"/)?.[1];
+    expect(pattern).toBeDefined();
+    const constraint = new RegExp(`^(?:${pattern})$`, "v");
+    expect(constraint.test("PAMMY_BAKES_V1")).toBe(true);
+    expect(constraint.test("Pammy Bakes")).toBe(false);
     expect(html).toMatch(/Upload supporting document/);
     expect(html).toMatch(/sourceEvidenceReference/);
     expect(html).toMatch(/id="seller-evidence-reference"[^>]*readonly=""/i);
