@@ -19,16 +19,31 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
   }
 
-  let rawBody: string;
+  let rawBody: Buffer;
   try {
-    const buffer = await request.arrayBuffer();
-    if (buffer.byteLength > MAX_BODY_BYTES) {
-      return new Response(JSON.stringify({ error: "Payload exceeds size limit." }), {
-        status: 413,
-        headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-      });
+    const reader = request.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    if (reader) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size > MAX_BODY_BYTES) {
+            await reader.cancel().catch(() => undefined);
+            return new Response(JSON.stringify({ error: "Payload exceeds size limit." }), {
+              status: 413,
+              headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+            });
+          }
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
     }
-    rawBody = Buffer.from(buffer).toString("utf8");
+    rawBody = Buffer.concat(chunks, size);
   } catch {
     return new Response(JSON.stringify({ error: "Could not read request body." }), {
       status: 400,

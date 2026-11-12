@@ -151,10 +151,18 @@ export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerTy
       "This service is not active in both selected provinces.",
       409,
     );
+  const failures: Array<"PROVIDER_UNAVAILABLE" | "ADDRESS_UNRESOLVED"> = [];
+  const onFailure = (reason: "PROVIDER_UNAVAILABLE" | "ADDRESS_UNRESOLVED") => { failures.push(reason); };
   const coordinates = await Promise.all([
-    geocodeSouthAfricanAddress(input.pickupAddress),
-    geocodeSouthAfricanAddress(input.dropoffAddress),
+    geocodeSouthAfricanAddress(input.pickupAddress, undefined, { onFailure }),
+    geocodeSouthAfricanAddress(input.dropoffAddress, undefined, { onFailure }),
   ]);
+  if (failures.includes("PROVIDER_UNAVAILABLE"))
+    throw new PlatformError(
+      "GEOCODING_UNAVAILABLE",
+      "Address verification is temporarily unavailable. Please retry shortly or contact support.",
+      503,
+    );
   if (!coordinates[0] || !coordinates[1])
     throw new PlatformError(
       "ADDRESS_UNRESOLVED",

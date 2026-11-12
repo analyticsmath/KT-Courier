@@ -116,19 +116,28 @@ function normalizedCity(value: string): string {
 export async function geocodeSouthAfricanAddress(
   address: GeocodableSouthAfricanAddress,
   configurationOverride?: MapsServerConfig,
+  options?: { onFailure?: (reason: "PROVIDER_UNAVAILABLE" | "ADDRESS_UNRESOLVED") => void },
 ): Promise<TrustedCoordinates | null> {
+  const reject = (category: string) => {
+    const providerUnavailable = ["GEOCODE_SERVER_KEY_MISSING", "GEOCODE_PROVIDER_HTTP_REJECTED", "GEOCODE_PROVIDER_REJECTED", "GEOCODE_PROVIDER_QUOTA", "GEOCODE_PROVIDER_STATUS_INVALID", "GEOCODE_PROVIDER_TIMEOUT_OR_NETWORK"].includes(category);
+    options?.onFailure?.(providerUnavailable ? "PROVIDER_UNAVAILABLE" : "ADDRESS_UNRESOLVED");
+    return rejectForwardGeocode(category);
+  };
   if (!configurationOverride) {
     const fixture = disposableGeocode(address);
-    if (fixture !== undefined) return fixture;
+    if (fixture !== undefined) {
+      if (!fixture) options?.onFailure?.("ADDRESS_UNRESOLVED");
+      return fixture;
+    }
   }
   const config = configurationOverride ?? getMapsServerConfig();
-  if (!config) return rejectForwardGeocode("GEOCODE_SERVER_KEY_MISSING");
+  if (!config) return reject("GEOCODE_SERVER_KEY_MISSING");
 
   const url = new URL(config.geocodeApiUrl);
   if (address.placeId) {
     // Google Places' selected ID is far less ambiguous than a second search
     // constructed from inconsistent locality/suburb/business-address fields.
-    if (!/^[A-Za-z0-9_.:-]{5,240}$/.test(address.placeId)) return rejectForwardGeocode("GEOCODE_PLACE_ID_INVALID");
+    if (!/^[A-Za-z0-9_.:-]{5,240}$/.test(address.placeId)) return reject("GEOCODE_PLACE_ID_INVALID");
     url.searchParams.set("place_id", address.placeId);
   } else {
     url.searchParams.set("address", southAfricanAddressQuery(address));
@@ -162,11 +171,12 @@ export async function geocodeSouthAfricanAddress(
         errorCategory: "GEOCODE_PROVIDER_HTTP_REJECTED",
         context: { httpStatus: response.status },
       });
+      options?.onFailure?.("PROVIDER_UNAVAILABLE");
       return null;
     }
 
     const payload = await response.json() as GeocodeResponse;
-    if (payload.status !== "OK") return rejectForwardGeocode(
+    if (payload.status !== "OK") return reject(
       payload.status === "REQUEST_DENIED" ? "GEOCODE_PROVIDER_REJECTED"
         : payload.status === "OVER_QUERY_LIMIT" || payload.status === "OVER_DAILY_LIMIT" ? "GEOCODE_PROVIDER_QUOTA"
         : payload.status === "ZERO_RESULTS" ? "GEOCODE_ZERO_RESULTS"
@@ -175,42 +185,42 @@ export async function geocodeSouthAfricanAddress(
 
     // Google can resolve a conflicting street/city query to a province or
     // another town. Such coordinates are not the requested delivery address.
-    if (payload.results?.length !== 1) return rejectForwardGeocode("GEOCODE_AMBIGUOUS_RESULT");
+    if (payload.results?.length !== 1) return reject("GEOCODE_AMBIGUOUS_RESULT");
     const result = payload.results[0];
-    if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return rejectForwardGeocode("GEOCODE_LOW_CONFIDENCE");
-    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return rejectForwardGeocode("GEOCODE_UNSUPPORTED_PLACE_TYPE");
+    if (result.partial_match === true || !["ROOFTOP", "RANGE_INTERPOLATED", "GEOMETRIC_CENTER"].includes(result.geometry?.location_type ?? "")) return reject("GEOCODE_LOW_CONFIDENCE");
+    if (!result.types?.some(type => ["street_address", "premise", "subpremise", "establishment", "intersection", "point_of_interest"].includes(type))) return reject("GEOCODE_UNSUPPORTED_PLACE_TYPE");
     const components = result.address_components ?? [];
-    if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return rejectForwardGeocode("GEOCODE_COUNTRY_MISMATCH");
-    if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return rejectForwardGeocode("GEOCODE_PROVINCE_MISMATCH");
-    if (address.country && normalizedCity(address.country) !== "south africa") return rejectForwardGeocode("GEOCODE_COUNTRY_MISMATCH");
+    if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return reject("GEOCODE_COUNTRY_MISMATCH");
+    if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return reject("GEOCODE_PROVINCE_MISMATCH");
+    if (address.country && normalizedCity(address.country) !== "south africa") return reject("GEOCODE_COUNTRY_MISMATCH");
     if (address.requireSuburbAndPostalMatch) {
       const requestedSuburb = normalizedCity(address.suburb ?? address.line2 ?? "");
       const suburbMatches = components.some(component =>
         component.types?.some(type => ["sublocality_level_1", "sublocality_level_2", "sublocality", "neighborhood"].includes(type))
         && normalizedCity(component.long_name ?? "") === requestedSuburb,
       );
-      if (!requestedSuburb || !suburbMatches) return rejectForwardGeocode("GEOCODE_SUBURB_MISMATCH");
+      if (!requestedSuburb || !suburbMatches) return reject("GEOCODE_SUBURB_MISMATCH");
       const requestedPostalCode = address.postalCode?.trim() ?? "";
       const providerPostalCode = components.find(component => component.types?.includes("postal_code"))?.long_name?.trim();
-      if (!/^\d{4}$/.test(requestedPostalCode) || providerPostalCode !== requestedPostalCode) return rejectForwardGeocode("GEOCODE_POSTAL_CODE_MISMATCH");
+      if (!/^\d{4}$/.test(requestedPostalCode) || providerPostalCode !== requestedPostalCode) return reject("GEOCODE_POSTAL_CODE_MISMATCH");
     }
     const city = normalizedCity(address.city);
     const cityMatches = city && components.some(component => component.types?.some(type => ["locality", "postal_town", "administrative_area_level_2", "administrative_area_level_3", "sublocality_level_1"].includes(type)) && normalizedCity(component.long_name ?? "") === city);
-    if (!address.placeId && !cityMatches) return rejectForwardGeocode("GEOCODE_CITY_MISMATCH");
+    if (!address.placeId && !cityMatches) return reject("GEOCODE_CITY_MISMATCH");
     // A Google Place ID identifies the exact selected building or POI; some
     // SA places identify suburbs and metropolitan municipalities differently
     // from the forward geocoder. The verified province and marker replace
     // that unreliable string equality check, not provider verification.
     const location = result.geometry?.location;
-    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return rejectForwardGeocode("GEOCODE_INVALID_COORDINATES");
-    if (address.placeId && !placeMarkerMatches(address, location.lat!, location.lng!)) return rejectForwardGeocode("GEOCODE_PLACE_MARKER_MISMATCH");
+    if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng) || location.lat! < -90 || location.lat! > 90 || location.lng! < -180 || location.lng! > 180) return reject("GEOCODE_INVALID_COORDINATES");
+    if (address.placeId && !placeMarkerMatches(address, location.lat!, location.lng!)) return reject("GEOCODE_PLACE_MARKER_MISMATCH");
 
     return Object.freeze({
       latitude: location.lat as number,
       longitude: location.lng as number,
     });
   } catch {
-    return rejectForwardGeocode("GEOCODE_PROVIDER_TIMEOUT_OR_NETWORK");
+    return reject("GEOCODE_PROVIDER_TIMEOUT_OR_NETWORK");
   } finally {
     clearTimeout(timeoutId);
   }

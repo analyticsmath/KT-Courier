@@ -98,7 +98,7 @@ export type PaystackGenericPayload = z.infer<typeof PaystackGenericPayloadSchema
 export type PaystackWebhookPayload = PaystackChargeSuccessPayload | PaystackRefundPayload | PaystackGenericPayload;
 
 export type IngestPaystackWebhookInput = Readonly<{
-  rawBody: string;
+  rawBody: string | Buffer;
   signature: string | null;
   modernSignature?: string | null;
   sourceAddress?: string;
@@ -266,7 +266,10 @@ export async function ingestPaystackWebhook(
   // 2. Parse payload safely using discriminated schemas
   let rawJson: unknown;
   try {
-    rawJson = JSON.parse(input.rawBody);
+    const jsonText = typeof input.rawBody === "string"
+      ? input.rawBody
+      : new TextDecoder("utf-8", { fatal: true }).decode(input.rawBody);
+    rawJson = JSON.parse(jsonText);
   } catch {
     throw new PaymentError("PAYSTACK_CONFIGURATION_INVALID", "Paystack webhook payload could not be parsed as JSON.");
   }

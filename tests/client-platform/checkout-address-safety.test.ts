@@ -11,6 +11,8 @@ import {
   updateMarketplaceCheckoutAddress,
   updateMarketplaceCheckoutContact,
 } from "@/lib/marketplace-checkout/checkout.service";
+import { marketplaceError } from "@/lib/marketplace-checkout/api-policy";
+import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 
 const input = {
   reference: "checkout-owned",
@@ -71,6 +73,12 @@ describe("checkout address safety", () => {
     });
   });
 
+  it("returns a retryable service response for a mapping outage", async () => {
+    const response = marketplaceError(new MarketplaceCheckoutError("GEOCODING_UNAVAILABLE", "Address verification is temporarily unavailable."));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: "GEOCODING_UNAVAILABLE" });
+  });
+
   it.each([
     "RESERVING",
     "RESERVED",
@@ -99,10 +107,20 @@ describe("checkout address safety", () => {
   it("uses selected place evidence only for provider verification and persists server coordinates", async () => {
     const db = fixture(); const address = { ...input.address, placeId: "ChIJ-building", latitude: -26.1, longitude: 28.1 };
     await updateMarketplaceCheckoutAddress({ ...input, address }, db as never);
-    expect(maps.geocode).toHaveBeenCalledWith(address);
+    expect(maps.geocode).toHaveBeenCalledWith(address, undefined, expect.objectContaining({ onFailure: expect.any(Function) }));
     const stored = db.marketplaceCheckoutAddressSnapshot.create.mock.calls[0][0].data;
     expect(stored.protectedCoordinates).toEqual({ latitude: -26.2, longitude: 28.04 });
     expect(stored).not.toHaveProperty("placeId"); expect(stored).not.toHaveProperty("latitude"); expect(stored).not.toHaveProperty("longitude");
+  });
+  it("reports a mapping provider outage without creating a checkout address", async () => {
+    const db = fixture();
+    maps.geocode.mockImplementation(async (_address, _config, options) => {
+      options.onFailure("PROVIDER_UNAVAILABLE");
+      return null;
+    });
+    await expect(updateMarketplaceCheckoutAddress(input, db as never)).rejects.toMatchObject({ code: "GEOCODING_UNAVAILABLE" });
+    expect(db.marketplaceCheckoutAddressSnapshot.create).not.toHaveBeenCalled();
+    expect(maps.coverage).not.toHaveBeenCalled();
   });
   it("takes coverage from active server regions and commits snapshot and version together", async () => {
     const db = fixture();
@@ -138,6 +156,13 @@ describe("checkout address safety", () => {
       updateMarketplaceCheckoutAddress(input, db as never),
     ).rejects.toThrow("currently active service areas");
     expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.marketplaceCheckoutAddressSnapshot.create).not.toHaveBeenCalled();
+  });
+
+  it("does not save an address when the coverage distance decision is unknown", async () => {
+    const db = fixture();
+    maps.coverage.mockResolvedValue({ matched: true, regionId: "active-server-region", withinMaxDistance: null });
+    await expect(updateMarketplaceCheckoutAddress(input, db as never)).rejects.toThrow("currently active service areas");
     expect(db.marketplaceCheckoutAddressSnapshot.create).not.toHaveBeenCalled();
   });
 

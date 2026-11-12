@@ -29,6 +29,21 @@ describe("safe geocoding production diagnostics", () => {
     expect(raw).not.toContain(address.line1);
     expect(raw).not.toContain(config.serverKey);
   });
+  it("distinguishes a provider outage from an address that cannot be found", async () => {
+    const onFailure = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({ status: "REQUEST_DENIED" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "ZERO_RESULTS" }), { status: 200 }));
+    expect(await geocodeSouthAfricanAddress(address, config, { onFailure })).toBeNull();
+    expect(onFailure).toHaveBeenLastCalledWith("PROVIDER_UNAVAILABLE");
+    expect(await geocodeSouthAfricanAddress(address, config, { onFailure })).toBeNull();
+    expect(onFailure).toHaveBeenLastCalledWith("ADDRESS_UNRESOLVED");
+  });
+  it.each(["OVER_QUERY_LIMIT", "OVER_DAILY_LIMIT", "UNKNOWN_ERROR"])("treats provider status %s as temporarily unavailable", async status => {
+    const onFailure = vi.fn();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status }), { status: 200 }));
+    expect(await geocodeSouthAfricanAddress(address, config, { onFailure })).toBeNull();
+    expect(onFailure).toHaveBeenCalledWith("PROVIDER_UNAVAILABLE");
+  });
   it("reports rejected provider HTTP failures without logging provider secrets", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("permission denied", { status: 403 }));
     expect(await geocodeSouthAfricanAddress(address, config)).toBeNull();

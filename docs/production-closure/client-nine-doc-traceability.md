@@ -1,5 +1,7 @@
 # KT Couriers — Client Nine-Document Requirements Traceability & Acceptance Register
 
+> **Historical evidence notice, 12 November 2026:** The labels and audited baseline below describe earlier evidence, not current-commit browser or production proof. The client's later explicit answers control the specific choices they address. Current work, test limitations and open acceptance are recorded in `CODEX_SOL_CODE_LEVEL_CLOSEOUT.md`; this table has not yet been re-certified row by row.
+
 **Audited Baseline Commit:** `046684e86dcb997184253a51b8b84241d6d9b246` (Phase 3 commit, 2026-11-11 02:16 UTC)  
 **Engineering Release Status:** CERTIFICATION_CLOSEOUT_PENDING (Canonical 41-case suite and leaf financial assertions verified locally)  
 **Commercial Launch Decision:** COMMERCIAL_LAUNCH_NO_GO (Strictly retained pending authentic owner, legal, and operational signoff)  

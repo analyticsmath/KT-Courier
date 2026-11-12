@@ -132,6 +132,15 @@ describe("anonymous client delivery quotations", () => {
     expect(mocks.route).not.toHaveBeenCalled();
     expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
   });
+  it("reports a provider outage without telling the customer to reselect an address", async () => {
+    mocks.geocode.mockImplementation(async (_address, _config, options) => {
+      options.onFailure("PROVIDER_UNAVAILABLE");
+      return null;
+    });
+    await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "GEOCODING_UNAVAILABLE", status: 503 });
+    expect(mocks.zone).not.toHaveBeenCalled();
+    expect(mocks.pricingQuote.create).not.toHaveBeenCalled();
+  });
   it("requires both pickup and dropoff coverage", async () => {
     mocks.zone.mockResolvedValueOnce({ matched: true, regionId: "region-a", withinMaxDistance: true }).mockResolvedValueOnce({ matched: false, regionId: null });
     await expect(createPublicQuote(input)).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE" });

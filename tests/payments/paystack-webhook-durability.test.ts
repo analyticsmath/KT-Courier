@@ -133,6 +133,42 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
       expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
     });
 
+    it("verifies the original bytes rather than a replacement-decoded body", async () => {
+      const bytes = Buffer.concat([
+        Buffer.from('{"event":"ping","data":{"id":"'),
+        Buffer.from([0xff]),
+        Buffer.from('"}}'),
+      ]);
+      const signatureOfDifferentBytes = calculatePaystackHmac(bytes.toString("utf8"), testSecret);
+      const req = new NextRequest("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST", headers: { "x-paystack-signature": signatureOfDifferentBytes }, body: bytes,
+      });
+      expect((await POST(req)).status).toBe(401);
+      expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects signed malformed UTF-8 without recording an event", async () => {
+      const bytes = Buffer.concat([Buffer.from('{"event":"ping","data":{"id":"'), Buffer.from([0xff]), Buffer.from('"}}')]);
+      const req = new NextRequest("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST", headers: { "x-paystack-signature": calculatePaystackHmac(bytes, testSecret) }, body: bytes,
+      });
+      expect((await POST(req)).status).toBe(400);
+      expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
+    });
+
+    it("rejects a modern signature calculated over replacement-decoded bytes", async () => {
+      const signingKey = "whsec_local_modern_webhook_test_123456";
+      process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET = signingKey;
+      const bytes = Buffer.concat([Buffer.from('{"event":"ping","data":{"id":"'), Buffer.from([0xff]), Buffer.from('"}}')]);
+      const now = Math.floor(Date.now() / 1000);
+      const digest = createHmac("sha512", signingKey).update(`${now}.${bytes.toString("utf8")}`).digest("hex");
+      const req = new NextRequest("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST", headers: { "paystack-signature": `t=${now},v1=whk_test1234:${digest}` }, body: bytes,
+      });
+      expect((await POST(req)).status).toBe(401);
+      expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
+    });
+
     it("accepts a fresh modern webhook signed with the dedicated whsec key", async () => {
       const signingKey = "whsec_local_modern_webhook_test_123456";
       process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET = signingKey;
@@ -187,6 +223,21 @@ describe("Phase 1: Paystack Durable Webhook Inbox & Worker Delivery", () => {
       expect(res.status).toBe(413);
       const json = await res.json();
       expect(json.error).toContain("exceeds size limit");
+    });
+
+    it("stops reading an oversized streamed webhook without a content length", async () => {
+      let cancelled = false;
+      let pulls = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) { if (pulls++ === 0) controller.enqueue(new Uint8Array(1_048_577)); else controller.close(); },
+        cancel() { cancelled = true; },
+      }, { highWaterMark: 0 });
+      const request = new Request("https://api.ktcouriers.test/api/payments/paystack/webhook", {
+        method: "POST", headers: { "x-paystack-signature": "invalid" }, body, duplex: "half",
+      } as RequestInit & { duplex: "half" });
+      expect((await POST(request as NextRequest)).status).toBe(413);
+      expect(cancelled).toBe(true);
+      expect(prisma.paymentWebhookEvent.upsert).not.toHaveBeenCalled();
     });
 
     it("persists valid webhook into durable inbox with 200 OK without executing business logic", async () => {

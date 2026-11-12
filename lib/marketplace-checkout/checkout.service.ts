@@ -387,7 +387,13 @@ export async function updateMarketplaceCheckoutAddress(
   validateAddress(input.address);
   // Authorize and reject frozen checkouts before invoking the external maps provider.
   await readMutableCheckout(input, db);
-  const protectedCoordinates = await geocodeSouthAfricanAddress(input.address);
+  let providerUnavailable = false;
+  const protectedCoordinates = await geocodeSouthAfricanAddress(input.address, undefined, {
+    onFailure: reason => { providerUnavailable = reason === "PROVIDER_UNAVAILABLE"; },
+  });
+  if (providerUnavailable) {
+    throw new MarketplaceCheckoutError("GEOCODING_UNAVAILABLE", "Address verification is temporarily unavailable. Please retry shortly or contact support.");
+  }
   if (!protectedCoordinates) {
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
@@ -401,7 +407,7 @@ export async function updateMarketplaceCheckoutAddress(
   if (
     !coverage.matched ||
     !coverage.regionId ||
-    coverage.withinMaxDistance === false
+    coverage.withinMaxDistance !== true
   ) {
     throw new MarketplaceCheckoutError(
       "CHECKOUT_REVIEW_REQUIRED",
