@@ -106,6 +106,25 @@ describe("Paystack verified checkout recovery is exact-source", () => {
     });
     await expect(adapter.createCheckoutSession(request, context)).rejects.toThrow(/different transaction reference/);
   });
+  it("initializes a freshly reserved unique reference without an unnecessary missing-reference preflight", async () => {
+    const { adapter, verifyTransaction, initializeTransaction } = setup();
+    initializeTransaction.mockResolvedValue({
+      reference: request.merchantReference,
+      authorization_url: "https://checkout.paystack.com/unique-first-attempt",
+      access_code: "access",
+    });
+    const result = await adapter.createCheckoutSession(request, {
+      ...context, newlyReservedReference: true,
+    });
+    expect(result.status).toBe("REQUIRES_ACTION");
+    expect(verifyTransaction).not.toHaveBeenCalled();
+    expect(initializeTransaction).toHaveBeenCalledTimes(1);
+    expect(initializeTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ amountCents: 4567, reference: request.merchantReference }),
+      context.signal,
+    );
+  });
+
   it("initializes one canonical merchant reference when nothing is recovered", async () => {
     const { adapter, verifyTransaction, initializeTransaction } = setup();
     verifyTransaction.mockRejectedValue(new PaymentError("PAYSTACK_TRANSACTION_NOT_FOUND", "Paystack has no transaction for this reference."));

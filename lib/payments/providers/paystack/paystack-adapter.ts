@@ -78,14 +78,20 @@ export class PaystackAdapter implements PaymentProviderAdapter {
     // exact original reference, currency, amount and provider environment.
     // The verification attempt is outside the mutation transaction.
     let existing: PaystackVerifyData | null = null;
-    try {
-      existing = await this.client.verifyTransaction(input.merchantReference, context.signal);
-    } catch (error) {
-      // A validated 200/404 "Transaction reference not found" means this exact
-      // reference has not been initialized. Other 400s, auth faults, provider
-      // outages and timeouts are ambiguous, so leave the attempt unresolved.
-      if (!(error instanceof PaymentError) || error.code !== "PAYSTACK_TRANSACTION_NOT_FOUND") {
-        throw error;
+    // This is the FIRST outbound call for a uniquely reserved and persisted
+    // PaymentAttempt. Pre-verifying a reference which has never been submitted
+    // needlessly makes checkout depend on Paystack's missing-reference error
+    // response, which is not a successful transaction lookup.
+    //
+    // Do NOT use this path for retry/recovery: a possibly submitted reference
+    // must always be checked against Paystack before reinitialization.
+    if (!context.newlyReservedReference) {
+      try {
+        existing = await this.client.verifyTransaction(input.merchantReference, context.signal);
+      } catch (error) {
+        if (!(error instanceof PaymentError) || error.code !== "PAYSTACK_TRANSACTION_NOT_FOUND") {
+          throw error;
+        }
       }
     }
     if (existing) {

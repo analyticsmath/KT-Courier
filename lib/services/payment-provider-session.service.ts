@@ -18,7 +18,7 @@ import type {
 } from "@/lib/payments/providers/payment-provider-adapter";
 import {
   definitiveProviderError,
-  normalizeProviderError,
+  normalizeCheckoutInitiationError,
   type NormalizedProviderError,
 } from "@/lib/payments/providers/provider-errors";
 import { validateProviderResult, type ValidatedProviderResult } from "@/lib/payments/providers/provider-result-validation";
@@ -531,7 +531,10 @@ async function callProviderWithTimeout(
   });
   try {
     return await Promise.race([
-      adapter.createCheckoutSession(input, Object.freeze({ signal: controller.signal, correlationId: attemptId, timeoutMs })),
+      adapter.createCheckoutSession(input, Object.freeze({
+        signal: controller.signal, correlationId: attemptId, timeoutMs,
+        newlyReservedReference: true,
+      })),
       timeoutPromise,
     ]);
   } finally {
@@ -583,17 +586,8 @@ export async function createProviderCheckoutSession(
       result: validateProviderResult(rawResult, adapter),
     });
   } catch (error) {
-    const normalized = error instanceof PaymentError
-      ? Object.freeze({
-          category: "MALFORMED_RESPONSE" as const,
-          code: error.code,
-          definitive: false,
-          retryMayBeSafe: false,
-          configurationFault: false,
-          operatorMessage: "Provider response could not be validated; outcome is unknown.",
-          customerMessage: "Payment confirmation is still pending.",
-        })
-      : normalizeProviderError(error);
+    const normalized = normalizeCheckoutInitiationError(error);
+    console.warn("PAYMENT_SESSION_INITIATION_FAILURE", { code: normalized.code, definitive: normalized.definitive });
     return finalizeAttempt(reservation as ReservedSession, request, { kind: "error", error: normalized });
   }
 }
@@ -614,7 +608,8 @@ export async function createMarketplaceProviderCheckoutSession(
     const rawResult = await callProviderWithTimeout(adapter, request, reservation.attempt.id, Math.min(Math.max(dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS, 100), 30_000));
     return finalizeAttempt(reservation, request, { kind: "result", result: validateProviderResult(rawResult, adapter) });
   } catch (error) {
-    const normalized = error instanceof PaymentError ? Object.freeze({ category: "MALFORMED_RESPONSE" as const, code: error.code, definitive: false, retryMayBeSafe: false, configurationFault: false, operatorMessage: "Provider response could not be validated; outcome is unknown.", customerMessage: "Payment confirmation is still pending." }) : normalizeProviderError(error);
+    const normalized = normalizeCheckoutInitiationError(error);
+    console.warn("MARKETPLACE_PAYMENT_SESSION_INITIATION_FAILURE", { code: normalized.code, definitive: normalized.definitive });
     return finalizeAttempt(reservation, request, { kind: "error", error: normalized });
   }
 }

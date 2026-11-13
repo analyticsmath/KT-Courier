@@ -15,6 +15,8 @@ export type ProviderCallContext = Readonly<{
   signal: AbortSignal;
   correlationId: string;
   timeoutMs: number;
+  /** Only true for a brand-new, DB-reserved unique reference that has never been sent to the provider. */
+  newlyReservedReference?: boolean;
 }>;
 
 export type ProviderCheckoutSessionInput = Readonly<{

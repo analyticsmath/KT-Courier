@@ -1,3 +1,4 @@
+import { PaymentError } from "@/lib/payments/errors";
 export const PROVIDER_FAILURE_CATEGORIES = [
   "INVALID_REQUEST",
   "AUTHENTICATION",
@@ -86,3 +87,28 @@ export function definitiveProviderError(
   });
 }
 
+
+
+/** Only explicit Paystack 4xx responses prove no checkout was initialized.
+ * Provider transport faults, invalid response bodies and timeouts are UNKNOWN
+ * because the gateway may have accepted a charge before the response was lost. */
+export function normalizeCheckoutInitiationError(error: unknown): NormalizedProviderError {
+  if (error instanceof PaymentError) {
+    if (error.code === "PAYMENT_PROVIDER_AUTHENTICATION_FAILED")
+      return definitiveProviderError("AUTHENTICATION", error.code);
+    if (error.code === "PAYMENT_PROVIDER_REQUEST_INVALID")
+      return definitiveProviderError("INVALID_REQUEST", error.code);
+    if (error.code === "PAYMENT_PROVIDER_RATE_LIMITED")
+      return definitiveProviderError("RATE_LIMITED", error.code);
+    return Object.freeze({
+      category: "UNKNOWN_OUTCOME" as const,
+      code: error.code,
+      definitive: false,
+      retryMayBeSafe: false,
+      configurationFault: false,
+      operatorMessage: "Provider call failed without proof of a definitive outcome.",
+      customerMessage: "Payment confirmation is still pending.",
+    });
+  }
+  return normalizeProviderError(error);
+}
