@@ -122,8 +122,10 @@ export class ReportJobService {
       await this.storage.store(storageKey, content);
       const checksum = crypto.createHash("sha256").update(content).digest("hex");
 
-      await db.reportExportArtifact.create({
-        data: {
+      const completed = await db.$transaction(async (tx) => {
+        const changed = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING" }, data: { status: "COMPLETED", rowCount: data.rows.length, completedAt: new Date() } });
+        if (changed.count !== 1) return null;
+        await tx.reportExportArtifact.create({ data: {
           publicReference: publicReference("ART"),
           jobId: job.id,
           format: job.outputFormat,
@@ -133,13 +135,17 @@ export class ReportJobService {
           byteSize: Buffer.byteLength(content, "utf8"),
           checksum,
           expiresAt: job.expiresAt ?? new Date(Date.now() + definition.retentionDays * 86_400_000),
-        },
+        } });
+        return tx.reportJob.findUnique({ where: { id: job.id } });
       });
-
-      const completed = await db.reportJob.update({
-        where: { id: job.id },
-        data: { status: "COMPLETED", rowCount: data.rows.length, completedAt: new Date() },
-      });
+      if (!completed) {
+        await this.storage.delete(storageKey);
+        storedKey = null;
+        return db.reportJob.findUnique({ where: { id: job.id } });
+      }
+      // Once the artifact and job have committed, a later telemetry failure must
+      // not delete the file backing the committed report.
+      storedKey = null;
       await this.recordAudit(job.requesterUserId, "REPORT_JOB_COMPLETED", job.publicReference, { rowCount: data.rows.length });
       await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "SUCCESS" });
       return completed;
@@ -160,7 +166,13 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
     if (["COMPLETED", "EXPIRED"].includes(job.status)) throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
-    const updated = await db.reportJob.update({ where: { id: job.id }, data: { status: "CANCELLED" } });
+    const cancelled = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "RUNNING", "FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "CANCELLED" } });
+    if (cancelled.count !== 1) {
+      const current = await db.reportJob.findUnique({ where: { id: job.id } });
+      if (current?.status === "CANCELLED") return current;
+      throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
+    }
+    const updated = await db.reportJob.findUnique({ where: { id: job.id } });
     await this.recordAudit(requesterUserId, "REPORT_JOB_CANCELLED", job.publicReference, {});
     return updated;
   }
