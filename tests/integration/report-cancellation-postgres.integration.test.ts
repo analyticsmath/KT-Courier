@@ -11,6 +11,7 @@ vi.mock("@/lib/reporting/authorization", async (importOriginal) => {
 import { ReportJobService } from "@/lib/reporting/services";
 import { expireReportArtifacts } from "@/lib/reporting/report-expiry-batch";
 import { recoverExpiredReportClaims } from "@/lib/reporting/report-recovery-batch";
+import { ReportReconciliationService } from "@/lib/reporting/reconciliation";
 
 const marker = `report-race-${randomUUID()}`;
 const jobIds: string[] = [];
@@ -24,6 +25,7 @@ afterAll(async () => {
   if (!validated) return;
   await prisma.reportExportArtifact.deleteMany({ where: { jobId: { in: jobIds } } });
   await prisma.reportAuditEvent.deleteMany({ where: { entityReference: { startsWith: marker } } });
+  await prisma.reportReconciliationCase.deleteMany({ where: { jobId: { in: jobIds } } });
   await prisma.reportJob.deleteMany({ where: { id: { in: jobIds } } });
   await prisma.user.deleteMany({ where: { id: marker } });
   await prisma.$disconnect();
@@ -105,4 +107,16 @@ it("bounds repeated generation failures and leaves a permanent failure for revie
     expect(state.status).toBe(attempt === 3 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE");
     if (attempt < 3) await prisma.reportJob.update({ where: { id: job.id }, data: { nextAttemptAt: new Date("2020-01-01") } });
   }
+});
+
+it("audits an operator cleanup and converges the orphan case", async () => {
+  const reference = `${marker}-cleanup`;
+  const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "FAILED_RETRYABLE", outputFormat: "JSON" } });
+  jobIds.push(job.id);
+  const item = await prisma.reportReconciliationCase.create({ data: { publicReference: `${marker}-orphan`, jobId: job.id, reason: "REPORT_STORAGE_FAILURE", status: "OPEN", safeSummary: "Disposable cleanup", safeEvidence: { source: "report_upload_cleanup", storageKey: "disposable-key", storageProvider: "LOCAL_SECURE" } } });
+  const remove = vi.fn(async () => true);
+  await new ReportReconciliationService({ provider: "LOCAL_SECURE", delete: remove } as never).cleanupUncommittedObject(item.id, marker);
+  expect(remove).toHaveBeenCalledOnce();
+  expect((await prisma.reportReconciliationCase.findUniqueOrThrow({ where: { id: item.id } })).status).toBe("CONVERGED");
+  expect(await prisma.reportAuditEvent.count({ where: { entityReference: item.publicReference, actorUserId: marker, eventType: "REPORT_ORPHAN_CLEANED" } })).toBe(1);
 });

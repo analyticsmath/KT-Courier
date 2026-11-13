@@ -13,6 +13,7 @@ export default function AdminReportReconciliationPage() {
   const [loading, setLoading] = useState(true);
   const [actionMessage, setActionMessage] = useState("");
   const [scanning, setScanning] = useState(false);
+  const [cleaningCase, setCleaningCase] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [loadError, setLoadError] = useState("");
 
@@ -57,12 +58,23 @@ export default function AdminReportReconciliationPage() {
         } else {
           setActionMessage("The reconciliation service returned an invalid response.");
         }
-      }
+      } else setActionMessage("Scan could not be completed. Check your permissions and try again.");
     } catch {
       setActionMessage("Scan failed.");
     } finally {
       setScanning(false);
     }
+  };
+
+  const handleCleanup = async (caseId: string) => {
+    setCleaningCase(caseId); setActionMessage("");
+    try {
+      const response = await fetch("/api/admin/reports/reconciliation", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "CLEANUP_ORPHAN", caseId }) });
+      if (!response.ok) throw new Error("Cleanup failed");
+      setActionMessage("Report storage cleanup completed.");
+      setReloadKey((value) => value + 1);
+    } catch { setActionMessage("Cleanup could not be completed. Check the case and try again."); }
+    finally { setCleaningCase(null); }
   };
 
   if (loading) return <div className="p-6 text-gray-500">Loading reconciliation...</div>;
@@ -110,12 +122,13 @@ export default function AdminReportReconciliationPage() {
                 <th className="p-3">Status</th>
                 <th className="p-3">Summary</th>
                 <th className="p-3">Opened At</th>
+                <th className="p-3">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y text-gray-800">
               {cases.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
+                  <td colSpan={6} className="p-4 text-center text-gray-500">
                     No open reconciliation cases found.
                   </td>
                 </tr>
@@ -127,6 +140,7 @@ export default function AdminReportReconciliationPage() {
                     <td className="p-3 font-semibold">{c.status}</td>
                     <td className="p-3 text-xs">{c.safeSummary}</td>
                     <td className="p-3">{new Date(c.openedAt).toLocaleString()}</td>
+                    <td className="p-3">{c.canCleanup && <button type="button" disabled={cleaningCase !== null} onClick={() => handleCleanup(c.id)} className="text-blue-700 underline disabled:opacity-50">{cleaningCase === c.id ? "Cleaning…" : "Clean up storage"}</button>}</td>
                   </tr>
                 ))
               )}

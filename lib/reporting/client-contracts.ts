@@ -44,6 +44,7 @@ export const reportReconciliationCaseSummarySchema = z.object({
   status: z.string(),
   safeSummary: z.string(),
   openedAt: z.string(),
+  canCleanup: z.boolean(),
 });
 
 export const reconciliationScanResultSchema = z.object({

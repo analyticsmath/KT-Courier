@@ -115,6 +115,12 @@ it("does not cancel a report that completed before the cancellation write", asyn
   await expect(new ReportJobService({} as never).cancelJob(job.publicReference, "owner")).rejects.toMatchObject({ code: "CANNOT_CANCEL_REPORT_JOB" });
 });
 
+it("rolls back cancellation if its required audit write fails", async () => {
+  vi.mocked(db.reportAuditEvent.create).mockRejectedValueOnce(new Error("audit unavailable"));
+  await expect(new ReportJobService({} as never).cancelJob(job.publicReference, "owner")).rejects.toThrow();
+  expect(state.status).toBe("QUEUED");
+});
+
 it("does not restart a failed report after another actor cancels it", async () => {
   state.status = "FAILED_RETRYABLE";
   vi.mocked(db.reportJob.findUnique).mockImplementationOnce((async () => {

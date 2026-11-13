@@ -10,9 +10,10 @@ import { z } from "zod";
 const reconService = new ReportReconciliationService();
 const reportAdministration = new ReportAdministrationService();
 const reconciliationActionSchema = z.object({
-  action: z.enum(["SCAN", "CANCEL_STUCK_JOB", "RETRY_GENERATION"]).default("SCAN"),
+  action: z.enum(["SCAN", "CANCEL_STUCK_JOB", "RETRY_GENERATION", "CLEANUP_ORPHAN"]).default("SCAN"),
   dryRun: z.boolean().optional(),
   jobId: z.string().trim().min(1).optional(),
+  caseId: z.string().trim().min(1).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -52,6 +53,11 @@ export async function POST(req: NextRequest) {
     if (action === "RETRY_GENERATION" && body.jobId) {
       await reconService.retryGeneration(body.jobId);
       return ok({ message: `Retried generation for job ${body.jobId}` });
+    }
+
+    if (action === "CLEANUP_ORPHAN" && body.caseId) {
+      await reconService.cleanupUncommittedObject(body.caseId, auth.user.id);
+      return ok({ message: "Report storage cleanup completed." });
     }
 
     return badRequest(`Unknown action: ${action}`);

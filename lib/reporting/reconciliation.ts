@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
-import { getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
+import { assertReportStorageReady, getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
 import { ReportJobService } from "./services";
+import { randomUUID } from "node:crypto";
 
 export interface ReconciliationScanResult {
   casesOpened: number;
@@ -102,7 +103,8 @@ export class ReportReconciliationService {
     await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
   }
 
-  async cleanupUncommittedObject(caseId: string): Promise<void> {
+  async cleanupUncommittedObject(caseId: string, actorUserId: string): Promise<void> {
+    assertReportStorageReady(this.storage.provider);
     const item = await db.reportReconciliationCase.findUnique({ where: { id: caseId } });
     if (!item || item.reason !== "REPORT_STORAGE_FAILURE" || !["OPEN", "IN_PROGRESS"].includes(item.status)) throw new Error("Open report storage case not found.");
     const evidence = item.safeEvidence;
@@ -110,7 +112,11 @@ export class ReportReconciliationService {
     const committed = await db.reportExportArtifact.findFirst({ where: { storageKey: evidence.storageKey }, select: { id: true } });
     if (committed) throw new Error("Report object is referenced by an artifact and cannot be deleted by orphan cleanup.");
     await this.storage.delete(evidence.storageKey);
-    await db.reportReconciliationCase.updateMany({ where: { id: item.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+    await db.$transaction(async (tx) => {
+      const changed = await tx.reportReconciliationCase.updateMany({ where: { id: item.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+      if (!changed.count) return;
+      await tx.reportAuditEvent.create({ data: { publicReference: `RPTAUD-${randomUUID()}`, actorUserId, eventType: "REPORT_ORPHAN_CLEANED", entityReference: item.publicReference, safeEvidence: { source: "report_reconciliation" } } });
+    });
   }
 
   private async openCase(

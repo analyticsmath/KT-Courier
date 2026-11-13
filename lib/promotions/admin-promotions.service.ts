@@ -2,6 +2,7 @@
 import { assertPromotionsProductionReady } from "./production-lock";
 import { db } from "@/lib/db";
 import { PromotionReconciliationStatus } from "@prisma/client";
+import { safeOperationalText } from "@/lib/operations/phase5-repository";
 
 export async function listAdminPromotions(...args: any[]): Promise<any> {
   return [];
@@ -108,10 +109,27 @@ export async function getPromotionReconciliation(reference: string) {
   return db.promotionReconciliationCase.findUnique({ where: { publicReference: reference }, select: reconciliationSelection });
 }
 
-export async function monitorPromotionReconciliation(...args: any[]): Promise<any> {
-  return null;
+export async function monitorPromotionReconciliation(reference: string, actorUserId: string) {
+  return transitionPromotionReconciliation({ reference, actorUserId, target: "MONITORING" });
 }
 
-export async function resolvePromotionReconciliation(...args: any[]): Promise<any> {
-  return null;
+export async function resolvePromotionReconciliation(reference: string, input: { resolutionNotes?: unknown }, actorUserId: string) {
+  if (typeof input?.resolutionNotes !== "string" || input.resolutionNotes.trim().length < 10 || input.resolutionNotes.length > 1000) throw new Error("A resolution reason of 10 to 1000 characters is required.");
+  return transitionPromotionReconciliation({ reference, actorUserId, target: "RESOLVED", notes: safeOperationalText(input.resolutionNotes, 1000) });
+}
+
+async function transitionPromotionReconciliation(input: { reference: string; actorUserId: string; target: "MONITORING" | "RESOLVED"; notes?: string }) {
+  assertPromotionsProductionReady("RECONCILIATION");
+  if (!input.reference?.trim() || input.reference.length > 200 || !input.actorUserId?.trim()) throw new Error("Invalid reconciliation action.");
+  return db.$transaction(async (tx) => {
+    const current = await tx.promotionReconciliationCase.findUnique({ where: { publicReference: input.reference } });
+    if (!current || !["OPEN", "MONITORING"].includes(current.status)) throw new Error("Open reconciliation case not found.");
+    if (input.target === "MONITORING" && current.status === "MONITORING") {
+      return tx.promotionReconciliationCase.findUnique({ where: { id: current.id }, select: reconciliationSelection });
+    }
+    const changed = await tx.promotionReconciliationCase.updateMany({ where: { id: current.id, status: current.status }, data: input.target === "RESOLVED" ? { status: "RESOLVED", resolvedAt: new Date(), resolvedByUserId: input.actorUserId, resolutionNotes: input.notes } : { status: "MONITORING" } });
+    if (changed.count !== 1) throw new Error("Reconciliation case changed; reload before acting.");
+    await tx.adminActivityLog.create({ data: { actorUserId: input.actorUserId, action: "STATUS_CHANGE", entityType: "PromotionReconciliationCase", entityId: current.id, message: `Promotion reconciliation moved to ${input.target}.`, metadata: { fromStatus: current.status, toStatus: input.target } } });
+    return tx.promotionReconciliationCase.findUnique({ where: { id: current.id }, select: reconciliationSelection });
+  });
 }

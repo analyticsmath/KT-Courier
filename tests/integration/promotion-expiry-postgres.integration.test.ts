@@ -8,14 +8,17 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
+import { monitorPromotionReconciliation, resolvePromotionReconciliation } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
 let campaignId = "";
 let versionId = "";
+let adminId = "";
 let validated = false;
 beforeAll(async () => {
   requireDisposableStoreSettlementDatabase(); validated = true;
+  adminId = (await prisma.user.create({ data: { email: `${marker}@example.test`, role: "ADMIN", status: "ACTIVE" } })).id;
   const campaign = await prisma.promotionCampaign.create({ data: { publicReference: marker, internalCode: marker, ownerType: "PLATFORM", status: "ACTIVE", name: "Disposable expiry" } });
   campaignId = campaign.id;
   const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${marker}-version`, campaignId, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", startsAt: new Date("2020-01-01"), endsAt: new Date("2020-01-02") } });
@@ -83,4 +86,12 @@ it("detects a real reserved-budget mismatch without opening duplicate cases", as
   const result = await scanPromotionBudgetReconciliation({ limit: 500, apply: true });
   expect(result.mismatches).toBeGreaterThanOrEqual(1);
   expect(await prisma.promotionReconciliationCase.count({ where: { campaignVersionId: budget.campaignVersionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } })).toBe(1);
+});
+
+it("audits operator monitoring and resolution of an open case", async () => {
+  const item = await prisma.promotionReconciliationCase.findFirstOrThrow({ where: { campaignVersionId: versionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } });
+  expect((await monitorPromotionReconciliation(item.publicReference, adminId))?.status).toBe("MONITORING");
+  expect((await resolvePromotionReconciliation(item.publicReference, { resolutionNotes: "Reviewed the disposable source evidence" }, adminId))?.status).toBe("RESOLVED");
+  expect(await prisma.adminActivityLog.count({ where: { actorUserId: adminId, entityType: "PromotionReconciliationCase", entityId: item.id } })).toBe(2);
+  await expect(resolvePromotionReconciliation(item.publicReference, { resolutionNotes: "Repeated action should be refused" }, adminId)).rejects.toThrow();
 });

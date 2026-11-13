@@ -64,7 +64,8 @@ export class ReportJobService {
 
     const expiresAt = new Date(Date.now() + definition.retentionDays * 86_400_000);
     try {
-      const job = await db.reportJob.create({
+      const job = await db.$transaction(async (tx) => {
+        const created = await tx.reportJob.create({
         data: {
           publicReference: publicReference("REP"),
           definitionKey: definition.key,
@@ -82,9 +83,10 @@ export class ReportJobService {
           requestHash,
           expiresAt,
         },
+        });
+        await tx.reportAuditEvent.create({ data: { publicReference: publicReference("RPTAUD"), actorUserId: input.requesterUserId, eventType: "REPORT_JOB_REQUESTED", entityReference: created.publicReference, safeEvidence: { definitionKey: definition.key, outputFormat: normalized.outputFormat } } });
+        return created;
       });
-
-      await this.recordAudit(input.requesterUserId, "REPORT_JOB_REQUESTED", job.publicReference, { definitionKey: definition.key, outputFormat: normalized.outputFormat });
       if (input.executionMode === "SYNCHRONOUS_SUMMARY") return this.processJob(job.publicReference);
       return job;
     } catch (error: unknown) {
@@ -199,15 +201,16 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
     if (["COMPLETED", "EXPIRED"].includes(job.status)) throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
-    const cancelled = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "RUNNING", "FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "CANCELLED" } });
-    if (cancelled.count !== 1) {
-      const current = await db.reportJob.findUnique({ where: { id: job.id } });
-      if (current?.status === "CANCELLED") return current;
-      throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
-    }
-    const updated = await db.reportJob.findUnique({ where: { id: job.id } });
-    await this.recordAudit(requesterUserId, "REPORT_JOB_CANCELLED", job.publicReference, {});
-    return updated;
+    return db.$transaction(async (tx) => {
+      const cancelled = await tx.reportJob.updateMany({ where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "RUNNING", "FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "CANCELLED", claimToken: null, claimExpiresAt: null, nextAttemptAt: null } });
+      if (cancelled.count !== 1) {
+        const current = await tx.reportJob.findUnique({ where: { id: job.id } });
+        if (current?.status === "CANCELLED") return current;
+        throw new ReportingError("CANNOT_CANCEL_REPORT_JOB", 409, "This report job cannot be cancelled.");
+      }
+      await tx.reportAuditEvent.create({ data: { publicReference: publicReference("RPTAUD"), actorUserId: requesterUserId, eventType: "REPORT_JOB_CANCELLED", entityReference: job.publicReference, safeEvidence: {} } });
+      return tx.reportJob.findUnique({ where: { id: job.id } });
+    });
   }
 
   async retryJob(publicReferenceValue: string, requesterUserId: string, isAdmin = false) {
@@ -220,14 +223,6 @@ export class ReportJobService {
     return this.processJob(publicReferenceValue);
   }
 
-  private async recordAudit(actorUserId: string, eventType: string, entityReference: string, safeEvidence: Record<string, unknown>): Promise<void> {
-    await db.reportAuditEvent.create({
-      data: { publicReference: publicReference("RPTAUD"), actorUserId, eventType, entityReference, safeEvidence: safeEvidence as never },
-    }).catch(() => {
-      logApplicationEvent({ level: "ERROR", event: "report.audit_write_failed", message: "Required report audit evidence could not be written.", operation: "report_audit", actorReference: actorUserId, resourceReference: entityReference, outcome: "FAILURE", errorCategory: "REPORT_AUDIT_WRITE_FAILED" });
-      throw new ReportingError("REPORT_AUDIT_WRITE_FAILED", 503, "Report operation could not be recorded safely.");
-    });
-  }
 }
 
 export class ReportDownloadService {
@@ -287,9 +282,10 @@ export class ReportAdministrationService {
   }
 
   async listReconciliationCases() {
-    return db.reportReconciliationCase.findMany({
+    const cases = await db.reportReconciliationCase.findMany({
       orderBy: { createdAt: "desc" }, take: 100,
-      select: { id: true, publicReference: true, reason: true, status: true, safeSummary: true, openedAt: true },
+      select: { id: true, publicReference: true, reason: true, status: true, safeSummary: true, openedAt: true, safeEvidence: true },
     });
+    return cases.map(({ safeEvidence, ...item }) => ({ ...item, canCleanup: item.reason === "REPORT_STORAGE_FAILURE" && ["OPEN", "IN_PROGRESS"].includes(item.status) && !!safeEvidence && typeof safeEvidence === "object" && !Array.isArray(safeEvidence) && safeEvidence.source === "report_upload_cleanup" }));
   }
 }
