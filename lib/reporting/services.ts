@@ -7,6 +7,10 @@ import { authorizeReportDefinition, getApprovedReportDefinition, normalizeReport
 import { ReportingError } from "./contracts";
 import { formatCsvReport, formatJsonReport } from "./csv-sanitizer";
 import { generateReportData, type ReportQueryContext } from "./report-generator";
+import { resolveReportOwnerScope } from "./owner-scope";
+import { hasPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import type { UserRole } from "@/types/db";
 
 function stableJson(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -108,6 +112,15 @@ export class ReportJobService {
     let storedKey: string | null = null;
     try {
       const definition = getApprovedReportDefinition(job.definitionKey);
+      const requester = await db.user.findUnique({ where: { id: job.requesterUserId }, select: { role: true, status: true } });
+      if (!requester || requester.status !== "ACTIVE" || requester.role !== job.requesterRole) {
+        throw new ReportingError("REPORT_REQUESTER_INACTIVE", 403, "The report requester is no longer eligible.");
+      }
+      await authorizeReportDefinition({ id: job.requesterUserId, role: requester.role }, definition, "GENERATE");
+      const currentScope = await resolveReportOwnerScope({ id: job.requesterUserId, role: requester.role });
+      if (stableJson(currentScope) !== stableJson(job.ownerScope)) {
+        throw new ReportingError("REPORT_OWNER_SCOPE_MISMATCH", 403, "The report owner scope has changed.");
+      }
       const queryContext: ReportQueryContext = {
         definitionKey: job.definitionKey,
         requesterUserId: job.requesterUserId,
@@ -138,6 +151,11 @@ export class ReportJobService {
           checksum,
           expiresAt: job.expiresAt ?? new Date(Date.now() + definition.retentionDays * 86_400_000),
         } });
+        await tx.reportAuditEvent.create({ data: {
+          publicReference: publicReference("RPTAUD"), actorUserId: job.requesterUserId,
+          eventType: "REPORT_JOB_COMPLETED", entityReference: job.publicReference,
+          safeEvidence: { rowCount: data.rows.length },
+        } });
         return tx.reportJob.findUnique({ where: { id: job.id } });
       });
       if (!completed) {
@@ -148,7 +166,6 @@ export class ReportJobService {
       // Once the artifact and job have committed, a later telemetry failure must
       // not delete the file backing the committed report.
       storedKey = null;
-      await this.recordAudit(job.requesterUserId, "REPORT_JOB_COMPLETED", job.publicReference, { rowCount: data.rows.length });
       await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "SUCCESS" }).catch(() => {
         logApplicationEvent({ level: "ERROR", event: "report.telemetry_write_failed", message: "Report completion telemetry could not be recorded.", operation: "report_generation", resourceReference: job.publicReference, outcome: "FAILURE", errorCategory: "REPORT_TELEMETRY_WRITE_FAILED" });
       });
@@ -209,6 +226,19 @@ export class ReportDownloadService {
     const artifact = await db.reportExportArtifact.findUnique({ where: { id: artifactId } });
     if (!artifact) throw new ReportingError("ARTIFACT_NOT_FOUND", 404, "Export artifact not found.");
     if (new Date() >= artifact.expiresAt) throw new ReportingError("ARTIFACT_EXPIRED", 410, "Export artifact has expired.");
+    const job = await db.reportJob.findUnique({ where: { id: artifact.jobId } });
+    if (!job || job.status !== "COMPLETED") throw new ReportingError("ARTIFACT_NOT_AVAILABLE", 404, "Export artifact is unavailable.");
+    const definition = getApprovedReportDefinition(job.definitionKey);
+    const actor = { id: userId, role };
+    if (job.requesterUserId === userId) {
+      await authorizeReportDefinition(actor, definition, "DOWNLOAD");
+    } else {
+      if (role !== "ADMIN" && role !== "SUPER_ADMIN") throw new ReportingError("FORBIDDEN", 403, "You do not have access to this export artifact.");
+      await authorizeReportDefinition(actor, definition, "READ");
+      if (!await hasPermission({ userId, role: role as UserRole, permissionKey: PERMISSIONS.REPORT_ARTIFACT_READ })) {
+        throw new ReportingError("FORBIDDEN", 403, "You do not have access to this export artifact.");
+      }
+    }
 
     const content = await this.storage.open(artifact.storageKey);
     await db.$transaction([
