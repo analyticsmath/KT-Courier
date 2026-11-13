@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
+import { withSerializableRetry } from "@/lib/db/serializable-retry";
 
 export const MARKETING_CHANNELS = ["EMAIL", "SMS", "WEB_PUSH", "ANDROID_PUSH"] as const;
 export const COOKIE_SCHEMA_VERSION = "v1";
@@ -20,14 +22,26 @@ export async function getMarketingPreferences(userId: string) {
 }
 
 export async function setMarketingPreference(input: { userId: string; channel: MarketingChannel; optedIn: boolean; source: string; operationId: string; noticeVersion?: string }) {
+  if (!input.userId || !MARKETING_CHANNELS.includes(input.channel) || !input.operationId?.trim() || !input.source?.trim()) throw new PrivacyPreferenceError("INVALID_MARKETING_PREFERENCE");
   const auditReference = `NPA-${createHash("sha256").update(`${input.userId}:${input.channel}:${input.operationId}`).digest("hex").slice(0, 28)}`;
-  const replay = await (prisma as any).notificationAuditEvent.findUnique({ where: { publicReference: auditReference } });
-  if (replay) return (prisma as any).notificationConsentRecord.findFirst({ where: { userId: input.userId, channel: input.channel, purpose: "MARKETING" } });
-  const current = await (prisma as any).notificationConsentRecord.findFirst({ where: { userId: input.userId, channel: input.channel, purpose: "MARKETING" } });
-  const data = { status: input.optedIn ? "GRANTED" : "REVOKED", source: input.source, noticeVersion: input.noticeVersion ?? "MARKETING_PREFERENCE_V1", grantedAt: input.optedIn ? new Date() : null, revokedAt: input.optedIn ? null : new Date(), actorUserId: input.userId, requestEvidence: { operationId: input.operationId, source: input.source } };
-  const record = current ? await (prisma as any).notificationConsentRecord.update({ where: { id: current.id }, data }) : await (prisma as any).notificationConsentRecord.create({ data: { publicReference: `MKT-${createHash("sha256").update(`${input.userId}:${input.channel}`).digest("hex").slice(0, 28)}`, userId: input.userId, channel: input.channel, purpose: "MARKETING", ...data } });
-  await (prisma as any).notificationAuditEvent.create({ data: { publicReference: auditReference, actorUserId: input.userId, subjectUserId: input.userId, eventType: input.optedIn ? "MARKETING_OPT_IN" : "MARKETING_OPT_OUT", entityReference: record.publicReference, safeEvidence: { channel: input.channel, purpose: "MARKETING", operationId: input.operationId } } });
-  return record;
+  return withSerializableRetry(() => prisma.$transaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`marketing:${input.userId}:${input.channel}`}))::text`);
+    const replay = await tx.notificationAuditEvent.findUnique({ where: { publicReference: auditReference } });
+    const records = await tx.notificationConsentRecord.findMany({ where: { userId: input.userId, channel: input.channel, purpose: "MARKETING" }, take: 2 });
+    if (records.length > 1) throw new PrivacyPreferenceError("MARKETING_PREFERENCE_RECONCILIATION_REQUIRED");
+    const eventType = input.optedIn ? "MARKETING_OPT_IN" : "MARKETING_OPT_OUT";
+    if (replay) {
+      if (replay.eventType !== eventType || replay.subjectUserId !== input.userId || replay.entityReference !== records[0]?.publicReference) throw new PrivacyPreferenceError("MARKETING_PREFERENCE_OPERATION_CONFLICT");
+      const evidence = replay.safeEvidence;
+      if (evidence && typeof evidence === "object" && !Array.isArray(evidence) && ((typeof evidence.source === "string" && evidence.source !== input.source) || (typeof evidence.noticeVersion === "string" && evidence.noticeVersion !== (input.noticeVersion ?? "MARKETING_PREFERENCE_V1")))) throw new PrivacyPreferenceError("MARKETING_PREFERENCE_OPERATION_CONFLICT");
+      return records[0];
+    }
+    const now = new Date();
+    const data = { status: input.optedIn ? "GRANTED" as const : "REVOKED" as const, source: input.source, noticeVersion: input.noticeVersion ?? "MARKETING_PREFERENCE_V1", grantedAt: input.optedIn ? now : null, revokedAt: input.optedIn ? null : now, actorUserId: input.userId, requestEvidence: { operationId: input.operationId, source: input.source } };
+    const record = records[0] ? await tx.notificationConsentRecord.update({ where: { id: records[0].id }, data }) : await tx.notificationConsentRecord.create({ data: { publicReference: `MKT-${createHash("sha256").update(`${input.userId}:${input.channel}`).digest("hex").slice(0, 28)}`, userId: input.userId, channel: input.channel, purpose: "MARKETING", ...data } });
+    await tx.notificationAuditEvent.create({ data: { publicReference: auditReference, actorUserId: input.userId, subjectUserId: input.userId, eventType, entityReference: record.publicReference, safeEvidence: { channel: input.channel, purpose: "MARKETING", operationId: input.operationId, source: input.source, noticeVersion: data.noticeVersion } } });
+    return record;
+  }, { isolationLevel: "ReadCommitted" }));
 }
 
 export async function getCookiePreference(input: { userId?: string | null; anonymousSubjectHash?: string | null; schemaVersion?: string }) {

@@ -28,4 +28,15 @@ describe("Phase B marketing and cookie preference PostgreSQL production-service 
     expect(await (prisma as any).cookiePreferenceEvent.count({ where: { preference: { userId: userA } } })).toBe(2);
     expect(await (prisma as any).notificationConsentRecord.count({ where: { userId: userB } })).toBe(0);
   });
+
+  it("serializes concurrent opt-outs and rejects an operation reused for the opposite decision", async () => {
+    const input = { userId: userB, channel: "SMS" as const, optedIn: false, source: "POSTGRES_PROOF", operationId: `${marker}-CONCURRENT-OUT` };
+    const records = await Promise.all(Array.from({ length: 4 }, () => setMarketingPreference(input)));
+    expect(new Set(records.map(record => record?.id)).size).toBe(1);
+    expect(await prisma.notificationConsentRecord.count({ where: { userId: userB, channel: "SMS", purpose: "MARKETING" } })).toBe(1);
+    expect(await prisma.notificationAuditEvent.count({ where: { subjectUserId: userB, eventType: "MARKETING_OPT_OUT" } })).toBe(1);
+    await expect(setMarketingPreference({ ...input, optedIn: true })).rejects.toMatchObject({ code: "MARKETING_PREFERENCE_OPERATION_CONFLICT" });
+    await expect(setMarketingPreference({ ...input, source: "DIFFERENT" })).rejects.toMatchObject({ code: "MARKETING_PREFERENCE_OPERATION_CONFLICT" });
+    expect((await getMarketingPreferences(userB)).find(item => item.channel === "SMS")?.status).toBe("REVOKED");
+  });
 });
