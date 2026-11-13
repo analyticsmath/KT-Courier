@@ -102,6 +102,17 @@ export class ReportReconciliationService {
     await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
   }
 
+  async cleanupUncommittedObject(caseId: string): Promise<void> {
+    const item = await db.reportReconciliationCase.findUnique({ where: { id: caseId } });
+    if (!item || item.reason !== "REPORT_STORAGE_FAILURE" || !["OPEN", "IN_PROGRESS"].includes(item.status)) throw new Error("Open report storage case not found.");
+    const evidence = item.safeEvidence;
+    if (!evidence || typeof evidence !== "object" || Array.isArray(evidence) || evidence.source !== "report_upload_cleanup" || typeof evidence.storageKey !== "string" || evidence.storageProvider !== this.storage.provider) throw new Error("Report storage cleanup evidence is invalid or unavailable.");
+    const committed = await db.reportExportArtifact.findFirst({ where: { storageKey: evidence.storageKey }, select: { id: true } });
+    if (committed) throw new Error("Report object is referenced by an artifact and cannot be deleted by orphan cleanup.");
+    await this.storage.delete(evidence.storageKey);
+    await db.reportReconciliationCase.updateMany({ where: { id: item.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+  }
+
   private async openCase(
     reason: "REPORT_JOB_STUCK_RUNNING" | "REPORT_JOB_WITHOUT_ARTIFACT" | "REPORT_STORAGE_FAILURE" | "REPORT_ARTIFACT_WITHOUT_JOB",
     jobId: string | undefined,

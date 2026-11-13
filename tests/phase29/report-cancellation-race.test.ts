@@ -16,6 +16,7 @@ vi.mock("@/lib/db", () => {
     },
     reportExportArtifact: { create: vi.fn(async () => { state.artifacts++; return {}; }) },
     reportAuditEvent: { create: vi.fn(async () => ({})) },
+    reportReconciliationCase: { create: vi.fn(async () => ({})) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       const before = { ...state };
       try { return await fn(client); } catch (error) { Object.assign(state, before); throw error; }
@@ -50,6 +51,12 @@ it("fences an old attempt when a restarted worker owns the running job", async (
   expect(state.artifacts).toBe(0);
   expect(state.status).toBe("RUNNING");
   expect(storage.delete).toHaveBeenCalledWith("old-attempt-key");
+});
+
+it("records an orphan cleanup case if an abandoned upload cannot be deleted", async () => {
+  const storage = { provider: "LOCAL", createStorageKey: () => "old-attempt-key", store: vi.fn(async () => { state.claimToken = "new-attempt"; }), delete: vi.fn(async () => { throw new Error("storage unavailable"); }) };
+  await expect(new ReportJobService(storage as never).processJob(job.publicReference)).rejects.toMatchObject({ code: "REPORT_GENERATION_FAILED" });
+  expect(db.reportReconciliationCase.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ jobId: job.id, reason: "REPORT_STORAGE_FAILURE", safeEvidence: expect.objectContaining({ storageKey: "old-attempt-key" }) }) }));
 });
 
 it("publishes the artifact and completes an uncancelled report", async () => {

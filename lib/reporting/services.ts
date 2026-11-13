@@ -172,7 +172,18 @@ export class ReportJobService {
       });
       return completed;
     } catch {
-      if (storedKey) await this.storage.delete(storedKey).catch(() => undefined);
+      if (storedKey) {
+        try {
+          await this.storage.delete(storedKey);
+        } catch {
+          await db.reportReconciliationCase.create({ data: {
+            publicReference: `REP-REC-${crypto.randomBytes(16).toString("hex").toUpperCase()}`,
+            reason: "REPORT_STORAGE_FAILURE", status: "OPEN", jobId: job.id,
+            safeSummary: "An uncommitted report object requires storage cleanup.",
+            safeEvidence: { source: "report_upload_cleanup", storageKey: storedKey, storageProvider: this.storage.provider },
+          } });
+        }
+      }
       await db.reportJob.updateMany({
         where: { id: job.id, status: "RUNNING", claimToken },
         data: { status: "FAILED_RETRYABLE", claimToken: null, claimExpiresAt: null, errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date() },
