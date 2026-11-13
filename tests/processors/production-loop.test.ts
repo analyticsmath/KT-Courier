@@ -22,6 +22,7 @@ describe("production processor orchestration", () => {
       "process-ordinary-referral-awards",
       "end-expired-promotions",
       "expire-report-artifacts",
+      "expire-developer-api-credentials",
       "deliver-notifications",
       "reconcile-expired-dispatch",
       "dispatch-marketplace-orders",

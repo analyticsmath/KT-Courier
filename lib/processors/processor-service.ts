@@ -59,6 +59,18 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "expire-developer-api-credentials": async ({ mode, batchSize }) => {
+    const { resolveDeveloperApiProductionComposition } = await import("@/lib/developer-api/composition-root");
+    const processor = resolveDeveloperApiProductionComposition().services.processors;
+    const candidates = await processor.select("expire-credentials", batchSize);
+    let completed = 0, skipped = 0;
+    for (const candidate of candidates) {
+      if (mode === "DRY_RUN") { skipped++; continue; }
+      const result = await processor.apply("expire-credentials", candidate) as { expired: boolean };
+      if (result.expired) completed++; else skipped++;
+    }
+    return { itemsExamined: candidates.length, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: skipped, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Developer credential expiry: ${completed} expired, ${skipped} unchanged.` };
+  },
   "expire-report-artifacts": async ({ batchSize }) => {
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {

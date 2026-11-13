@@ -31,6 +31,7 @@ files.push("tests/integration/catalog-product-import.integration.test.ts");
 files.push("tests/integration/ordinary-referral-queue.integration.test.ts");
 files.push("tests/integration/report-cancellation-postgres.integration.test.ts");
 files.push("tests/integration/promotion-expiry-postgres.integration.test.ts");
+files.push("tests/integration/developer-credential-expiry-postgres.integration.test.ts");
 const selection = process.argv.slice(2);
 if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions", "--onboarding-regressions"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");
 const selectedFiles = selection[0] === "--verified-consumer-regression" ? ["tests/integration/verified-payment-consumer-concurrency.integration.test.ts"] : selection[0] === "--authority-regressions" ? ["tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts", "tests/integration/business-support-denial.integration.test.ts"] : selection[0] === "--onboarding-regressions" ? ["tests/integration/driver-registration-code.integration.test.ts"] : files;

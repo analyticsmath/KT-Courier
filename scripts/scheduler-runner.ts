@@ -5,6 +5,7 @@ import type { ImplementedProcessorName } from "@/lib/processors/processor-regist
 import { logApplicationEvent } from "@/lib/observability/logger";
 import { isActualProductionInstance, promotionsProductionReady } from "@/lib/promotions/production-lock";
 import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/reporting/production-readiness";
+import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "@/lib/developer-api/production-readiness";
 
 const SCHEDULER_ID = `scheduler:${os.hostname()}:${process.pid}`;
 
@@ -30,6 +31,7 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   ...(process.env.KT_ORDINARY_REFERRAL_WORKER_AUTHORIZED === "true" ? [{ name: "process-ordinary-referral-awards" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true" && promotionsProductionReady() ? [{ name: "end-expired-promotions" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true" && (!(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED) ? [{ name: "expire-report-artifacts" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true" && DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? [{ name: "expire-developer-api-credentials" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
 
   // Periodic reconciliation & accounting (every 15 to 30 minutes)

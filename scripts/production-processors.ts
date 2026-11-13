@@ -7,6 +7,7 @@ import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/s
 import { createProcessorCadenceTracker, createProductionCycleWorkCheck, hasEnabledOrdinaryReferralWork, hasEnabledPromotionExpiryWork, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
 import { isActualProductionInstance, promotionsProductionReady } from "../lib/promotions/production-lock";
 import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "../lib/reporting/production-readiness";
+import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "../lib/developer-api/production-readiness";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "../lib/processors/marketplace-store-order-readiness";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -72,6 +73,11 @@ async function main() {
       enabled: process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true",
       approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
       hasPending: async () => !!await prisma.reportExportArtifact.findFirst({ where: { storageDeletedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
+    });
+    if (name === "expire-developer-api-credentials") return hasEnabledPromotionExpiryWork({
+      enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true",
+      approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
+      hasPending: async () => !!await prisma.developerApiCredential.findFirst({ where: { status: { in: ["ACTIVE", "EXPIRING"] }, revokedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
     });
     if (name === "reconcile-expired-dispatch") {
       return !!await prisma.orderAssignment.findFirst({

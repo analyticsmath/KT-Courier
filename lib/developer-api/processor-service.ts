@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { randomUUID } from "node:crypto";
 import { assertDeveloperApiProductionReady } from "./production-readiness";
 import { DeveloperWebhookProjectionService, DeveloperWebhookSourceEventService } from "./webhook-projection";
 import { WebhookExecutionService, WebhookSubscriptionService } from "./services";
@@ -10,7 +11,15 @@ const MAX_PROCESSOR_LIMIT = 1000;
 
 export class DeveloperApiMaintenanceService {
   constructor(private readonly db: any) {}
-  async expireCredential(record: any) { return this.db.developerApiCredential.update({ where: { id: record.id }, data: { status: "EXPIRED", revokedAt: record.revokedAt ?? new Date() } }); }
+  async expireCredential(record: { id: string; publicReference: string }) {
+    const now = new Date();
+    return this.db.$transaction(async (tx: any) => {
+      const changed = await tx.developerApiCredential.updateMany({ where: { id: record.id, status: { in: ["ACTIVE", "EXPIRING"] }, expiresAt: { lte: now }, revokedAt: null }, data: { status: "EXPIRED", revokedAt: now } });
+      if (changed.count !== 1) return { expired: false };
+      await tx.developerApiAuditEvent.create({ data: { publicReference: `daudit_${randomUUID()}`, eventType: "DEVELOPER_CREDENTIAL_EXPIRED", entityReference: record.publicReference, safeEvidence: { source: "credential_expiry" } } });
+      return { expired: true };
+    });
+  }
   async expireIdempotency(record: any) { return this.db.developerApiIdempotencyRecord.update({ where: { id: record.id }, data: { status: "EXPIRED", responseBody: null } }); }
   async closeUsage(record: any) { return this.db.developerApiAuditEvent.create({ data: { publicReference: `daudit_usage_${record.id}`, eventType: "DEVELOPER_RATE_WINDOW_CLOSED", entityReference: record.id, safeEvidence: { windowStartedAt: record.windowStartedAt.toISOString(), count: record.count } } }); }
   async disableSubscription(record: any) { return this.db.developerWebhookSubscription.update({ where: { id: record.id }, data: { status: "DISABLED", pausedAt: new Date() } }); }
@@ -23,7 +32,7 @@ export class Phase28ProcessorService {
   async select(operation: Phase28ProcessorOperation, rawLimit: number): Promise<ProcessorCandidate[]> {
     const limit = this.limit(rawLimit); const now = new Date();
     if (operation === "preflight" || operation === "integration") return this.rows(await this.db.developerApplication.findMany({ where: { status: { in: ["ACTIVE", "APPROVED"] } }, orderBy: [{ updatedAt: "asc" }, { id: "asc" }], take: limit }), operation);
-    if (operation === "expire-credentials") return this.rows(await this.db.developerApiCredential.findMany({ where: { status: { in: ["ACTIVE", "EXPIRING"] }, expiresAt: { lte: now } }, orderBy: [{ expiresAt: "asc" }, { id: "asc" }], take: limit }), operation);
+    if (operation === "expire-credentials") return this.rows(await this.db.developerApiCredential.findMany({ where: { status: { in: ["ACTIVE", "EXPIRING"] }, revokedAt: null, expiresAt: { lte: now } }, orderBy: [{ expiresAt: "asc" }, { id: "asc" }], take: limit }), operation);
     if (operation === "expire-idempotency") return this.rows(await this.db.developerApiIdempotencyRecord.findMany({ where: { status: { in: ["RECORDED", "COMPLETED"] }, expiresAt: { lte: now } }, orderBy: [{ expiresAt: "asc" }, { id: "asc" }], take: limit }), operation);
     if (operation === "close-usage") return this.rows(await this.db.developerApiRateUsage.findMany({ where: { windowStartedAt: { lte: new Date(now.getTime() - 60_000) } }, orderBy: [{ windowStartedAt: "asc" }, { id: "asc" }], take: limit }), operation);
     if (operation === "verify") return this.rows(await this.db.developerWebhookVerification.findMany({ where: { status: "PENDING", expiresAt: { gt: now }, attempts: { lt: 5 } }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: limit }), operation);
