@@ -52,17 +52,25 @@ export async function getCookiePreference(input: { userId?: string | null; anony
 
 export async function setCookiePreference(input: { userId?: string | null; anonymousSubjectHash?: string | null; state: CookiePreferenceState; source: string; operationId: string; schemaVersion?: string }) {
   if ((!input.userId && !input.anonymousSubjectHash) || (input.userId && input.anonymousSubjectHash)) throw new PrivacyPreferenceError("COOKIE_PREFERENCE_NOT_AUTHORIZED");
+  if (!input.operationId?.trim() || !input.source?.trim() || !input.state || [input.state.functional, input.state.analytics, input.state.marketing].some(value => typeof value !== "boolean")) throw new PrivacyPreferenceError("COOKIE_PREFERENCE_INVALID");
   const schemaVersion = input.schemaVersion ?? COOKIE_SCHEMA_VERSION;
   if (schemaVersion !== COOKIE_SCHEMA_VERSION) throw new PrivacyPreferenceError("COOKIE_SCHEMA_VERSION_INVALID");
-  const replay = await (prisma as any).cookiePreferenceEvent.findUnique({ where: { operationId: input.operationId }, include: { preference: true } });
-  if (replay) return replay.preference;
-  const current = await getCookiePreference({ userId: input.userId, anonymousSubjectHash: input.anonymousSubjectHash, schemaVersion });
-  const data = { functional: input.state.functional, analytics: input.state.analytics, marketing: input.state.marketing, necessary: true, source: input.source };
-  const preference = current ? await (prisma as any).cookiePreference.update({ where: { id: current.id }, data }) : await (prisma as any).cookiePreference.create({ data: { publicReference: ref("CKP"), userId: input.userId ?? null, anonymousSubjectHash: input.anonymousSubjectHash ?? null, schemaVersion, ...data } });
-  try { await (prisma as any).cookiePreferenceEvent.create({ data: { cookiePreferenceId: preference.id, operationId: input.operationId, actorUserId: input.userId ?? null, source: input.source, schemaVersion, stateSnapshot: { necessary: true, ...input.state } } }); }
-  catch (error) { if ((error as { code?: string }).code !== "P2002") throw error; }
-  if (input.userId) await (prisma as any).notificationAuditEvent.create({ data: { publicReference: ref("NPA"), actorUserId: input.userId, subjectUserId: input.userId, eventType: "COOKIE_PREFERENCE_UPDATED", entityReference: preference.publicReference, safeEvidence: { schemaVersion, functional: input.state.functional, analytics: input.state.analytics, marketing: input.state.marketing } } });
-  return preference;
+  return withSerializableRetry(() => prisma.$transaction(async tx => {
+    const locks = [`cookie-operation:${input.operationId}`, `cookie-subject:${input.userId ? `user:${input.userId}` : `anonymous:${input.anonymousSubjectHash}`}:${schemaVersion}`].sort();
+    for (const lock of locks) await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${lock}))::text`);
+    const replay = await tx.cookiePreferenceEvent.findUnique({ where: { operationId: input.operationId }, include: { preference: true } });
+    if (replay) {
+      const snapshot = replay.stateSnapshot;
+      if (replay.preference.userId !== (input.userId ?? null) || replay.preference.anonymousSubjectHash !== (input.anonymousSubjectHash ?? null) || replay.source !== input.source || replay.schemaVersion !== schemaVersion || !snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) || snapshot.necessary !== true || snapshot.functional !== input.state.functional || snapshot.analytics !== input.state.analytics || snapshot.marketing !== input.state.marketing) throw new PrivacyPreferenceError("COOKIE_PREFERENCE_OPERATION_CONFLICT");
+      return replay.preference;
+    }
+    const current = await tx.cookiePreference.findFirst({ where: { schemaVersion, ...(input.userId ? { userId: input.userId } : { anonymousSubjectHash: input.anonymousSubjectHash }) } });
+    const data = { functional: input.state.functional, analytics: input.state.analytics, marketing: input.state.marketing, necessary: true, source: input.source };
+    const preference = current ? await tx.cookiePreference.update({ where: { id: current.id }, data }) : await tx.cookiePreference.create({ data: { publicReference: ref("CKP"), userId: input.userId ?? null, anonymousSubjectHash: input.anonymousSubjectHash ?? null, schemaVersion, ...data } });
+    await tx.cookiePreferenceEvent.create({ data: { cookiePreferenceId: preference.id, operationId: input.operationId, actorUserId: input.userId ?? null, source: input.source, schemaVersion, stateSnapshot: { necessary: true, ...input.state } } });
+    if (input.userId) await tx.notificationAuditEvent.create({ data: { publicReference: ref("NPA"), actorUserId: input.userId, subjectUserId: input.userId, eventType: "COOKIE_PREFERENCE_UPDATED", entityReference: preference.publicReference, safeEvidence: { schemaVersion, functional: input.state.functional, analytics: input.state.analytics, marketing: input.state.marketing } } });
+    return preference;
+  }, { isolationLevel: "ReadCommitted" }));
 }
 
 export function safeCookiePreference(preference: any) { return preference ? { schemaVersion: preference.schemaVersion, necessary: true, functional: preference.functional, analytics: preference.analytics, marketing: preference.marketing, updatedAt: preference.updatedAt } : { schemaVersion: COOKIE_SCHEMA_VERSION, necessary: true, functional: false, analytics: false, marketing: false, updatedAt: null }; }

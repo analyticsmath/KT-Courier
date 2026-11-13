@@ -39,4 +39,15 @@ describe("Phase B marketing and cookie preference PostgreSQL production-service 
     await expect(setMarketingPreference({ ...input, source: "DIFFERENT" })).rejects.toMatchObject({ code: "MARKETING_PREFERENCE_OPERATION_CONFLICT" });
     expect((await getMarketingPreferences(userB)).find(item => item.channel === "SMS")?.status).toBe("REVOKED");
   });
+
+  it("commits one cookie decision and audit across retries and rejects conflicting replays", async () => {
+    const input = { userId: userB, state: { functional: true, analytics: false, marketing: false }, source: "POSTGRES_PROOF", operationId: `${marker}-COOKIE-CONCURRENT` };
+    const results = await Promise.all(Array.from({ length: 4 }, () => setCookiePreference(input)));
+    expect(new Set(results.map(record => record.id)).size).toBe(1);
+    expect(await prisma.cookiePreferenceEvent.count({ where: { operationId: input.operationId } })).toBe(1);
+    expect(await prisma.notificationAuditEvent.count({ where: { subjectUserId: userB, eventType: "COOKIE_PREFERENCE_UPDATED" } })).toBe(1);
+    await expect(setCookiePreference({ ...input, state: { ...input.state, marketing: true } })).rejects.toMatchObject({ code: "COOKIE_PREFERENCE_OPERATION_CONFLICT" });
+    await expect(setCookiePreference({ ...input, userId: userA })).rejects.toMatchObject({ code: "COOKIE_PREFERENCE_OPERATION_CONFLICT" });
+    expect((await getCookiePreference({ userId: userB }))?.marketing).toBe(false);
+  });
 });
