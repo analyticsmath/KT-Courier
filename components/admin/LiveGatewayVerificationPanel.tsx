@@ -40,7 +40,25 @@ export function LiveGatewayVerificationPanel(props: { eligible: boolean; reason:
 
   useEffect(() => {
     const reference = new URLSearchParams(window.location.search).get("reference");
-    if (reference && /^ktverify-[a-f0-9]{32}$/.test(reference)) void check(reference);
+    if (!reference || !/^ktverify-[a-f0-9]{32}$/.test(reference)) return;
+    const controller = new AbortController();
+    // The callback is a network response, not a synchronous effect-state write.
+    void fetch(
+      "/api/admin/payment-providers/live-verification?reference=" + encodeURIComponent(reference) + "&refresh=1",
+      { cache: "no-store", credentials: "same-origin", signal: controller.signal },
+    ).then(async response => {
+      const data = await response.json() as ApiResponse;
+      if (!response.ok || !data.verification) throw new Error(data.error ?? "Could not verify payment.");
+      return data.verification;
+    }).then(result => {
+      setVerification(result);
+      setMessage(result.status === "SUCCEEDED"
+        ? "Success: Paystack confirms this exact R1.00 live transaction."
+        : "No verified payment success yet. Do not attempt another charge while the outcome is uncertain.");
+    }).catch(error => {
+      if (!controller.signal.aborted) setMessage(error instanceof Error ? error.message : "Payment verification is unavailable.");
+    });
+    return () => controller.abort();
   }, []);
 
   async function start() {
