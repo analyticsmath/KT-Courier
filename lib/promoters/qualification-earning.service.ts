@@ -61,7 +61,28 @@ export async function observePromoterQualificationEvidence(db: Db, input: Input)
     await append(tx, "PROMOTER_QUALIFICATION_PENDING", qualification.publicReference, `event:${input.operationId}`); return qualification;
   });
 }
-export async function confirmPromoterQualification(db: Db, input: Input) { ready(); command(input); return db.$transaction(async (tx: Db) => { const q = await tx.promoterQualification.findUnique({ where: { id: input.qualificationId }, include: { programVersion: true } }); if (!q || q.status !== "EVIDENCE_OBSERVED") throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Qualification evidence is not confirmable."); const now = new Date(); const row = await tx.promoterQualification.update({ where: { id: q.id }, data: { status: "QUALIFIED_HELD", qualifiedAt: now, holdUntil: new Date(now.getTime() + q.programVersion.qualificationHoldDays * 86_400_000) } }); await append(tx, "PROMOTER_QUALIFICATION_CONFIRMED", row.publicReference, input.operationId); return row; }); }
+export async function confirmPromoterQualification(db: Db, input: Input) {
+  ready(); command(input);
+  return db.$transaction(async (tx: Db) => {
+    const q = await tx.promoterQualification.findUnique({ where: { id: input.qualificationId }, include: { programVersion: true } });
+    if (!q) throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Qualification evidence is not confirmable.");
+    const previous = await tx.promoterEventIntent.findUnique({ where: { operationId: input.operationId } });
+    if (previous) {
+      if (previous.eventType !== "PROMOTER_QUALIFICATION_CONFIRMED" || previous.aggregateReference !== q.publicReference) throw new PromoterError("PROMOTER_INVALID_COMMAND", "Operation request conflict.");
+      return tx.promoterQualification.findUniqueOrThrow({ where: { id: q.id } });
+    }
+    if (q.status !== "EVIDENCE_OBSERVED") throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Qualification evidence is not confirmable.");
+    const now = new Date();
+    const changed = await tx.promoterQualification.updateMany({ where: { id: q.id, status: "EVIDENCE_OBSERVED" }, data: { status: "QUALIFIED_HELD", qualifiedAt: now, holdUntil: new Date(now.getTime() + q.programVersion.qualificationHoldDays * 86_400_000) } });
+    if (changed.count !== 1) {
+      const concurrent = await tx.promoterEventIntent.findUnique({ where: { operationId: input.operationId } });
+      if (concurrent?.eventType === "PROMOTER_QUALIFICATION_CONFIRMED" && concurrent.aggregateReference === q.publicReference) return tx.promoterQualification.findUniqueOrThrow({ where: { id: q.id } });
+      throw new PromoterError("PROMOTER_NOT_ELIGIBLE", "Qualification changed before confirmation.");
+    }
+    await append(tx, "PROMOTER_QUALIFICATION_CONFIRMED", q.publicReference, input.operationId);
+    return tx.promoterQualification.findUniqueOrThrow({ where: { id: q.id } });
+  });
+}
 export async function markPromoterQualificationReleasable(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.updateMany({ where: { id: input.qualificationId, status: "QUALIFIED_HELD", holdUntil: { lte: new Date() } }, data: { status: "RELEASABLE" } }); }
 export async function invalidatePromoterQualification(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.update({ where: { id: input.qualificationId }, data: { status: "INVALIDATED", invalidatedAt: new Date() } }); }
 export async function reversePromoterQualification(db: Db, input: Input) { ready(); command(input); return db.promoterQualification.update({ where: { id: input.qualificationId }, data: { status: "REVERSED", invalidatedAt: new Date() } }); }

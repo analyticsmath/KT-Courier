@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { register } from "tsx/esm/api";
+import { register as registerCommonJs } from "tsx/cjs/api";
 
 export function parseArguments(argv) {
   const args = new Set(argv); const limitEntry = [...args].find((arg) => arg.startsWith("--limit="));
@@ -12,16 +13,19 @@ export function parseArguments(argv) {
 const operationId = (processor, reference) => `${processor}:${createHash("sha256").update(reference).digest("hex").slice(0, 32)}`;
 
 /** Bounded selection is read-only. All state transitions remain in canonical TS services. */
-export async function runPromoterProcessor({ name, selectCandidates, process }) {
+export async function runPromoterProcessor({ name, selectCandidates, process: processCandidate }) {
   const options = parseArguments(process.argv.slice(2));
   const unregister = register({ onImport: () => {} });
+  const unregisterCommonJs = registerCommonJs();
+  let prisma;
   try {
-    const [{ prisma }, { resolvePromoterProductionComposition }] = await Promise.all([import("../lib/db/prisma.ts"), import("../lib/promoters/composition-root.ts")]);
+    const [database, { resolvePromoterProductionComposition }] = await Promise.all([import("../lib/db/prisma.ts"), import("../lib/promoters/composition-root.ts")]);
+    prisma = database.prisma;
     const root = resolvePromoterProductionComposition();
     const candidates = await selectCandidates(prisma, options.limit);
     if (!options.apply) { console.log(`${name}: selected ${candidates.length} bounded candidate(s); no state was changed.`); return; }
-    if (root.status === "LOCKED") { console.log(`${name}: selected ${candidates.length} candidate(s); production lock ${root.code} prevented mutation.`); return; }
-    for (const candidate of candidates) await process({ prisma, root, candidate, operationId: operationId(name, candidate.publicReference ?? candidate.id) });
+    if (root.status === "LOCKED") throw new Error(`${name}: production lock ${root.code} prevented mutation.`);
+    for (const candidate of candidates) await processCandidate({ prisma, root, candidate, operationId: operationId(name, candidate.publicReference ?? candidate.id) });
     console.log(`${name}: processed ${candidates.length} candidate(s) through canonical services.`);
-  } finally { unregister(); }
+  } finally { if (prisma) await prisma.$disconnect(); unregisterCommonJs(); unregister(); }
 }

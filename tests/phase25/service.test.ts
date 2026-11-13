@@ -23,7 +23,7 @@ const operationId = "phase25.operation.001";
 const txDb = (overrides: Record<string, unknown> = {}) => {
   const db: any = {
     $transaction: async (fn: (tx: any) => unknown) => fn(db),
-    promoterEventIntent: { create: vi.fn().mockResolvedValue({}) },
+    promoterEventIntent: { create: vi.fn().mockResolvedValue({}), findUnique: vi.fn().mockResolvedValue(null) },
     promoterAccount: { findUnique: vi.fn(), update: vi.fn().mockResolvedValue({ id: "account", publicReference: "PRA-ACCOUNT", status: "ACTIVE" }) },
     promoterProgram: { findUnique: vi.fn(), update: vi.fn() },
     promoterProgramVersion: { findUnique: vi.fn(), update: vi.fn() },
@@ -155,10 +155,24 @@ describe("Phase 25 attribution and qualification services", () => {
     expect(db.promoterQualification.create).toHaveBeenCalled();
   });
   it("does not release a qualification before hold expiry", async () => {
-    const db = txDb({ promoterQualification: { findUnique: vi.fn().mockResolvedValue({ id: "q", status: "EVIDENCE_OBSERVED", programVersion: { qualificationHoldDays: 7 } }), update: vi.fn().mockImplementation(async ({ data }: any) => ({ id: "q", status: data.status, holdUntil: data.holdUntil })) } });
+    const db = txDb({ promoterQualification: { findUnique: vi.fn().mockResolvedValue({ id: "q", publicReference: "PQ-q", status: "EVIDENCE_OBSERVED", programVersion: { qualificationHoldDays: 7 } }), updateMany: vi.fn().mockImplementation(async ({ data }: any) => { db.promoterQualification.findUniqueOrThrow.mockResolvedValue({ id: "q", status: data.status, holdUntil: data.holdUntil }); return { count: 1 }; }), findUniqueOrThrow: vi.fn() } });
     const result = await confirmPromoterQualification(db, { qualificationId: "q", operationId });
     expect(result.status).toBe("QUALIFIED_HELD");
     expect(result.holdUntil.getTime()).toBeGreaterThan(Date.now());
+  });
+  it("replays the same qualification confirmation and rejects an operation used for another qualification", async () => {
+    const qualification = { id: "q", publicReference: "PQ-q", status: "QUALIFIED_HELD" };
+    const db = txDb({ promoterQualification: { findUnique: vi.fn().mockResolvedValue(qualification), findUniqueOrThrow: vi.fn().mockResolvedValue(qualification), updateMany: vi.fn() } });
+    db.promoterEventIntent.findUnique.mockResolvedValue({ eventType: "PROMOTER_QUALIFICATION_CONFIRMED", aggregateReference: "PQ-q" });
+    expect(await confirmPromoterQualification(db, { qualificationId: "q", operationId })).toEqual(qualification);
+    expect(db.promoterQualification.updateMany).not.toHaveBeenCalled();
+    db.promoterEventIntent.findUnique.mockResolvedValue({ eventType: "PROMOTER_QUALIFICATION_CONFIRMED", aggregateReference: "PQ-other" });
+    await expect(confirmPromoterQualification(db, { qualificationId: "q", operationId })).rejects.toMatchObject({ code: "PROMOTER_INVALID_COMMAND" });
+  });
+  it("does not overwrite a concurrent qualification change", async () => {
+    const db = txDb({ promoterQualification: { findUnique: vi.fn().mockResolvedValue({ id: "q", publicReference: "PQ-q", status: "EVIDENCE_OBSERVED", programVersion: { qualificationHoldDays: 7 } }), updateMany: vi.fn().mockResolvedValue({ count: 0 }) } });
+    await expect(confirmPromoterQualification(db, { qualificationId: "q", operationId })).rejects.toMatchObject({ code: "PROMOTER_NOT_ELIGIBLE" });
+    expect(db.promoterEventIntent.create).not.toHaveBeenCalled();
   });
   it("does not release held earnings with unresolved fraud, compliance, or reconciliation", async () => {
     const base = { id: "e", status: "ACCRUED_HELD", holdUntil: new Date(0), qualification: { status: "RELEASABLE", attribution: { status: "ATTRIBUTED" } }, promoterAccount: { identityStatus: "VERIFIED", taxProfileStatus: "READY", payoutReadinessStatus: "READY", fraudCases: [] } };
