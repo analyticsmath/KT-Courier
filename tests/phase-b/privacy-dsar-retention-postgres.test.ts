@@ -37,6 +37,13 @@ describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
     expect(rejected).toMatchObject({ status: "rejected", reason: { code: "PRIVACY_REQUEST_DUPLICATE" } });
     expect(await (prisma as any).privacyRequest.count({ where: { requesterUserId: userB, requestType: "PORTABILITY" } })).toBe(1);
   });
+  it("replays concurrent submissions of the same privacy operation", async () => {
+    const input = { requesterUserId: userA, requestType: "CORRECTION" as const, scope: ["user_profile"], operationId: `${marker}-CONCURRENT-SAME` };
+    const [first, second] = await Promise.all([createPrivacyRequest(input), createPrivacyRequest(input)]);
+    expect(first.id).toBe(second.id);
+    expect(await (prisma as any).privacyRequest.count({ where: { operationId: input.operationId } })).toBe(1);
+    expect(await (prisma as any).privacyRequestEvent.count({ where: { operationId: `${input.operationId}:SUBMITTED` } })).toBe(1);
+  });
   it("enforces self ownership, duplicate control, transitions, controlled deletion plan and export scope", async () => {
     const access = await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` });
     expect((await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` })).id).toBe(access.id);
