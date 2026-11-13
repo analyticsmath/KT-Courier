@@ -3,6 +3,7 @@ import { assertPrivacyDisposableDatabase } from "./privacy-disposable-guard";
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
+import { registerFaultInjectionHook } from "@/lib/db";
 import { UserRole, UserStatus } from "@/types/db";
 import { buildPrivacyExport, createPrivacyRequest, getPrivacyRequest, processConsentWithdrawal, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
 import { createRetentionHold, releaseRetentionHold } from "@/lib/retention/hold-evaluator";
@@ -12,6 +13,30 @@ const marker = `DSAR${randomUUID().replaceAll("-", "").toUpperCase()}`; let user
 beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = await Promise.all(["a", "b", "admin"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin] = rows.map((row) => row.id); });
 
 describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
+  it("rolls back privacy request creation if its first audit event cannot be written", async () => {
+    const existing = await createPrivacyRequest({ requesterUserId: userA, requestType: "OBJECTION", operationId: `${marker}-ATOMIC-SEED` });
+    const targetOperation = `${marker}-ATOMIC-FAIL`;
+    await (prisma as any).privacyRequestEvent.create({ data: { privacyRequestId: existing.id, operationId: `${targetOperation}:SUBMITTED`, eventType: "SUBMITTED", safeReasonCode: "DISPOSABLE_TEST", actorUserId: userA } });
+    await expect(createPrivacyRequest({ requesterUserId: userB, requestType: "OBJECTION", operationId: targetOperation })).rejects.toThrow();
+    expect(await (prisma as any).privacyRequest.findUnique({ where: { operationId: targetOperation } })).toBeNull();
+  });
+  it("rolls back a privacy status change and its event together on transaction failure", async () => {
+    const request = await createPrivacyRequest({ requesterUserId: userB, requestType: "CORRECTION", operationId: `${marker}-TRANSITION-SEED` });
+    const operationId = `${marker}-TRANSITION-FAIL`;
+    const unregister = registerFaultInjectionHook("BEFORE_TRANSACTION_RETURN", (_checkpoint, context) => { if (context?.operationName === "privacy_request_transition") throw new Error("DISPOSABLE_PRIVACY_ROLLBACK"); });
+    try {
+      await expect(transitionPrivacyRequest({ actorUserId: admin, publicReference: String(request.publicReference), nextStatus: "UNDER_REVIEW", reasonCode: "REVIEW", operationId })).rejects.toThrow("DISPOSABLE_PRIVACY_ROLLBACK");
+    } finally { unregister(); }
+    expect((await (prisma as any).privacyRequest.findUnique({ where: { id: request.id } })).status).toBe("SUBMITTED");
+    expect(await (prisma as any).privacyRequestEvent.findUnique({ where: { operationId } })).toBeNull();
+  });
+  it("serializes concurrent equivalent privacy submissions", async () => {
+    const results = await Promise.allSettled(["A", "B"].map(suffix => createPrivacyRequest({ requesterUserId: userB, requestType: "PORTABILITY", operationId: `${marker}-CONCURRENT-${suffix}` })));
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find(result => result.status === "rejected");
+    expect(rejected).toMatchObject({ status: "rejected", reason: { code: "PRIVACY_REQUEST_DUPLICATE" } });
+    expect(await (prisma as any).privacyRequest.count({ where: { requesterUserId: userB, requestType: "PORTABILITY" } })).toBe(1);
+  });
   it("enforces self ownership, duplicate control, transitions, controlled deletion plan and export scope", async () => {
     const access = await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` });
     expect((await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` })).id).toBe(access.id);
