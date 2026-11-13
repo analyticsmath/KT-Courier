@@ -102,10 +102,13 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     const { expirePromotionCampaigns } = await import("@/lib/promotions/promotion-expiry-batch");
     const result = await expirePromotionCampaigns({ limit: batchSize, apply: mode === "APPLY" });
     if (result.failed) throw new Error(`Promotion expiry failed for ${result.failed} candidate(s); retry is required.`);
+    const { expirePromotionReservations } = await import("@/lib/promotions/promotion-reservation-expiry-batch");
+    const reservations = await expirePromotionReservations({ limit: batchSize, apply: mode === "APPLY" });
+    if (reservations.failed) throw new Error(`Promotion reservation expiry failed for ${reservations.failed} candidate(s); retry is required.`);
     return {
-      itemsExamined: result.examined, itemsClaimed: result.ended, itemsCompleted: result.ended,
-      itemsSkipped: result.skipped, itemsRetried: result.failed, itemsReconciled: 0,
-      safeSummary: `Promotion expiry: ${result.examined} examined, ${result.ended} ended, ${result.skipped} skipped, ${result.failed} failed.`,
+      itemsExamined: result.examined + reservations.examined, itemsClaimed: result.ended + reservations.released, itemsCompleted: result.ended + reservations.released,
+      itemsSkipped: result.skipped + reservations.skipped, itemsRetried: 0, itemsReconciled: 0,
+      safeSummary: `Promotion expiry: ${result.ended} campaigns ended, ${reservations.released} reservations released.`,
     };
   },
   "reconcile-customer-parcel-loyalty": async ({ mode, batchSize }) => {

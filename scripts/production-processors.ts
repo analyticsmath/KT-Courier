@@ -67,7 +67,11 @@ async function main() {
     if (name === "end-expired-promotions") return hasEnabledPromotionExpiryWork({
       enabled: process.env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true",
       approved: promotionsProductionReady(),
-      hasPending: async () => !!await prisma.promotionCampaignVersion.findFirst({ where: { status: { in: ["ACTIVE", "PAUSED"] }, endsAt: { lte: new Date() } }, select: { id: true } }),
+      hasPending: async () => {
+        if (await prisma.promotionCampaignVersion.findFirst({ where: { status: { in: ["ACTIVE", "PAUSED"] }, endsAt: { lte: new Date() } }, select: { id: true } })) return true;
+        const { expirePromotionReservations } = await import("../lib/promotions/promotion-reservation-expiry-batch");
+        return (await expirePromotionReservations({ limit: 1 })).examined > 0;
+      },
     });
     if (name === "expire-report-artifacts") return hasEnabledPromotionExpiryWork({
       enabled: process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true",
