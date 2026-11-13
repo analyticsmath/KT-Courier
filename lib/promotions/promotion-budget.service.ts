@@ -50,13 +50,19 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
     dailyLimitAmount: budgetRecord.dailyLimit ? new Decimal(budgetRecord.dailyLimit) : undefined,
   };
 
-  if (input.movementType === 'RESERVE' || input.movementType === 'COMMIT' || input.movementType === 'RELEASE' || input.movementType === 'REVERSE') {
-    validateBudgetMovement(budgetState, input.amount, input.movementType);
+  if (input.movementType === 'RESERVE' || input.movementType === 'COMMIT' || input.movementType === 'RELEASE' || input.movementType === 'REVERSE' || input.movementType === 'EXPIRE') {
+    validateBudgetMovement(budgetState, input.amount, input.movementType === 'EXPIRE' ? 'RELEASE' : input.movementType);
   }
+  if ((input.movementType === 'RELEASE' || input.movementType === 'EXPIRE') && budgetState.reservedAmount.minus(budgetState.releasedAmount).lessThan(input.amount)) throw new Error('Promotion release exceeds outstanding reserved budget.');
+  if (input.movementType === 'REVERSE' && budgetState.committedAmount.minus(budgetState.reversedAmount).lessThan(input.amount)) throw new Error('Promotion reversal exceeds remaining commitment.');
 
   // Calculate new amounts
   if (input.movementType === 'RESERVE') budgetState.reservedAmount = budgetState.reservedAmount.plus(input.amount);
-  if (input.movementType === 'COMMIT') budgetState.committedAmount = budgetState.committedAmount.plus(input.amount);
+  if (input.movementType === 'COMMIT') {
+    if (budgetState.reservedAmount.minus(budgetState.releasedAmount).lessThan(input.amount)) throw new Error('Promotion commitment exceeds outstanding reserved budget.');
+    budgetState.reservedAmount = budgetState.reservedAmount.minus(input.amount);
+    budgetState.committedAmount = budgetState.committedAmount.plus(input.amount);
+  }
   if (input.movementType === 'RELEASE') budgetState.releasedAmount = budgetState.releasedAmount.plus(input.amount);
   if (input.movementType === 'REVERSE') budgetState.reversedAmount = budgetState.reversedAmount.plus(input.amount);
   if (input.movementType === 'EXPIRE') budgetState.releasedAmount = budgetState.releasedAmount.plus(input.amount); // expire reserve = release

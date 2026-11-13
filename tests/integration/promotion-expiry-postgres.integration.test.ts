@@ -3,6 +3,8 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { expirePromotionCampaigns } from "@/lib/promotions/promotion-expiry-batch";
 import { releaseCheckoutPromotions } from "@/lib/promotions/promotion-release.service";
+import { recordBudgetMovement } from "@/lib/promotions/promotion-budget.service";
+import { Decimal } from "@prisma/client/runtime/library";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -18,11 +20,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   if (!validated) return;
-  await prisma.promotionEventIntent.deleteMany({ where: { dedupeKey: `promotion-expiry:${versionId}` } });
-  await prisma.promotionStatusHistory.deleteMany({ where: { campaignVersionId: versionId } });
-  await prisma.promotionReservation.deleteMany({ where: { campaignVersionId: versionId } });
-  if (versionId) await prisma.promotionCampaignVersion.delete({ where: { id: versionId } });
-  if (campaignId) await prisma.promotionCampaign.delete({ where: { id: campaignId } });
+  // The guarded disposable database is removed by the enclosing runner.
   await prisma.$disconnect();
 });
 
@@ -44,4 +42,15 @@ it("ends one due version exactly once under competing workers", async () => {
   expect((await prisma.promotionCampaign.findUniqueOrThrow({ where: { id: campaignId } })).status).toBe("ENDED");
   expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: versionId, toStatus: "ENDED" } })).toBe(1);
   expect(await prisma.promotionEventIntent.count({ where: { dedupeKey: `promotion-expiry:${versionId}` } })).toBe(1);
+});
+
+it("conserves available budget when a reserved discount commits", async () => {
+  const budget = await prisma.promotionBudget.create({ data: { campaignVersionId: versionId, approvedAmount: 100, status: "ACTIVE" } });
+  await prisma.$transaction((tx) => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: versionId, movementType: "RESERVE", amount: new Decimal(30), operationId: `${marker}-reserve`, requestHash: marker }, tx));
+  const result = await prisma.$transaction((tx) => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: versionId, movementType: "COMMIT", amount: new Decimal(30), operationId: `${marker}-commit`, requestHash: marker }, tx));
+  expect(result.balanceAfter.toFixed(2)).toBe("70.00");
+  const current = await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } });
+  expect(current.reservedAmount.toFixed(2)).toBe("0.00");
+  expect(current.committedAmount.toFixed(2)).toBe("30.00");
+  expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id } })).toBe(2);
 });
