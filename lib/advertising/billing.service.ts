@@ -3,6 +3,7 @@ import { Prisma, AdvertisingClickChargeStatus, AdvertisingFundingStatus, Adverti
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { AdvertisingFundingService } from "./funding.service";
 import { assertAdvertisingProductionReady } from "./production-lock";
+import { createHash } from "node:crypto";
 
 export class AdvertisingBillingError extends Error {
   constructor(readonly code: string, message: string) {
@@ -56,6 +57,10 @@ export class AdvertisingBillingService {
       // 2. Verify validity status is VALID
       if (event.validityStatus !== "VALID") {
         throw new AdvertisingBillingError("INVALID_MEASUREMENT_EVENT", "Only valid click events can be billed.");
+      }
+      const evidence = event.safeEvidence;
+      if (!evidence || typeof evidence !== "object" || Array.isArray(evidence) || evidence.classification !== "VALID_BILLABLE") {
+        throw new AdvertisingBillingError("INVALID_MEASUREMENT_EVENT", "Click lacks billable classification evidence.");
       }
 
       // Check if already charged
@@ -148,7 +153,7 @@ export class AdvertisingBillingService {
         idempotencyKey: `AD-CHG-JRN-${input.operationId}`,
         type: "ACCOUNT_TRANSFER",
         currency: "ZAR",
-        sourceReference: `AD-CLICK-${event.publicReference}`,
+        sourceReference: `AD-CLICK:${createHash("sha256").update(event.publicReference).digest("hex")}`,
         memo: `Advertising click charge for campaign: ${version.campaign.name}`,
         actor: { kind: "SYSTEM" },
         entries: [
@@ -299,7 +304,7 @@ export class AdvertisingBillingService {
         idempotencyKey: `AD-REV-JRN-${input.operationId}`,
         type: "ACCOUNT_TRANSFER",
         currency: "ZAR",
-        sourceReference: `AD-REV-${charge.publicReference}`,
+        sourceReference: `AD-REV:${createHash("sha256").update(charge.publicReference).digest("hex")}`,
         memo: `Advertising click reversal: ${input.reason}`,
         actor: { kind: "USER", userId: input.actorUserId },
         entries: [

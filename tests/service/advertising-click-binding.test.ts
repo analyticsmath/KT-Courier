@@ -14,7 +14,8 @@ it("records foreign-key IDs from the bound serve decision", async () => {
   const service = new AdvertisingClickService(tx as never);
   vi.spyOn(service, "classifyClick").mockResolvedValue({ validity: "VALID", classification: "VALID_NON_BILLABLE" });
   expect(await service.processClick(payload, "session")).toEqual({ destination: "/shop?sort=new" });
-  expect(track).toHaveBeenCalledWith(expect.objectContaining({ serveDecisionId: "internal-serve", placementDefinitionId: "internal-placement", campaignVersionId: "version" }));
+  expect(track).toHaveBeenCalledWith(expect.objectContaining({ serveDecisionId: "internal-serve", placementDefinitionId: "internal-placement", campaignVersionId: "version", validityStatus: "VALID", safeEvidence: { classification: "VALID_NON_BILLABLE" } }));
+  expect(tx.advertisingMeasurementEvent.update).not.toHaveBeenCalled();
 });
 it("rejects a token bound to a different placement or session before recording", async () => {
   track.mockReset();

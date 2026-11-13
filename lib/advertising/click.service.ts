@@ -69,16 +69,10 @@ export class AdvertisingClickService {
       eventType: "CLICK",
       sessionFingerprint,
       userAgentClass,
+      validityStatus: classificationResult.validity,
+      safeEvidence: { classification: classificationResult.classification, ...(classificationResult.reason ? { reason: classificationResult.reason } : {}) },
       operationId: `OP-ME-${payload.serveDecisionId}-${Date.now()}`,
       requestHash: `HASH-ME-${payload.serveDecisionId}-${Date.now()}`
-    });
-
-    // Update the validity status based on classification
-    await this.db.advertisingMeasurementEvent.update({
-      where: { id: measurementEvent.id },
-      data: {
-        validityStatus: classificationResult.validity
-      }
     });
 
     // 4. Invoke canonical click application service (billing)

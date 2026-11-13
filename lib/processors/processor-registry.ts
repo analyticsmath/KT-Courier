@@ -360,11 +360,11 @@ export const PROCESSOR_REGISTRY = {
     maxExecutionDurationSeconds: 300,
     retryPolicy: "RETRY_UP_TO_MAX",
     idempotencyStrategy: "CLICK_BATCH_LOG_HASH",
-    dryRunSupported: false,
+    dryRunSupported: true,
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.ADVERTISING_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Advertising",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "deliver-notifications": {
     name: "deliver-notifications",

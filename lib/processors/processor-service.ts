@@ -59,6 +59,12 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-valid-click-charges": async ({ mode, batchSize }) => {
+    const { runAdvertisingClickBatch } = await import("@/lib/advertising/click-charge-batch");
+    const result = await runAdvertisingClickBatch({ limit: batchSize, apply: mode === "APPLY" });
+    if (result.failed) throw new Error(`Advertising click processing failed for ${result.failed} event(s).`);
+    return { itemsExamined: result.examined, itemsClaimed: result.charged + result.reconciled, itemsCompleted: result.charged, itemsSkipped: mode === "DRY_RUN" ? result.examined : 0, itemsRetried: 0, itemsReconciled: result.reconciled, safeSummary: `Advertising clicks: ${result.charged} charged, ${result.reconciled} require review.` };
+  },
   "process-subscription-renewals": async ({ batchSize }) => {
     const { runSubscriptionRenewalBatch } = await import("@/lib/subscriptions/subscription-renewal-batch");
     const result = await runSubscriptionRenewalBatch({ limit: batchSize });

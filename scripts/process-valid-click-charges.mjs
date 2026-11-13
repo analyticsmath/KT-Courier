@@ -1,72 +1,22 @@
-#!/usr/bin/env node
-// @ts-check
-
-import { PrismaClient } from "@prisma/client";
-import { resolveAdvertisingProductionComposition } from "../lib/advertising/composition-root.js";
-
-const SCRIPT_NAME = "process-valid-click-charges";
-const prisma = new PrismaClient();
-
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let mode = "dry-run";
-  let limit = Infinity;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--apply") mode = "apply";
-    if (args[i] === "--dry-run") mode = "dry-run";
-    if (args[i] === "--limit" && args[i + 1]) {
-      limit = parseInt(args[i + 1], 10);
-    } else if (args[i].startsWith("--limit=")) {
-      limit = parseInt(args[i].split("=")[1], 10);
-    }
-  }
-  return { mode, limit };
+import { register } from "tsx/esm/api";
+import { register as registerCommonJs } from "tsx/cjs/api";
+const args = process.argv.slice(2);
+let apply = false, modeSet = false, limit = 50, limitSet = false;
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--apply" || args[i] === "--dry-run") {
+    if (modeSet) throw new Error("Specify one mode.");
+    apply = args[i] === "--apply"; modeSet = true;
+  } else if (args[i] === "--limit" && !limitSet && i + 1 < args.length) { limit = Number(args[++i]); limitSet = true; }
+  else throw new Error("Usage: node scripts/process-valid-click-charges.mjs [--dry-run|--apply] [--limit N]");
 }
-
-async function main() {
-  const { mode, limit } = parseArgs();
-  console.log(`[${SCRIPT_NAME}] mode=${mode} limit=${limit}`);
-
-  if (mode === "apply") {
-    console.log(`[${SCRIPT_NAME}] Initializing production composition root...`);
-    const comp = resolveAdvertisingProductionComposition();
-    if (comp.status === "LOCKED") {
-      console.error(`❌ Processor Composition Locked: ${comp.code} - ${comp.message}`);
-      process.exit(1);
-    }
-  }
-
-  // Scan candidates: VALID clicks that have not yet been charged
-  const unchargedClicks = await prisma.advertisingMeasurementEvent.findMany({
-    where: {
-      eventType: "CLICK",
-      validityStatus: "VALID",
-      clickCharge: null
-    },
-    take: limit === Infinity ? undefined : limit
-  });
-
-  console.log(`[${SCRIPT_NAME}] Found ${unchargedClicks.length} uncharged valid clicks.`);
-
-  if (mode === "dry-run") {
-    console.log(`[${SCRIPT_NAME}] DRY RUN — no mutations applied`);
-    for (const click of unchargedClicks) {
-      console.log(`[${SCRIPT_NAME}]   Would bill click event: ${click.publicReference}`);
-    }
-    console.log(`[${SCRIPT_NAME}] Dry run complete.`);
-    return;
-  }
-
-  console.log(`[${SCRIPT_NAME}] APPLY MODE — billing valid clicks`);
-  // If we ever get past the composition lock, we would mutate using the canonical service:
-  // const billingService = comp.services.billing;
-  // await billingService.chargeClick({ measurementEventId: click.id, ... });
-  console.log(`[${SCRIPT_NAME}] Completed processing click charges.`);
-}
-
-main().catch((err) => {
-  console.error(`[${SCRIPT_NAME}] Fatal error:`, err.message || err);
-  process.exitCode = 1;
-}).finally(async () => {
-  await prisma.$disconnect();
-});
+if (!Number.isInteger(limit) || limit < 1 || limit > 200) throw new Error("Limit must be between 1 and 200.");
+const unregister = register(); const unregisterCommonJs = registerCommonJs();
+let prisma;
+try {
+  const [database, batch] = await Promise.all([import("../lib/db/prisma.ts"), import("../lib/advertising/click-charge-batch.ts")]);
+  prisma = database.prisma;
+  const result = await batch.runAdvertisingClickBatch({ limit, apply });
+  console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", ...result }));
+  if (result.failed) process.exitCode = 1;
+} catch { console.error("Advertising click processing failed or is not authorized."); process.exitCode = 1; }
+finally { if (prisma) await prisma.$disconnect(); unregisterCommonJs(); unregister(); }

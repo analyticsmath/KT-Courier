@@ -59,6 +59,7 @@ vi.mock("@/lib/db/prisma", () => {
     },
     advertisingFundingMovement: {
       findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
       create: vi.fn(),
     },
     advertisingMeasurementEvent: {
@@ -330,6 +331,7 @@ describe("Phase 24: Advertising Service Tests (10 Service Flows)", () => {
       id: "event-1",
       eventType: "CLICK",
       validityStatus: "VALID",
+      safeEvidence: { classification: "VALID_BILLABLE" },
       publicReference: "REF-1",
       campaignVersionId: "ver-1"
     });
@@ -384,9 +386,16 @@ describe("Phase 24: Advertising Service Tests (10 Service Flows)", () => {
   });
 
   it("rejects a billing operation already associated with a different click", async () => {
-    m(prisma.advertisingMeasurementEvent.findUnique).mockResolvedValueOnce({ id: "event-other", eventType: "CLICK", validityStatus: "VALID", publicReference: "REF-other", campaignVersionId: "ver-1" });
+    m(prisma.advertisingMeasurementEvent.findUnique).mockResolvedValueOnce({ id: "event-other", eventType: "CLICK", validityStatus: "VALID", safeEvidence: { classification: "VALID_BILLABLE" }, publicReference: "REF-other", campaignVersionId: "ver-1" });
     m(prisma.advertisingClickCharge.findFirst).mockReset().mockResolvedValueOnce(null).mockResolvedValueOnce({ measurementEventId: "event-original", requestHash: "same-hash" });
     await expect(billingService.chargeClick({ measurementEventId: "event-other", sessionFingerprint: "session", operationId: "op-reused", requestHash: "same-hash" })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
+  it("does not bill valid clicks lacking explicit billable classification", async () => {
+    for (const safeEvidence of [null, { classification: "VALID_NON_BILLABLE" }]) {
+      m(prisma.advertisingMeasurementEvent.findUnique).mockResolvedValueOnce({ id: "event", eventType: "CLICK", validityStatus: "VALID", safeEvidence, campaignVersionId: "ver-1" });
+      await expect(billingService.chargeClick({ measurementEventId: "event", sessionFingerprint: "session", operationId: "op-nonbillable", requestHash: "hash" })).rejects.toMatchObject({ code: "INVALID_MEASUREMENT_EVENT" });
+    }
   });
 
   // 9. BillingService.reverseClick

@@ -3,6 +3,7 @@ import { Prisma, AdvertisingCampaignStatus, AdvertisingFundingStatus, Advertisin
 import { ensureWalletForOwner, ensureLedgerAccount } from "@/lib/services/wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { assertAdvertisingProductionReady } from "./production-lock";
+import { createHash } from "node:crypto";
 
 export class AdvertisingFundingError extends Error {
   constructor(readonly code: string, message: string) {
@@ -35,14 +36,14 @@ export class AdvertisingFundingService {
     const held = await ensureLedgerAccount({
       walletId: wallet.id,
       code: "PLATFORM-ADVERTISING-FUNDS-HELD-ZAR",
-      purpose: "HELD",
+      purpose: "ADVERTISING_FUNDS_HELD",
       category: "LIABILITY",
       currency: "ZAR"
     });
     const revenue = await ensureLedgerAccount({
       walletId: wallet.id,
       code: "PLATFORM-ADVERTISING-REVENUE-ZAR",
-      purpose: "PLATFORM_REVENUE",
+      purpose: "ADVERTISING_REVENUE",
       category: "REVENUE",
       currency: "ZAR"
     });
@@ -104,6 +105,14 @@ export class AdvertisingFundingService {
       await tx.$queryRaw`SELECT id FROM "AdvertisingCampaign" WHERE id = ${version.campaignId} FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM "AdvertisingCampaignVersion" WHERE id = ${version.id} FOR UPDATE`;
 
+      const existingAllocation = await tx.advertisingFundingAllocation.findFirst({ where: { operationId: input.operationId } });
+      if (existingAllocation) {
+        if (existingAllocation.requestHash !== input.requestHash || existingAllocation.campaignVersionId !== input.campaignVersionId || existingAllocation.storeId !== input.storeId || !existingAllocation.originalAmount.equals(new Prisma.Decimal(input.amount))) {
+          throw new AdvertisingFundingError("IDEMPOTENCY_CONFLICT", "Conflict on funding allocation request.");
+        }
+        return existingAllocation;
+      }
+
       // Campaign must be APPROVED or FUNDING_REQUIRED or DRAFT
       if (
         version.campaign.status !== AdvertisingCampaignStatus.APPROVED &&
@@ -145,17 +154,6 @@ export class AdvertisingFundingService {
         throw new AdvertisingFundingError("INSUFFICIENT_FUNDS", "Store payable balance is insufficient for campaign funding.");
       }
 
-      // Check idempotency replay
-      const existingAllocation = await tx.advertisingFundingAllocation.findFirst({
-        where: { operationId: input.operationId }
-      });
-      if (existingAllocation) {
-        if (existingAllocation.requestHash !== input.requestHash) {
-          throw new AdvertisingFundingError("IDEMPOTENCY_CONFLICT", "Conflict on funding allocation request.");
-        }
-        return existingAllocation;
-      }
-
       // 3. Post Ledger Journal
       // DEBIT store liability: STORE_EARNINGS_PAYABLE
       // CREDIT platform held funds: PLATFORM_ADVERTISING_FUNDS_HELD_ZAR
@@ -163,7 +161,7 @@ export class AdvertisingFundingService {
         idempotencyKey: `AD-FUND-JRN-${input.operationId}`,
         type: "ACCOUNT_TRANSFER",
         currency: "ZAR",
-        sourceReference: `AD-FUND-ALLOC-${input.operationId}`,
+        sourceReference: `AD-FUND:${createHash("sha256").update(input.operationId).digest("hex")}`,
         memo: `Advertising Campaign Funding: ${version.campaign.name} (Ref: ${version.publicReference})`,
         actor: { kind: "USER", userId: input.actorUserId },
         entries: [
@@ -251,6 +249,12 @@ export class AdvertisingFundingService {
       await tx.$queryRaw`SELECT id FROM "AdvertisingCampaign" WHERE id = ${version.campaignId} FOR UPDATE`;
       await tx.$queryRaw`SELECT id FROM "AdvertisingCampaignVersion" WHERE id = ${version.id} FOR UPDATE`;
 
+      const priorMovements = await tx.advertisingFundingMovement.findMany({ where: { operationId: input.operationId, movementType: AdvertisingFundingMovementType.UNUSED_RETURN }, include: { fundingAllocation: { select: { campaignVersionId: true, storeId: true } } } });
+      if (priorMovements.length) {
+        if (priorMovements.some(movement => movement.requestHash !== input.requestHash || movement.fundingAllocation.campaignVersionId !== version.id || movement.fundingAllocation.storeId !== input.storeId)) throw new AdvertisingFundingError("IDEMPOTENCY_CONFLICT", "Conflict on funding return request.");
+        return { returnedAmount: priorMovements.reduce((sum, movement) => sum.add(movement.amount), new Prisma.Decimal(0)).toFixed(2) };
+      }
+
       // Campaign must be ENDED, REJECTED, or SUSPENDED
       const allowed: readonly AdvertisingCampaignStatus[] = [
         AdvertisingCampaignStatus.ENDED,
@@ -268,10 +272,12 @@ export class AdvertisingFundingService {
       if (pendingCharges > 0) {
         throw new AdvertisingFundingError("PENDING_CHARGES_EXIST", "Cannot return funding while unresolved click charges exist.");
       }
+      const pendingClicks = await tx.advertisingMeasurementEvent.count({ where: { campaignVersionId: version.id, eventType: "CLICK", validityStatus: "VALID", safeEvidence: { path: ["classification"], equals: "VALID_BILLABLE" }, clickCharges: { none: {} } } });
+      if (pendingClicks > 0) throw new AdvertisingFundingError("PENDING_CHARGES_EXIST", "Cannot return funding while billable clicks remain unresolved.");
 
       // Check if there are unresolved reconciliation cases
       const unresolvedCases = await tx.advertisingReconciliationCase.count({
-        where: { campaignVersionId: version.id, status: "OPEN" }
+        where: { campaignVersionId: version.id, status: { in: ["OPEN", "MONITORING"] } }
       });
       if (unresolvedCases > 0) {
         throw new AdvertisingFundingError("UNRESOLVED_RECONCILIATION_CASES_EXIST", "Cannot return funding while unresolved reconciliation cases exist.");
@@ -308,17 +314,6 @@ export class AdvertisingFundingService {
 
       await tx.$queryRaw`SELECT id FROM "LedgerAccount" WHERE id = ${storePayable.id} FOR UPDATE`;
 
-      // Check idempotency
-      const existingMovement = await tx.advertisingFundingMovement.findFirst({
-        where: { operationId: input.operationId, movementType: AdvertisingFundingMovementType.UNUSED_RETURN }
-      });
-      if (existingMovement) {
-        if (existingMovement.requestHash !== input.requestHash) {
-          throw new AdvertisingFundingError("IDEMPOTENCY_CONFLICT", "Conflict on funding return request.");
-        }
-        return { returnedAmount: totalRemaining.toFixed(2) };
-      }
-
       // Post Ledger Journal
       // DEBIT platform held funds: PLATFORM_ADVERTISING_FUNDS_HELD_ZAR
       // CREDIT store liability: STORE_EARNINGS_PAYABLE
@@ -326,7 +321,7 @@ export class AdvertisingFundingService {
         idempotencyKey: `AD-RETURN-JRN-${input.operationId}`,
         type: "ACCOUNT_TRANSFER",
         currency: "ZAR",
-        sourceReference: `AD-RETURN-${input.operationId}`,
+        sourceReference: `AD-RETURN:${createHash("sha256").update(input.operationId).digest("hex")}`,
         memo: `Advertising Campaign Funding Return: ${version.campaign.name} (Ref: ${version.publicReference})`,
         actor: { kind: "USER", userId: input.actorUserId },
         entries: [

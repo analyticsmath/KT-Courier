@@ -47,7 +47,7 @@ describe("Phase B managed-marketing revenue/reporting PostgreSQL production-serv
     const platform = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
     const [cash, held] = await Promise.all([
       ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }),
-      ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-ADVERTISING-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }),
+      ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-ADVERTISING-FUNDS-HELD-ZAR", purpose: "ADVERTISING_FUNDS_HELD", category: "LIABILITY", currency: "ZAR" }),
     ]);
     const receipt = await postLedgerJournal({ idempotencyKey: `${marker}-RECEIPT`, sourceReference: `proof:${marker}-RECEIPT`, correlationId: payment.publicReference, type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR", actor: { kind: "SYSTEM" }, entries: [{ accountId: cash.id, direction: "DEBIT", amount: "115.00", lineCode: "MM_RECEIPT_CASH" }, { accountId: held.id, direction: "CREDIT", amount: "115.00", lineCode: "MM_RECEIPT_HELD" }] });
     const attempt = await prisma.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: `pat_${marker}`.slice(0, 80), attemptNumber: 1, provider: "PAYFAST", idempotencyKey: `${marker}-ATTEMPT`, requestHash: "a".repeat(64), merchantReference: `kt:payment:${payment.publicReference}:attempt:1`, status: "SUCCEEDED", amount: payment.amount, currency: "ZAR", providerEnvironment: "SANDBOX", providerCredentialVersion: "proof-v1", providerReference: `${marker}-PROVIDER`, completedAt: new Date(), providerConfirmedAt: new Date() } });

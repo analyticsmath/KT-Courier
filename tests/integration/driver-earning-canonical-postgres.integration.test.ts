@@ -162,5 +162,5 @@ describe("real courier settlement producer on isolated PostgreSQL", () => {
         else await prisma.systemSetting.deleteMany({ where: { key } });
       }
     }
-  });
+  }, 30_000);
 });

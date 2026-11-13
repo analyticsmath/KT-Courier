@@ -14,6 +14,7 @@ export type TrackEventInput = {
   operationId: string;
   requestHash: string;
   safeEvidence?: Record<string, unknown>;
+  validityStatus?: AdvertisingMeasurementValidity;
 };
 
 export class AdvertisingMeasurementService {
@@ -28,7 +29,7 @@ export class AdvertisingMeasurementService {
     assertAdvertisingProductionReady("MEASUREMENT_INGESTION");
 
     // Suppress duplicates for viewable impression and clicks
-    if (input.eventType === "VIEWABLE_IMPRESSION" || input.eventType === "CLICK") {
+    if ((input.eventType === "VIEWABLE_IMPRESSION" || input.eventType === "CLICK") && (input.validityStatus ?? "VALID") === "VALID") {
       const existing = await this.db.advertisingMeasurementEvent.findFirst({
         where: {
           serveDecisionId: input.serveDecisionId,
@@ -58,7 +59,7 @@ export class AdvertisingMeasurementService {
         placementDefinitionId: input.placementDefinitionId,
         serveDecisionId: input.serveDecisionId,
         eventType: input.eventType as AdvertisingMeasurementEventType,
-        validityStatus: AdvertisingMeasurementValidity.VALID,
+        validityStatus: input.validityStatus ?? AdvertisingMeasurementValidity.VALID,
         sessionFingerprint: input.sessionFingerprint ?? null,
         networkRiskFingerprint: input.networkRiskFingerprint ?? null,
         userAgentClass: input.userAgentClass ?? null,
