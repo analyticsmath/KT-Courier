@@ -55,7 +55,7 @@ export async function releaseCheckoutPromotions(input: ReleaseInput, tx: PrismaT
   const skippedIds: string[] = [];
 
   // Identify those needing update and lock their campaigns and budgets
-  const reservationsToRelease = reservations.filter(r => r.status !== 'RELEASED' && r.status !== 'EXPIRED');
+  const reservationsToRelease = reservations.filter(r => r.status === 'RESERVED' && (input.reason !== 'RESERVATION_EXPIRY' || r.expiresAt <= input.now));
   
   if (reservationsToRelease.length > 0) {
     const versionIds = reservationsToRelease.map(r => r.campaignVersionId);
@@ -96,20 +96,22 @@ export async function releaseCheckoutPromotions(input: ReleaseInput, tx: PrismaT
       if (!releasedIds.includes(reservation.id)) {
         alreadyReleasedIds.push(reservation.id);
       }
-    } else if (reservation.status === 'EXPIRED') {
+    } else if (!releasedIds.includes(reservation.id)) {
       skippedIds.push(reservation.id);
     }
   }
 
   // Record operation receipt
-  await tx.promotionOperation.create({
-    data: {
-      operationId: input.operationId,
-      requestHash: input.requestHash,
-      operationType: 'RELEASE',
-      resultReference: releasedIds.join(','),
-    }
-  });
+  if (releasedIds.length > 0) {
+    await tx.promotionOperation.create({
+      data: {
+        operationId: input.operationId,
+        requestHash: input.requestHash,
+        operationType: 'RELEASE',
+        resultReference: releasedIds.join(','),
+      }
+    });
+  }
 
   return {
     releasedIds,
