@@ -56,6 +56,17 @@ it("claims a queued report once across competing workers and records its complet
   expect(store).toHaveBeenCalledOnce();
 });
 
+it("deduplicates concurrent report requests and their request audit", async () => {
+  const service = new ReportJobService({ provider: "LOCAL_SECURE" } as never);
+  const input = { definitionKey: "customer-courier-orders", requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], filters: {}, executionMode: "ASYNCHRONOUS_EXPORT" as const, outputFormat: "JSON" };
+  const jobs = await Promise.all(Array.from({ length: 4 }, () => service.createJob(input)));
+  expect(new Set(jobs.map(job => job?.publicReference)).size).toBe(1);
+  const job = jobs[0]!;
+  jobIds.push(job.id);
+  expect(await prisma.reportJob.count({ where: { requestHash: job.requestHash, requesterUserId: marker } })).toBe(1);
+  expect(await prisma.reportAuditEvent.count({ where: { entityReference: job.publicReference, eventType: "REPORT_JOB_REQUESTED" } })).toBe(1);
+});
+
 it("revokes an expired report and records one durable storage deletion receipt", async () => {
   const reference = `${marker}-expired`;
   const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "COMPLETED", outputFormat: "JSON" } });

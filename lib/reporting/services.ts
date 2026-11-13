@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logApplicationEvent } from "@/lib/observability/logger";
 import { recordTelemetry } from "@/lib/observability/telemetry";
@@ -25,8 +26,8 @@ export function computeFilterHash(filters: Record<string, unknown>): string {
   return crypto.createHash("sha256").update(stableJson(filters)).digest("hex");
 }
 
-export function computeRequestHash(definitionKey: string, requesterUserId: string, filterHash: string, format: string): string {
-  return crypto.createHash("sha256").update(`${definitionKey}:${requesterUserId}:${filterHash}:${format}`).digest("hex");
+export function computeRequestHash(definitionKey: string, requesterUserId: string, filterHash: string, format: string, ownerScope: Record<string, unknown> = {}): string {
+  return crypto.createHash("sha256").update(stableJson({ definitionKey, requesterUserId, filterHash, format, ownerScope })).digest("hex");
 }
 
 function publicReference(prefix: "REP" | "ART" | "RPTAUD"): string {
@@ -54,17 +55,14 @@ export class ReportJobService {
     await authorizeReportDefinition(actor, definition, "GENERATE");
     const normalized = normalizeReportRequest({ definition, filters: input.filters, outputFormat: input.outputFormat });
     const filterHash = computeFilterHash(normalized.filters);
-    const requestHash = computeRequestHash(definition.key, input.requesterUserId, filterHash, normalized.outputFormat);
-
-    const existing = await db.reportJob.findFirst({
-      where: { requestHash, requesterUserId: input.requesterUserId, status: { notIn: ["CANCELLED", "EXPIRED"] } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (existing) return existing;
+    const requestHash = computeRequestHash(definition.key, input.requesterUserId, filterHash, normalized.outputFormat, input.ownerScope);
 
     const expiresAt = new Date(Date.now() + definition.retentionDays * 86_400_000);
     try {
-      const job = await db.$transaction(async (tx) => {
+      const result = await db.$transaction(async (tx) => {
+        await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`report-request:${requestHash}`}))::text`);
+        const existing = await tx.reportJob.findFirst({ where: { requestHash, requesterUserId: input.requesterUserId, status: { notIn: ["CANCELLED", "EXPIRED"] } }, orderBy: { createdAt: "desc" } });
+        if (existing) return { job: existing, created: false };
         const created = await tx.reportJob.create({
         data: {
           publicReference: publicReference("REP"),
@@ -85,13 +83,13 @@ export class ReportJobService {
         },
         });
         await tx.reportAuditEvent.create({ data: { publicReference: publicReference("RPTAUD"), actorUserId: input.requesterUserId, eventType: "REPORT_JOB_REQUESTED", entityReference: created.publicReference, safeEvidence: { definitionKey: definition.key, outputFormat: normalized.outputFormat } } });
-        return created;
+        return { job: created, created: true };
       });
-      if (input.executionMode === "SYNCHRONOUS_SUMMARY") return this.processJob(job.publicReference);
-      return job;
+      if (result.created && input.executionMode === "SYNCHRONOUS_SUMMARY") return this.processJob(result.job.publicReference);
+      return result.job;
     } catch (error: unknown) {
       if ((error as { code?: string }).code === "P2002") {
-        const duplicate = await db.reportJob.findFirst({ where: { requestHash, requesterUserId: input.requesterUserId }, orderBy: { createdAt: "desc" } });
+        const duplicate = await db.reportJob.findFirst({ where: { requestHash, requesterUserId: input.requesterUserId, status: { notIn: ["CANCELLED", "EXPIRED"] } }, orderBy: { createdAt: "desc" } });
         if (duplicate) return duplicate;
       }
       throw error;
