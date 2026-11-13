@@ -59,6 +59,23 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "deliver-developer-webhooks": async ({ batchSize }) => {
+    const { assertDeveloperApiProductionReady } = await import("@/lib/developer-api/production-readiness");
+    assertDeveloperApiProductionReady();
+    const [{ recoverStaleWebhookClaims }, { resolveDeveloperApiProductionComposition }] = await Promise.all([import("@/lib/developer-api/webhook-recovery"), import("@/lib/developer-api/composition-root")]);
+    const recovery = await recoverStaleWebhookClaims({ limit: batchSize });
+    const processor = resolveDeveloperApiProductionComposition().services.processors;
+    const retries = await processor.select("retry", Math.ceil(batchSize / 2));
+    const remaining = batchSize - retries.length;
+    const pending = remaining ? await processor.select("deliver", remaining) : [];
+    let completed = 0, failed = 0;
+    for (const candidate of [...retries, ...pending]) {
+      try { const result = await processor.apply(candidate.kind === "retry" ? "retry" : "deliver", candidate) as { status?: string }; if (result.status === "SUCCEEDED") completed++; else failed++; }
+      catch { failed++; }
+    }
+    if (failed) throw new Error(`Webhook delivery encountered ${failed} failure(s); retry or reconciliation is required.`);
+    return { itemsExamined: retries.length + pending.length, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: 0, itemsRetried: retries.length, itemsReconciled: recovery.recovered, safeSummary: `Webhook delivery completed ${completed}; ${recovery.recovered} interrupted claims require review.` };
+  },
   "generate-report-jobs": async ({ batchSize }) => {
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {

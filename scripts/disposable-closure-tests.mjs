@@ -33,6 +33,7 @@ files.push("tests/integration/report-cancellation-postgres.integration.test.ts")
 files.push("tests/integration/promotion-expiry-postgres.integration.test.ts");
 files.push("tests/integration/qualification-confirmation-postgres.integration.test.ts");
 files.push("tests/integration/developer-credential-expiry-postgres.integration.test.ts");
+files.push("tests/integration/developer-webhook-claim-postgres.integration.test.ts");
 files.push("tests/integration/subscription-cycle-boundary-postgres.integration.test.ts");
 const selection = process.argv.slice(2);
 if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions", "--onboarding-regressions"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");

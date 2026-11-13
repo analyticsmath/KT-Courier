@@ -402,7 +402,7 @@ export const PROCESSOR_REGISTRY = {
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.DEVELOPER_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Developer Platform",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "generate-report-jobs": {
     name: "generate-report-jobs",

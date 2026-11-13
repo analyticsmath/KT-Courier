@@ -270,10 +270,60 @@ export class WebhookExecutionService {
   }
   async deliver(delivery: any, event: any, subscription: any) {
     assertDeveloperApiProductionReady();
-    if (!["PENDING", "FAILED_RETRYABLE"].includes(delivery.status) || subscription.status !== "ACTIVE" || delivery.expiresAt && delivery.expiresAt <= new Date()) throw new DeveloperApiError("WEBHOOK_DELIVERY_NOT_ELIGIBLE", 409); if (delivery.attemptCount >= 12) { await this.db.developerWebhookDelivery.update({ where: { id: delivery.id }, data: { status: "FAILED_PERMANENT", nextAttemptAt: null } }); throw new DeveloperApiError("WEBHOOK_DELIVERY_ATTEMPTS_EXHAUSTED", 409); }
-    const claimed = await this.db.developerWebhookDelivery.updateMany({ where: { id: delivery.id, status: { in: ["PENDING", "FAILED_RETRYABLE"] } }, data: { status: "CLAIMED", lastAttemptedAt: new Date() } }); if (claimed.count !== 1) throw new DeveloperApiError("WEBHOOK_DELIVERY_ALREADY_CLAIMED", 409);
-    const attemptNumber = delivery.attemptCount + 1; const operationId = `dwh:${delivery.publicReference}:${attemptNumber}`; const attempt = await this.db.developerWebhookAttempt.create({ data: { publicReference: opaqueReference("dwhat"), deliveryId: delivery.id, attemptNumber, operationId, endpointVersion: delivery.endpointVersion, secretVersion: delivery.secretVersion } });
-    try { const endpoint = decryptWebhookSecret(subscription.encryptedEndpoint); await validateWebhookEndpoint(endpoint); const secret = await this.subscriptions.secretForDelivery(subscription.id, delivery.secretVersion); const body = Buffer.from(JSON.stringify(createCloudEvent({ id: event.publicReference, type: event.eventType, subject: event.subjectReference, time: event.occurredAt, data: event.payload }))); const timestamp = new Date().toISOString(); const signed = signWebhookRequest({ secret, method: "POST", targetUri: endpoint, rawBody: body, webhookId: delivery.publicReference, timestamp, keyId: `v${delivery.secretVersion}` }); const response = await this.http.send({ url: endpoint, headers: { ...signed, "user-agent": "KT-Couriers-Webhook/1.0", accept: "application/json" }, body, timeoutMs: 10_000 }); const decision = classifyWebhookResponse(response.status); const nextAttemptAt = decision.retryable ? retryAt(attemptNumber, Number(response.headers.get("retry-after") ?? 0)) : null; await this.db.developerWebhookAttempt.update({ where: { id: attempt.id }, data: { status: decision.retryable || response.status < 200 || response.status >= 300 ? "FAILED" : "SUCCEEDED", httpStatus: response.status, responsePreviewHash: sha256(response.body.slice(0, 512)), failureClass: decision.failureClass ?? null, completedAt: new Date(), nextAttemptAt } }); if (decision.disableEndpoint) await this.db.developerWebhookSubscription.update({ where: { id: subscription.id }, data: { status: "DISABLED", pausedAt: new Date() } }); return this.db.developerWebhookDelivery.update({ where: { id: delivery.id }, data: { attemptCount: attemptNumber, status: response.status >= 200 && response.status < 300 ? "SUCCEEDED" : decision.disableEndpoint ? "ENDPOINT_DISABLED" : decision.retryable ? "FAILED_RETRYABLE" : "FAILED_PERMANENT", nextAttemptAt } });
-    } catch (error) { const decision = classifyWebhookFailure(error); const nextAttemptAt = decision.retryable ? retryAt(attemptNumber) : null; await this.db.developerWebhookAttempt.update({ where: { id: attempt.id }, data: { status: "FAILED", failureClass: decision.failureClass, completedAt: new Date(), nextAttemptAt } }); await this.db.developerWebhookDelivery.update({ where: { id: delivery.id }, data: { attemptCount: attemptNumber, status: decision.retryable ? "FAILED_RETRYABLE" : "FAILED_PERMANENT", nextAttemptAt } }); throw error; }
+    const claim = await this.db.$transaction(async (tx: any) => {
+      await tx.$queryRaw`SELECT id FROM "DeveloperWebhookSubscription" WHERE id = ${subscription.id} FOR UPDATE`;
+      const current = await tx.developerWebhookDelivery.findUnique({ where: { id: delivery.id } });
+      const endpoint = await tx.developerWebhookSubscription.findUnique({ where: { id: subscription.id } });
+      const source = await tx.developerWebhookPublicEvent.findUnique({ where: { id: event.id } });
+      const now = new Date();
+      if (current && endpoint && source && current.subscriptionId === endpoint.id && current.publicEventId === source.id && current.attemptCount >= 12 && ["PENDING", "FAILED_RETRYABLE"].includes(current.status)) {
+        const exhausted = await tx.developerWebhookDelivery.updateMany({ where: { id: current.id, status: current.status, attemptCount: current.attemptCount }, data: { status: "FAILED_PERMANENT", nextAttemptAt: null } });
+        if (exhausted.count !== 1) throw new DeveloperApiError("WEBHOOK_DELIVERY_ALREADY_CLAIMED", 409);
+        return { exhausted: true };
+      }
+      if (!current || !endpoint || !source || current.subscriptionId !== endpoint.id || current.publicEventId !== source.id || endpoint.status !== "ACTIVE" || !endpoint.verifiedAt || endpoint.version !== current.endpointVersion || !["PROJECTED", "DELIVERIES_CREATED"].includes(source.status) || source.expiresAt && source.expiresAt <= now || !["PENDING", "FAILED_RETRYABLE"].includes(current.status) || current.expiresAt && current.expiresAt <= now || current.nextAttemptAt && current.nextAttemptAt > now || current.attemptCount >= 12) throw new DeveloperApiError("WEBHOOK_DELIVERY_NOT_ELIGIBLE", 409);
+      const application = await tx.developerApplication.findUnique({ where: { id: endpoint.applicationId } });
+      const owner = application && await tx.user.findUnique({ where: { id: application.ownerUserId }, select: { status: true } });
+      const rule = WEBHOOK_EVENT_CATALOG[source.eventType as keyof typeof WEBHOOK_EVENT_CATALOG];
+      const snapshot = application?.approvedOwnerSnapshot;
+      const grants = application && await tx.developerScopeGrant.findMany({ where: { applicationId: application.id, status: "ACTIVE", environment: endpoint.environment, ownerUserId: application.ownerUserId, storeId: application.storeId, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }], AND: [{ OR: [{ effectiveAt: null }, { effectiveAt: { lte: now } }] }] } });
+      if (!application || application.status !== "ACTIVE" || application.environment !== endpoint.environment || application.approvedEnvironment !== endpoint.environment || application.ownerUserId !== source.ownerUserId || application.storeId !== source.storeId || !snapshot || typeof snapshot !== "object" || Array.isArray(snapshot) || snapshot.ownerUserId !== source.ownerUserId || (snapshot.storeId ?? null) !== source.storeId || owner?.status !== "ACTIVE" || !rule?.enabled || !scopesFrom(endpoint.eventSelection).includes(source.eventType) || !grants?.some((grant: any) => scopesFrom(grant.scopes).includes(rule.scope))) throw new DeveloperApiError("WEBHOOK_DELIVERY_NOT_ELIGIBLE", 409);
+      const attemptNumber = current.attemptCount + 1;
+      const claimed = await tx.developerWebhookDelivery.updateMany({ where: { id: current.id, status: current.status, attemptCount: current.attemptCount }, data: { status: "CLAIMED", attemptCount: attemptNumber, lastAttemptedAt: now, nextAttemptAt: null } });
+      if (claimed.count !== 1) throw new DeveloperApiError("WEBHOOK_DELIVERY_ALREADY_CLAIMED", 409);
+      const attempt = await tx.developerWebhookAttempt.create({ data: { publicReference: opaqueReference("dwhat"), deliveryId: current.id, attemptNumber, operationId: `dwh:${current.publicReference}:${attemptNumber}`, endpointVersion: current.endpointVersion, secretVersion: current.secretVersion } });
+      return { current, endpoint, source, attempt, attemptNumber };
+    });
+    if (claim.exhausted) throw new DeveloperApiError("WEBHOOK_DELIVERY_ATTEMPTS_EXHAUSTED", 409);
+    let decision: ReturnType<typeof classifyWebhookResponse>;
+    let response: WebhookHttpResponse;
+    try {
+      const endpoint = decryptWebhookSecret(claim.endpoint.encryptedEndpoint);
+      const secret = await this.subscriptions.secretForDelivery(claim.endpoint.id, claim.current.secretVersion);
+      const body = Buffer.from(JSON.stringify(createCloudEvent({ id: claim.source.publicReference, type: claim.source.eventType, subject: claim.source.subjectReference, time: claim.source.occurredAt, data: claim.source.payload })));
+      const signed = signWebhookRequest({ secret, method: "POST", targetUri: endpoint, rawBody: body, webhookId: claim.current.publicReference, timestamp: new Date().toISOString(), keyId: `v${claim.current.secretVersion}` });
+      response = await this.http.send({ url: endpoint, headers: { ...signed, "user-agent": "KT-Couriers-Webhook/1.0", accept: "application/json" }, body, timeoutMs: 10_000 });
+      decision = classifyWebhookResponse(response.status);
+    } catch (error) {
+      const failure = classifyWebhookFailure(error);
+      const retryable = failure.retryable && claim.attemptNumber < 12;
+      const nextAttemptAt = retryable ? retryAt(claim.attemptNumber) : null;
+      await this.db.$transaction(async (tx: any) => {
+        const changed = await tx.developerWebhookDelivery.updateMany({ where: { id: claim.current.id, status: "CLAIMED", attemptCount: claim.attemptNumber }, data: { status: retryable ? "FAILED_RETRYABLE" : "FAILED_PERMANENT", nextAttemptAt } });
+        if (changed.count !== 1) throw new DeveloperApiError("WEBHOOK_DELIVERY_ALREADY_CLAIMED", 409);
+        await tx.developerWebhookAttempt.update({ where: { id: claim.attempt.id }, data: { status: "FAILED", failureClass: failure.failureClass, completedAt: new Date(), nextAttemptAt } });
+      });
+      throw error;
+    }
+    const retryable = decision.retryable && claim.attemptNumber < 12;
+    const nextAttemptAt = retryable ? retryAt(claim.attemptNumber, Number(response.headers.get("retry-after") ?? 0)) : null;
+    return this.db.$transaction(async (tx: any) => {
+      const status = response.status >= 200 && response.status < 300 ? "SUCCEEDED" : decision.disableEndpoint ? "ENDPOINT_DISABLED" : retryable ? "FAILED_RETRYABLE" : "FAILED_PERMANENT";
+      const changed = await tx.developerWebhookDelivery.updateMany({ where: { id: claim.current.id, status: "CLAIMED", attemptCount: claim.attemptNumber }, data: { status, nextAttemptAt } });
+      if (changed.count !== 1) throw new DeveloperApiError("WEBHOOK_DELIVERY_ALREADY_CLAIMED", 409);
+      await tx.developerWebhookAttempt.update({ where: { id: claim.attempt.id }, data: { status: status === "SUCCEEDED" ? "SUCCEEDED" : "FAILED", httpStatus: response.status, responsePreviewHash: sha256(response.body.slice(0, 512)), failureClass: decision.failureClass ?? null, completedAt: new Date(), nextAttemptAt } });
+      if (decision.disableEndpoint) await tx.developerWebhookSubscription.updateMany({ where: { id: claim.endpoint.id, version: claim.current.endpointVersion, status: "ACTIVE" }, data: { status: "DISABLED", pausedAt: new Date() } });
+      return tx.developerWebhookDelivery.findUniqueOrThrow({ where: { id: claim.current.id } });
+    });
   }
 }
