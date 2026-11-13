@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { createPrismaSubscriptionRenewalLifecycleRepository } from "@/lib/subscriptions/subscription-renewal-lifecycle.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
+vi.mock("@/lib/subscriptions/production-lock", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/subscriptions/production-lock")>()), assertSubscriptionsProductionReady: vi.fn() }));
+import { runSubscriptionRenewalBatch } from "@/lib/subscriptions/subscription-renewal-batch";
 
 const marker = `subscription-cycle-${randomUUID()}`;
 let userId = "", programId = "", planId = "", contractId = "";
@@ -45,4 +47,25 @@ it("does not prepare a payment without active provider authority", async () => {
   expect(prepared.outcome).toBe("PREPARED");
   expect((await repository.prepareRenewal({ billingCycleReference: `${marker}-cycle`, operationId: `${marker}-prepare` })).outcome).toBe("REPLAY");
   expect(await prisma.payment.count({ where: { subscriptionInvoiceId: invoice.id } })).toBe(1);
+});
+
+it("processes due cycles once and reconciles an inactive payment authority", async () => {
+  const authority = await prisma.subscriptionPaymentAuthority.findUniqueOrThrow({ where: { contractId } });
+  const makeCycle = async (number: number) => {
+    const cycle = await prisma.subscriptionBillingCycle.create({ data: { publicReference: `${marker}-due-${number}`, contractId, cycleNumber: number, periodStart: new Date(Date.UTC(2020, number - 2, 1)), periodEnd: new Date(Date.UTC(2020, number - 1, 1)), billingDate: new Date(Date.UTC(2020, number - 2, 1)), amountDue: 10 } });
+    await prisma.subscriptionInvoice.create({ data: { publicReference: `${marker}-due-invoice-${number}`, invoiceNumber: `${marker}-${number}`, contractId, billingCycleId: cycle.id, payerUserId: userId, subtotal: 10, total: 10, planSnapshot: {}, benefitSnapshot: {}, supplierSnapshot: {}, legalDocumentVersion: "v1", issuedAt: new Date("2019-12-01"), dueAt: cycle.billingDate } });
+    return cycle;
+  };
+  await prisma.subscriptionPaymentAuthority.update({ where: { id: authority.id }, data: { status: "PAUSED" } });
+  const blocked = await makeCycle(2);
+  expect(await runSubscriptionRenewalBatch()).toMatchObject({ examined: 1, reconciled: 1, failed: 0 });
+  expect((await prisma.subscriptionBillingCycle.findUniqueOrThrow({ where: { id: blocked.id } })).status).toBe("RECONCILIATION_REQUIRED");
+  expect(await prisma.subscriptionReconciliationCase.count({ where: { billingCycleId: blocked.id, status: "OPEN" } })).toBe(1);
+  await prisma.subscriptionPaymentAuthority.update({ where: { id: authority.id }, data: { status: "ACTIVE" } });
+  const due = await makeCycle(3);
+  const results = await Promise.all([runSubscriptionRenewalBatch(), runSubscriptionRenewalBatch()]);
+  expect(results.reduce((sum, result) => sum + result.prepared, 0)).toBe(1);
+  expect(results.reduce((sum, result) => sum + result.failed, 0)).toBe(0);
+  expect((await prisma.subscriptionBillingCycle.findUniqueOrThrow({ where: { id: due.id } })).status).toBe("PAYMENT_PENDING");
+  expect(await runSubscriptionRenewalBatch()).toMatchObject({ examined: 0, prepared: 0 });
 });

@@ -59,6 +59,12 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-subscription-renewals": async ({ batchSize }) => {
+    const { runSubscriptionRenewalBatch } = await import("@/lib/subscriptions/subscription-renewal-batch");
+    const result = await runSubscriptionRenewalBatch({ limit: batchSize });
+    if (result.failed) throw new Error(`Subscription renewal preparation failed for ${result.failed} cycle(s).`);
+    return { itemsExamined: result.examined, itemsClaimed: result.prepared + result.reconciled, itemsCompleted: result.prepared, itemsSkipped: result.skipped, itemsRetried: 0, itemsReconciled: result.reconciled, safeSummary: `Prepared ${result.prepared} renewals; ${result.reconciled} require review.` };
+  },
   "deliver-developer-webhooks": async ({ batchSize }) => {
     const { assertDeveloperApiProductionReady } = await import("@/lib/developer-api/production-readiness");
     assertDeveloperApiProductionReady();

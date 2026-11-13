@@ -68,7 +68,8 @@ export function createPrismaSubscriptionRenewalLifecycleRepository(database: any
       return database.$transaction(async (tx: any) => {
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "SubscriptionBillingCycle" WHERE "publicReference" = ${input.billingCycleReference} FOR UPDATE`);
         const cycle = await tx.subscriptionBillingCycle.findUnique({ where: { publicReference: input.billingCycleReference }, include: { invoice: true, contract: { include: { paymentAuthority: true } } } });
-        if (!cycle?.invoice || !cycle.contract.paymentAuthority || cycle.contract.status === "CANCELLATION_SCHEDULED" || cycle.contract.status === "CANCELLED") return { outcome: "CANCELLED" as const };
+        if (!cycle?.invoice || !cycle.contract.paymentAuthority) return { outcome: "RECONCILIATION_REQUIRED" as const };
+        if (cycle.contract.status === "CANCELLATION_SCHEDULED" || cycle.contract.status === "CANCELLED") return { outcome: "CANCELLED" as const };
         const authority = cycle.contract.paymentAuthority;
         if (authority.status !== "ACTIVE" || !authority.authorisedAt || authority.provider !== "PAYSTACK" || authority.mode !== "PROVIDER_MANAGED_SUBSCRIPTION") return { outcome: "RECONCILIATION_REQUIRED" as const };
         if (!["ACTIVE", "GRACE", "PAST_DUE"].includes(cycle.contract.status) || !["SCHEDULED", "INVOICE_CREATED", "PAYMENT_PENDING"].includes(cycle.status)) return { outcome: "RECONCILIATION_REQUIRED" as const };

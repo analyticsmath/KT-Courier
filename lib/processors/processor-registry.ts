@@ -202,7 +202,7 @@ export const PROCESSOR_REGISTRY = {
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.SUBSCRIPTION_BILLING_RECONCILE,
     operationalOwnerCategory: "Subscriptions",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "scan-refund-reconciliation": {
     name: "scan-refund-reconciliation",
