@@ -1,4 +1,4 @@
-name: Production Certification
+name: Engineering Certification
 on:
   workflow_dispatch:
   push:
@@ -38,9 +38,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/final-closure-evidence.test.mjs scripts/edge-build-refusal.test.mjs
-      - run: node --test scripts/check-closure-engineering-gates.test.mjs tests/report-phase3-blockers.test.mjs
+      - run: node --test scripts/check-closure-engineering-gates.test.mjs tests/report-phase3-blockers.test.mjs tests/scripts/release-attestation.node-test.mjs tests/scripts/release-status.node-test.mjs tests/scripts/release-authorization-entry.node-test.mjs
       - run: node scripts/validate-phase3-evidence.mjs
-      - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
+      - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase2-engineering-verification.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node --test tests/scripts/phase2-bounded-capacity.node-test.mjs
       - run: node --test tests/scripts/phase3-blocker-actions.node-test.mjs
       - run: node scripts/certification-command.mjs test:coverage
@@ -186,34 +186,20 @@ jobs:
       - run: node scripts/phase2-engineering-verification.mjs
       - uses: actions/upload-artifact@v4
         with: {name: phase2-automated-engineering, path: 'output/production-closure/phase2-automated-engineering.json'}
-  certified:
-    name: Phase 3 live launch veto (real approvals still required)
+  release-status:
+    name: Release authorization status (informational)
     runs-on: ubuntu-latest
-    needs: [quality, postgres, redis-and-recovery, recovery, browser, phase2-automated]
+    needs: [phase2-automated]
     steps:
       - uses: actions/checkout@v4
         with: {ref: '${{ env.KT_CERTIFICATION_HEAD_SHA }}'}
-      - name: Record outstanding operator actions
-        run: node scripts/report-phase3-blockers.mjs
-      - name: Independent Phase 3 launch authorization — fail closed until real evidence exists
-        if: always()
-        run: node scripts/check-closure-engineering-gates.mjs
-      - name: Preserve Phase 3 gate evidence even when the launch is vetoed
+      - name: RELEASE_NOT_AUTHORIZED — independent release is not evaluated
+        run: node scripts/write-release-status.mjs
+      - name: Preserve informational release status
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase3-launch-veto-${{ github.run_id }}
-          path: |
-            output/production-closure/phase3-launch-veto.json
-            output/production-closure/phase3-blocker-actions.json
+          name: release-status-${{ github.run_id }}
+          path: output/production-closure/release-status.json
           if-no-files-found: error
           retention-days: 30
-      - name: Preserve Phase 3 operator remediation register
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase3-blocker-actions-${{ github.run_id }}
-          path: output/production-closure/phase3-blocker-actions.json
-          if-no-files-found: error
-          retention-days: 30
-      - run: echo 'Engineering gates passed for this commit. Separate production and live acceptance evidence is still required.'

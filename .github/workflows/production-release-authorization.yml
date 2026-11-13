@@ -1,0 +1,39 @@
+name: Production Release Authorization
+on:
+  workflow_dispatch:
+    inputs:
+      releaseSha:
+        description: Full SHA of the main release candidate
+        required: true
+        type: string
+      evidenceReference:
+        description: Non-secret reference to independently controlled evidence
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  authorize:
+    if: github.ref == 'refs/heads/main'
+    environment: production-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '${{ github.sha }}'
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: 24}
+      - name: Verify independently authorized release
+        env:
+          RELEASE_SHA: '${{ inputs.releaseSha }}'
+          EVIDENCE_REFERENCE: '${{ inputs.evidenceReference }}'
+          WORKFLOW_SHA: '${{ github.sha }}'
+        run: node scripts/verify-release-authorization.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-authorization-refusal-${{ github.run_id }}
+          path: output/production-closure/release-authorization-refusal.json
+          if-no-files-found: warn

@@ -20,6 +20,8 @@ export function classifyPhase2AutomatedEvidence({ expectedSha, observedSha, jobR
   }
   return {
     automatedEngineering: 'PASS',
+    engineeringCertification: 'ENGINEERING_CERTIFIED',
+    releaseAuthorization: 'RELEASE_NOT_AUTHORIZED',
     evidenceTier: 'T1_T2_T3_T4_COMPONENTS',
     commitSha: expectedSha,
     componentGroups: Object.fromEntries(REQUIRED_COMPONENT_GROUPS.map(name => [name, 'success'])),

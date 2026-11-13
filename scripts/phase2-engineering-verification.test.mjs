@@ -13,6 +13,8 @@ const jobs = {
 test('five complete exact-source component groups produce engineering-only automated acceptance', () => {
   const result = classifyPhase2AutomatedEvidence({ expectedSha: sha, observedSha: sha, jobResults: jobs });
   assert.equal(result.automatedEngineering, 'PASS');
+  assert.equal(result.engineeringCertification, 'ENGINEERING_CERTIFIED');
+  assert.equal(result.releaseAuthorization, 'RELEASE_NOT_AUTHORIZED');
   assert.equal(result.launchAuthorization, 'NOT_EVALUATED');
   assert.equal(result.humanAccessibility, 'NOT_EVALUATED');
   assert.equal(result.providerAcceptance, 'NOT_EVALUATED');
@@ -35,8 +37,8 @@ test('workflow exposes an independent green automated phase 2 milestone without 
   assert.deepEqual(job.needs, ['quality', 'postgres', 'redis-and-recovery', 'recovery', 'browser']);
   assert.equal(job.steps[0].with.ref, '${{ env.KT_CERTIFICATION_HEAD_SHA }}');
   assert.match(job.steps.find(s=>s.run?.includes('phase2-engineering-verification.mjs')).run, /phase2-engineering-verification\.mjs/);
-  assert.ok(workflow.jobs.certified.needs.includes('phase2-automated'));
-  assert.ok(workflow.jobs.certified.steps.some(s=>s.run?.includes('check-closure-engineering-gates.mjs')));
+  assert.deepEqual(workflow.jobs['release-status'].needs, ['phase2-automated']);
+  assert.equal(workflow.jobs.certified, undefined);
   assert.ok(!JSON.stringify(workflow.jobs).includes('continue-on-error'));
 });
 

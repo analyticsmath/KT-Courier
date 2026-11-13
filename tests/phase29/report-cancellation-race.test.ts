@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => {
 vi.mock("@/lib/reporting/report-generator", () => ({ generateReportData: vi.fn(async () => ({ headers: ["id"], rows: [{ id: "test" }] })) }));
 vi.mock("@/lib/observability/telemetry", () => ({ recordTelemetry: vi.fn(async () => {}) }));
 import { ReportJobService } from "@/lib/reporting/services";
+import { db } from "@/lib/db";
 
 beforeEach(() => { state.status = "QUEUED"; state.artifacts = 0; });
 
@@ -47,4 +48,24 @@ it("publishes the artifact and completes an uncancelled report", async () => {
 it("does not cancel a report that completed before the cancellation write", async () => {
   state.status = "COMPLETED";
   await expect(new ReportJobService({} as never).cancelJob(job.publicReference, "owner")).rejects.toMatchObject({ code: "CANNOT_CANCEL_REPORT_JOB" });
+});
+
+it("does not restart a failed report after another actor cancels it", async () => {
+  state.status = "FAILED_RETRYABLE";
+  vi.mocked(db.reportJob.findUnique).mockImplementationOnce((async () => {
+    state.status = "CANCELLED";
+    return { ...job, status: "FAILED_RETRYABLE" } as never;
+  }) as never);
+  const service = new ReportJobService({} as never);
+  await expect(service.retryJob(job.publicReference, "owner")).rejects.toMatchObject({ code: "REPORT_JOB_NOT_RETRYABLE" });
+  expect(state.status).toBe("CANCELLED");
+});
+
+it("refuses to process a live report with ephemeral local storage", async () => {
+  vi.stubEnv("NODE_ENV", "production");
+  try {
+    const service = new ReportJobService({ provider: "LOCAL_SECURE" } as never);
+    await expect(service.processJob(job.publicReference)).rejects.toMatchObject({ code: "REPORT_DURABLE_STORAGE_REQUIRED" });
+    expect(state.status).toBe("QUEUED");
+  } finally { vi.unstubAllEnvs(); }
 });

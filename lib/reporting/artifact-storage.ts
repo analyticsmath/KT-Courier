@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { ReportingError, type ReportExportFormat } from "./contracts";
 import { CloudinaryImageStorage, CloudinaryImageStorageError, cloudinaryImageConfig } from "../media/cloudinary-image-storage";
+import { isActualProductionInstance } from "../promotions/production-lock";
 
 const STORAGE_KEY_PATTERN = /^reports\/[A-Z0-9-]+\/[a-f0-9]{64}\.(csv|json)$/;
 
@@ -14,6 +15,14 @@ export interface ReportArtifactStorage {
   open(storageKey: string): Promise<Buffer>;
   exists(storageKey: string): Promise<boolean>;
   delete(storageKey: string): Promise<boolean>;
+}
+
+/** Local filesystem storage is disposable and cannot prove durable production exports. */
+export function assertReportStorageReady(provider: ReportArtifactStorage["provider"], env: Record<string, string | undefined> = process.env): void {
+  if (provider !== "CLOUDINARY_AUTHENTICATED_RAW" &&
+      (env.VERCEL_ENV === "production" || env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance(env))) {
+    throw new ReportingError("REPORT_DURABLE_STORAGE_REQUIRED", 503, "Durable private report storage is required for production reports.");
+  }
 }
 
 function extensionFor(format: ReportExportFormat): "csv" | "json" {

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { logApplicationEvent } from "@/lib/observability/logger";
 import { recordTelemetry } from "@/lib/observability/telemetry";
-import { getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
+import { assertReportStorageReady, getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
 import { authorizeReportDefinition, getApprovedReportDefinition, normalizeReportRequest, type ReportActor } from "./authorization";
 import { ReportingError } from "./contracts";
 import { formatCsvReport, formatJsonReport } from "./csv-sanitizer";
@@ -44,6 +44,7 @@ export class ReportJobService {
   constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
 
   async createJob(input: CreateReportJobInput) {
+    assertReportStorageReady(this.storage.provider);
     const definition = getApprovedReportDefinition(input.definitionKey);
     const actor: ReportActor = { id: input.requesterUserId, role: input.requesterRole };
     await authorizeReportDefinition(actor, definition, "GENERATE");
@@ -92,6 +93,7 @@ export class ReportJobService {
   }
 
   async processJob(publicReferenceValue: string) {
+    assertReportStorageReady(this.storage.provider);
     const job = await db.reportJob.findUnique({ where: { publicReference: publicReferenceValue } });
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(job.status)) return job;
@@ -182,7 +184,8 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
     if (!['FAILED_RETRYABLE', 'FAILED_PERMANENT'].includes(job.status)) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job is not retryable.");
-    await db.reportJob.update({ where: { id: job.id }, data: { status: "QUEUED", errorMessage: null, failedAt: null } });
+    const queued = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "QUEUED", errorMessage: null, failedAt: null } });
+    if (queued.count !== 1) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job cannot be retried in its current state.");
     return this.processJob(publicReferenceValue);
   }
 
@@ -200,6 +203,7 @@ export class ReportDownloadService {
   constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
 
   async getArtifactFile(artifactId: string, userId: string, role: string, ipAddress?: string, userAgent?: string) {
+    assertReportStorageReady(this.storage.provider);
     const artifact = await db.reportExportArtifact.findUnique({ where: { id: artifactId } });
     if (!artifact) throw new ReportingError("ARTIFACT_NOT_FOUND", 404, "Export artifact not found.");
     if (new Date() >= artifact.expiresAt) throw new ReportingError("ARTIFACT_EXPIRED", 410, "Export artifact has expired.");

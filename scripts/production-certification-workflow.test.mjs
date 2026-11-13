@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import yaml from "js-yaml";
 
 const source = readFileSync(new URL("../.github/workflows/production-certification.yml", import.meta.url), "utf8");
@@ -28,13 +29,14 @@ test("all certification jobs check out the same exact PR head or dispatch/tag SH
 });
 
 test("separate observable disposable jobs, strict browser plan and final manifest gates remain", () => {
-  assert.deepEqual(workflow.jobs.certified.needs, ["quality", "postgres", "redis-and-recovery", "recovery", "browser", "phase2-automated"]);
+  assert.equal(workflow.jobs.certified, undefined, "automatic engineering must not run the live launch veto");
+  assert.deepEqual(workflow.jobs["release-status"].needs, ["phase2-automated"]);
   assert.deepEqual(workflow.jobs["phase2-automated"].needs, ["quality", "postgres", "redis-and-recovery", "recovery", "browser"]);
   assert.equal(workflow.jobs.postgres.services.postgres.env.POSTGRES_DB, "kt_launch_test");
   assert.equal(workflow.env.KT_NETWORK_DISABLED, "true");
   assert.equal(workflow.env.PAYSTACK_ACTIVE, "false");
   assert.match(source, /certification-command\.mjs test:e2e -- --project=chromium --phase1-catalog/);
-  assert.match(source, /check-closure-engineering-gates\.mjs/);
+  assert.doesNotMatch(source, /run: node scripts\/check-closure-engineering-gates\.mjs/);
   assert.doesNotMatch(source, /secrets\.|continue-on-error/);
   assert.equal(workflow.jobs.postgres.strategy["fail-fast"], false);
   assert.equal(workflow.jobs.postgres.strategy.matrix.command.length, 20);
@@ -98,11 +100,16 @@ test("Vercel source enables production main but quarantines the unapproved integ
   assert.match(nextConfig, /resolveEdgeOrigin\(process\.env\)/);
   assert.match(nextConfig, /return edgeRewrites\(edgeOrigin\)/);
 });
-test("Phase 3 preserves operator diagnostics without bypassing the launch veto", () => {
-  const source = readFileSync(".github/workflows/production-certification.yml", "utf8");
-  const certified = source.slice(source.indexOf("  certified:"));
-  assert.ok(certified.indexOf("node scripts/report-phase3-blockers.mjs") < certified.indexOf("node scripts/check-closure-engineering-gates.mjs"));
-  assert.match(certified, /output\/production-closure\/phase3-blocker-actions\.json/);
-  assert.match(certified, /output\/production-closure\/phase3-launch-veto\.json/);
-  assert.doesNotMatch(certified, /continue-on-error\s*:/);
+test("manual production authorization is separate, protected and cannot be inferred from engineering", () => {
+  const release = yaml.load(readFileSync(".github/workflows/production-release-authorization.yml", "utf8"));
+  assert.deepEqual(Object.keys(release.on), ["workflow_dispatch"]);
+  assert.deepEqual(release.permissions, { contents: "read" });
+  assert.equal(release.jobs.authorize.environment, "production-release");
+  assert.match(release.jobs.authorize.if, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(JSON.stringify(release.jobs.authorize.steps), /verify-release-authorization\.mjs/);
+  assert.doesNotMatch(JSON.stringify(release.jobs.authorize), /continue-on-error/);
+  assert.match(JSON.stringify(workflow.jobs["release-status"]), /RELEASE_NOT_AUTHORIZED/);
+  const attempt = spawnSync(process.execPath, ["scripts/verify-release-authorization.mjs"], { encoding: "utf8", env: { ...process.env, RELEASE_SHA: "a".repeat(40), EVIDENCE_REFERENCE: "fixture" } });
+  assert.equal(attempt.status, 1);
+  assert.match(attempt.stderr, /RELEASE_NOT_AUTHORIZED/);
 });

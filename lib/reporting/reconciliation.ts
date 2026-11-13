@@ -83,10 +83,11 @@ export class ReportReconciliationService {
     const job = await db.reportJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error("Report job not found.");
     if (job.status !== "RUNNING") throw new Error("Only running report jobs can be cancelled by reconciliation.");
-    await db.$transaction([
-      db.reportJob.update({ where: { id: job.id }, data: { status: "CANCELLED", errorMessage: "RECONCILIATION_CANCELLED" } }),
-      db.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } }),
-    ]);
+    await db.$transaction(async (tx) => {
+      const cancelled = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING" }, data: { status: "CANCELLED", errorMessage: "RECONCILIATION_CANCELLED" } });
+      if (cancelled.count !== 1) throw new Error("Report job is no longer running.");
+      await tx.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+    });
   }
 
   async retryGeneration(jobId: string): Promise<void> {
