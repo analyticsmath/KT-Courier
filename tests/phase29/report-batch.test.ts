@@ -22,5 +22,5 @@ it("only retries failed jobs when explicitly requested", async () => {
   dependencies.findMany.mockResolvedValueOnce([{ publicReference: "REP-failed" }]);
   dependencies.processJob.mockResolvedValueOnce({ status: "COMPLETED" });
   await runReportBatch(5, "FAILED_RETRYABLE");
-  expect(dependencies.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { status: "FAILED_RETRYABLE" }, take: 5 }));
+  expect(dependencies.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "FAILED_RETRYABLE", OR: expect.any(Array) }), take: 5 }));
 });

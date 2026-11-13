@@ -59,6 +59,21 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "generate-report-jobs": async ({ batchSize }) => {
+    const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
+    if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
+      const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");
+      assertReportingProductionReady();
+    }
+    const [{ recoverExpiredReportClaims }, { runReportBatch }] = await Promise.all([import("@/lib/reporting/report-recovery-batch"), import("@/lib/reporting/report-batch")]);
+    const recovery = await recoverExpiredReportClaims({ limit: batchSize });
+    const retried = await runReportBatch(Math.ceil(batchSize / 2), "FAILED_RETRYABLE");
+    const remaining = batchSize - retried.examined;
+    const queued = remaining ? await runReportBatch(remaining, "QUEUED") : { examined: 0, completed: 0, skipped: 0, failed: 0 };
+    if (retried.failed + queued.failed) throw new Error("Report generation encountered failures; retries or review are required.");
+    const completed = retried.completed + queued.completed;
+    return { itemsExamined: retried.examined + queued.examined, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: retried.skipped + queued.skipped, itemsRetried: 0, itemsReconciled: recovery.recovered, safeSummary: `Report generation completed ${completed}; recovered ${recovery.recovered} expired claims.` };
+  },
   "expire-developer-api-credentials": async ({ mode, batchSize }) => {
     const { resolveDeveloperApiProductionComposition } = await import("@/lib/developer-api/composition-root");
     const processor = resolveDeveloperApiProductionComposition().services.processors;

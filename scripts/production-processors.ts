@@ -74,6 +74,11 @@ async function main() {
       approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
       hasPending: async () => !!await prisma.reportExportArtifact.findFirst({ where: { storageDeletedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
     });
+    if (name === "generate-report-jobs") return hasEnabledPromotionExpiryWork({
+      enabled: process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true",
+      approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
+      hasPending: async () => !!await prisma.reportJob.findFirst({ where: { OR: [{ status: "QUEUED" }, { status: "FAILED_RETRYABLE", OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, { status: "RUNNING", claimExpiresAt: { lte: new Date() } }] }, select: { id: true } }),
+    });
     if (name === "expire-developer-api-credentials") return hasEnabledPromotionExpiryWork({
       enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true",
       approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,

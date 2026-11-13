@@ -104,8 +104,8 @@ export class ReportJobService {
 
     const claimToken = crypto.randomBytes(16).toString("hex").toUpperCase();
     const claimed = await db.reportJob.updateMany({
-      where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "FAILED_RETRYABLE"] } },
-      data: { status: "RUNNING", startedAt: new Date(), claimToken, claimExpiresAt: new Date(Date.now() + 30 * 60_000), errorMessage: null },
+      where: { id: job.id, attemptCount: job.attemptCount ?? 0, status: { in: ["REQUESTED", "QUEUED", "FAILED_RETRYABLE"] }, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] },
+      data: { status: "RUNNING", startedAt: new Date(), claimToken, claimExpiresAt: new Date(Date.now() + 30 * 60_000), attemptCount: { increment: 1 }, nextAttemptAt: null, errorMessage: null },
     });
     if (claimed.count !== 1) return db.reportJob.findUnique({ where: { id: job.id } });
 
@@ -186,7 +186,7 @@ export class ReportJobService {
       }
       await db.reportJob.updateMany({
         where: { id: job.id, status: "RUNNING", claimToken },
-        data: { status: "FAILED_RETRYABLE", claimToken: null, claimExpiresAt: null, errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date() },
+        data: { status: (job.attemptCount ?? 0) + 1 >= 3 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE", claimToken: null, claimExpiresAt: null, errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date(), nextAttemptAt: (job.attemptCount ?? 0) + 1 >= 3 ? null : new Date(Date.now() + 60_000 * 2 ** (job.attemptCount ?? 0)) },
       });
       await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "FAILURE" });
       logApplicationEvent({ level: "ERROR", event: "report.generation_failed", message: "Report generation failed.", operation: "report_generation", resourceReference: job.publicReference, outcome: "FAILURE", errorCategory: "REPORT_GENERATION_FAILED" });
@@ -215,7 +215,7 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
     if (!['FAILED_RETRYABLE', 'FAILED_PERMANENT'].includes(job.status)) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job is not retryable.");
-    const queued = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "QUEUED", errorMessage: null, failedAt: null } });
+    const queued = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "QUEUED", attemptCount: 0, nextAttemptAt: null, errorMessage: null, failedAt: null } });
     if (queued.count !== 1) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job cannot be retried in its current state.");
     return this.processJob(publicReferenceValue);
   }

@@ -77,18 +77,32 @@ it("fences a stalled worker after recovery and lets a new attempt finish", async
   let started!: () => void;
   const paused = new Promise<void>((resolve) => { release = resolve; });
   const entered = new Promise<void>((resolve) => { started = resolve; });
-  const oldRemove = vi.fn(async (_key: string) => true);
+  const oldRemove = vi.fn(async (key: string) => Boolean(key));
   const oldService = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: (ref: string) => ref, store: async () => { started(); await paused; }, delete: oldRemove } as never);
   const oldRun = oldService.processJob(reference);
   await entered;
   await prisma.reportJob.update({ where: { id: job.id }, data: { claimExpiresAt: new Date("2020-01-01") } });
   expect((await recoverExpiredReportClaims()).recovered).toBe(1);
   const newService = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: (ref: string) => ref, store: async () => {}, delete: vi.fn(async () => true) } as never);
-  expect((await newService.processJob(reference))?.status).toBe("COMPLETED");
+  expect((await newService.retryJob(reference, marker, true))?.status).toBe("COMPLETED");
   release();
   await oldRun;
   expect(await prisma.reportExportArtifact.count({ where: { jobId: job.id } })).toBe(1);
   const artifact = await prisma.reportExportArtifact.findUniqueOrThrow({ where: { jobId: job.id } });
   expect(oldRemove).toHaveBeenCalledOnce();
   expect(oldRemove.mock.calls[0][0]).not.toBe(artifact.storageKey);
+});
+
+it("bounds repeated generation failures and leaves a permanent failure for review", async () => {
+  const reference = `${marker}-failure`;
+  const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "QUEUED", outputFormat: "JSON" } });
+  jobIds.push(job.id);
+  const service = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: () => "disposable", store: async () => { throw new Error("disposable storage failure"); }, delete: async () => true } as never);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await expect(service.processJob(reference)).rejects.toMatchObject({ code: "REPORT_GENERATION_FAILED" });
+    const state = await prisma.reportJob.findUniqueOrThrow({ where: { id: job.id } });
+    expect(state.attemptCount).toBe(attempt);
+    expect(state.status).toBe(attempt === 3 ? "FAILED_PERMANENT" : "FAILED_RETRYABLE");
+    if (attempt < 3) await prisma.reportJob.update({ where: { id: job.id }, data: { nextAttemptAt: new Date("2020-01-01") } });
+  }
 });

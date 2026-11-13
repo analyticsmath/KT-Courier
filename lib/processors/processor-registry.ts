@@ -421,7 +421,7 @@ export const PROCESSOR_REGISTRY = {
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.REPORT_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Reporting",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "expire-report-artifacts": {
     name: "expire-report-artifacts",

@@ -96,6 +96,13 @@ it("does not generate an export after the requester's permission is revoked", as
   expect(state.artifacts).toBe(0);
 });
 
+it("marks the third failed generation attempt permanent", async () => {
+  vi.mocked(db.reportJob.findUnique).mockResolvedValueOnce({ ...job, attemptCount: 2 } as never);
+  const storage = { provider: "LOCAL", createStorageKey: () => "key", store: vi.fn(async () => { throw new Error("storage unavailable"); }), delete: vi.fn(async () => {}) };
+  await expect(new ReportJobService(storage as never).processJob(job.publicReference)).rejects.toMatchObject({ code: "REPORT_GENERATION_FAILED" });
+  expect(state.status).toBe("FAILED_PERMANENT");
+});
+
 it("refuses a report whose stored owner scope no longer matches", async () => {
   vi.mocked(db.reportJob.findUnique).mockResolvedValueOnce({ ...job, ownerScope: { userId: "other" } } as never);
   const storage = { provider: "LOCAL", createStorageKey: vi.fn(), store: vi.fn(), delete: vi.fn() };

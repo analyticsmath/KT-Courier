@@ -13461,6 +13461,8 @@ model ReportJob {
   startedAt               DateTime?
   claimToken              String?
   claimExpiresAt          DateTime?
+  attemptCount            Int                 @default(0)
+  nextAttemptAt           DateTime?
   completedAt             DateTime?
   failedAt                DateTime?
   expiresAt               DateTime?
@@ -13469,6 +13471,7 @@ model ReportJob {
   @@index([requesterUserId, createdAt])
   @@index([status, createdAt])
   @@index([status, claimExpiresAt])
+  @@index([status, nextAttemptAt])
   @@index([definitionKey, status])
 }
 

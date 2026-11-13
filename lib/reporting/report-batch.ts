@@ -7,7 +7,7 @@ export async function runReportBatch(limit = 10, status: "QUEUED" | "FAILED_RETR
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new Error("Report batch size must be an integer between 1 and 50.");
   if (status !== "QUEUED" && status !== "FAILED_RETRYABLE") throw new Error("Unsupported report batch status.");
   const jobs = await db.reportJob.findMany({
-    where: { status }, take: limit,
+    where: status === "QUEUED" ? { status } : { status, OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, take: limit,
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: { publicReference: true },
   });
