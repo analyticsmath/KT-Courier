@@ -9,6 +9,7 @@ vi.mock("@/lib/reporting/authorization", async (importOriginal) => {
   return { ...actual, authorizeReportDefinition: vi.fn(async () => {}) };
 });
 import { ReportJobService } from "@/lib/reporting/services";
+import { expireReportArtifacts } from "@/lib/reporting/report-expiry-batch";
 
 const marker = `report-race-${randomUUID()}`;
 const jobIds: string[] = [];
@@ -50,4 +51,19 @@ it("claims a queued report once across competing workers and records its complet
   expect(await prisma.reportExportArtifact.count({ where: { jobId: job.id } })).toBe(1);
   expect(await prisma.reportAuditEvent.count({ where: { entityReference: reference, eventType: "REPORT_JOB_COMPLETED" } })).toBe(1);
   expect(store).toHaveBeenCalledOnce();
+});
+
+it("revokes an expired report and records one durable storage deletion receipt", async () => {
+  const reference = `${marker}-expired`;
+  const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "COMPLETED", outputFormat: "JSON" } });
+  jobIds.push(job.id);
+  const artifact = await prisma.reportExportArtifact.create({ data: { publicReference: `${reference}-artifact`, jobId: job.id, format: "JSON", storageProvider: "LOCAL_SECURE", storageKey: `${reference}-key`, contentType: "application/json", byteSize: 2, checksum: "test", expiresAt: new Date("2020-01-01") } });
+  const remove = vi.fn(async () => true);
+  const storage = { provider: "LOCAL_SECURE", delete: remove } as never;
+  const result = await expireReportArtifacts({ limit: 10, storage });
+  expect(result).toMatchObject({ deleted: 1, failed: 0 });
+  expect((await prisma.reportJob.findUniqueOrThrow({ where: { id: job.id } })).status).toBe("EXPIRED");
+  expect((await prisma.reportExportArtifact.findUniqueOrThrow({ where: { id: artifact.id } })).storageDeletedAt).not.toBeNull();
+  await expireReportArtifacts({ limit: 10, storage });
+  expect(remove).toHaveBeenCalledOnce();
 });

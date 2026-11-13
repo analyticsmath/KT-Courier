@@ -17,3 +17,10 @@ it("rejects unbounded or invalid batch sizes", async () => {
   await expect(runReportBatch(0)).rejects.toThrow("batch size");
   await expect(runReportBatch(51)).rejects.toThrow("batch size");
 });
+
+it("only retries failed jobs when explicitly requested", async () => {
+  dependencies.findMany.mockResolvedValueOnce([{ publicReference: "REP-failed" }]);
+  dependencies.processJob.mockResolvedValueOnce({ status: "COMPLETED" });
+  await runReportBatch(5, "FAILED_RETRYABLE");
+  expect(dependencies.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { status: "FAILED_RETRYABLE" }, take: 5 }));
+});

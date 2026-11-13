@@ -13483,8 +13483,10 @@ model ReportExportArtifact {
   downloadCount    Int                @default(0)
   createdAt        DateTime           @default(now())
   expiresAt        DateTime
+  storageDeletedAt DateTime?
 
   @@index([expiresAt])
+  @@index([storageDeletedAt, expiresAt])
 }
 
 model ReportDownloadAudit {

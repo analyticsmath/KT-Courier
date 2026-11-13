@@ -31,7 +31,7 @@ export class ReportReconciliationService {
     const [stuckJobs, completedJobs, artifacts] = await Promise.all([
       db.reportJob.findMany({ where: { status: "RUNNING", startedAt: { lt: staleBefore } }, take: 100, orderBy: { startedAt: "asc" } }),
       db.reportJob.findMany({ where: { status: "COMPLETED" }, take: 100, orderBy: { completedAt: "desc" } }),
-      db.reportExportArtifact.findMany({ where: { expiresAt: { lte: now } }, take: 100, orderBy: { expiresAt: "asc" } }),
+      db.reportExportArtifact.findMany({ where: { expiresAt: { lte: now }, storageDeletedAt: null }, take: 100, orderBy: [{ expiresAt: "asc" }, { id: "asc" }] }),
     ]);
 
     for (const job of stuckJobs) {
@@ -53,17 +53,21 @@ export class ReportReconciliationService {
     }
 
     for (const artifact of artifacts) {
+      if (artifact.storageProvider !== this.storage.provider) {
+        details.push(`Expired artifact ${artifact.publicReference} uses a different storage provider.`);
+        continue;
+      }
       const exists = await this.storage.exists(artifact.storageKey);
       if (exists) {
         details.push(`Expired artifact ${artifact.publicReference} remains in storage.`);
-        if (!dryRun) {
-          await this.storage.delete(artifact.storageKey);
-          artifactsExpired += 1;
-        }
       }
       if (!dryRun) {
         const updated = await db.reportJob.updateMany({ where: { id: artifact.jobId, status: "COMPLETED" }, data: { status: "EXPIRED" } });
         casesResolved += updated.count;
+        const job = await db.reportJob.findUnique({ where: { id: artifact.jobId }, select: { status: true } });
+        if (job?.status !== "EXPIRED") continue;
+        if (exists) { await this.storage.delete(artifact.storageKey); artifactsExpired += 1; }
+        await db.reportExportArtifact.updateMany({ where: { id: artifact.id, storageKey: artifact.storageKey, expiresAt: { lte: now }, storageDeletedAt: null }, data: { storageDeletedAt: new Date() } });
       }
     }
 
@@ -93,7 +97,8 @@ export class ReportReconciliationService {
   async retryGeneration(jobId: string): Promise<void> {
     const job = await db.reportJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error("Report job not found.");
-    await this.jobService.retryJob(job.publicReference, job.requesterUserId, true);
+    const retried = await this.jobService.retryJob(job.publicReference, job.requesterUserId, true);
+    if (retried?.status !== "COMPLETED") throw new Error("Report retry did not complete; reconciliation remains open.");
     await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
   }
 
