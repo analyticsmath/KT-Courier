@@ -25,6 +25,7 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
 
   // Medium-frequency jobs (every 5 minutes)
   { name: "process-earning-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
+  ...(process.env.KT_ORDINARY_REFERRAL_WORKER_AUTHORIZED === "true" ? [{ name: "process-ordinary-referral-awards" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
 
   // Periodic reconciliation & accounting (every 15 to 30 minutes)

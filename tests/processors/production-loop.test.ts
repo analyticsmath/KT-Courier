@@ -7,6 +7,7 @@ import {
   productionProcessors,
   runProductionCycle,
   summarizeProductionCycleReadiness,
+  hasEnabledOrdinaryReferralWork,
 } from "@/lib/processors/production-loop";
 
 describe("production processor orchestration", () => {
@@ -18,6 +19,7 @@ describe("production processor orchestration", () => {
       "initialize-marketplace-store-orders",
       "expire-marketplace-reservations",
       "process-earning-lifecycle",
+      "process-ordinary-referral-awards",
       "deliver-notifications",
       "reconcile-expired-dispatch",
       "dispatch-marketplace-orders",
@@ -26,6 +28,19 @@ describe("production processor orchestration", () => {
       "scan-withdrawal-reconciliation",
       "scan-paystack-transfer-reconciliation",
     ]);
+  });
+  it("runs automatic referrals only when issuing is enabled and work is pending", async () => {
+    const hasPending = vi.fn().mockResolvedValue(true);
+    const isEnabled = vi.fn().mockResolvedValue(false);
+    expect(await hasEnabledOrdinaryReferralWork({ isAuthorized: false, isEnabled, hasPending })).toBe(false);
+    expect(isEnabled).not.toHaveBeenCalled();
+    expect(await hasEnabledOrdinaryReferralWork({ isAuthorized: true, isEnabled, hasPending })).toBe(false);
+    expect(hasPending).not.toHaveBeenCalled();
+    isEnabled.mockResolvedValue(true);
+    expect(await hasEnabledOrdinaryReferralWork({ isAuthorized: true, isEnabled, hasPending })).toBe(true);
+    hasPending.mockResolvedValue(false);
+    expect(await hasEnabledOrdinaryReferralWork({ isAuthorized: true, isEnabled, hasPending })).toBe(false);
+    expect(DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS["process-ordinary-referral-awards"]).toBe(300_000);
   });
   it("avoids creating processor receipts for empty queues", async () => {
     const execute = vi.fn();

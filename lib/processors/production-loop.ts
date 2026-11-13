@@ -10,6 +10,7 @@ export const productionProcessors = [
   "initialize-marketplace-store-orders",
   "expire-marketplace-reservations",
   "process-earning-lifecycle",
+  "process-ordinary-referral-awards",
   "deliver-notifications",
   "reconcile-expired-dispatch",
   "dispatch-marketplace-orders",
@@ -43,6 +44,7 @@ type Executor = (input: { name: ProductionProcessor; mode: "APPLY"; operationId:
 type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
 
 export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<ProductionProcessor, number>>> = {
+  "process-ordinary-referral-awards": 300_000,
   "reconcile-expired-dispatch": 60_000,
   "dispatch-marketplace-orders": 60_000,
   "scan-payment-reconciliation": 900_000,
@@ -50,6 +52,11 @@ export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<Pr
   "scan-withdrawal-reconciliation": 900_000,
   "scan-paystack-transfer-reconciliation": 900_000,
 };
+
+/** Keep automatic financial work closed until its operator authorization and issuing switch are both present. */
+export async function hasEnabledOrdinaryReferralWork(checks: { isAuthorized: boolean; isEnabled: () => Promise<boolean>; hasPending: () => Promise<boolean> }): Promise<boolean> {
+  return checks.isAuthorized && await checks.isEnabled() && await checks.hasPending();
+}
 
 export interface ProcessorCadenceTracker {
   isDue(name: ProductionProcessor, now?: number): boolean;

@@ -4,7 +4,7 @@ import { executeRegisteredProcessor } from "../lib/processors/processor-service"
 import { getProductionProcessorHealthState, getProductionProcessorHealthStatus } from "../lib/processors/production-health";
 import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
-import { createProcessorCadenceTracker, createProductionCycleWorkCheck, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
+import { createProcessorCadenceTracker, createProductionCycleWorkCheck, hasEnabledOrdinaryReferralWork, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "../lib/processors/marketplace-store-order-readiness";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -53,6 +53,14 @@ async function main() {
     if (name === "process-earning-lifecycle") return !!await prisma.order.findFirst({ where: { status: { in: ["DELIVERED", "COMPLETED"] }, assignments: { some: { status: "COMPLETED" } }, driverEarnings: { none: {} } }, select: { id: true } })
       || !!await prisma.storeEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } })
       || !!await prisma.driverEarning.findFirst({ where: { status: "ACCRUED", OR: [{ releaseEligibleAt: null }, { releaseEligibleAt: { lte: new Date() } }] }, select: { id: true } });
+    if (name === "process-ordinary-referral-awards") return hasEnabledOrdinaryReferralWork({
+      isAuthorized: process.env.KT_ORDINARY_REFERRAL_WORKER_AUTHORIZED === "true",
+      isEnabled: async () => {
+        const setting = await prisma.systemSetting.findUnique({ where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true } });
+        return setting?.type === "BOOLEAN" && setting.value === true;
+      },
+      hasPending: async () => !!await prisma.referralEvent.findFirst({ where: { source: "ORDINARY_SIGNUP", status: "PENDING", targetUserId: { not: null } }, select: { id: true } }),
+    });
     if (name === "reconcile-expired-dispatch") {
       return !!await prisma.orderAssignment.findFirst({
         where: { status: "ASSIGNED", expiresAt: { lte: new Date() } },
