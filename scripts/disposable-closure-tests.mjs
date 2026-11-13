@@ -31,7 +31,7 @@ files.push("tests/integration/catalog-product-import.integration.test.ts");
 files.push("tests/integration/ordinary-referral-queue.integration.test.ts");
 files.push("tests/integration/report-cancellation-postgres.integration.test.ts");
 files.push("tests/integration/promotion-expiry-postgres.integration.test.ts");
-files.push("tests/integration/promoter-confirmation-postgres.integration.test.ts");
+files.push("tests/integration/qualification-confirmation-postgres.integration.test.ts");
 files.push("tests/integration/developer-credential-expiry-postgres.integration.test.ts");
 files.push("tests/integration/subscription-cycle-boundary-postgres.integration.test.ts");
 const selection = process.argv.slice(2);
