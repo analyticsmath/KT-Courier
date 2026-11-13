@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "RETRY_GENERATION" && body.jobId) {
-      await reconService.retryGeneration(body.jobId);
+      await reconService.retryGeneration(body.jobId, auth.user.id);
       return ok({ message: `Retried generation for job ${body.jobId}` });
     }
 

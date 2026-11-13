@@ -5361,7 +5361,7 @@
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
-        "promotions.manage"
+        "promotions.reconciliation.manage"
       ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
@@ -5381,7 +5381,7 @@
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
-        "promotions.manage"
+        "promotions.reconciliation.manage"
       ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,

@@ -39,6 +39,6 @@ it("does not mark a retry as reconciled when processing did not complete", async
   vi.mocked(db.reportJob.findUnique).mockResolvedValueOnce({ id: "job", status: "FAILED_RETRYABLE", publicReference: "REP-test", requesterUserId: "owner" } as never);
   vi.spyOn(ReportJobService.prototype, "retryJob").mockResolvedValueOnce({ status: "CANCELLED" } as never);
   const service = new ReportReconciliationService({} as never);
-  await expect(service.retryGeneration("job")).rejects.toThrow();
+  await expect(service.retryGeneration("job", "admin")).rejects.toThrow();
   expect(state.casesChanged).toBe(false);
 });

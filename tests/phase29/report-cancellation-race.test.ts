@@ -132,6 +132,13 @@ it("does not restart a failed report after another actor cancels it", async () =
   expect(state.status).toBe("CANCELLED");
 });
 
+it("leaves a failed report unqueued when the retry audit fails", async () => {
+  state.status = "FAILED_RETRYABLE";
+  vi.mocked(db.reportAuditEvent.create).mockRejectedValueOnce(new Error("audit unavailable"));
+  await expect(new ReportJobService({} as never).retryJob(job.publicReference, "owner")).rejects.toThrow("audit unavailable");
+  expect(state.status).toBe("FAILED_RETRYABLE");
+});
+
 it("refuses to process a live report with ephemeral local storage", async () => {
   vi.stubEnv("NODE_ENV", "production");
   try {

@@ -218,8 +218,11 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (!isAdmin && job.requesterUserId !== requesterUserId) throw new ReportingError("FORBIDDEN", 403, "You do not own this report job.");
     if (!['FAILED_RETRYABLE', 'FAILED_PERMANENT'].includes(job.status)) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job is not retryable.");
-    const queued = await db.reportJob.updateMany({ where: { id: job.id, status: { in: ["FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "QUEUED", attemptCount: 0, nextAttemptAt: null, errorMessage: null, failedAt: null } });
-    if (queued.count !== 1) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job cannot be retried in its current state.");
+    await db.$transaction(async (tx) => {
+      const queued = await tx.reportJob.updateMany({ where: { id: job.id, status: { in: ["FAILED_RETRYABLE", "FAILED_PERMANENT"] } }, data: { status: "QUEUED", attemptCount: 0, nextAttemptAt: null, errorMessage: null, failedAt: null } });
+      if (queued.count !== 1) throw new ReportingError("REPORT_JOB_NOT_RETRYABLE", 409, "This report job cannot be retried in its current state.");
+      await tx.reportAuditEvent.create({ data: { publicReference: publicReference("RPTAUD"), actorUserId: requesterUserId, eventType: "REPORT_JOB_RETRIED", entityReference: job.publicReference, safeEvidence: {} } });
+    });
     return this.processJob(publicReferenceValue);
   }
 

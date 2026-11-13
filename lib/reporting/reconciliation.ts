@@ -97,10 +97,11 @@ export class ReportReconciliationService {
     });
   }
 
-  async retryGeneration(jobId: string): Promise<void> {
+  async retryGeneration(jobId: string, actorUserId: string): Promise<void> {
+    if (!actorUserId?.trim()) throw new Error("An administrator is required.");
     const job = await db.reportJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error("Report job not found.");
-    const retried = await this.jobService.retryJob(job.publicReference, job.requesterUserId, true);
+    const retried = await this.jobService.retryJob(job.publicReference, actorUserId, true);
     if (retried?.status !== "COMPLETED") throw new Error("Report retry did not complete; reconciliation remains open.");
     await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, reason: "REPORT_JOB_STUCK_RUNNING", status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
   }

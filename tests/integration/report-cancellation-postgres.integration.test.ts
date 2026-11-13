@@ -87,6 +87,7 @@ it("fences a stalled worker after recovery and lets a new attempt finish", async
   expect((await recoverExpiredReportClaims()).recovered).toBe(1);
   const newService = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: (ref: string) => ref, store: async () => {}, delete: vi.fn(async () => true) } as never);
   expect((await newService.retryJob(reference, marker, true))?.status).toBe("COMPLETED");
+  expect(await prisma.reportAuditEvent.count({ where: { entityReference: reference, actorUserId: marker, eventType: "REPORT_JOB_RETRIED" } })).toBe(1);
   release();
   await oldRun;
   expect(await prisma.reportExportArtifact.count({ where: { jobId: job.id } })).toBe(1);
