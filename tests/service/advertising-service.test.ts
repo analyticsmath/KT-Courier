@@ -322,6 +322,9 @@ describe("Phase 24: Advertising Service Tests (10 Service Flows)", () => {
 
   // 8. BillingService.chargeClick
   it("Service 8: chargeClick charges valid clicks and updates remaining allocation budgets", async () => {
+    const lockOffset = m(prisma.$queryRaw).mock.calls.length;
+    const eventReadOffset = m(prisma.advertisingMeasurementEvent.findUnique).mock.calls.length;
+    const versionReadOffset = m(prisma.advertisingCampaignVersion.findUnique).mock.calls.length;
     // Mock measurement event check
     m(prisma.advertisingMeasurementEvent.findUnique).mockResolvedValueOnce({
       id: "event-1",
@@ -376,6 +379,14 @@ describe("Phase 24: Advertising Service Tests (10 Service Flows)", () => {
     expect(prisma.advertisingFundingAllocation.update).toHaveBeenCalled();
     expect(prisma.advertisingFundingMovement.create).toHaveBeenCalled();
     expect(prisma.advertisingDailyAggregate.upsert).toHaveBeenCalled();
+    expect(m(prisma.$queryRaw).mock.invocationCallOrder[lockOffset]).toBeLessThan(m(prisma.advertisingMeasurementEvent.findUnique).mock.invocationCallOrder[eventReadOffset]);
+    expect(m(prisma.$queryRaw).mock.invocationCallOrder[lockOffset + 1]).toBeLessThan(m(prisma.advertisingCampaignVersion.findUnique).mock.invocationCallOrder[versionReadOffset]);
+  });
+
+  it("rejects a billing operation already associated with a different click", async () => {
+    m(prisma.advertisingMeasurementEvent.findUnique).mockResolvedValueOnce({ id: "event-other", eventType: "CLICK", validityStatus: "VALID", publicReference: "REF-other", campaignVersionId: "ver-1" });
+    m(prisma.advertisingClickCharge.findFirst).mockReset().mockResolvedValueOnce(null).mockResolvedValueOnce({ measurementEventId: "event-original", requestHash: "same-hash" });
+    await expect(billingService.chargeClick({ measurementEventId: "event-other", sessionFingerprint: "session", operationId: "op-reused", requestHash: "same-hash" })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
   });
 
   // 9. BillingService.reverseClick

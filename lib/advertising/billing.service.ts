@@ -45,13 +45,13 @@ export class AdvertisingBillingService {
 
     return prisma.$transaction(async (tx) => {
       // 1. Lock measurement event
+      await tx.$queryRaw`SELECT id FROM "AdvertisingMeasurementEvent" WHERE id = ${input.measurementEventId} FOR UPDATE`;
       const event = await tx.advertisingMeasurementEvent.findUnique({
         where: { id: input.measurementEventId }
       });
       if (!event || event.eventType !== "CLICK") {
         throw new AdvertisingBillingError("EVENT_NOT_FOUND", "Measurement click event was not found.");
       }
-      await tx.$queryRaw`SELECT id FROM "AdvertisingMeasurementEvent" WHERE id = ${event.id} FOR UPDATE`;
 
       // 2. Verify validity status is VALID
       if (event.validityStatus !== "VALID") {
@@ -71,13 +71,14 @@ export class AdvertisingBillingService {
         where: { operationId: input.operationId }
       });
       if (existingOp) {
-        if (existingOp.requestHash !== input.requestHash) {
+        if (existingOp.requestHash !== input.requestHash || existingOp.measurementEventId !== event.id) {
           throw new AdvertisingBillingError("IDEMPOTENCY_CONFLICT", "Conflict on click charge request.");
         }
         return existingOp;
       }
 
       // 3. Lock campaign version
+      await tx.$queryRaw`SELECT id FROM "AdvertisingCampaignVersion" WHERE id = ${event.campaignVersionId} FOR UPDATE`;
       const version = await tx.advertisingCampaignVersion.findUnique({
         where: { id: event.campaignVersionId },
         include: {
@@ -88,7 +89,6 @@ export class AdvertisingBillingService {
       if (!version) {
         throw new AdvertisingBillingError("CAMPAIGN_VERSION_NOT_FOUND", "Campaign version not found.");
       }
-      await tx.$queryRaw`SELECT id FROM "AdvertisingCampaignVersion" WHERE id = ${version.id} FOR UPDATE`;
 
       const chargeAmount = version.rateCardVersion.costPerValidClick;
 
@@ -112,9 +112,9 @@ export class AdvertisingBillingService {
 
       // 5. Verify daily and total budgets
       const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      startOfDay.setUTCHours(0, 0, 0, 0);
       const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
+      endOfDay.setUTCHours(23, 59, 59, 999);
 
       const dailySpendResult = await tx.advertisingClickCharge.aggregate({
         where: {
