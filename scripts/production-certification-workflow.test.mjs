@@ -98,3 +98,11 @@ test("Vercel source enables production main but quarantines the unapproved integ
   assert.match(nextConfig, /resolveEdgeOrigin\(process\.env\)/);
   assert.match(nextConfig, /return edgeRewrites\(edgeOrigin\)/);
 });
+test("Phase 3 preserves operator diagnostics without bypassing the launch veto", () => {
+  const source = readFileSync(".github/workflows/production-certification.yml", "utf8");
+  const certified = source.slice(source.indexOf("  certified:"));
+  assert.ok(certified.indexOf("node scripts/report-phase3-blockers.mjs") < certified.indexOf("node scripts/check-closure-engineering-gates.mjs"));
+  assert.match(certified, /output\/production-closure\/phase3-blocker-actions\.json/);
+  assert.match(certified, /output\/production-closure\/phase3-launch-veto\.json/);
+  assert.doesNotMatch(certified, /continue-on-error\s*:/);
+});

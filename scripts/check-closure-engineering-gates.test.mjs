@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import test from "node:test";
-import { evaluateLaunchGateManifest } from "./check-closure-engineering-gates.mjs";
+import { evaluateLaunchGateManifest, exactSourceMatches, authorizeFromSourceRegistry } from "./check-closure-engineering-gates.mjs";
 
 const gate = (key, status = "IMPLEMENTED") =>
   ({ key, status, evidence: "Audited source and independent evidence." });
+
+test("launch provenance requires two complete matching commit SHAs", () => {
+  const sha = "a".repeat(40);
+  assert.equal(exactSourceMatches(sha, sha), true);
+  for (const [actual, expected] of [[sha, null], [sha, ""], [sha, "a"], [null, sha], ["a", "a"], [sha, "b".repeat(40)], ["g".repeat(40), "g".repeat(40)]]) {
+    assert.equal(exactSourceMatches(actual, expected), false);
+  }
+});
+
+test("source registry and matching SHA alone never authorize a live launch", () => {
+  const sha = "a".repeat(40);
+  const verdict = evaluateLaunchGateManifest({ classification: "READY", gates: [gate("test_gate")] });
+  assert.equal(authorizeFromSourceRegistry(verdict, sha, sha), false);
+});
 
 test("all complete gates still require explicit READY classification", () => {
   const pending = evaluateLaunchGateManifest({
@@ -59,7 +73,16 @@ test("the current production source gate produces an honest veto and machine-rea
   assert.match(cli.stderr, /NOT_READY/);
   const receipt = JSON.parse(readFileSync("output/production-closure/phase3-launch-veto.json", "utf8"));
   assert.equal(receipt.launchAuthorized, false);
+  assert.equal(receipt.sourceMatches, false);
   assert.equal(receipt.evidenceTier, "SOURCE_REGISTRY_ONLY");
   assert.equal(receipt.gateCounts.unresolved, verdict.unresolved.length);
   assert.deepEqual(receipt.unresolved.map(x => x.key), verdict.unresolved.map(x => x.key));
+  const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  const matching = spawnSync(process.execPath, ["scripts/check-closure-engineering-gates.mjs"], {
+    cwd: process.cwd(), encoding: "utf8", env: { ...process.env, KT_CERTIFICATION_HEAD_SHA: sha },
+  });
+  assert.equal(matching.status, 1);
+  const matchedReceipt = JSON.parse(readFileSync("output/production-closure/phase3-launch-veto.json", "utf8"));
+  assert.equal(matchedReceipt.sourceMatches, true);
+  assert.equal(matchedReceipt.launchAuthorized, false);
 });

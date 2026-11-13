@@ -1,0 +1,21 @@
+# Phase 3 worker scope review — 13 November 2026
+
+This is an engineering inventory, not product-owner scope approval. Registry status was reviewed at `a090c77d564b5e04c3f3e12fc020bcacaab2808e`. Disabled processors cannot be invoked through the registered processor service; none was enabled as part of this review. Source/test evidence is not finance, provider or operational approval.
+
+The Phase 3 gate checker requires an exact, fully formed source SHA and does not authorize launch from the source registry alone. There is currently no integrated independent-approval verifier in this checker, so even a source-only `READY` registry will not produce an authorized launch receipt. Adding a genuine independently verified approval path remains required before launch can be authorized; it must not be replaced by a fabricated approval or a source-only flag. The separate `report-phase3-blockers.mjs` command emits diagnostic owner actions and always reports `launchAuthorized: false`.
+
+| Registered worker | Engineering disposition | Remaining decision or evidence |
+| --- | --- | --- |
+| `generate-report-jobs`, `expire-report-artifacts` | Disabled; synchronous reports use the separately implemented report service. Asynchronous queued work and automatic expiry are not certified. | Product owner to determine required scope; engineering must prove job claims, recovery, cancellation, storage cleanup, authorization and safe artifact expiry before activation. |
+| `process-subscription-renewals` | Disabled. | Product owner must confirm scope; independent billing policy and financial/provider acceptance are required before any renewal or charge. |
+| `deliver-developer-webhooks`, `expire-developer-api-credentials` | Disabled. | Product owner must confirm developer-platform scope; delivery, endpoint/SSRF protections, retry, signing, expiry and incident recovery need independently verified execution. |
+| `end-expired-promotions` | Disabled; promotion evaluation separately checks effective dates. | Product owner must confirm lifecycle scope; test safe expiration, concurrent activation and history before enabling a worker. |
+| `process-valid-click-charges` | Disabled. | Product owner must confirm advertising scope and finance must approve billing; no click charges are authorized by this inventory. |
+| `process-promoter-qualifications` | Disabled; ordinary customer referrals use a separate processor and finance-controlled activation. | Product owner must confirm promoter scope; finance and operations must review qualification, payout and reversal evidence. |
+| `process-privacy-requests` | Generic worker disabled; privacy request and retention services have separate workflows. | Verify the approved operator workflow and whether a generic processor is required; do not automate deletion without verified authority and hold checks. |
+
+The existing [test deferral inventory](TEST_DEFERRALS.md) labels inactive optional selections as excluded, not passed. On 13 November the AST-based `hasTestDeferrals` detector scanned 1,409 test/spec files: 64 contained markers and all 64 appeared in the existing inventory. The additional inventoried `tests/integration/catalog-integration-guard.ts` is a non-test helper and also contains a detected marker, accounting for 65 inventoried paths. This is a source inventory, not proof that every marked test executed or that an exclusion is approved. Product owner approval of exclusions has not been supplied; `critical_skip_closure` remains open. The exact-commit browser and PostgreSQL receipts document what ran, not that every deferred feature is unnecessary.
+
+## Store-order readiness
+
+`checkMarketplaceStoreOrderInitializationReadiness` requires an active effective operational policy before initializing pending store orders and surfaces a blocker for reconciliation cases. The historical production counts in the gate registry are not a current approval. A 13 November read-only operations heartbeat showed no blockers or retries in that individual cycle; it does not prove an active approved policy or resolve historical queues. An authorized operator must independently verify current policy approval, effective dates, queued work and source/deployment parity before real acceptance.

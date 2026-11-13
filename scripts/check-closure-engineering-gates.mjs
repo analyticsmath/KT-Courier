@@ -48,6 +48,16 @@ function currentSha() {
   }
 }
 
+export function exactSourceMatches(sourceSha, expectedSha) {
+  return typeof sourceSha === "string" && typeof expectedSha === "string" &&
+    /^[a-f0-9]{40}$/.test(sourceSha) && /^[a-f0-9]{40}$/.test(expectedSha) && sourceSha === expectedSha;
+}
+
+/** A source registry is not independent operator or finance authorization. */
+export function authorizeFromSourceRegistry(_verdict, _sourceSha, _expectedSha) {
+  return false;
+}
+
 export function runPhase3GateCheck() {
   const sourceSha = currentSha();
   const expectedSha = process.env.KT_CERTIFICATION_HEAD_SHA ?? null;
@@ -59,8 +69,8 @@ export function runPhase3GateCheck() {
     process.exitCode = 1;
     return;
   }
-  const shaMatches = !expectedSha || (sourceSha !== null && expectedSha === sourceSha);
-  const ready = verdict.ready && shaMatches;
+  const shaMatches = exactSourceMatches(sourceSha, expectedSha);
+  const ready = authorizeFromSourceRegistry(verdict, sourceSha, expectedSha);
   const receipt = {
     schemaVersion: 1,
     sourceSha,
@@ -86,6 +96,7 @@ export function runPhase3GateCheck() {
       console.error(`  [${gate.status}] ${gate.key}: ${gate.evidence.replace(/\s+/g, " ").slice(0, 300)}`);
     }
     if (!shaMatches) console.error("  [SOURCE_MISMATCH] Certification checkout is not the expected exact SHA.");
+    if (verdict.ready && shaMatches) console.error("  [INDEPENDENT_APPROVAL_REQUIRED] Source registry evidence alone cannot authorize production launch.");
     process.exitCode = 1;
     return;
   }
