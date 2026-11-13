@@ -86,6 +86,17 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
     expect(mocks.redemptionCount).not.toHaveBeenCalled();
   });
 
+  it("treats the expiry instant as outside the campaign and coupon schedule", async () => {
+    const deps = await dependencies();
+    await deps.fetchActiveCampaignVersions(now);
+    expect(mocks.campaignVersions).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ endsAt: { gt: now } }) }));
+    const version = { status: "ACTIVE", applicationMethod: "COUPON_CODE", campaign: { status: "ACTIVE" }, currency: "ZAR", startsAt: new Date("2026-01-01"), endsAt: now };
+    mocks.code.mockResolvedValue({ id: "code", startsAt: null, expiresAt: null, restrictedCustomerUserId: null, maximumRedemptions: null, maximumRedemptionsPerCustomer: null, campaignVersion: version });
+    expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
+    mocks.code.mockResolvedValue({ id: "code", startsAt: null, expiresAt: now, restrictedCustomerUserId: null, maximumRedemptions: null, maximumRedemptionsPerCustomer: null, campaignVersion: { ...version, endsAt: new Date("2026-12-01") } });
+    expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
+  });
+
   it("does not allow an exhausted coupon to exceed its verified source redemption cap", async () => {
     const deps = await dependencies();
     mocks.code.mockResolvedValue({

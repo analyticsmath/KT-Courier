@@ -190,7 +190,7 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
   const fundingIntents: PromotionJournalIntent[] = [];
 
   for (const reservation of reservations) {
-    if (reservation.status !== 'RESERVED' || reservation.expiresAt < input.now) {
+    if (reservation.status !== 'RESERVED' || reservation.expiresAt <= input.now) {
       throw new Error(`Reservation ${reservation.id} is not active or is expired.`);
     }
 

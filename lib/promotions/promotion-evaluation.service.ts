@@ -169,7 +169,7 @@ export async function evaluateMarketplacePromotions(
 
   for (const candidate of candidates) {
     // Check schedule
-    if (input.now < candidate.startsAt || input.now > candidate.endsAt) {
+    if (input.now < candidate.startsAt || input.now >= candidate.endsAt) {
       rejected.push({ campaignVersionId: candidate.id, reason: 'Outside campaign schedule' });
       continue;
     }

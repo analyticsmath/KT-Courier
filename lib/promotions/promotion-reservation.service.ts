@@ -221,7 +221,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
         && c.codeHmac === input.appliedCouponCode
         && c.status === "ACTIVE"
         && (!c.startsAt || c.startsAt <= input.now)
-        && (!c.expiresAt || c.expiresAt >= input.now)
+        && (!c.expiresAt || c.expiresAt > input.now)
         && (!c.restrictedCustomerUserId || c.restrictedCustomerUserId === input.customerUserId))
       : null;
     if (applied.applicationMethod === "COUPON_CODE" && !code) {

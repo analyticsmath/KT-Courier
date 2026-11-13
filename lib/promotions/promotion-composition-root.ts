@@ -129,7 +129,7 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
               campaign: { status: 'ACTIVE' },
               budget: { is: { status: 'ACTIVE', currency: 'ZAR' } },
               startsAt: { lte: now },
-              endsAt: { gte: now },
+              endsAt: { gt: now },
             },
             include: {
               targets: true,
@@ -176,9 +176,9 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
             || v.applicationMethod !== 'COUPON_CODE'
             || v.campaign.status !== 'ACTIVE'
             || v.currency !== 'ZAR'
-            || input.now < v.startsAt || input.now > v.endsAt
+            || input.now < v.startsAt || input.now >= v.endsAt
             || (codeRecord.startsAt && input.now < codeRecord.startsAt)
-            || (codeRecord.expiresAt && input.now > codeRecord.expiresAt)
+            || (codeRecord.expiresAt && input.now >= codeRecord.expiresAt)
             || (codeRecord.restrictedCustomerUserId
               && codeRecord.restrictedCustomerUserId !== input.customerUserId)) return null;
           if (codeRecord.maximumRedemptions !== null
