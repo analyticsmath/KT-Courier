@@ -77,6 +77,18 @@ describe("Paystack missing-reference classification", () => {
 });
 
 describe("Paystack verified checkout recovery is exact-source", () => {
+  it("initializes a freshly DB-reserved reference directly without erroneous verify-before-initialize", async () => {
+    const { adapter, verifyTransaction, initializeTransaction } = setup();
+    initializeTransaction.mockResolvedValue({
+      reference: request.merchantReference,
+      authorization_url: "https://checkout.paystack.com/fresh",
+      access_code: "fresh",
+    });
+    const result = await adapter.createCheckoutSession(request, { ...context, freshAttempt: true });
+    expect(result.status).toBe("REQUIRES_ACTION");
+    expect(verifyTransaction).not.toHaveBeenCalled();
+    expect(initializeTransaction).toHaveBeenCalledTimes(1);
+  });
   it("accepts only the exact paid reference and amount with no second provider initialize", async () => {
     const { adapter, verifyTransaction, initializeTransaction } = setup();
     verifyTransaction.mockResolvedValue(verified);
