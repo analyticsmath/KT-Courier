@@ -1,14 +1,12 @@
 import { assertPromotionsProductionReady } from "./production-lock";
+import { createBusinessPromotion, updateBusinessPromotion } from "@/lib/client-platform/promotion-authoring.service";
 
-export async function createPromotionCampaign(input: unknown): Promise<unknown> {
+export async function createPromotionCampaign(input: { actorUserId: string; draft: unknown }) {
   assertPromotionsProductionReady("CAMPAIGN_CREATE");
-  void input;
-  return null;
+  return createBusinessPromotion(input.actorUserId, input.draft);
 }
 
-export async function updatePromotionCampaign(id: string, input: unknown): Promise<unknown> {
+export async function updatePromotionCampaign(input: { actorUserId: string; reference: string; draft: unknown }) {
   assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  void id;
-  void input;
-  return null;
+  return updateBusinessPromotion(input.actorUserId, input.reference, input.draft);
 }

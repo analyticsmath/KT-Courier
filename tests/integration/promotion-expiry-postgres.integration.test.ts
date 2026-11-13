@@ -6,6 +6,7 @@ import { releaseCheckoutPromotions } from "@/lib/promotions/promotion-release.se
 import { recordBudgetMovement } from "@/lib/promotions/promotion-budget.service";
 import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
+import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -68,4 +69,10 @@ it("releases one expired reservation only after its unpaid checkout closes", asy
   expect(results.reduce((sum, item) => sum + item.released, 0)).toBe(1);
   expect((await prisma.promotionReservation.findUniqueOrThrow({ where: { id: reservation.id } })).status).toBe("RELEASED");
   expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id, movementType: "RELEASE" } })).toBe(1);
+});
+
+it("opens one reconciliation case across concurrent scans", async () => {
+  const cases = await Promise.all(Array.from({ length: 3 }, () => createReconciliationCase("BUDGET_MISMATCH", { campaignVersionId: versionId })));
+  expect(new Set(cases.map((item) => item.id)).size).toBe(1);
+  expect(await prisma.promotionReconciliationCase.count({ where: { campaignVersionId: versionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } })).toBe(1);
 });
