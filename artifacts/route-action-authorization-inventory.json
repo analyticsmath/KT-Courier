@@ -1,12 +1,12 @@
 {
   "summary": {
-    "totalRoutes": 787,
+    "totalRoutes": 788,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 685,
+    "authenticatedRoutes": 686,
     "permissionGatedRoutes": 537,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 227,
+    "rateLimitedRoutes": 228,
     "generatedAt": "2026-11-10T17:00:00.000Z"
   },
   "serverActions": [],
@@ -3927,6 +3927,24 @@
       "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/payment-providers/live-verification/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "SAME_ORIGIN_POST",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "requireSuperAdminApi on both methods; real-money POST is same-origin and rate-limited; reconciliation is actor-owner scoped; request idempotency is enforced at the database."
     },
     {
       "routePath": "app/api/admin/payment-providers/route.ts",

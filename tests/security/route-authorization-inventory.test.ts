@@ -83,6 +83,21 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     expect(offenders, `Routes whose enforced permission is missing from the inventory:\n${offenders.join("\n")}`).toEqual([]);
   });
 
+  it("locks the isolated live Paystack verification API to superadmin with rate limits and ownership", () => {
+    const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const entry = content.routes.find((row: { routePath: string }) =>
+      row.routePath === "app/api/admin/payment-providers/live-verification/route.ts");
+    expect(entry).toMatchObject({
+      httpMethods: ["GET", "POST"],
+      authorizationMechanism: "SUPER_ADMIN_SESSION",
+      requiredRoles: ["SUPER_ADMIN"],
+      rateLimitingApplied: true,
+      idempotencyEnforced: true,
+      bolaOwnershipValidated: true,
+      remediationStatus: "COMPLIANT",
+    });
+  });
+
   it("records the exact SUPER_ADMIN role for privileged commerce and password recovery", () => {
     const report = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     for (const routePath of ["app/api/admin/super-admin/commerce/route.ts", "app/api/admin/super-admin/password-reset/route.ts"]) {
