@@ -14,6 +14,9 @@ beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = aw
 describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
   it("enforces self ownership, duplicate control, transitions, controlled deletion plan and export scope", async () => {
     const access = await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` });
+    expect((await createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` })).id).toBe(access.id);
+    await expect(createPrivacyRequest({ requesterUserId: userB, requestType: "ACCESS", operationId: `${marker}-ACCESS-001` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", scope: ["order_history"], operationId: `${marker}-ACCESS-001` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
     await expect(createPrivacyRequest({ requesterUserId: userA, requestType: "ACCESS", operationId: `${marker}-ACCESS-002` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_DUPLICATE" });
     await expect(getPrivacyRequest(String(access.publicReference), userB)).rejects.toMatchObject({ code: "PRIVACY_REQUEST_NOT_OWNER" });
     await expect(transitionPrivacyRequest({ actorUserId: admin, publicReference: String(access.publicReference), nextStatus: "COMPLETED", reasonCode: "BAD", operationId: `${marker}-BAD` })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_INVALID_TRANSITION" });
@@ -27,6 +30,7 @@ describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
   it("delegates consent withdrawal and holds/retries retention without removing economic relationships", async () => {
     const withdrawal = await createPrivacyRequest({ requesterUserId: userB, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-WITHDRAW-001` });
     await processConsentWithdrawal({ actorUserId: userB, publicReference: String(withdrawal.publicReference), operationId: `${marker}-WITHDRAW-DONE` });
+    expect((await processConsentWithdrawal({ actorUserId: userB, publicReference: String(withdrawal.publicReference), operationId: `${marker}-WITHDRAW-DONE` })).status).toBe("COMPLETED");
     const withdrawalEvents = await (prisma as any).privacyRequestEvent.findMany({ where: { privacyRequestId: withdrawal.id } });
     expect(withdrawalEvents.map((event: any) => event.eventType)).toEqual(expect.arrayContaining(["UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED"]));
 

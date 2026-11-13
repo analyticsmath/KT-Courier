@@ -1,12 +1,39 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createOperationalIncident, getOperationalIncident, transitionOperationalIncident } from "@/lib/services/operational-incidents.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
-import { createPrivacyRequest, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
+import { cancelOwnPrivacyRequest, createPrivacyRequest, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
 
 beforeAll(() => { process.env.PHASE5_REPOSITORY_USE_MEMORY = "true"; process.env.PHASE5_REPOSITORY_TEST_MEMORY = "true"; });
 afterAll(() => { delete process.env.PHASE5_REPOSITORY_USE_MEMORY; delete process.env.PHASE5_REPOSITORY_TEST_MEMORY; });
 
 describe("Phase 5: Admin Operations & Governance Services", () => {
+  it("binds privacy request replays to their owner and original request", async () => {
+    const input = { requesterUserId: "privacy-replay-owner", requestType: "ACCESS" as const, scope: ["user_profile"], requestContext: { note: "original" }, operationId: "PRIVOP-OWNER-REPLAY-001" };
+    const request = await createPrivacyRequest(input);
+    expect((await createPrivacyRequest(input)).id).toBe(request.id);
+    await expect(createPrivacyRequest({ ...input, requesterUserId: "privacy-other-user" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(createPrivacyRequest({ ...input, requestType: "PORTABILITY" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(createPrivacyRequest({ ...input, scope: ["order_history"] })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(createPrivacyRequest({ ...input, requestContext: { note: "changed" } })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+  });
+  it("replays a privacy transition only for the same request, actor and transition", async () => {
+    const request = await createPrivacyRequest({ requesterUserId: "privacy-transition-owner", requestType: "CONSENT_WITHDRAWAL", operationId: "PRIVOP-TRANSITION-CREATE" });
+    const transition = { actorUserId: "privacy-transition-admin", publicReference: String(request.publicReference), nextStatus: "UNDER_REVIEW" as const, reasonCode: "REVIEW_STARTED", operationId: "PRIVOP-TRANSITION-REPLAY" };
+    expect((await transitionPrivacyRequest(transition)).status).toBe("UNDER_REVIEW");
+    expect((await transitionPrivacyRequest(transition)).status).toBe("UNDER_REVIEW");
+    await expect(transitionPrivacyRequest({ ...transition, actorUserId: "other-admin" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(transitionPrivacyRequest({ ...transition, nextStatus: "APPROVED" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    await expect(transitionPrivacyRequest({ ...transition, reasonCode: "OTHER_REASON" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+    const other = await createPrivacyRequest({ requesterUserId: "privacy-transition-other", requestType: "CONSENT_WITHDRAWAL", operationId: "PRIVOP-TRANSITION-OTHER" });
+    await expect(transitionPrivacyRequest({ ...transition, publicReference: String(other.publicReference) })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_OPERATION_CONFLICT" });
+  });
+  it("replays a customer cancellation without allowing a different customer", async () => {
+    const request = await createPrivacyRequest({ requesterUserId: "privacy-cancel-owner", requestType: "ACCESS", operationId: "PRIVOP-CANCEL-CREATE" });
+    const input = { userId: "privacy-cancel-owner", publicReference: String(request.publicReference), operationId: "PRIVOP-CANCEL-REPLAY" };
+    expect((await cancelOwnPrivacyRequest(input)).status).toBe("CANCELLED");
+    expect((await cancelOwnPrivacyRequest(input)).status).toBe("CANCELLED");
+    await expect(cancelOwnPrivacyRequest({ ...input, userId: "privacy-other-user" })).rejects.toMatchObject({ code: "PRIVACY_REQUEST_NOT_OWNER" });
+  });
   it("creates, transitions, and reads operational incident with append-only timeline", async () => {
     const actorUserId = "usr-admin-inc";
     const incident = await createOperationalIncident({

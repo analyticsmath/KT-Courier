@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isDeepStrictEqual } from "node:util";
 import { db } from "@/lib/db";
 import { MARKETING_CHANNELS, setMarketingPreference } from "@/lib/privacy/preference.service";
 import { evaluateRetentionHolds, type HoldEvaluationResult } from "@/lib/retention/hold-evaluator";
@@ -99,13 +100,20 @@ export async function getPrivacyRequest(publicReference: string, ownerUserId?: s
 }
 
 export async function createPrivacyRequest(input: { requesterUserId: string; requestType: PrivacyRequestType; scope?: string[]; requestContext?: Record<string, unknown>; operationId: string }) {
+  const scope = (input.scope ?? []).slice(0, 20);
+  const requestContext = input.requestType === "CORRECTION" ? { ...(input.requestContext ?? {}), correctionClassification: classifyCorrectionRequest(scope) } : input.requestContext ?? null;
   const replay = await phase5Repository.privacyRequest.findUnique({ where: { operationId: input.operationId } });
-  if (replay) return replay;
+  if (replay) {
+    if (replay.requesterUserId !== input.requesterUserId || replay.requestType !== input.requestType ||
+        !isDeepStrictEqual(replay.scope, scope) || !isDeepStrictEqual(replay.requestContext, requestContext)) {
+      throw new PrivacyRequestError("PRIVACY_REQUEST_OPERATION_CONFLICT");
+    }
+    return replay;
+  }
   const existing = await phase5Repository.privacyRequest.findFirst({ where: { requesterUserId: input.requesterUserId, requestType: input.requestType, status: { in: activeStatuses } } });
   if (existing) throw new PrivacyRequestError("PRIVACY_REQUEST_DUPLICATE", "An equivalent privacy request is already active.");
   const status = needsVerification(input.requestType) ? "IDENTITY_VERIFICATION_REQUIRED" : "SUBMITTED";
-  const scope = (input.scope ?? []).slice(0, 20);
-  const request = await phase5Repository.privacyRequest.create({ data: { publicReference: phase5Reference("DSAR"), requesterUserId: input.requesterUserId, requestType: input.requestType, scope, requestContext: input.requestType === "CORRECTION" ? { ...(input.requestContext ?? {}), correctionClassification: classifyCorrectionRequest(scope) } : input.requestContext ?? null, operationId: input.operationId, status, identityVerificationStatus: needsVerification(input.requestType) ? "REQUIRED" : "AUTHENTICATED" } });
+  const request = await phase5Repository.privacyRequest.create({ data: { publicReference: phase5Reference("DSAR"), requesterUserId: input.requesterUserId, requestType: input.requestType, scope, requestContext, operationId: input.operationId, status, identityVerificationStatus: needsVerification(input.requestType) ? "REQUIRED" : "AUTHENTICATED" } });
   await phase5Repository.privacyRequestEvent.create({ data: { privacyRequestId: String(request.id), operationId: `${input.operationId}:SUBMITTED`, eventType: status, safeReasonCode: "SELF_SERVICE_SUBMISSION", actorUserId: input.requesterUserId } });
   if (input.requestType === "DELETION_OR_ANONYMISATION") await phase5Repository.privacyRequestExecutionPlan.create({ data: { privacyRequestId: String(request.id), policySnapshot: deletionPlan(input.requesterUserId) } });
   return request;
@@ -114,7 +122,6 @@ export async function createPrivacyRequest(input: { requesterUserId: string; req
 export async function cancelOwnPrivacyRequest(input: { userId: string; publicReference: string; operationId: string }) {
   const request = await getPrivacyRequestAuthority(input.publicReference, input.userId);
   if (!request) throw new PrivacyRequestError("PRIVACY_REQUEST_NOT_FOUND");
-  if (!["SUBMITTED", "IDENTITY_VERIFICATION_REQUIRED", "UNDER_REVIEW", "RECEIVED"].includes(String(request.status))) throw new PrivacyRequestError("PRIVACY_REQUEST_INVALID_TRANSITION");
   return transitionPrivacyRequest({ actorUserId: input.userId, publicReference: input.publicReference, nextStatus: "CANCELLED", reasonCode: "REQUESTER_CANCELLED", operationId: input.operationId, requesterCancellation: true });
 }
 
@@ -122,11 +129,18 @@ export async function transitionPrivacyRequest(input: { actorUserId: string; pub
   const rawRequest = await phase5Repository.privacyRequest.findUnique({ where: { publicReference: input.publicReference } });
   if (!rawRequest) throw new PrivacyRequestError("PRIVACY_REQUEST_NOT_FOUND");
   const request = readPrivacyRequestAuthority(rawRequest);
+  if (input.requesterCancellation && request.requesterUserId !== input.actorUserId) throw new PrivacyRequestError("PRIVACY_REQUEST_NOT_OWNER");
+  const replay = await phase5Repository.privacyRequestEvent.findUnique({ where: { operationId: input.operationId } });
+  if (replay) {
+    if (replay.privacyRequestId !== request.id || replay.actorUserId !== input.actorUserId ||
+        replay.eventType !== input.nextStatus || replay.safeReasonCode !== safeOperationalText(input.reasonCode, 80)) {
+      throw new PrivacyRequestError("PRIVACY_REQUEST_OPERATION_CONFLICT");
+    }
+    return request;
+  }
   const current = String(request.status) === "RECEIVED" ? "SUBMITTED" : String(request.status) === "IN_REVIEW" ? "UNDER_REVIEW" : String(request.status) === "FULFILMENT_IN_PROGRESS" ? "PROCESSING" : String(request.status);
   if (!transitions[current as PrivacyRequestStatus]?.includes(input.nextStatus)) throw new PrivacyRequestError("PRIVACY_REQUEST_INVALID_TRANSITION");
-  if (input.requesterCancellation && request.requesterUserId !== input.actorUserId) throw new PrivacyRequestError("PRIVACY_REQUEST_NOT_OWNER");
   if (["UNDER_REVIEW", "APPROVED", "PARTIALLY_APPROVED", "PROCESSING", "COMPLETED"].includes(input.nextStatus) && needsVerification(normalizedType(String(request.requestType))) && request.identityVerificationStatus !== "VERIFIED" && !input.identityVerified) throw new PrivacyRequestError("PRIVACY_IDENTITY_VERIFICATION_REQUIRED");
-  const replay = await phase5Repository.privacyRequestEvent.findUnique({ where: { operationId: input.operationId } }); if (replay) return request;
   const decision = ["APPROVED", "PARTIALLY_APPROVED", "REJECTED"].includes(input.nextStatus) ? input.nextStatus : request.decision;
   const updated = await phase5Repository.privacyRequest.update({ where: { id: String(request.id) }, data: { status: input.nextStatus, ...(input.identityVerified ? { identityVerificationStatus: "VERIFIED" } : {}), ...(decision ? { decision, decisionReason: safeOperationalText(input.reasonCode, 160), reviewedAt: new Date() } : {}), ...(input.nextStatus === "COMPLETED" ? { completedAt: new Date(), safeOutcome: safeOperationalText(input.reasonCode, 160) } : {}) } });
   await phase5Repository.privacyRequestEvent.create({ data: { privacyRequestId: String(request.id), operationId: input.operationId, eventType: input.nextStatus, safeReasonCode: safeOperationalText(input.reasonCode, 80), actorUserId: input.actorUserId } });
