@@ -40,6 +40,13 @@ export function evaluateLaunchGateManifest(manifest) {
   });
 }
 
+/** A missing, malformed or mismatched SHA never proves launch-source identity. */
+export function exactCertificationSourceMatches(sourceSha, expectedSha) {
+  return typeof sourceSha === "string" && /^[a-f0-9]{40}$/.test(sourceSha)
+    && typeof expectedSha === "string" && /^[a-f0-9]{40}$/.test(expectedSha)
+    && sourceSha === expectedSha;
+}
+
 function currentSha() {
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", timeout: 5000 }).trim();
@@ -59,7 +66,7 @@ export function runPhase3GateCheck() {
     process.exitCode = 1;
     return;
   }
-  const shaMatches = !expectedSha || (sourceSha !== null && expectedSha === sourceSha);
+  const shaMatches = exactCertificationSourceMatches(sourceSha, expectedSha);
   const ready = verdict.ready && shaMatches;
   const receipt = {
     schemaVersion: 1,
@@ -85,7 +92,7 @@ export function runPhase3GateCheck() {
     for (const gate of verdict.unresolved) {
       console.error(`  [${gate.status}] ${gate.key}: ${gate.evidence.replace(/\s+/g, " ").slice(0, 300)}`);
     }
-    if (!shaMatches) console.error("  [SOURCE_MISMATCH] Certification checkout is not the expected exact SHA.");
+    if (!shaMatches) console.error("  [SOURCE_MISMATCH] Missing, invalid or mismatched exact commit SHA; launch authorization refused.");
     process.exitCode = 1;
     return;
   }
