@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { PaymentError } from "@/lib/payments/errors";
 import { PaystackClient, validatePaystackAuthorizationUrl } from "@/lib/payments/providers/paystack/paystack-client";
@@ -92,36 +93,39 @@ export async function createLiveGatewayVerification(actor: Actor, idempotencyKey
     throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A verified account email is required.");
   }
 
-  const existing = await prisma.paystackLiveVerification.findUnique({ where: { idempotencyKey } });
-  if (existing) {
-    if (existing.actorUserId !== actor.id) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Verification belongs to another account.");
-    return publicResult(existing);
-  }
+  // Serialize a tester's live-money verifications on their durable user row.
+  // Two tabs using different operation IDs must never initialize two R1 charges
+  // before either sees the other's unresolved attempt.
+  const reservation = await prisma.$transaction(async (tx) => {
+    const lockedUser = await tx.$queryRaw<Array<{ id: string }>>(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${actor.id} FOR UPDATE`,
+    );
+    if (lockedUser.length !== 1) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Verification account no longer exists.");
+    const existing = await tx.paystackLiveVerification.findUnique({ where: { idempotencyKey } });
+    if (existing) {
+      if (existing.actorUserId !== actor.id) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Verification belongs to another account.");
+      return { record: existing, shouldInitialize: false } as const;
+    }
 
-  const recent = await prisma.paystackLiveVerification.findMany({
-    where: { actorUserId: actor.id, createdAt: { gte: new Date(Date.now() - RECENT_WINDOW_MS) } },
-    orderBy: { createdAt: "desc" }, take: MAX_VERIFICATIONS_PER_WINDOW + 1,
-  });
-  const unresolved = recent.find(row => ACTIVE_STATUSES.includes(row.status));
-  if (unresolved) return publicResult(unresolved);
-  if (recent.length >= MAX_VERIFICATIONS_PER_WINDOW) {
-    throw new PaymentError("PAYMENT_PROVIDER_RATE_LIMITED", "Live verification charge limit reached.");
-  }
+    const recent = await tx.paystackLiveVerification.findMany({
+      where: { actorUserId: actor.id, createdAt: { gte: new Date(Date.now() - RECENT_WINDOW_MS) } },
+      orderBy: { createdAt: "desc" }, take: MAX_VERIFICATIONS_PER_WINDOW + 1,
+    });
+    const unresolved = recent.find(row => ACTIVE_STATUSES.includes(row.status));
+    if (unresolved) return { record: unresolved, shouldInitialize: false } as const;
+    if (recent.length >= MAX_VERIFICATIONS_PER_WINDOW) {
+      throw new PaymentError("PAYMENT_PROVIDER_RATE_LIMITED", "Live verification charge limit reached.");
+    }
 
-  const reference = "ktverify-" + randomBytes(16).toString("hex");
-  let record;
-  try {
-    record = await prisma.paystackLiveVerification.create({
+    const reference = "ktverify-" + randomBytes(16).toString("hex");
+    const record = await tx.paystackLiveVerification.create({
       data: { reference, idempotencyKey, actorUserId: actor.id, payerEmail: actor.email.trim().toLowerCase(),
         amountCents: LIVE_GATEWAY_VERIFICATION_CENTS, status: "CREATED" },
     });
-  } catch (error) {
-    // Unique operation keys are authoritative on concurrent browser submissions.
-    if ((error as { code?: string }).code !== "P2002") throw error;
-    const raced = await prisma.paystackLiveVerification.findUnique({ where: { idempotencyKey } });
-    if (!raced || raced.actorUserId !== actor.id) throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Verification was already started.");
-    return publicResult(raced);
-  }
+    return { record, shouldInitialize: true } as const;
+  });
+  const record = reservation.record;
+  if (!reservation.shouldInitialize) return publicResult(record);
 
   // The reference has never been submitted before this call; a verify-before-
   // initialize request would only add an avoidable missing-reference failure.
