@@ -22,5 +22,10 @@ describe("Phase 28 webhook registry and endpoint authority", () => {
     await expect(validateWebhookEndpoint("https://user:pass@example.test/hook", { resolver: async () => [{ address: "8.8.8.8" }] })).rejects.toThrow();
     await expect(validateWebhookEndpoint("https://example.test:8443/hook", { resolver: async () => [{ address: "8.8.8.8" }] })).rejects.toThrow();
     await expect(validateWebhookEndpoint("https://example.test/hook", { resolver: async () => [{ address: "8.8.8.8" }, { address: "169.254.169.254" }] })).rejects.toThrow();
+    for (const address of ["100.127.0.1", "::ffff:7f00:1", "febf::1", "2002:7f00:1::", "not-an-address"]) {
+      await expect(validateWebhookEndpoint("https://example.test/hook", { resolver: async () => [{ address }] })).rejects.toThrow();
+    }
+    await expect(validateWebhookEndpoint("https://[2606:4700:4700::1111]/hook", { resolver: async () => [{ address: "8.8.8.8" }] })).rejects.toThrow();
+    await expect(validateWebhookEndpoint("https://example.test/hook", { resolver: async () => [{ address: "2606:4700:4700::1111" }] })).resolves.toMatchObject({ url: expect.any(URL) });
   });
 });

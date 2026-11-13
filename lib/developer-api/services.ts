@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { request as httpsRequest } from "node:https";
+import { BlockList, isIP } from "node:net";
 import { APPLICATION_TRANSITIONS, DEVELOPER_SCOPE_KEYS, DEVELOPER_SCOPES, DeveloperApiError, type DeveloperScope, WEBHOOK_EVENT_CATALOG } from "./contracts";
 import { assertDeveloperApiProductionReady } from "./production-readiness";
 import { credentialFingerprint, credentialHash, decryptWebhookSecret, encryptWebhookSecret, generateCredential, generateWebhookSecret, maskCredential, maskSecret, opaqueReference, sha256, validateCredentialFormat, verifyCredentialHash } from "./crypto";
@@ -186,16 +187,23 @@ export class DbQuotaService {
   }
 }
 
+const blockedWebhookNetworks = new BlockList();
+for (const [network, prefix] of [["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24], ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15], ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4]] as const) blockedWebhookNetworks.addSubnet(network, prefix, "ipv4");
+for (const [network, prefix] of [["::", 128], ["::1", 128], ["64:ff9b::", 96], ["100::", 64], ["2001::", 32], ["2001:db8::", 32], ["2002::", 16], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8]] as const) blockedWebhookNetworks.addSubnet(network, prefix, "ipv6");
 function forbiddenAddress(address: string): boolean {
-  const lower = address.toLowerCase();
-  if (lower === "::" || lower === "::1" || lower === "localhost" || lower.startsWith("fe80:") || lower.startsWith("fc") || lower.startsWith("fd") || lower.startsWith("ff")) return true;
-  if (lower.startsWith("127.") || lower.startsWith("10.") || lower.startsWith("192.168.") || lower.startsWith("169.254.") || lower.startsWith("0.") || lower.startsWith("100.64.") || lower === "169.254.169.254") return true;
-  const parts = lower.split("."); const first = Number(parts[0]); const second = Number(parts[1]); return (first === 172 && second >= 16 && second <= 31) || first >= 224 || first === 198 && (second === 18 || second === 19) || first === 192 && second === 0;
+  const family = isIP(address);
+  if (!family) return true;
+  if (family === 6 && !/^[23]/i.test(address)) return true;
+  return blockedWebhookNetworks.check(address, family === 4 ? "ipv4" : "ipv6");
+}
+async function resolveWebhookDestination(raw: string, resolver?: (host: string) => Promise<{ address: string }[]>) {
+  let url: URL; try { url = new URL(raw); } catch { throw new DeveloperApiError("WEBHOOK_ENDPOINT_INVALID", 400, "The webhook endpoint is invalid."); }
+  if (url.protocol !== "https:" || url.username || url.password || url.port && url.port !== "443" || raw.length > 2048 || isIP(url.hostname.replace(/^\[|\]$/g, "")) || url.hostname === "localhost") throw new DeveloperApiError("WEBHOOK_ENDPOINT_UNSAFE", 400, "The webhook endpoint is not permitted.");
+  const resolved = await (resolver ? resolver(url.hostname) : lookup(url.hostname, { all: true })); if (!resolved.length || resolved.some((entry) => forbiddenAddress(entry.address))) throw new DeveloperApiError("WEBHOOK_ENDPOINT_UNSAFE", 400, "The webhook endpoint is not permitted.");
+  return { url, resolved };
 }
 export async function validateWebhookEndpoint(raw: string, options: { resolver?: (host: string) => Promise<{ address: string }[]>; production?: boolean } = {}): Promise<{ url: URL; fingerprint: string; masked: string }> {
-  let url: URL; try { url = new URL(raw); } catch { throw new DeveloperApiError("WEBHOOK_ENDPOINT_INVALID", 400, "The webhook endpoint is invalid."); }
-  if (url.protocol !== "https:" || url.username || url.password || url.port && url.port !== "443" || raw.length > 2048 || isIP(url.hostname) || url.hostname === "localhost") throw new DeveloperApiError("WEBHOOK_ENDPOINT_UNSAFE", 400, "The webhook endpoint is not permitted.");
-  const resolved = await (options.resolver ? options.resolver(url.hostname) : lookup(url.hostname, { all: true })); if (!resolved.length || resolved.some((entry) => forbiddenAddress(entry.address))) throw new DeveloperApiError("WEBHOOK_ENDPOINT_UNSAFE", 400, "The webhook endpoint is not permitted.");
+  const { url } = await resolveWebhookDestination(raw, options.resolver);
   return { url, fingerprint: sha256(url.toString()), masked: `${url.protocol}//${url.hostname.slice(0, 4)}••••` };
 }
 
@@ -229,7 +237,26 @@ export class WebhookSubscriptionService {
 export type WebhookHttpResponse = Readonly<{ status: number; headers: Headers; body: string }>;
 export interface WebhookHttpClient { send(input: Readonly<{ url: string; headers: Record<string, string>; body: Buffer; timeoutMs: number }>): Promise<WebhookHttpResponse>; }
 export class FetchWebhookHttpClient implements WebhookHttpClient {
-  async send(input: Readonly<{ url: string; headers: Record<string, string>; body: Buffer; timeoutMs: number }>): Promise<WebhookHttpResponse> { const signal = AbortSignal.timeout(input.timeoutMs); const response = await fetch(input.url, { method: "POST", headers: input.headers, body: new Uint8Array(input.body), redirect: "manual", signal }); const contentLength = Number(response.headers.get("content-length") ?? "0"); if (contentLength > 32_768) throw new DeveloperApiError("WEBHOOK_RESPONSE_TOO_LARGE", 502, "Webhook response exceeded the limit."); const reader = response.body?.getReader(); let received = 0; const chunks: Uint8Array[] = []; if (reader) { for (;;) { const chunk = await reader.read(); if (chunk.done) break; received += chunk.value.byteLength; if (received > 32_768) { await reader.cancel(); throw new DeveloperApiError("WEBHOOK_RESPONSE_TOO_LARGE", 502, "Webhook response exceeded the limit."); } chunks.push(chunk.value); } } return { status: response.status, headers: response.headers, body: Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8") }; }
+  async send(input: Readonly<{ url: string; headers: Record<string, string>; body: Buffer; timeoutMs: number }>): Promise<WebhookHttpResponse> {
+    const { url, resolved } = await resolveWebhookDestination(input.url);
+    const address = resolved[0].address;
+    const family = isIP(address) as 4 | 6;
+    return new Promise((resolve, reject) => {
+      const request = httpsRequest(url, { method: "POST", headers: input.headers, agent: false, family, signal: AbortSignal.timeout(input.timeoutMs), lookup: (_hostname, _options, callback) => callback(null, address, family) }, (response) => {
+        const headers = new Headers();
+        for (const [name, value] of Object.entries(response.headers)) if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
+        const tooLarge = () => new DeveloperApiError("WEBHOOK_RESPONSE_TOO_LARGE", 502, "Webhook response exceeded the limit.");
+        if (Number(headers.get("content-length") ?? "0") > 32_768) { response.destroy(); reject(tooLarge()); return; }
+        const chunks: Buffer[] = []; let size = 0;
+        response.on("data", (chunk: Buffer) => { size += chunk.length; if (size > 32_768) { response.destroy(); reject(tooLarge()); } else chunks.push(chunk); });
+        response.on("error", reject);
+        response.on("aborted", () => reject(new Error("Webhook response was interrupted.")));
+        response.on("end", () => { if (!response.statusCode) { reject(new Error("Webhook response had no status.")); return; } resolve({ status: response.statusCode, headers, body: Buffer.concat(chunks).toString("utf8") }); });
+      });
+      request.on("error", reject);
+      request.end(input.body);
+    });
+  }
 }
 
 export class WebhookExecutionService {
