@@ -90,6 +90,12 @@ export function isExactPhase2And3DirectedSelection(args) {
 }
 
 export function playwrightTimeoutMs(args) {
+  // The full Chromium project is substantially larger than a directed selection.
+  // Keep the short limit for filtered/custom invocations, while allowing the
+  // complete single-project suite the same bounded window as certification.
+  if (args.includes("--project=chromium") && args.every((arg) => ["--project=chromium", "--workers=1", "--retries=0"].includes(arg))) {
+    return PHASE1_FULL_CHROMIUM_TIMEOUT_MS;
+  }
   return isExactPhase2And3DirectedSelection(args)
     ? PHASE2_3_DIRECTED_TIMEOUT_MS
     : DEFAULT_PLAYWRIGHT_TIMEOUT_MS;
