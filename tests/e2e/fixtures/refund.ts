@@ -7,7 +7,7 @@ export type RefundJournal = { id: string; type: string; currency: string; totalD
 export type RefundSnapshot = {
   result: { reference: string } | null;
   payment: { amount: string; reserved: string; refunded: string; status: string };
-  accounts: Array<{ purpose: string; balance: string }>;
+  accounts: Array<{ code: string; purpose: string; balance: string }>;
   refunds: Array<{ id: string; reference: string; amount: string; status: string; method: string; funding: Array<{ amount: string; source: string }>; reserve: RefundJournal; release: RefundJournal | null; completion: RefundJournal | null; history: Array<{ toStatus: string; reason: string; operationId: string | null }>; attempts: Array<{ provider: string; status: string; number: number }>; reconciliation: Array<{ status: string; reason: string }> }>;
   provider: { calls: number } | null;
 };
@@ -25,3 +25,8 @@ export function assertBalancedRefundJournal(journal: RefundJournal | null, type:
   expect(journal!.entries.filter(e => e.direction === "CREDIT").reduce((n, e) => n + Math.round(Number(e.amount) * 100), 0)).toBe(Math.round(Number(amount) * 100));
 }
 export const balance = (snapshot: RefundSnapshot, purpose: string) => snapshot.accounts.find(a => a.purpose === purpose)!.balance;
+export const accountBalance = (snapshot: RefundSnapshot, code: string) => {
+  const account = snapshot.accounts.find(a => a.code === code);
+  if (!account) throw new Error(`Ledger account ${code} is missing from the refund snapshot.`);
+  return account.balance;
+};

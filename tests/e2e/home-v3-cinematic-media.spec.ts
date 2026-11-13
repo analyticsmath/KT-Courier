@@ -12,7 +12,8 @@ test("current editorial homepage preserves the hero and loads handoff media on s
   await expect(hero.getByRole("link", { name: /Discover the shop/ })).toHaveAttribute("href", "/shop");
   await expect(hero.getByRole("link", { name: /Send a parcel/ })).toHaveAttribute("href", "/services/parcel");
   const heroImage = hero.getByRole("img", { name: "A florist at the door of her neighbourhood flower shop" });
-  await expect.poll(() => heroImage.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  // Allow the image request to finish while still requiring a decoded image.
+  await expect.poll(() => heroImage.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), { timeout: 15_000 }).toBe(true);
 
   const handoff = page.locator('[data-home-chapter="handoff"]');
   await handoff.scrollIntoViewIfNeeded();

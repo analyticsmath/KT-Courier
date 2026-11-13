@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Prisma } from "@prisma/client";
 import { login } from "./fixtures/auth";
 import { createPaidCheckout } from "./fixtures/store-order";
-import { assertBalancedRefundJournal, balance, refundControl } from "./fixtures/refund";
+import { accountBalance, assertBalancedRefundJournal, balance, refundControl } from "./fixtures/refund";
 
 for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels exact funds with safe history at ${width}px`, async ({ page }, testInfo) => {
   test.setTimeout(240_000);
@@ -54,7 +54,7 @@ for (const width of [1440, 390]) test(`owned wallet refund reserves and cancels 
   expect(cancelled.refunds[0].status).toBe("CANCELLED"); expect(cancelled.payment.reserved).toBe("0.00");
   expect(balance(cancelled, "CUSTOMER_REFUND_HELD")).toBe("0.00"); expect(balance(cancelled, "CUSTOMER_WALLET_AVAILABLE")).toBe("0.00");
   assertBalancedRefundJournal(cancelled.refunds[0].release, "REFUND_RELEASE", "25.00");
-  expect(balance(cancelled, "HELD")).toBe(balance(baseline, "HELD"));
+  expect(accountBalance(cancelled, "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR")).toBe(accountBalance(baseline, "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"));
   await page.reload(); await expect(page.getByRole("button", { name: "Cancel refund", exact: true })).toHaveCount(0);
   await expect(page.getByRole("list", { name: "Refund request progress", exact: true }).getByText("Reserved funds released", { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
