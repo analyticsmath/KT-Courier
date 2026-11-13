@@ -8,7 +8,7 @@ import { onVerifiedSubscriptionPaymentSucceeded } from "@/lib/subscriptions/subs
 import { createPrismaSubscriptionPaymentSuccessHookRepository } from "@/lib/subscriptions/subscription-payment-success-hook.service";
 
 export type SubscriptionRenewalLifecycleRepository = Readonly<{
-  createNextCycle(input: Readonly<{ contractReference: string; operationId: string; at: Date }>): Promise<Readonly<{ outcome: "CREATED" | "REPLAY" | "CANCELLED" | "RECONCILIATION_REQUIRED"; billingCycleReference?: string; invoiceReference?: string }>>;
+  createNextCycle(input: Readonly<{ contractReference: string; operationId: string; at: Date }>): Promise<Readonly<{ outcome: "CREATED" | "REPLAY" | "NOT_DUE" | "CANCELLED" | "RECONCILIATION_REQUIRED"; billingCycleReference?: string; invoiceReference?: string }>>;
   prepareRenewal(input: Readonly<{ billingCycleReference: string; operationId: string }>): Promise<Readonly<{ outcome: "PREPARED" | "REPLAY" | "CANCELLED" | "RECONCILIATION_REQUIRED"; authorityReference?: string; invoiceReference?: string; paymentReference?: string; amount?: string }>>;
   applyVerifiedRenewal(input: Readonly<{ paymentId: string; invoiceReference: string; operationId: string }>): Promise<Readonly<{ outcome: "APPLIED" | "REPLAY" | "RECONCILIATION_REQUIRED" }>>;
 }>;
@@ -55,6 +55,7 @@ export function createPrismaSubscriptionRenewalLifecycleRepository(database: any
         const prior = contract.billingCycles[0];
         if (!prior?.invoice) return { outcome: "RECONCILIATION_REQUIRED" as const };
         if (contract.cancellationEffectiveAt && prior.periodEnd >= contract.cancellationEffectiveAt) return { outcome: "CANCELLED" as const };
+        if (prior.periodStart > input.at) return { outcome: "NOT_DUE" as const };
         const existing = await tx.subscriptionBillingCycle.findUnique({ where: { contractId_cycleNumber: { contractId: contract.id, cycleNumber: prior.cycleNumber + 1 } }, include: { invoice: true } });
         if (existing?.invoice) return { outcome: "REPLAY" as const, billingCycleReference: existing.publicReference, invoiceReference: existing.invoice.publicReference };
         const periodStart = prior.periodEnd; const periodEnd = monthLater(periodStart);
