@@ -42,6 +42,7 @@ jobs:
       - run: node scripts/validate-phase3-evidence.mjs
       - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node --test tests/scripts/phase2-bounded-capacity.node-test.mjs
+      - run: node --test tests/scripts/phase3-blocker-actions.node-test.mjs
       - run: node scripts/certification-command.mjs test:coverage
       - run: node scripts/certification-command.mjs test:payments
       - run: node scripts/certification-command.mjs test:refunds
@@ -195,6 +196,7 @@ jobs:
       - name: Record outstanding operator actions
         run: node scripts/report-phase3-blockers.mjs
       - name: Independent Phase 3 launch authorization — fail closed until real evidence exists
+        if: always()
         run: node scripts/check-closure-engineering-gates.mjs
       - name: Preserve Phase 3 gate evidence even when the launch is vetoed
         if: always()
@@ -204,6 +206,14 @@ jobs:
           path: |
             output/production-closure/phase3-launch-veto.json
             output/production-closure/phase3-blocker-actions.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve Phase 3 operator remediation register
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-blocker-actions-${{ github.run_id }}
+          path: output/production-closure/phase3-blocker-actions.json
           if-no-files-found: error
           retention-days: 30
       - run: echo 'Engineering gates passed for this commit. Separate production and live acceptance evidence is still required.'

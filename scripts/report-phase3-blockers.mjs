@@ -1,47 +1,147 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { evaluateLaunchGateManifest } from "./check-closure-engineering-gates.mjs";
-
-// Only non-secret actions are emitted. Historical registry evidence may contain
-// stale claims, so it is never copied into this current diagnostic receipt.
-const ACTIONS = Object.freeze({
-  marketplace_parcel_classification: ["Store owners and courier operations", "Measured packages, approved multi-item rules and delivered-route references", "Supply measured package facts and independently review classification, carrier capacity and delivery."],
-  notification_required_domains: ["Owner and notification administrator", "Approved template versions, routes and recipient-delivery receipts", "Review templates, sender and recipient routes, then exercise authorized notification delivery."],
-  commercial_financial_certification: ["Owner, independent finance reviewer and accountant", "Versioned approvals, test-mode authorization and source-bound provider or bank evidence", "Approve applicable finance, tax, COD, settlement, refund and payout scope before any live financial action."],
-  customer_vendor_driver_full_functional_acceptance: ["Product owner, store, driver and administrator", "Authorized role-based chronological journey evidence", "Create real-email test accounts and execute the approved parcel and marketplace journeys."],
-  visual_acceptance: ["Product owner and accessibility reviewer", "Current-SHA device, keyboard and assistive-technology acceptance", "Review all role journeys at agreed viewport sizes and retest any defects."],
-  media_full_functional_acceptance: ["Authorized media operator and role participants", "Restricted storage references, provider permissions and genuine device or delivery evidence", "Verify private media controls and authorized camera, location, upload and proof-of-delivery journeys."],
-  critical_skip_closure: ["Engineering lead and product owner", "Machine-checked mandatory selections and independently approved optional-scope disposition", "Audit deferred tests and disabled processors; prove required selections and document scope decisions."],
-  fresh_production_protected_row_audit: ["Authorized database administrator and independent reviewer", "Least-privilege principal proof and SHA-bound protected-table count/hash comparison", "Provision an approved read-only path and compare the protected baseline without exporting row contents."],
-  github_certification_and_deployment: ["Release owner and independent operator", "Exact-SHA engineering receipts, deployment references and worker/queue review", "Verify source parity, settled deployments, relevant policies and operational queues independently."],
+import { pathToFileURL } from "node:url";
+import { evaluateLaunchGateManifest, exactCertificationSourceMatches } from "./check-closure-engineering-gates.mjs";
+const REGISTRY = "docs/production-closure/engineering-gates.json";
+const RECEIPT = "output/production-closure/phase3-blocker-actions.json";
+/** Diagnostic worklist, never source-only launch approval. */
+export const PHASE3_REMEDIATION = Object.freeze({
+  "marketplace_parcel_classification": {
+    "accountable": "Store owners / courier and product operations",
+    "kind": "OPERATING_DATA_AND_PHYSICAL_ACCEPTANCE",
+    "actions": [
+      "Collect genuine measured merchant package facts and approve multi-item packing rules.",
+      "Verify quote tariff, assigned vehicle capacity, pickup, OTP and physical delivery; unsupported aggregated packages remain blocked."
+    ],
+    "evidence": "Approved packaging profiles, multi-item acceptance, original quote/order/assignment references."
+  },
+  "notification_required_domains": {
+    "accountable": "Business owner / notification administrator",
+    "kind": "OPERATOR_APPROVAL_AND_PROVIDER_ACCEPTANCE",
+    "actions": [
+      "Independently approve and publish templates, active recipients and event routes.",
+      "Verify authorized sender domain, email/SMS delivery and payment/dispatch/OTP alerts against real recipient evidence."
+    ],
+    "evidence": "Reviewed template and routing versions, redacted delivery receipts."
+  },
+  "commercial_financial_certification": {
+    "accountable": "Business owner / independent finance reviewer / tax adviser",
+    "kind": "INDEPENDENT_FINANCIAL_AUTHORIZATION",
+    "actions": [
+      "Approve effective commissions, tax, COD, cash limits, merchant/store order policy, bank and settlement scopes.",
+      "Authorize bounded Paystack Test Mode and independent maker/checker; do not bypass live money, refund or payout locks."
+    ],
+    "evidence": "Approved policy versions, provider/bank proof and independent finance authorization."
+  },
+  "customer_vendor_driver_full_functional_acceptance": {
+    "accountable": "Product owner / approved merchant, driver and operator",
+    "kind": "REAL_ACCOUNT_AND_PHYSICAL_ACCEPTANCE",
+    "actions": [
+      "Create genuine owner-controlled customer, store and driver accounts; certify actual store pickup and driver/vehicle eligibility.",
+      "Observe quote, payment, dispatch, sender OTP, tracking, recipient OTP, proof, customer review and financial closeout."
+    ],
+    "evidence": "Redacted authenticated role/order/driver/finance acceptance references and physical custody proof."
+  },
+  "visual_acceptance": {
+    "accountable": "Product owner / independent accessibility reviewer",
+    "kind": "HUMAN_UX_AND_ACCESSIBILITY_ACCEPTANCE",
+    "actions": [
+      "Inspect current deployments at 320/390/1440 px for customer, vendor, driver and admin.",
+      "Run keyboard, focus, zoom and screen-reader exercises; fix reproduced defects and record human acceptance."
+    ],
+    "evidence": "Signed current-SHA UI/accessibility evidence and device observations."
+  },
+  "media_full_functional_acceptance": {
+    "accountable": "Media provider administrator / driver / product owner",
+    "kind": "PROVIDER_DEVICE_AND_CUSTODY_ACCEPTANCE",
+    "actions": [
+      "Verify actual private Cloudinary storage, document access denial and safe upload retry.",
+      "Test real camera and GPS permissions, document replacements and physical POD."
+    ],
+    "evidence": "Restricted storage IDs, real-device and POD observations; no private image contents in reports."
+  },
+  "critical_skip_closure": {
+    "accountable": "Engineering lead / product owner",
+    "kind": "ENGINEERING_SCOPE_DECISION",
+    "actions": [
+      "Reconcile skip/deferred inventory against active release functionality and mandatory exact-source tests.",
+      "Implement required disabled capabilities only where approved; explicitly sign off excluded optional processor scopes rather than marking them passed."
+    ],
+    "evidence": "Mandatory suite results with zero critical skips and approved scope/exclusion register."
+  },
+  "fresh_production_protected_row_audit": {
+    "accountable": "Authorized DBA / independent security reviewer",
+    "kind": "LEAST_PRIVILEGE_PRODUCTION_AUDIT",
+    "actions": [
+      "Obtain approved least-privilege read-only PostgreSQL principal, not postgres/superuser.",
+      "Repeat and compare protected-table row counts/hashes with transaction_read_only enabled; do not export PII."
+    ],
+    "evidence": "Read-only principal privileges, SHA-bound protected baseline and independent reconciliation."
+  },
+  "github_certification_and_deployment": {
+    "accountable": "Release engineer / operations owner",
+    "kind": "EXACT_SHA_DEPLOYMENT_AND_WORKER_ACCEPTANCE",
+    "actions": [
+      "Match CI, 25 automated certification jobs, Vercel and Railway to exact source SHA.",
+      "Inspect worker queues, StoreOrderOperationalPolicy retries, notification routes and registered disabled processors; obtain operator acceptance."
+    ],
+    "evidence": "Exact workflow/deployment references, worker capability evidence and operator approval."
+  }
 });
+export function buildPhase3BlockerReport(manifest, {sourceSha = null, expectedSha = null} = {}) {
+  const verdict = evaluateLaunchGateManifest(manifest);
+  return Object.freeze({
+    schemaVersion: 1, sourceSha, expectedSha,
+    sourceMatches: exactCertificationSourceMatches(sourceSha, expectedSha),
+    launchAuthorization: "NOT_EVALUATED",
+    automatedEngineeringCertification: "NOT_EVALUATED",
+    classification: verdict.classification,
+    totalGates: verdict.total, unresolvedCount: verdict.unresolved.length,
+    gateActions: verdict.unresolved.map(({key,status}) => {
+      const policy = PHASE3_REMEDIATION[key];
+      return {
+        key, status,
+        accountable: policy?.accountable ?? "Release owner / responsible domain owner",
+        kind: policy?.kind ?? "UNCATEGORIZED_REQUIRES_INDEPENDENT_REVIEW",
+        actions: policy?.actions ?? ["Classify this independent gate, obtain genuine acceptance, and retain NOT_READY."],
+        evidenceRequired: policy?.evidence ?? "Authentic, scope-bound independent approval and acceptance."
+      };
+    }),
+    note: "Operational worklist only. Neither this script nor zero reported blockers authorizes real money or launch."
+  });
+}
 
+// Strict API for machine-checked current inventories: a newly introduced gate
+// must receive a reviewed action before it can be represented as classified.
 export function buildBlockerActions(manifest, sourceSha) {
   if (typeof sourceSha !== "string" || !/^[a-f0-9]{40}$/.test(sourceSha)) throw new Error("A complete source commit SHA is required.");
   const verdict = evaluateLaunchGateManifest(manifest);
   const actions = verdict.unresolved.map(({ key, status }) => {
-    const action = ACTIONS[key];
-    if (!action) throw new Error(`No reviewed operator action exists for unresolved gate: ${key}`);
-    const [owner, evidenceRequired, nextAction] = action;
-    return { key, status, owner, evidenceRequired, nextAction };
+    const policy = PHASE3_REMEDIATION[key];
+    if (!policy) throw new Error(`No reviewed operator action exists for unresolved gate: ${key}`);
+    return { key, status, owner: policy.accountable, evidenceRequired: policy.evidence, nextAction: policy.actions.join(" ") };
   });
-  return { schemaVersion: 1, sourceSha, generatedAt: new Date().toISOString(), classification: verdict.classification, launchAuthorized: false, purpose: "DIAGNOSTIC_ONLY", actions };
+  return { schemaVersion: 1, sourceSha, classification: verdict.classification, launchAuthorized: false, purpose: "DIAGNOSTIC_ONLY", actions };
 }
-
-export function main() {
-  const sourceSha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", timeout: 5000 }).trim();
-  const workingTreeClean = execFileSync("git", ["status", "--porcelain", "--untracked-files=normal"], { encoding: "utf8", timeout: 5000 }).trim().length === 0;
-  const manifest = JSON.parse(readFileSync("docs/production-closure/engineering-gates.json", "utf8"));
-  const report = { ...buildBlockerActions(manifest, sourceSha), workingTreeClean };
-  const target = "output/production-closure/phase3-blocker-actions.json";
-  mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, `${JSON.stringify(report, null, 2)}\n`);
-  console.log(`PHASE3_BLOCKER_ACTIONS=${target} SOURCE_SHA=${sourceSha} OPEN=${report.actions.length} LAUNCH_AUTHORIZED=false`);
+function currentSha() {
+  try { return execFileSync("git", ["rev-parse", "HEAD"], {encoding:"utf8",timeout:5000}).trim(); }
+  catch { return null; }
+}
+export function writePhase3BlockerReport(env=process.env) {
+  const manifest=JSON.parse(readFileSync(REGISTRY,"utf8"));
+  const sourceSha=currentSha();
+  const base=buildPhase3BlockerReport(manifest, { sourceSha, expectedSha:env.KT_CERTIFICATION_HEAD_SHA ?? null });
+  const strict=buildBlockerActions(manifest,sourceSha);
+  const workingTreeClean=execFileSync("git",["status","--porcelain","--untracked-files=normal"],{encoding:"utf8",timeout:5000}).trim().length===0;
+  const report={...base,launchAuthorized:false,purpose:strict.purpose,actions:strict.actions,workingTreeClean,generatedAt:new Date().toISOString()};
+  mkdirSync("output/production-closure",{recursive:true});
+  writeFileSync(RECEIPT,JSON.stringify(report,null,2)+"\n");
+  console.log("PHASE3_BLOCKER_ACTIONS="+RECEIPT+" unresolved="+report.unresolvedCount+" sourceMatches="+report.sourceMatches);
+  for(const gate of report.gateActions) console.log("["+gate.status+"] "+gate.key+" -> "+gate.accountable);
+  console.log("Report is diagnostic. The independent Phase 3 live-launch veto is unchanged.");
   return report;
 }
-
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  try { main(); } catch (error) { console.error(error instanceof Error ? error.message : "Diagnostic failed."); process.exitCode = 1; }
+if(process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try { writePhase3BlockerReport(); }
+  catch(error) { console.error(error instanceof Error?error.message:String(error));process.exitCode=1; }
 }

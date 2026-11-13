@@ -40,6 +40,13 @@ export function evaluateLaunchGateManifest(manifest) {
   });
 }
 
+/** A missing, malformed or mismatched SHA never proves launch-source identity. */
+export function exactCertificationSourceMatches(sourceSha, expectedSha) {
+  return typeof sourceSha === "string" && /^[a-f0-9]{40}$/.test(sourceSha)
+    && typeof expectedSha === "string" && /^[a-f0-9]{40}$/.test(expectedSha)
+    && sourceSha === expectedSha;
+}
+
 function currentSha() {
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", timeout: 5000 }).trim();
@@ -49,8 +56,7 @@ function currentSha() {
 }
 
 export function exactSourceMatches(sourceSha, expectedSha) {
-  return typeof sourceSha === "string" && typeof expectedSha === "string" &&
-    /^[a-f0-9]{40}$/.test(sourceSha) && /^[a-f0-9]{40}$/.test(expectedSha) && sourceSha === expectedSha;
+  return exactCertificationSourceMatches(sourceSha, expectedSha);
 }
 
 /** A source registry is not independent operator or finance authorization. */
@@ -69,7 +75,7 @@ export function runPhase3GateCheck() {
     process.exitCode = 1;
     return;
   }
-  const shaMatches = exactSourceMatches(sourceSha, expectedSha);
+  const shaMatches = exactCertificationSourceMatches(sourceSha, expectedSha);
   const ready = authorizeFromSourceRegistry(verdict, sourceSha, expectedSha);
   const receipt = {
     schemaVersion: 1,
@@ -95,7 +101,7 @@ export function runPhase3GateCheck() {
     for (const gate of verdict.unresolved) {
       console.error(`  [${gate.status}] ${gate.key}: ${gate.evidence.replace(/\s+/g, " ").slice(0, 300)}`);
     }
-    if (!shaMatches) console.error("  [SOURCE_MISMATCH] Certification checkout is not the expected exact SHA.");
+    if (!shaMatches) console.error("  [SOURCE_MISMATCH] Missing, invalid or mismatched exact commit SHA; launch authorization refused.");
     if (verdict.ready && shaMatches) console.error("  [INDEPENDENT_APPROVAL_REQUIRED] Source registry evidence alone cannot authorize production launch.");
     process.exitCode = 1;
     return;
