@@ -322,11 +322,11 @@ export const PROCESSOR_REGISTRY = {
     maxExecutionDurationSeconds: 120,
     retryPolicy: "IMMEDIATE_RETRY",
     idempotencyStrategy: "PROMOTION_STATUS_EXPIRED",
-    dryRunSupported: false,
-    manualExecutionAllowed: false,
+    dryRunSupported: true,
+    manualExecutionAllowed: true,
     requiredPermission: PERMISSIONS.PROMOTIONS_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Promotions",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "process-managed-marketing-lifecycle": {
     name: "process-managed-marketing-lifecycle",
@@ -440,7 +440,7 @@ export const PROCESSOR_REGISTRY = {
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.REPORT_RECONCILIATION_RETRY,
     operationalOwnerCategory: "Reporting",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "process-privacy-requests": {
     name: "process-privacy-requests",

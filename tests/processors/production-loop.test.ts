@@ -20,6 +20,8 @@ describe("production processor orchestration", () => {
       "expire-marketplace-reservations",
       "process-earning-lifecycle",
       "process-ordinary-referral-awards",
+      "end-expired-promotions",
+      "expire-report-artifacts",
       "deliver-notifications",
       "reconcile-expired-dispatch",
       "dispatch-marketplace-orders",

@@ -83,7 +83,7 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
       .filter((p) => p.status === "DISABLED")
       .map((p) => p.name as ProcessorName);
 
-    expect(disabledNames.length).toBeGreaterThanOrEqual(8);
+    expect(disabledNames.length).toBeGreaterThan(0);
 
     for (const name of disabledNames) {
       await expect(

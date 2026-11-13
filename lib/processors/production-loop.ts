@@ -11,6 +11,8 @@ export const productionProcessors = [
   "expire-marketplace-reservations",
   "process-earning-lifecycle",
   "process-ordinary-referral-awards",
+  "end-expired-promotions",
+  "expire-report-artifacts",
   "deliver-notifications",
   "reconcile-expired-dispatch",
   "dispatch-marketplace-orders",
@@ -45,6 +47,8 @@ type WorkCheck = (name: ProductionProcessor) => Promise<boolean>;
 
 export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<ProductionProcessor, number>>> = {
   "process-ordinary-referral-awards": 300_000,
+  "end-expired-promotions": 300_000,
+  "expire-report-artifacts": 3_600_000,
   "reconcile-expired-dispatch": 60_000,
   "dispatch-marketplace-orders": 60_000,
   "scan-payment-reconciliation": 900_000,
@@ -56,6 +60,10 @@ export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<Pr
 /** Keep automatic financial work closed until its operator authorization and issuing switch are both present. */
 export async function hasEnabledOrdinaryReferralWork(checks: { isAuthorized: boolean; isEnabled: () => Promise<boolean>; hasPending: () => Promise<boolean> }): Promise<boolean> {
   return checks.isAuthorized && await checks.isEnabled() && await checks.hasPending();
+}
+
+export async function hasEnabledPromotionExpiryWork(checks: { enabled: boolean; approved: boolean; hasPending: () => Promise<boolean> }): Promise<boolean> {
+  return checks.enabled && checks.approved && await checks.hasPending();
 }
 
 export interface ProcessorCadenceTracker {

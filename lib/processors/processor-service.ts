@@ -59,6 +59,28 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "expire-report-artifacts": async ({ batchSize }) => {
+    const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
+    if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
+      const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");
+      assertReportingProductionReady();
+    }
+    const { expireReportArtifacts } = await import("@/lib/reporting/report-expiry-batch");
+    const result = await expireReportArtifacts({ limit: batchSize });
+    if (result.failed || result.skipped) throw new Error("Report artifact expiry requires reconciliation.");
+    const completed = result.deleted + result.alreadyAbsent;
+    return { itemsExamined: result.examined, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: 0, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Report artifact expiry: ${completed} completed.` };
+  },
+  "end-expired-promotions": async ({ mode, batchSize }) => {
+    const { expirePromotionCampaigns } = await import("@/lib/promotions/promotion-expiry-batch");
+    const result = await expirePromotionCampaigns({ limit: batchSize, apply: mode === "APPLY" });
+    if (result.failed) throw new Error(`Promotion expiry failed for ${result.failed} candidate(s); retry is required.`);
+    return {
+      itemsExamined: result.examined, itemsClaimed: result.ended, itemsCompleted: result.ended,
+      itemsSkipped: result.skipped, itemsRetried: result.failed, itemsReconciled: 0,
+      safeSummary: `Promotion expiry: ${result.examined} examined, ${result.ended} ended, ${result.skipped} skipped, ${result.failed} failed.`,
+    };
+  },
   "reconcile-customer-parcel-loyalty": async ({ mode, batchSize }) => {
     const { runCustomerParcelLoyaltyBatch } = await import("@/lib/rewards/customer-loyalty-batch");
     return runCustomerParcelLoyaltyBatch({ mode, batchSize });

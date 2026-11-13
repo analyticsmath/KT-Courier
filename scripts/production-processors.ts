@@ -4,7 +4,9 @@ import { executeRegisteredProcessor } from "../lib/processors/processor-service"
 import { getProductionProcessorHealthState, getProductionProcessorHealthStatus } from "../lib/processors/production-health";
 import { uninitializedMarketplaceOrdersWhere, expiredMarketplaceReservationsWhere } from "../lib/marketplace-checkout/lifecycle-batch.service";
 import { dueMarketplaceSettlementJobsWhere } from "../lib/marketplace-checkout/settlement-batch.service";
-import { createProcessorCadenceTracker, createProductionCycleWorkCheck, hasEnabledOrdinaryReferralWork, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
+import { createProcessorCadenceTracker, createProductionCycleWorkCheck, hasEnabledOrdinaryReferralWork, hasEnabledPromotionExpiryWork, productionProcessors, runProductionCycle, summarizeProductionCycleReadiness } from "../lib/processors/production-loop";
+import { isActualProductionInstance, promotionsProductionReady } from "../lib/promotions/production-lock";
+import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "../lib/reporting/production-readiness";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "../lib/processors/marketplace-store-order-readiness";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -60,6 +62,16 @@ async function main() {
         return setting?.type === "BOOLEAN" && setting.value === true;
       },
       hasPending: async () => !!await prisma.referralEvent.findFirst({ where: { source: "ORDINARY_SIGNUP", status: "PENDING", targetUserId: { not: null } }, select: { id: true } }),
+    });
+    if (name === "end-expired-promotions") return hasEnabledPromotionExpiryWork({
+      enabled: process.env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true",
+      approved: promotionsProductionReady(),
+      hasPending: async () => !!await prisma.promotionCampaignVersion.findFirst({ where: { status: { in: ["ACTIVE", "PAUSED"] }, endsAt: { lte: new Date() } }, select: { id: true } }),
+    });
+    if (name === "expire-report-artifacts") return hasEnabledPromotionExpiryWork({
+      enabled: process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true",
+      approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
+      hasPending: async () => !!await prisma.reportExportArtifact.findFirst({ where: { storageDeletedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
     });
     if (name === "reconcile-expired-dispatch") {
       return !!await prisma.orderAssignment.findFirst({
