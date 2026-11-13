@@ -30,3 +30,19 @@ it("does not create successive future invoices across repeated runs", async () =
   expect(await prisma.subscriptionBillingCycle.count({ where: { contractId } })).toBe(1);
   expect(await prisma.subscriptionInvoice.count({ where: { contractId } })).toBe(1);
 });
+
+it("does not prepare a payment without active provider authority", async () => {
+  const authority = await prisma.subscriptionPaymentAuthority.create({ data: { publicReference: `${marker}-authority`, contractId, provider: "PAYSTACK", mode: "PROVIDER_MANAGED_SUBSCRIPTION", status: "PENDING" } });
+  const repository = createPrismaSubscriptionRenewalLifecycleRepository();
+  expect((await repository.prepareRenewal({ billingCycleReference: `${marker}-cycle`, operationId: `${marker}-prepare` })).outcome).toBe("RECONCILIATION_REQUIRED");
+  const invoice = await prisma.subscriptionInvoice.findUniqueOrThrow({ where: { publicReference: `${marker}-invoice` } });
+  expect(await prisma.payment.count({ where: { subscriptionInvoiceId: invoice.id } })).toBe(0);
+  await prisma.subscriptionPaymentAuthority.update({ where: { id: authority.id }, data: { status: "CANCELLED" } });
+  expect((await repository.prepareRenewal({ billingCycleReference: `${marker}-cycle`, operationId: `${marker}-prepare` })).outcome).toBe("RECONCILIATION_REQUIRED");
+  expect(await prisma.payment.count({ where: { subscriptionInvoiceId: invoice.id } })).toBe(0);
+  await prisma.subscriptionPaymentAuthority.update({ where: { id: authority.id }, data: { status: "ACTIVE", authorisedAt: new Date() } });
+  const prepared = await repository.prepareRenewal({ billingCycleReference: `${marker}-cycle`, operationId: `${marker}-prepare` });
+  expect(prepared.outcome).toBe("PREPARED");
+  expect((await repository.prepareRenewal({ billingCycleReference: `${marker}-cycle`, operationId: `${marker}-prepare` })).outcome).toBe("REPLAY");
+  expect(await prisma.payment.count({ where: { subscriptionInvoiceId: invoice.id } })).toBe(1);
+});
