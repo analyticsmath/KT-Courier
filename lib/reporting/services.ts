@@ -149,7 +149,9 @@ export class ReportJobService {
       // not delete the file backing the committed report.
       storedKey = null;
       await this.recordAudit(job.requesterUserId, "REPORT_JOB_COMPLETED", job.publicReference, { rowCount: data.rows.length });
-      await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "SUCCESS" });
+      await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "SUCCESS" }).catch(() => {
+        logApplicationEvent({ level: "ERROR", event: "report.telemetry_write_failed", message: "Report completion telemetry could not be recorded.", operation: "report_generation", resourceReference: job.publicReference, outcome: "FAILURE", errorCategory: "REPORT_TELEMETRY_WRITE_FAILED" });
+      });
       return completed;
     } catch {
       if (storedKey) await this.storage.delete(storedKey).catch(() => undefined);

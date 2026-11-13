@@ -45,6 +45,16 @@ it("publishes the artifact and completes an uncancelled report", async () => {
   expect(remove).not.toHaveBeenCalled();
 });
 
+it("returns the committed report when completion telemetry fails", async () => {
+  const { recordTelemetry } = await import("@/lib/observability/telemetry");
+  vi.mocked(recordTelemetry).mockRejectedValueOnce(new Error("telemetry unavailable"));
+  const storage = { provider: "LOCAL", createStorageKey: () => "disposable-report.json", store: vi.fn(async () => {}), delete: vi.fn(async () => {}) };
+  const result = await new ReportJobService(storage as never).processJob(job.publicReference);
+  expect(result?.status).toBe("COMPLETED");
+  expect(state.artifacts).toBe(1);
+  expect(storage.delete).not.toHaveBeenCalled();
+});
+
 it("does not cancel a report that completed before the cancellation write", async () => {
   state.status = "COMPLETED";
   await expect(new ReportJobService({} as never).cancelJob(job.publicReference, "owner")).rejects.toMatchObject({ code: "CANNOT_CANCEL_REPORT_JOB" });
