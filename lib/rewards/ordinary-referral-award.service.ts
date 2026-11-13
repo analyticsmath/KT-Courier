@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { Prisma, SystemSettingType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import type { LedgerActor } from "@/lib/ledger/types";
 import { loadCustomerRewardPolicy } from "./customer-reward-configuration";
 import { ordinaryReferralReward } from "./customer-reward-policy";
 import { inspectOrdinaryReferralEligibility } from "./ordinary-referral-eligibility.service";
@@ -43,7 +44,16 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
   actorUserId: string;
   operationId: string;
 }>) {
-  if (!input.actorUserId || !input.referralEventId || input.referralEventId.length > 200 ||
+  if (!input.actorUserId) throw new OrdinaryReferralAwardError("INVALID_EVENT", "An operator and referral event are required.");
+  return awardOrdinaryReferral({ referralEventId: input.referralEventId, operationId: input.operationId, actor: { kind: "USER", userId: input.actorUserId } });
+}
+
+async function awardOrdinaryReferral(input: Readonly<{
+  referralEventId: string;
+  operationId: string;
+  actor: LedgerActor;
+}>) {
+  if (!input.referralEventId || input.referralEventId.length > 200 ||
       typeof input.operationId !== "string" ||
       !/^[A-Za-z0-9][A-Za-z0-9:_-]{7,95}$/.test(input.operationId)) {
     throw new OrdinaryReferralAwardError("INVALID_EVENT", "An operator and referral event are required.");
@@ -53,14 +63,14 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
   const key = `ordinary-referral-award-${digest}`;
   return withLedgerRetry(() => prisma.$transaction(async tx => {
     const [operator, event] = await Promise.all([
-      tx.user.findUnique({
-        where: { id: input.actorUserId }, select: { role: true, status: true },
-      }),
+      input.actor.kind === "USER"
+        ? tx.user.findUnique({ where: { id: input.actor.userId }, select: { role: true, status: true } })
+        : Promise.resolve(null),
       tx.referralEvent.findUnique({
         where: { id: input.referralEventId }, include: { referralCode: true },
       }),
     ]);
-    if (operator?.role !== "SUPER_ADMIN" || operator.status !== "ACTIVE") {
+    if (input.actor.kind === "USER" && (operator?.role !== "SUPER_ADMIN" || operator.status !== "ACTIVE")) {
       throw new OrdinaryReferralAwardError("FORBIDDEN", "Only an active finance-authorized superuser may issue ordinary referral credit.");
     }
     if (!event || event.source !== ORDINARY_REFERRAL_SOURCE || !event.targetUserId) {
@@ -102,7 +112,7 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
     if (!["CUSTOMER", "STORE"].includes(event.referralCode.ownerType)) {
       throw new OrdinaryReferralAwardError("NOT_ELIGIBLE", "This is not a customer or store referral.");
     }
-    if (event.targetUserId === input.actorUserId) {
+    if (input.actor.kind === "USER" && event.targetUserId === input.actor.userId) {
       throw new OrdinaryReferralAwardError("FORBIDDEN", "The referred account cannot issue its own credit.");
     }
     // Both a referrer and the referred account must remain active; the
@@ -115,7 +125,7 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
         }).then(store => store && ({
           ownerType: "STORE" as const, ownerId: store.id, referrerUserId: store.ownerUserId,
         }));
-    if (!owner?.referrerUserId || owner.referrerUserId === input.actorUserId) {
+    if (!owner?.referrerUserId || (input.actor.kind === "USER" && owner.referrerUserId === input.actor.userId)) {
       throw new OrdinaryReferralAwardError("FORBIDDEN", "Referral recipients must be separate from the issuing superuser.");
     }
 
@@ -161,7 +171,7 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
       idempotencyKey: key, type: "GENERAL", currency: "ZAR",
       sourceReference: `ORDINARY_REFERRAL:${digest}`,
       correlationId: event.id,
-      actor: { kind: "USER", userId: input.actorUserId },
+      actor: input.actor,
       memo: "Verified first-paid-order ordinary referral, nonwithdrawable wallet credit.",
       metadata: {
         category: "ORDINARY_REFERRAL_AWARD",
@@ -195,13 +205,13 @@ export async function awardVerifiedOrdinaryReferral(input: Readonly<{
     }
     await tx.adminActivityLog.create({
       data: {
-        actorUserId: input.actorUserId, entityType: "ReferralEvent",
+        actorUserId: input.actor.kind === "USER" ? input.actor.userId : null, entityType: "ReferralEvent",
         entityId: event.id, action: "UPDATE",
         message: "Verified ordinary first-paid-order referral credited to wallet",
         metadata: {
           journalId: journal.id, qualifyingPaymentId: eligibility.qualifyingPaymentId,
           rewardOperationDigest: operationDigest,
-          ownerType: owner.ownerType, rewardAmountZar: amount,
+          ownerType: owner.ownerType, rewardAmountZar: amount, actorKind: input.actor.kind,
         },
       },
     });
@@ -222,26 +232,14 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
     throw new Error("Invalid batch size for automatic referral award processor.");
   }
 
-  let actorUserId = options?.actorUserId;
-  if (!actorUserId) {
-    const admin = (await prisma.user.findUnique({
-      where: { email: "superadmin@ktcouriers.local" },
-      select: { id: true, role: true, status: true },
-    })) ?? (await prisma.user.findFirst({
-      where: { role: "SUPER_ADMIN", status: "ACTIVE" },
-      select: { id: true, role: true, status: true },
-      orderBy: { createdAt: "asc" },
-    }));
-    if (!admin || admin.role !== "SUPER_ADMIN" || admin.status !== "ACTIVE") {
-      return {
-        itemsExamined: 0,
-        itemsAwarded: 0,
-        itemsSkipped: 0,
-        itemsFailed: 0,
-        safeSummary: "No active superuser found to execute referral processing.",
-      };
-    }
-    actorUserId = admin.id;
+  const issuing = await prisma.systemSetting.findUnique({
+    where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true },
+  });
+  if (issuing?.type !== SystemSettingType.BOOLEAN || issuing.value !== true) {
+    return {
+      itemsExamined: 0, itemsAwarded: 0, itemsSkipped: 0, itemsFailed: 0,
+      safeSummary: "Ordinary referral issuing is disabled; no referrals were modified.",
+    };
   }
 
   const pendingEvents = await prisma.referralEvent.findMany({
@@ -251,7 +249,9 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
       targetUserId: { not: null },
     },
     take: batchSize,
-    orderBy: { createdAt: "asc" },
+    // Revisit the least recently examined pending referrals first. An unpaid
+    // signup may remain pending indefinitely and must not block later users.
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
   });
 
   let awarded = 0;
@@ -259,6 +259,7 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
   let failed = 0;
 
   for (const event of pendingEvents) {
+    let outcome: "AWARDED" | "SKIPPED" | "FAILED" = "SKIPPED";
     try {
       const priorRewarded = await prisma.referralEvent.count({
         where: {
@@ -266,32 +267,37 @@ export async function processAutomaticOrdinaryReferralAwards(options?: {
           status: "REWARDED",
         },
       });
-      if (priorRewarded > 0) {
-        skipped++;
-        continue;
+      if (priorRewarded === 0) {
+        const eligibility = await inspectOrdinaryReferralEligibility(event.id);
+        if (eligibility.eligible) {
+          const eventClean = event.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32);
+          const paymentClean = (eligibility.qualifyingPaymentId ?? "first").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
+          const operationId = `auto-referral-${eventClean}-${paymentClean}`;
+          const actor: LedgerActor = options?.actorUserId
+            ? { kind: "USER", userId: options.actorUserId }
+            : { kind: "SYSTEM" };
+          const result = await awardOrdinaryReferral({ referralEventId: event.id, actor, operationId });
+          if (result.status === "CREDITED") outcome = "AWARDED";
+        }
       }
-
-      const eligibility = await inspectOrdinaryReferralEligibility(event.id);
-      if (!eligibility.eligible) {
-        skipped++;
-        continue;
-      }
-
-      const eventClean = event.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 32);
-      const paymentClean = (eligibility.qualifyingPaymentId ?? "first").replace(/[^a-zA-Z0-9]/g, "").slice(0, 24);
-      const operationId = `auto-referral-${eventClean}-${paymentClean}`;
-      const result = await awardVerifiedOrdinaryReferral({
-        referralEventId: event.id,
-        actorUserId,
-        operationId,
-      });
-
-      if (result.status === "CREDITED") awarded++;
-      else if (result.status === "REPLAYED") skipped++;
-      else skipped++;
     } catch {
-      failed++;
+      outcome = "FAILED";
     }
+    if (outcome !== "AWARDED") {
+      try {
+        // Only rotate the unchanged pending record. A concurrent award or edit
+        // must never be overwritten by this non-financial scan marker.
+        await prisma.referralEvent.updateMany({
+          where: { id: event.id, source: ORDINARY_REFERRAL_SOURCE, status: "PENDING", updatedAt: event.updatedAt },
+          data: { updatedAt: new Date(Math.max(Date.now(), event.updatedAt.getTime() + 1)) },
+        });
+      } catch {
+        outcome = "FAILED";
+      }
+    }
+    if (outcome === "AWARDED") awarded++;
+    else if (outcome === "FAILED") failed++;
+    else skipped++;
   }
 
   return {

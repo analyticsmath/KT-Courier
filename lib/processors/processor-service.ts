@@ -72,6 +72,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
           targetUserId: { not: null },
         },
         take: batchSize,
+        orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
         select: { id: true },
       });
       return {
@@ -91,7 +92,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       itemsClaimed: result.itemsAwarded,
       itemsCompleted: result.itemsAwarded,
       itemsSkipped: result.itemsSkipped,
-      itemsRetried: 0,
+      itemsRetried: result.itemsFailed,
       itemsReconciled: result.itemsAwarded,
       safeSummary: result.safeSummary,
     };

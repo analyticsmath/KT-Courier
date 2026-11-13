@@ -5,6 +5,7 @@ const m = vi.hoisted(() => ({
   transaction: vi.fn(), findOperator: vi.fn(), findEvent: vi.fn(), findStore: vi.fn(),
   findSetting: vi.fn(), findJournal: vi.fn(), updateEvent: vi.fn(), audit: vi.fn(),
   inspect: vi.fn(), policy: vi.fn(), wallet: vi.fn(), account: vi.fn(), post: vi.fn(),
+  findPending: vi.fn(), countPending: vi.fn(), rotate: vi.fn(), findAutomaticActor: vi.fn(),
 }));
 const tx = {
   user: { findUnique: m.findOperator },
@@ -14,7 +15,12 @@ const tx = {
   ledgerJournal: { findUnique: m.findJournal },
   adminActivityLog: { create: m.audit },
 };
-vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: m.transaction } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: {
+  $transaction: m.transaction,
+  systemSetting: { findUnique: m.findSetting },
+  referralEvent: { findMany: m.findPending, count: m.countPending, updateMany: m.rotate },
+  user: { findUnique: m.findAutomaticActor, findFirst: m.findAutomaticActor },
+} }));
 vi.mock("@/lib/rewards/ordinary-referral-eligibility.service", () => ({
   inspectOrdinaryReferralEligibility: m.inspect,
 }));
@@ -28,7 +34,7 @@ vi.mock("@/lib/services/wallet-account.service", () => ({
 vi.mock("@/lib/services/ledger-posting.service", () => ({
   postLedgerJournalWithinTransaction: m.post,
 }));
-import { awardVerifiedOrdinaryReferral, OrdinaryReferralAwardError } from "@/lib/rewards/ordinary-referral-award.service";
+import { awardVerifiedOrdinaryReferral, OrdinaryReferralAwardError, processAutomaticOrdinaryReferralAwards } from "@/lib/rewards/ordinary-referral-award.service";
 
 const command = () => ({
   referralEventId: "event-1", actorUserId: "superadmin-1", operationId: "client-operation-001",
@@ -61,9 +67,21 @@ beforeEach(() => {
   m.audit.mockResolvedValue({});
   m.findStore.mockResolvedValue({ id: "store-1", ownerUserId: "store-owner-1" });
   m.findJournal.mockResolvedValue(null);
+  m.findPending.mockResolvedValue([]);
+  m.countPending.mockResolvedValue(0);
+  m.rotate.mockResolvedValue({ count: 1 });
 });
 
 describe("verified ordinary first-paid-order referral wallet award", () => {
+  it("attributes automatic awards to the system rather than impersonating an administrator", async () => {
+    m.findPending.mockResolvedValue([{ ...event(), updatedAt: new Date("2024-01-01T00:00:00Z") }]);
+    const result = await processAutomaticOrdinaryReferralAwards({ batchSize: 1 });
+    expect(result).toMatchObject({ itemsAwarded: 1, itemsFailed: 0 });
+    expect(m.findAutomaticActor).not.toHaveBeenCalled();
+    expect(m.findOperator).not.toHaveBeenCalled();
+    expect(m.post).toHaveBeenCalledWith(tx, expect.objectContaining({ actor: { kind: "SYSTEM" } }));
+    expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ actorUserId: null, metadata: expect.objectContaining({ actorKind: "SYSTEM" }) }) }));
+  });
   it("credits an eligible customer with one balanced nonwithdrawable R5 journal and event receipt", async () => {
     const result = await awardVerifiedOrdinaryReferral(command());
     expect(result).toMatchObject({ status: "CREDITED", amountZar: "5.00", qualifyingPaymentId: "payment-1" });
