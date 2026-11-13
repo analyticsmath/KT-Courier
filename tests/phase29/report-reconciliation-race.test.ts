@@ -9,16 +9,27 @@ vi.mock("@/lib/db", () => {
       update: vi.fn(async () => { state.status = "CANCELLED"; }),
     },
     reportReconciliationCase: { updateMany: vi.fn(async () => { state.casesChanged = true; return { count: 1 }; }) },
+    reportAuditEvent: { create: vi.fn(async () => ({})) },
     $transaction: vi.fn(async (fn: unknown) => typeof fn === "function" ? fn(client) : Promise.all(fn as Promise<unknown>[])),
   };
   return { db: client };
+});
+
+it("fences a cancelled worker and converges only stuck-job cases with an audit", async () => {
+  vi.mocked(db.reportJob.findUnique).mockResolvedValueOnce({ id: "job", status: "RUNNING", publicReference: "REP-test" } as never);
+  vi.mocked(db.reportJob.updateMany).mockResolvedValueOnce({ count: 1 } as never);
+  await new ReportReconciliationService({} as never).cancelStuckJob("job", "admin");
+  expect(db.reportJob.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CANCELLED", claimToken: null, claimExpiresAt: null }) }));
+  expect(db.reportReconciliationCase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ reason: "REPORT_JOB_STUCK_RUNNING" }) }));
+  expect(db.reportAuditEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ actorUserId: "admin", entityReference: "REP-test" }) }));
 });
 import { ReportReconciliationService } from "@/lib/reporting/reconciliation";
 import { ReportJobService } from "@/lib/reporting/services";
 import { db } from "@/lib/db";
 
 it("does not cancel a report that completes during reconciliation", async () => {
-  await expect(new ReportReconciliationService({} as never).cancelStuckJob("job")).rejects.toThrow();
+  state.casesChanged = false;
+  await expect(new ReportReconciliationService({} as never).cancelStuckJob("job", "admin")).rejects.toThrow();
   expect(state.status).toBe("COMPLETED");
   expect(state.casesChanged).toBe(false);
 });

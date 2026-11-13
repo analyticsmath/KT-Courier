@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "CANCEL_STUCK_JOB" && body.jobId) {
-      await reconService.cancelStuckJob(body.jobId);
+      await reconService.cancelStuckJob(body.jobId, auth.user.id);
       return ok({ message: `Cancelled stuck job ${body.jobId}` });
     }
 

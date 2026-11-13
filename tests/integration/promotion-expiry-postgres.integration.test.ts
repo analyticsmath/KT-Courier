@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { expirePromotionCampaigns } from "@/lib/promotions/promotion-expiry-batch";
@@ -86,6 +87,14 @@ it("detects a real reserved-budget mismatch without opening duplicate cases", as
   const result = await scanPromotionBudgetReconciliation({ limit: 500, apply: true });
   expect(result.mismatches).toBeGreaterThanOrEqual(1);
   expect(await prisma.promotionReconciliationCase.count({ where: { campaignVersionId: budget.campaignVersionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } })).toBe(1);
+});
+
+it("runs the invariant-check CLI against actual budget rows", () => {
+  const output = execFileSync(process.execPath, ["scripts/verify-promotion-invariants.mjs", "--dry-run", "--limit", "500"], { encoding: "utf8", timeout: 30000 });
+  const result = JSON.parse(output.trim().split(/\r?\n/).at(-1)!);
+  expect(result.examined).toBeGreaterThanOrEqual(1);
+  expect(result.mismatches).toBeGreaterThanOrEqual(1);
+  expect(result.cases).toBe(0);
 });
 
 it("audits operator monitoring and resolution of an open case", async () => {

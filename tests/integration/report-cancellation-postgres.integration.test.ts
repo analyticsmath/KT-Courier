@@ -120,3 +120,16 @@ it("audits an operator cleanup and converges the orphan case", async () => {
   expect((await prisma.reportReconciliationCase.findUniqueOrThrow({ where: { id: item.id } })).status).toBe("CONVERGED");
   expect(await prisma.reportAuditEvent.count({ where: { entityReference: item.publicReference, actorUserId: marker, eventType: "REPORT_ORPHAN_CLEANED" } })).toBe(1);
 });
+
+it("cancels a stuck claim without closing its separate storage case", async () => {
+  const reference = `${marker}-stuck`;
+  const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "RUNNING", outputFormat: "JSON", claimToken: "stale", claimExpiresAt: new Date() } });
+  jobIds.push(job.id);
+  const stuck = await prisma.reportReconciliationCase.create({ data: { publicReference: `${reference}-case`, jobId: job.id, reason: "REPORT_JOB_STUCK_RUNNING", status: "OPEN", safeSummary: "Stuck" } });
+  const storage = await prisma.reportReconciliationCase.create({ data: { publicReference: `${reference}-storage`, jobId: job.id, reason: "REPORT_STORAGE_FAILURE", status: "OPEN", safeSummary: "Storage cleanup needed" } });
+  await new ReportReconciliationService({} as never).cancelStuckJob(job.id, marker);
+  expect(await prisma.reportJob.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "CANCELLED", claimToken: null, claimExpiresAt: null });
+  expect((await prisma.reportReconciliationCase.findUniqueOrThrow({ where: { id: stuck.id } })).status).toBe("CONVERGED");
+  expect((await prisma.reportReconciliationCase.findUniqueOrThrow({ where: { id: storage.id } })).status).toBe("OPEN");
+  expect(await prisma.reportAuditEvent.count({ where: { entityReference: reference, actorUserId: marker, eventType: "REPORT_JOB_CANCELLED" } })).toBe(1);
+});

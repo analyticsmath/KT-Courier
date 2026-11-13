@@ -84,14 +84,16 @@ export class ReportReconciliationService {
     return { casesOpened, casesResolved, artifactsExpired, details };
   }
 
-  async cancelStuckJob(jobId: string): Promise<void> {
+  async cancelStuckJob(jobId: string, actorUserId: string): Promise<void> {
+    if (!actorUserId?.trim()) throw new Error("An administrator is required.");
     const job = await db.reportJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error("Report job not found.");
     if (job.status !== "RUNNING") throw new Error("Only running report jobs can be cancelled by reconciliation.");
     await db.$transaction(async (tx) => {
-      const cancelled = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING" }, data: { status: "CANCELLED", errorMessage: "RECONCILIATION_CANCELLED" } });
+      const cancelled = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING" }, data: { status: "CANCELLED", claimToken: null, claimExpiresAt: null, nextAttemptAt: null, errorMessage: "RECONCILIATION_CANCELLED" } });
       if (cancelled.count !== 1) throw new Error("Report job is no longer running.");
-      await tx.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+      await tx.reportReconciliationCase.updateMany({ where: { jobId: job.id, reason: "REPORT_JOB_STUCK_RUNNING", status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+      await tx.reportAuditEvent.create({ data: { publicReference: `RPTAUD-${randomUUID()}`, actorUserId, eventType: "REPORT_JOB_CANCELLED", entityReference: job.publicReference, safeEvidence: { source: "report_reconciliation" } } });
     });
   }
 
@@ -100,7 +102,7 @@ export class ReportReconciliationService {
     if (!job) throw new Error("Report job not found.");
     const retried = await this.jobService.retryJob(job.publicReference, job.requesterUserId, true);
     if (retried?.status !== "COMPLETED") throw new Error("Report retry did not complete; reconciliation remains open.");
-    await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
+    await db.reportReconciliationCase.updateMany({ where: { jobId: job.id, reason: "REPORT_JOB_STUCK_RUNNING", status: { in: ["OPEN", "IN_PROGRESS"] } }, data: { status: "CONVERGED", convergedAt: new Date() } });
   }
 
   async cleanupUncommittedObject(caseId: string, actorUserId: string): Promise<void> {
