@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -123,4 +123,18 @@ it("pauses and ends a campaign exactly once with actor-bound history", async () 
   expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: adminId } })).toBe(4);
   expect(await prisma.adminActivityLog.count({ where: { entityId: campaign.id, actorUserId: adminId } })).toBe(4);
   await expect(endAdminCampaign(reference, adminId)).rejects.toThrow();
+});
+
+it("requires separate approval and funded budget before campaign activation", async () => {
+  const activator = await prisma.user.create({ data: { email: `${marker}-activator@example.test`, role: "ADMIN", status: "ACTIVE" } });
+  const reference = `${marker}-activate`;
+  const campaign = await prisma.promotionCampaign.create({ data: { publicReference: reference, internalCode: reference, ownerType: "PLATFORM", status: "APPROVED", name: "Disposable approved campaign" } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, status: "APPROVED", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", approvedByUserId: adminId, approvedAt: new Date(), startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } });
+  await expect(activateAdminCampaign(reference, activator.id)).rejects.toThrow();
+  await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 10, status: "ACTIVE" } });
+  await expect(activateAdminCampaign(reference, adminId)).rejects.toThrow();
+  const results = await Promise.allSettled([activateAdminCampaign(reference, activator.id), activateAdminCampaign(reference, activator.id)]);
+  expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  expect((await prisma.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id } })).status).toBe("ACTIVE");
+  expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: activator.id, toStatus: "ACTIVE" } })).toBe(1);
 });

@@ -3,6 +3,7 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { activateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store, max-age=0" } });
@@ -15,13 +16,15 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ reference: string }> }
 ) {
-  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_MANAGE, { request });
+  const originFailure = await enforceSameOriginRequest(request);
+  if (originFailure) return originFailure;
+  const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_ACTIVATE, { request });
   if (auth.response) return auth.response;
 
   try {
     const params = await context.params;
     assertPromotionsProductionReady("CAMPAIGN_ACTIVATE");
-    const campaign = await activateAdminCampaign(params.reference);
+    const campaign = await activateAdminCampaign(params.reference, auth.user.id);
     return NextResponse.json(campaign, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Activate failed", 422);

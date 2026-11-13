@@ -5441,12 +5441,12 @@
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [
-        "promotions.manage"
+        "promotions.activate"
       ],
       "rateLimitingApplied": false,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
-      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
