@@ -7,6 +7,7 @@ import { recordBudgetMovement } from "@/lib/promotions/promotion-budget.service"
 import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
+import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -75,4 +76,11 @@ it("opens one reconciliation case across concurrent scans", async () => {
   const cases = await Promise.all(Array.from({ length: 3 }, () => createReconciliationCase("BUDGET_MISMATCH", { campaignVersionId: versionId })));
   expect(new Set(cases.map((item) => item.id)).size).toBe(1);
   expect(await prisma.promotionReconciliationCase.count({ where: { campaignVersionId: versionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } })).toBe(1);
+});
+
+it("detects a real reserved-budget mismatch without opening duplicate cases", async () => {
+  const budget = await prisma.promotionBudget.findUniqueOrThrow({ where: { campaignVersionId: versionId } });
+  const result = await scanPromotionBudgetReconciliation({ limit: 500, apply: true });
+  expect(result.mismatches).toBeGreaterThanOrEqual(1);
+  expect(await prisma.promotionReconciliationCase.count({ where: { campaignVersionId: budget.campaignVersionId, reason: "BUDGET_RESERVATION_MISMATCH", status: "OPEN" } })).toBe(1);
 });
