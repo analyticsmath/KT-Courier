@@ -31,7 +31,10 @@ export function resolveLiveGatewayVerificationConfiguration(
   source: LiveVerificationEnvironment = process.env,
 ): Readonly<{ eligible: boolean; reason: string; secretKey: string | null; origin: string | null }> {
   const runtime = classifyRuntimeEnvironment(source);
-  if (!runtime.isValid || runtime.runtime !== "production" || source.NODE_ENV !== "production") {
+  // A real-money diagnostic must never run with a merely inferred or
+  // contradictory database classification.
+  if (source.KT_DATABASE_CLASSIFICATION?.trim().toLowerCase() !== "production" ||
+      !runtime.isValid || runtime.runtime !== "production" || source.NODE_ENV !== "production") {
     return { eligible: false, reason: "PRODUCTION_RUNTIME_REQUIRED", secretKey: null, origin: null };
   }
   // The real-money diagnostic must never route through disposable Paystack.
