@@ -5,6 +5,7 @@ import { expirePromotionCampaigns } from "@/lib/promotions/promotion-expiry-batc
 import { releaseCheckoutPromotions } from "@/lib/promotions/promotion-release.service";
 import { recordBudgetMovement } from "@/lib/promotions/promotion-budget.service";
 import { Decimal } from "@prisma/client/runtime/library";
+import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -53,4 +54,18 @@ it("conserves available budget when a reserved discount commits", async () => {
   expect(current.reservedAmount.toFixed(2)).toBe("0.00");
   expect(current.committedAmount.toFixed(2)).toBe("30.00");
   expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id } })).toBe(2);
+});
+
+it("releases one expired reservation only after its unpaid checkout closes", async () => {
+  const cart = await prisma.marketplaceCart.create({ data: { publicReference: `${marker}-cart`, ownerType: "GUEST", guestTokenHash: `${marker}-guest` } });
+  const checkout = await prisma.marketplaceCheckout.create({ data: { publicReference: `${marker}-checkout`, cartId: cart.id, status: "RESERVED" } });
+  const budget = await prisma.promotionBudget.findUniqueOrThrow({ where: { campaignVersionId: versionId } });
+  await prisma.$transaction((tx) => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: versionId, movementType: "RESERVE", amount: new Decimal(10), operationId: `${marker}-reserve-expiry`, requestHash: marker }, tx));
+  const reservation = await prisma.promotionReservation.create({ data: { publicReference: `${marker}-due`, campaignVersionId: versionId, checkoutId: checkout.id, checkoutReviewVersion: 1, status: "RESERVED", reservedDiscountAmount: 10, expiresAt: new Date("2020-01-01"), operationId: `${marker}-due`, requestHash: marker } });
+  expect((await expirePromotionReservations({ apply: true })).released).toBe(0);
+  await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "EXPIRED" } });
+  const results = await Promise.all([expirePromotionReservations({ apply: true }), expirePromotionReservations({ apply: true })]);
+  expect(results.reduce((sum, item) => sum + item.released, 0)).toBe(1);
+  expect((await prisma.promotionReservation.findUniqueOrThrow({ where: { id: reservation.id } })).status).toBe("RELEASED");
+  expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id, movementType: "RELEASE" } })).toBe(1);
 });
