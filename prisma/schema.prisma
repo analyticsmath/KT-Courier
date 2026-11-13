@@ -13459,6 +13459,8 @@ model ReportJob {
   requestHash             String
   createdAt               DateTime            @default(now())
   startedAt               DateTime?
+  claimToken              String?
+  claimExpiresAt          DateTime?
   completedAt             DateTime?
   failedAt                DateTime?
   expiresAt               DateTime?
@@ -13466,6 +13468,7 @@ model ReportJob {
 
   @@index([requesterUserId, createdAt])
   @@index([status, createdAt])
+  @@index([status, claimExpiresAt])
   @@index([definitionKey, status])
 }
 

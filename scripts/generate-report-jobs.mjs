@@ -13,12 +13,14 @@ const unregister = register();
 const unregisterCommonJs = registerCommonJs();
 let prisma;
 try {
-  const [database, reporting, lock, environment] = await Promise.all([
+  const [database, reporting, lock, environment, recovery] = await Promise.all([
     import("../lib/db/prisma.ts"), import("../lib/reporting/report-batch.ts"),
-    import("../lib/reporting/production-readiness.ts"), import("../lib/promotions/production-lock.ts"),
+    import("../lib/reporting/production-readiness.ts"), import("../lib/promotions/production-lock.ts"), import("../lib/reporting/report-recovery-batch.ts"),
   ]);
   prisma = database.prisma;
   if (environment.isActualProductionInstance(process.env)) lock.assertReportingProductionReady();
+  const recovered = await recovery.recoverExpiredReportClaims({ limit });
+  console.log(`Report recovery: ${recovered.recovered} of ${recovered.examined} expired claims fenced.`);
   const result = await reporting.runReportBatch(limit, retryFailed ? "FAILED_RETRYABLE" : "QUEUED");
   console.log(`Report batch: ${result.examined} examined, ${result.completed} completed, ${result.skipped} skipped, ${result.failed} failed.`);
   if (result.failed) process.exitCode = 1;

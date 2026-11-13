@@ -102,9 +102,10 @@ export class ReportJobService {
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(job.status)) return job;
 
+    const claimToken = crypto.randomBytes(16).toString("hex").toUpperCase();
     const claimed = await db.reportJob.updateMany({
       where: { id: job.id, status: { in: ["REQUESTED", "QUEUED", "FAILED_RETRYABLE"] } },
-      data: { status: "RUNNING", startedAt: new Date(), errorMessage: null },
+      data: { status: "RUNNING", startedAt: new Date(), claimToken, claimExpiresAt: new Date(Date.now() + 30 * 60_000), errorMessage: null },
     });
     if (claimed.count !== 1) return db.reportJob.findUnique({ where: { id: job.id } });
 
@@ -132,13 +133,13 @@ export class ReportJobService {
       const data = await generateReportData(queryContext);
       const content = job.outputFormat === "JSON" ? formatJsonReport(data.rows) : formatCsvReport(data.headers, data.rows);
       const contentType = job.outputFormat === "JSON" ? "application/json; charset=utf-8" : "text/csv; charset=utf-8";
-      const storageKey = this.storage.createStorageKey(job.publicReference, job.outputFormat, content);
+      const storageKey = this.storage.createStorageKey(`${job.publicReference}-${claimToken}`, job.outputFormat, content);
       storedKey = storageKey;
       await this.storage.store(storageKey, content);
       const checksum = crypto.createHash("sha256").update(content).digest("hex");
 
       const completed = await db.$transaction(async (tx) => {
-        const changed = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING" }, data: { status: "COMPLETED", rowCount: data.rows.length, completedAt: new Date() } });
+        const changed = await tx.reportJob.updateMany({ where: { id: job.id, status: "RUNNING", claimToken, claimExpiresAt: { gt: new Date() } }, data: { status: "COMPLETED", claimToken: null, claimExpiresAt: null, rowCount: data.rows.length, completedAt: new Date() } });
         if (changed.count !== 1) return null;
         await tx.reportExportArtifact.create({ data: {
           publicReference: publicReference("ART"),
@@ -173,8 +174,8 @@ export class ReportJobService {
     } catch {
       if (storedKey) await this.storage.delete(storedKey).catch(() => undefined);
       await db.reportJob.updateMany({
-        where: { id: job.id, status: "RUNNING" },
-        data: { status: "FAILED_RETRYABLE", errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date() },
+        where: { id: job.id, status: "RUNNING", claimToken },
+        data: { status: "FAILED_RETRYABLE", claimToken: null, claimExpiresAt: null, errorMessage: "REPORT_GENERATION_FAILED", failedAt: new Date() },
       });
       await recordTelemetry({ name: "report.generation.duration", value: Date.now() - startedAt, outcome: "FAILURE" });
       logApplicationEvent({ level: "ERROR", event: "report.generation_failed", message: "Report generation failed.", operation: "report_generation", resourceReference: job.publicReference, outcome: "FAILURE", errorCategory: "REPORT_GENERATION_FAILED" });

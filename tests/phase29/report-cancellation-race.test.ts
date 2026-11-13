@@ -1,16 +1,16 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ status: "QUEUED", artifacts: 0 }));
+const state = vi.hoisted(() => ({ status: "QUEUED", artifacts: 0, claimToken: null as string | null }));
 const job = { id: "report-id", publicReference: "REP-test", status: "QUEUED", definitionKey: "customer-courier-orders", requesterUserId: "owner", requesterRole: "CUSTOMER", ownerScope: { userId: "owner" }, normalizedFilters: {}, rowCountLimit: 100, outputFormat: "JSON", expiresAt: new Date("2030-01-01") };
 vi.mock("@/lib/db", () => {
   const client = {
     user: { findUnique: vi.fn(async () => ({ role: "CUSTOMER", status: "ACTIVE" })) },
     reportJob: {
       findUnique: vi.fn(async () => ({ ...job, status: state.status })),
-      updateMany: vi.fn(async ({ where, data }: { where: { status: string | { in: string[] } }; data: { status: string } }) => {
+      updateMany: vi.fn(async ({ where, data }: { where: { status: string | { in: string[] }; claimToken?: string }; data: { status: string; claimToken?: string | null } }) => {
         const allowed = typeof where.status === "string" ? [where.status] : where.status.in;
-        if (!allowed.includes(state.status)) return { count: 0 };
-        state.status = data.status; return { count: 1 };
+        if (!allowed.includes(state.status) || (where.claimToken !== undefined && where.claimToken !== state.claimToken)) return { count: 0 };
+        state.status = data.status; if (data.claimToken !== undefined) state.claimToken = data.claimToken; return { count: 1 };
       }),
       update: vi.fn(async ({ data }: { data: { status: string } }) => { state.status = data.status; return { ...job, status: state.status }; }),
     },
@@ -32,7 +32,7 @@ vi.mock("@/lib/observability/telemetry", () => ({ recordTelemetry: vi.fn(async (
 import { ReportJobService } from "@/lib/reporting/services";
 import { db } from "@/lib/db";
 
-beforeEach(() => { state.status = "QUEUED"; state.artifacts = 0; });
+beforeEach(() => { state.status = "QUEUED"; state.artifacts = 0; state.claimToken = null; });
 
 it("does not publish a report cancelled while its file is being generated", async () => {
   const remove = vi.fn(async () => {});
@@ -42,6 +42,14 @@ it("does not publish a report cancelled while its file is being generated", asyn
   expect(result?.status).toBe("CANCELLED");
   expect(state.artifacts).toBe(0);
   expect(remove).toHaveBeenCalledOnce();
+});
+
+it("fences an old attempt when a restarted worker owns the running job", async () => {
+  const storage = { provider: "LOCAL", createStorageKey: vi.fn(() => "old-attempt-key"), store: vi.fn(async () => { state.claimToken = "new-attempt"; }), delete: vi.fn(async () => {}) };
+  await new ReportJobService(storage as never).processJob(job.publicReference);
+  expect(state.artifacts).toBe(0);
+  expect(state.status).toBe("RUNNING");
+  expect(storage.delete).toHaveBeenCalledWith("old-attempt-key");
 });
 
 it("publishes the artifact and completes an uncancelled report", async () => {

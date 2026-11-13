@@ -10,6 +10,7 @@ vi.mock("@/lib/reporting/authorization", async (importOriginal) => {
 });
 import { ReportJobService } from "@/lib/reporting/services";
 import { expireReportArtifacts } from "@/lib/reporting/report-expiry-batch";
+import { recoverExpiredReportClaims } from "@/lib/reporting/report-recovery-batch";
 
 const marker = `report-race-${randomUUID()}`;
 const jobIds: string[] = [];
@@ -22,7 +23,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!validated) return;
   await prisma.reportExportArtifact.deleteMany({ where: { jobId: { in: jobIds } } });
-  await prisma.reportAuditEvent.deleteMany({ where: { entityReference: { in: [marker, `${marker}-concurrent`] } } });
+  await prisma.reportAuditEvent.deleteMany({ where: { entityReference: { startsWith: marker } } });
   await prisma.reportJob.deleteMany({ where: { id: { in: jobIds } } });
   await prisma.user.deleteMany({ where: { id: marker } });
   await prisma.$disconnect();
@@ -66,4 +67,28 @@ it("revokes an expired report and records one durable storage deletion receipt",
   expect((await prisma.reportExportArtifact.findUniqueOrThrow({ where: { id: artifact.id } })).storageDeletedAt).not.toBeNull();
   await expireReportArtifacts({ limit: 10, storage });
   expect(remove).toHaveBeenCalledOnce();
+});
+
+it("fences a stalled worker after recovery and lets a new attempt finish", async () => {
+  const reference = `${marker}-restart`;
+  const job = await prisma.reportJob.create({ data: { publicReference: reference, definitionKey: "customer-courier-orders", definitionVersion: 1, requesterUserId: marker, requesterRole: "CUSTOMER", ownerScope: { userId: marker }, permissionSnapshot: [], normalizedFilters: {}, filterHash: reference, requestHash: reference, status: "QUEUED", outputFormat: "JSON" } });
+  jobIds.push(job.id);
+  let release!: () => void;
+  let started!: () => void;
+  const paused = new Promise<void>((resolve) => { release = resolve; });
+  const entered = new Promise<void>((resolve) => { started = resolve; });
+  const oldRemove = vi.fn(async (_key: string) => true);
+  const oldService = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: (ref: string) => ref, store: async () => { started(); await paused; }, delete: oldRemove } as never);
+  const oldRun = oldService.processJob(reference);
+  await entered;
+  await prisma.reportJob.update({ where: { id: job.id }, data: { claimExpiresAt: new Date("2020-01-01") } });
+  expect((await recoverExpiredReportClaims()).recovered).toBe(1);
+  const newService = new ReportJobService({ provider: "LOCAL_SECURE", createStorageKey: (ref: string) => ref, store: async () => {}, delete: vi.fn(async () => true) } as never);
+  expect((await newService.processJob(reference))?.status).toBe("COMPLETED");
+  release();
+  await oldRun;
+  expect(await prisma.reportExportArtifact.count({ where: { jobId: job.id } })).toBe(1);
+  const artifact = await prisma.reportExportArtifact.findUniqueOrThrow({ where: { jobId: job.id } });
+  expect(oldRemove).toHaveBeenCalledOnce();
+  expect(oldRemove.mock.calls[0][0]).not.toBe(artifact.storageKey);
 });
