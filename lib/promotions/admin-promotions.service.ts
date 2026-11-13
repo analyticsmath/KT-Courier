@@ -47,31 +47,34 @@ export async function pauseAdminCampaign(reference: string, actorUserId: string)
   return transitionActiveCampaign(reference, actorUserId, "PAUSED");
 }
 
-export async function resumeAdminCampaign(...args: any[]): Promise<any> {
-  assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  return null;
+export async function resumeAdminCampaign(reference: string, actorUserId: string) {
+  return transitionActiveCampaign(reference, actorUserId, "ACTIVE");
 }
 
 export async function endAdminCampaign(reference: string, actorUserId: string) {
   return transitionActiveCampaign(reference, actorUserId, "ENDED");
 }
 
-async function transitionActiveCampaign(reference: string, actorUserId: string, target: "PAUSED" | "ENDED") {
-  assertPromotionsProductionReady("CAMPAIGN_UPDATE");
+async function transitionActiveCampaign(reference: string, actorUserId: string, target: "ACTIVE" | "PAUSED" | "ENDED") {
+  assertPromotionsProductionReady(target === "ACTIVE" ? "CAMPAIGN_ACTIVATE" : "CAMPAIGN_UPDATE");
   if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim()) throw new Error("Invalid campaign action.");
   return db.$transaction(async (tx) => {
-    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { where: { status: { in: ["ACTIVE", "PAUSED"] } }, take: 2 } } });
-    const allowed = target === "PAUSED" ? ["ACTIVE"] : ["ACTIVE", "PAUSED"];
+    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { where: { status: { in: ["ACTIVE", "PAUSED"] } }, include: { budget: true }, take: 2 } } });
+    const allowed = target === "ACTIVE" ? ["PAUSED"] : target === "PAUSED" ? ["ACTIVE"] : ["ACTIVE", "PAUSED"];
     if (!campaign || campaign.versions.length !== 1 || !allowed.includes(campaign.status) || campaign.versions[0].status !== campaign.status) throw new Error("Campaign is not in an actionable state.");
     const version = campaign.versions[0];
     const now = new Date();
-    const changed = await tx.promotionCampaignVersion.updateMany({ where: { id: version.id, status: version.status }, data: target === "PAUSED" ? { status: target, pausedAt: now } : { status: target, endedAt: now } });
+    if (target === "ACTIVE") {
+      const budget = version.budget;
+      if (!version.approvedByUserId || !version.approvedAt || version.startsAt > now || version.endsAt <= now || !budget || budget.status !== "ACTIVE" || budget.currency !== version.currency || budget.approvedAmount.minus(budget.reservedAmount).minus(budget.committedAmount).plus(budget.releasedAmount).plus(budget.reversedAmount).lessThan("0.01")) throw new Error("Campaign approval, period or budget does not permit resumption.");
+    }
+    const changed = await tx.promotionCampaignVersion.updateMany({ where: { id: version.id, status: version.status }, data: target === "ACTIVE" ? { status: target, pausedAt: null } : target === "PAUSED" ? { status: target, pausedAt: now } : { status: target, endedAt: now } });
     if (changed.count !== 1) throw new Error("Campaign changed; reload before acting.");
     const parent = await tx.promotionCampaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: target } });
     if (parent.count !== 1) throw new Error("Campaign changed; reload before acting.");
     const operationId = `promotion-admin:${randomUUID()}`;
-    await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: version.status, toStatus: target, actorUserId, reason: `Administrator ${target === "PAUSED" ? "paused" : "ended"} the campaign.`, operationId } });
-    await tx.promotionEventIntent.create({ data: { eventType: `PROMOTION_${target}`, dedupeKey: operationId, payload: { campaignId: campaign.id, campaignVersionId: version.id } } });
+    await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: version.status, toStatus: target, actorUserId, reason: `Administrator ${target === "ACTIVE" ? "resumed" : target === "PAUSED" ? "paused" : "ended"} the campaign.`, operationId } });
+    await tx.promotionEventIntent.create({ data: { eventType: target === "ACTIVE" ? "PROMOTION_RESUMED" : `PROMOTION_${target}`, dedupeKey: operationId, payload: { campaignId: campaign.id, campaignVersionId: version.id } } });
     await tx.adminActivityLog.create({ data: { actorUserId, action: "STATUS_CHANGE", entityType: "PromotionCampaign", entityId: campaign.id, message: `Promotion campaign moved to ${target}.`, metadata: { fromStatus: campaign.status, toStatus: target } } });
     return { reference: campaign.publicReference, status: target };
   });

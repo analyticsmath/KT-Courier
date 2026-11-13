@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation } from "@/lib/promotions/admin-promotions.service";
+import { endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -108,13 +108,19 @@ it("audits operator monitoring and resolution of an open case", async () => {
 it("pauses and ends a campaign exactly once with actor-bound history", async () => {
   const reference = `${marker}-admin-action`;
   const campaign = await prisma.promotionCampaign.create({ data: { publicReference: reference, internalCode: reference, ownerType: "PLATFORM", status: "ACTIVE", name: "Disposable administration" } });
-  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", approvedByUserId: adminId, approvedAt: new Date(), startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } });
   const results = await Promise.allSettled([pauseAdminCampaign(reference, adminId), pauseAdminCampaign(reference, adminId)]);
   expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
   expect((await prisma.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id } })).status).toBe("PAUSED");
+  await expect(resumeAdminCampaign(reference, adminId)).rejects.toThrow();
+  const budget = await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 10, status: "EXHAUSTED" } });
+  await expect(resumeAdminCampaign(reference, adminId)).rejects.toThrow();
+  await prisma.promotionBudget.update({ where: { id: budget.id }, data: { status: "ACTIVE" } });
+  expect((await resumeAdminCampaign(reference, adminId)).status).toBe("ACTIVE");
+  await pauseAdminCampaign(reference, adminId);
   expect((await endAdminCampaign(reference, adminId)).status).toBe("ENDED");
   expect((await prisma.promotionCampaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe("ENDED");
-  expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: adminId } })).toBe(2);
-  expect(await prisma.adminActivityLog.count({ where: { entityId: campaign.id, actorUserId: adminId } })).toBe(2);
+  expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: adminId } })).toBe(4);
+  expect(await prisma.adminActivityLog.count({ where: { entityId: campaign.id, actorUserId: adminId } })).toBe(4);
   await expect(endAdminCampaign(reference, adminId)).rejects.toThrow();
 });

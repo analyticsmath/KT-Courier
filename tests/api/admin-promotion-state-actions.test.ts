@@ -1,16 +1,17 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-const mock = vi.hoisted(() => ({ origin: vi.fn(), auth: vi.fn(), gate: vi.fn(), pause: vi.fn(), end: vi.fn() }));
+const mock = vi.hoisted(() => ({ origin: vi.fn(), auth: vi.fn(), gate: vi.fn(), pause: vi.fn(), resume: vi.fn(), end: vi.fn() }));
 vi.mock("@/lib/security/request-origin", () => ({ enforceSameOriginRequest: mock.origin }));
 vi.mock("@/lib/auth/admin-api", () => ({ requireAdminApiPermission: mock.auth }));
 vi.mock("@/lib/promotions/production-lock", () => ({ assertPromotionsProductionReady: mock.gate }));
-vi.mock("@/lib/promotions/admin-promotions.service", () => ({ pauseAdminCampaign: mock.pause, endAdminCampaign: mock.end }));
+vi.mock("@/lib/promotions/admin-promotions.service", () => ({ pauseAdminCampaign: mock.pause, resumeAdminCampaign: mock.resume, endAdminCampaign: mock.end }));
 import { POST as pause } from "@/app/api/admin/promotions/[reference]/pause/route";
 import { POST as end } from "@/app/api/admin/promotions/[reference]/end/route";
+import { POST as resume } from "@/app/api/admin/promotions/[reference]/resume/route";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 const context = { params: Promise.resolve({ reference: "campaign" }) };
 const request = () => new NextRequest("https://local/api/admin/promotions/campaign/pause", { method: "POST" });
-beforeEach(() => { vi.clearAllMocks(); mock.origin.mockResolvedValue(null); mock.auth.mockResolvedValue({ user: { id: "admin" } }); mock.pause.mockResolvedValue({ status: "PAUSED" }); mock.end.mockResolvedValue({ status: "ENDED" }); });
+beforeEach(() => { vi.clearAllMocks(); mock.origin.mockResolvedValue(null); mock.auth.mockResolvedValue({ user: { id: "admin" } }); mock.pause.mockResolvedValue({ status: "PAUSED" }); mock.resume.mockResolvedValue({ status: "ACTIVE" }); mock.end.mockResolvedValue({ status: "ENDED" }); });
 it("rejects cross-origin campaign actions before authorization", async () => {
   mock.origin.mockResolvedValueOnce(NextResponse.json({}, { status: 403 }));
   expect((await pause(request(), context)).status).toBe(403);
@@ -20,6 +21,9 @@ it("binds each action to its scoped permission and administrator", async () => {
   expect((await pause(request(), context)).status).toBe(200);
   expect(mock.auth).toHaveBeenCalledWith(PERMISSIONS.PROMOTIONS_PAUSE, expect.anything());
   expect(mock.pause).toHaveBeenCalledWith("campaign", "admin");
+  expect((await resume(request(), context)).status).toBe(200);
+  expect(mock.auth).toHaveBeenCalledWith(PERMISSIONS.PROMOTIONS_ACTIVATE, expect.anything());
+  expect(mock.resume).toHaveBeenCalledWith("campaign", "admin");
   expect((await end(request(), context)).status).toBe(200);
   expect(mock.auth).toHaveBeenCalledWith(PERMISSIONS.PROMOTIONS_MANAGE, expect.anything());
   expect(mock.end).toHaveBeenCalledWith("campaign", "admin");
