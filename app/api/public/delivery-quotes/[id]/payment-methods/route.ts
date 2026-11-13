@@ -7,6 +7,7 @@ import {
   PaymentPolicyError,
 } from "@/lib/payments/payment-policy.service";
 import { json, failure } from "@/lib/client-platform/api";
+import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 export async function GET(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -95,7 +96,14 @@ export async function GET(
         }
       }
     }
-    return json({ methods, cod });
+    // A payable quote does not prove an initialized payment gateway.
+    // Do not advertise card checkout while the configured provider is inactive.
+    const cardConfigured = resolvePaystackConfiguration().state.active;
+    const card = {
+      eligible: cardConfigured,
+      message: cardConfigured ? undefined : "Card checkout is temporarily unavailable. No payment has been started.",
+    };
+    return json({ methods, cod, card });
   } catch (e) {
     return failure(e);
   }

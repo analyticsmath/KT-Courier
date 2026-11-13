@@ -62,6 +62,19 @@ it("conserves available budget when a reserved discount commits", async () => {
   expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id } })).toBe(2);
 });
 
+it("preserves a frozen budget on release and refuses mismatched or negative movements", async () => {
+  const reference = `${marker}-frozen`;
+  const campaign = await prisma.promotionCampaign.create({ data: { publicReference: reference, internalCode: reference, ownerType: "PLATFORM", name: "Disposable frozen budget" } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } });
+  const budget = await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 100, reservedAmount: 30, status: "FROZEN" } });
+  await prisma.$transaction(tx => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: version.id, movementType: "RELEASE", amount: new Decimal(10), operationId: `${reference}-release`, requestHash: marker }, tx));
+  expect((await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } })).status).toBe("FROZEN");
+  await expect(prisma.$transaction(tx => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: version.id, movementType: "RESERVE", amount: new Decimal(1), operationId: `${reference}-reserve`, requestHash: marker }, tx))).rejects.toThrow("Frozen");
+  await expect(prisma.$transaction(tx => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: versionId, movementType: "APPROVED_INCREASE", amount: new Decimal(10), operationId: `${reference}-foreign`, requestHash: marker }, tx))).rejects.toThrow("another campaign");
+  await expect(prisma.$transaction(tx => recordBudgetMovement({ budgetId: budget.id, campaignVersionId: version.id, movementType: "APPROVED_INCREASE", amount: new Decimal(-1), operationId: `${reference}-negative`, requestHash: marker }, tx))).rejects.toThrow("positive");
+  expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id } })).toBe(1);
+});
+
 it("releases one expired reservation only after its unpaid checkout closes", async () => {
   const cart = await prisma.marketplaceCart.create({ data: { publicReference: `${marker}-cart`, ownerType: "GUEST", guestTokenHash: `${marker}-guest` } });
   const checkout = await prisma.marketplaceCheckout.create({ data: { publicReference: `${marker}-checkout`, cartId: cart.id, status: "RESERVED" } });

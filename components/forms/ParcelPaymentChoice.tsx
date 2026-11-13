@@ -9,18 +9,21 @@ export type ParcelCodAvailability = {
   message?: string;
 };
 export type ParcelPaymentMethod = "DIGITAL_ONLY" | "FULL_COD" | "DEPOSIT_PLUS_COD";
+export type ParcelCardAvailability = { eligible: boolean; message?: string };
 
 /** Explicitly show all payment choices; never confuse an ineligible COD policy with a missing feature. */
-export function ParcelPaymentChoice({ total, value, onChange, cod, authorizedMethods = [], loading = false, error }: {
+export function ParcelPaymentChoice({ total, value, onChange, cod, card, authorizedMethods = [], loading = false, error }: {
   total: string;
   value: ParcelPaymentMethod;
   onChange: (method: ParcelPaymentMethod) => void;
   cod?: ParcelCodAvailability | null;
+  card?: ParcelCardAvailability | null;
   authorizedMethods?: readonly { mode: string; digitalRequired: string; cashRequired: string }[];
   loading?: boolean;
   error?: string;
 }) {
   const legendId = useId();
+  const cardReady = card?.eligible !== false && !loading && !error;
   const codEnabled = cod?.eligible === true && !loading && !error;
   const cashMethod = authorizedMethods.find(method => method.mode === "FULL_COD");
   const depositMethod = authorizedMethods.find(method => method.mode === "DEPOSIT_PLUS_COD");
@@ -30,10 +33,10 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, authorizedMet
     {
       id: "DIGITAL_ONLY" as const,
       label: "Card / online payment",
-      summary: "Pay securely by card through Paystack after booking",
+      summary: card?.eligible === false ? (card.message ?? "Card checkout is temporarily unavailable.") : "Pay securely by card through Paystack after booking",
       amount: `R ${total}`,
-      badge: "Pay now",
-      disabled: false,
+      badge: cardReady ? "Pay now" : "Not available yet",
+      disabled: !cardReady,
     },
     {
       id: "FULL_COD" as const,

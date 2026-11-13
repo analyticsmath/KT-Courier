@@ -14813,3 +14813,25 @@ model CustomerLoyaltyMovement {
   @@unique([paymentId, revision])
   @@index([userId, createdAt])
 }
+
+
+// A fixed-R1.00, SUPER_ADMIN-only live gateway connectivity check.
+// Deliberately excluded from courier orders, journals, wallet, settlement and payouts.
+model PaystackLiveVerification {
+  id                    String   @id @default(cuid())
+  reference             String   @unique @db.VarChar(100)
+  idempotencyKey        String   @unique @db.VarChar(80)
+  actorUserId           String
+  payerEmail            String   @db.VarChar(254)
+  amountCents           Int      @default(100)
+  status                String   @default("CREATED") @db.VarChar(32)
+  checkoutUrl           String?
+  providerTransactionId String?  @db.VarChar(80)
+  failureCode           String?  @db.VarChar(80)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  verifiedAt            DateTime?
+
+  @@index([actorUserId, createdAt])
+  @@index([status, createdAt])
+}

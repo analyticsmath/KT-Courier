@@ -32,8 +32,11 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
   const budgetRecord = await tx.promotionBudget.findUniqueOrThrow({
     where: { id: input.budgetId },
   });
+  if (budgetRecord.campaignVersionId !== input.campaignVersionId) throw new Error('Promotion budget belongs to another campaign version.');
+  if (!input.amount.isFinite() || input.amount.lessThanOrEqualTo(0)) throw new Error('Promotion budget movement amount must be positive.');
+  if (budgetRecord.status === 'FROZEN' && input.movementType === 'RESERVE') throw new Error('Frozen promotion budget cannot fund new reservations.');
   const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  startOfToday.setUTCHours(0, 0, 0, 0);
   const committedToday = await tx.promotionBudgetMovement.aggregate({
     where: { budgetId: input.budgetId, movementType: "COMMIT", createdAt: { gte: startOfToday } },
     _sum: { amount: true },
@@ -72,6 +75,7 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
   budgetState.version += 1;
 
   const balanceAfter = calculateAvailableBudget(budgetState);
+  if (input.movementType === 'APPROVED_DECREASE' && (budgetState.approvedAmount.lessThan(0) || balanceAfter.lessThan(0))) throw new Error('Promotion budget decrease exceeds available funds.');
 
   await PromotionBudgetRepo.updateOptimistic(input.budgetId, budgetRecord.version, {
     approvedAmount: budgetState.approvedAmount,
@@ -79,7 +83,7 @@ export async function recordBudgetMovement(input: BudgetMovementInput, tx: Prism
     committedAmount: budgetState.committedAmount,
     releasedAmount: budgetState.releasedAmount,
     reversedAmount: budgetState.reversedAmount,
-    status: isBudgetExhausted(budgetState) ? 'EXHAUSTED' : 'ACTIVE',
+    status: budgetRecord.status === 'FROZEN' ? 'FROZEN' : isBudgetExhausted(budgetState) ? 'EXHAUSTED' : 'ACTIVE',
   }, tx);
 
   const movement = await tx.promotionBudgetMovement.create({

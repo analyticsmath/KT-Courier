@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
-import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability } from "@/components/forms/ParcelPaymentChoice";
+import { ParcelPaymentChoice, type ParcelPaymentMethod, type ParcelCodAvailability, type ParcelCardAvailability } from "@/components/forms/ParcelPaymentChoice";
 import { parcelBookingDestination, parcelBookingStepHref } from "@/lib/client-platform/parcel-booking-navigation";
 import { ParcelBookedNextStep } from "@/components/forms/ParcelBookedNextStep";
 import {
@@ -70,6 +70,7 @@ export function PublicDeliveryQuoteForm({
     quoteId: string;
     items: { mode: string; digitalRequired: string; cashRequired: string }[];
     cod: ParcelCodAvailability;
+    card: ParcelCardAvailability;
   } | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<ParcelPaymentMethod>("DIGITAL_ONLY");
   const [methodError, setMethodError] = useState("");
@@ -98,7 +99,7 @@ export function PublicDeliveryQuoteForm({
         const b = await r.json();
         if (!r.ok) throw Error(b.error);
         if (!controller.signal.aborted) {
-          setMethods({ quoteId: quote.id, items: b.methods, cod: b.cod });
+          setMethods({ quoteId: quote.id, items: b.methods, cod: b.cod, card: b.card ?? { eligible: false, message: "Card payment availability could not be verified." } });
           setMethodError("");
         }
       })
@@ -573,16 +574,22 @@ export function PublicDeliveryQuoteForm({
                 value={selectedPaymentMethod}
                 onChange={setSelectedPaymentMethod}
                 cod={methods?.quoteId === quote.id ? methods.cod : null}
+                card={methods?.quoteId === quote.id ? methods.card : { eligible: false, message: "Checking Paystack availability." }}
                 authorizedMethods={methods?.quoteId === quote.id ? methods.items : []}
                 loading={methods?.quoteId !== quote.id && !methodError}
                 error={methodError}
               />
               {methodError && <div className="sm:col-span-2">
                 <Button type="button" variant="secondary" disabled={busy} onClick={() => { setMethodError(""); setMethodRevision((n) => n + 1); }}>
-                  Retry cash availability
+                  Retry payment methods
                 </Button>
               </div>}
-              <Button type="submit" loading={busy} disabled={busy || Boolean(bookedNextStep)} className="sm:col-span-2 sm:justify-self-start sm:min-w-64">
+              <Button type="submit" loading={busy} disabled={busy || Boolean(bookedNextStep) ||
+                  methods?.quoteId !== quote.id ||
+                  (selectedPaymentMethod === "DIGITAL_ONLY"
+                    ? methods.card.eligible !== true
+                    : !methods.items.some(method => method.mode === selectedPaymentMethod))}
+                className="sm:col-span-2 sm:justify-self-start sm:min-w-64">
                 {bookedNextStep ? "Delivery booked" : selectedPaymentMethod === "DIGITAL_ONLY" ? "Book and continue to card payment" : "Book this delivery"}
               </Button>
               {bookedNextStep && <ParcelBookedNextStep href={bookedNextStep.href} paymentMethod={bookedNextStep.paymentMethod} />}

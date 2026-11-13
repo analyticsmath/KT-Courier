@@ -15,6 +15,8 @@ export type ProviderCallContext = Readonly<{
   signal: AbortSignal;
   correlationId: string;
   timeoutMs: number;
+  /** Caller has exclusively reserved this never-before-submitted reference in the payment DB. */
+  freshAttempt?: boolean;
 }>;
 
 export type ProviderCheckoutSessionInput = Readonly<{

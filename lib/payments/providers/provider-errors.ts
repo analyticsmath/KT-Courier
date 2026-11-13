@@ -86,3 +86,33 @@ export function definitiveProviderError(
   });
 }
 
+
+
+/** Classify Paystack first-initialization failures without losing definitive
+ * provider rejections. Only conditions known not to have initialized checkout
+ * permit a new attempt. Network/timeout/malformed responses remain uncertain. */
+export function normalizeCheckoutInitiationError(error: unknown): NormalizedProviderError {
+  const code = (error as { code?: unknown })?.code;
+  if (code === "PAYMENT_PROVIDER_AUTHENTICATION_FAILED") {
+    return definitiveProviderError("AUTHENTICATION", code);
+  }
+  if (code === "PAYMENT_PROVIDER_REQUEST_INVALID" || code === "PAYMENT_CURRENCY_INVALID" || code === "PAYMENT_AMOUNT_INVALID") {
+    return definitiveProviderError("INVALID_REQUEST", code);
+  }
+  if (code === "PAYMENT_PROVIDER_RATE_LIMITED") {
+    return definitiveProviderError("RATE_LIMITED", code);
+  }
+  if (code === "PAYMENT_PROVIDER_UNAVAILABLE") {
+    return Object.freeze({ category: "PROVIDER_UNAVAILABLE", code, definitive: false,
+      retryMayBeSafe: false, configurationFault: false,
+      operatorMessage: "Paystack initialization may have been accepted; reconcile this reference.",
+      customerMessage: "Payment confirmation is still pending." });
+  }
+  if (code === "PAYMENT_PROVIDER_RESPONSE_INVALID" || code === "PAYMENT_PROVIDER_REFERENCE_CONFLICT") {
+    return Object.freeze({ category: "MALFORMED_RESPONSE", code, definitive: false,
+      retryMayBeSafe: false, configurationFault: false,
+      operatorMessage: "Paystack response could not be validated; reconcile this reference.",
+      customerMessage: "Payment confirmation is still pending." });
+  }
+  return normalizeProviderError(error);
+}
