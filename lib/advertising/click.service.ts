@@ -10,6 +10,15 @@ export type ClickClassification =
   | "SUSPECT_REVIEW"
   | "INVALID";
 
+export function safeAdvertisingDestination(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  try {
+    const base = new URL("https://advertising.invalid");
+    const resolved = new URL(value, base);
+    return resolved.origin === base.origin ? `${resolved.pathname}${resolved.search}${resolved.hash}` : null;
+  } catch { return null; }
+}
+
 export class AdvertisingClickService {
   constructor(private readonly tx?: Prisma.TransactionClient) {}
 
@@ -26,6 +35,7 @@ export class AdvertisingClickService {
     const serveDecision = await this.db.advertisingServeDecision.findUnique({
       where: { publicReference: payload.serveDecisionId },
       include: {
+        placementDefinition: true,
         campaignVersion: {
           include: {
             creativeSnapshots: {
@@ -37,15 +47,13 @@ export class AdvertisingClickService {
       }
     });
 
-    if (!serveDecision) {
+    if (!serveDecision || serveDecision.campaignVersionId !== payload.campaignVersionId || serveDecision.placementDefinition.code !== payload.placementCode || (serveDecision.sessionFingerprint ?? "unknown") !== sessionFingerprint) {
       throw new Error("Serve decision not found.");
     }
 
     const creative = serveDecision.campaignVersion.creativeSnapshots[0];
-    const destination = creative?.destinationReference || "/";
-
-    // Validate internal destination only
-    if (!destination.startsWith("/") || destination.includes("://")) {
+    const destination = safeAdvertisingDestination(creative?.destinationReference || "/");
+    if (!destination) {
       throw new Error("Unauthorized destination redirect.");
     }
 
@@ -56,8 +64,8 @@ export class AdvertisingClickService {
     const measurementService = new AdvertisingMeasurementService(this.tx);
     const measurementEvent = await measurementService.trackEvent({
       campaignVersionId: payload.campaignVersionId,
-      placementDefinitionId: payload.placementCode,
-      serveDecisionId: payload.serveDecisionId,
+      placementDefinitionId: serveDecision.placementDefinitionId,
+      serveDecisionId: serveDecision.id,
       eventType: "CLICK",
       sessionFingerprint,
       userAgentClass,
@@ -133,7 +141,7 @@ export class AdvertisingClickService {
     // 3. Deduplication check
     const existingClick = await this.db.advertisingMeasurementEvent.findFirst({
       where: {
-        serveDecisionId: payload.serveDecisionId,
+        serveDecision: { publicReference: payload.serveDecisionId },
         eventType: "CLICK",
         validityStatus: "VALID"
       }

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { AdvertisingServingService } from "@/lib/advertising/serving.service";
-import { AdvertisingClickService } from "@/lib/advertising/click.service";
+import { AdvertisingClickService, safeAdvertisingDestination } from "@/lib/advertising/click.service";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ signedToken: string }> }) {
   let destinationUrl = "/";
@@ -27,9 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         // Navigation remains functional if billing/processing fails
         console.error("Non-fatal billing/click processing failure, continuing:", serviceError);
         // Fall back to payload's stored destination path
-        if (payload.destinationReference && payload.destinationReference.startsWith("/")) {
-          destinationUrl = payload.destinationReference;
-        }
+        destinationUrl = safeAdvertisingDestination(payload.destinationReference) ?? "/";
       }
     }
   } catch (outerError) {
