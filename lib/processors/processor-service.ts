@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { acquireProcessorLease, completeProcessorRun, listProcessorRuns } from "./lease-authority";
 import {
@@ -59,6 +59,25 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-promoter-qualifications": async ({ mode, batchSize }) => {
+    const candidates = await prisma.promoterQualification.findMany({
+      where: { status: "EVIDENCE_OBSERVED" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: batchSize,
+      select: { id: true, publicReference: true },
+    });
+    if (mode === "DRY_RUN") return { itemsExamined: candidates.length, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: candidates.length, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Found ${candidates.length} observed promoter qualifications.` };
+    const { assertPromotersProductionReady } = await import("@/lib/promoters/production-readiness");
+    assertPromotersProductionReady();
+    const { confirmPromoterQualification } = await import("@/lib/promoters/qualification-earning.service");
+    let completed = 0;
+    for (const candidate of candidates) {
+      const operationId = `process-promoter-qualifications:${createHash("sha256").update(candidate.publicReference).digest("hex").slice(0, 32)}`;
+      await confirmPromoterQualification(prisma, { qualificationId: candidate.id, operationId });
+      completed++;
+    }
+    return { itemsExamined: candidates.length, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: 0, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Confirmed ${completed} observed promoter qualifications.` };
+  },
   "process-valid-click-charges": async ({ mode, batchSize }) => {
     const { runAdvertisingClickBatch } = await import("@/lib/advertising/click-charge-batch");
     const result = await runAdvertisingClickBatch({ limit: batchSize, apply: mode === "APPLY" });

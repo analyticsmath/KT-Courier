@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db/prisma";
@@ -7,6 +7,7 @@ import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-s
 // Isolated database test of the transition; the real production gate remains unchanged.
 vi.mock("@/lib/promoters/production-readiness", () => ({ assertPromotersProductionReady: vi.fn() }));
 import { confirmPromoterQualification } from "@/lib/promoters/qualification-earning.service";
+import { PROCESSOR_HANDLERS } from "@/lib/processors/processor-service";
 
 const marker = `promoter-confirm-${randomUUID()}`;
 let qualificationId = "";
@@ -26,7 +27,15 @@ beforeAll(async () => {
 afterAll(async () => { if (validated) await prisma.$disconnect(); });
 
 it("confirms once across competing workers and replays the same operation", async () => {
-  const operationId = `${marker}-confirm`;
+  const operationId = `process-promoter-qualifications:${createHash("sha256").update(`${marker}-qualification`).digest("hex").slice(0, 32)}`;
+  const context = { mode: "DRY_RUN" as const, batchSize: 250, operationId: `${marker}-run` };
+  const preview = await PROCESSOR_HANDLERS["process-promoter-qualifications"](context);
+  expect(preview.itemsExamined).toBeGreaterThanOrEqual(1);
+  expect((await prisma.promoterQualification.findUniqueOrThrow({ where: { id: qualificationId } })).status).toBe("EVIDENCE_OBSERVED");
+  await Promise.all([
+    PROCESSOR_HANDLERS["process-promoter-qualifications"]({ ...context, mode: "APPLY" }),
+    PROCESSOR_HANDLERS["process-promoter-qualifications"]({ ...context, mode: "APPLY" }),
+  ]);
   const results = await Promise.all([confirmPromoterQualification(prisma, { qualificationId, operationId }), confirmPromoterQualification(prisma, { qualificationId, operationId })]);
   expect(results.map(row => row.status)).toEqual(["QUALIFIED_HELD", "QUALIFIED_HELD"]);
   expect(await prisma.promoterEventIntent.count({ where: { operationId, eventType: "PROMOTER_QUALIFICATION_CONFIRMED" } })).toBe(1);

@@ -293,7 +293,7 @@ export const PROCESSOR_REGISTRY = {
   "process-promoter-qualifications": {
     name: "process-promoter-qualifications",
     version: "1.0.0",
-    purpose: "Evaluates pending referral attributions for qualification",
+    purpose: "Confirms observed promoter qualification evidence",
     triggerType: "CRON",
     classification: "IDEMPOTENT_ITEM_PROCESSOR",
     leaseRequired: true,
@@ -303,11 +303,11 @@ export const PROCESSOR_REGISTRY = {
     maxExecutionDurationSeconds: 180,
     retryPolicy: "RETRY_UP_TO_MAX",
     idempotencyStrategy: "ATTRIBUTION_QUALIFICATION_UNIQUE",
-    dryRunSupported: false,
+    dryRunSupported: true,
     manualExecutionAllowed: false,
     requiredPermission: PERMISSIONS.PROMOTER_RECONCILIATION_MANAGE,
     operationalOwnerCategory: "Promoters & Growth",
-    status: "DISABLED",
+    status: "IMPLEMENTED",
   },
   "end-expired-promotions": {
     name: "end-expired-promotions",
