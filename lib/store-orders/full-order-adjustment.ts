@@ -5,6 +5,14 @@ import { assertStoreOrder } from "./errors";
 import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
 import { parseMarketplacePaymentPlan } from "@/lib/marketplace-checkout/payment-plan";
 
+export function platformFundedDiscountForStore(groupDiscount: Prisma.Decimal, storeGroupId: string, redemptions: readonly { allocations: readonly { storeGroupReference: string | null; discountAmount: Prisma.Decimal; platformFunding: Prisma.Decimal; storeFunding: Prisma.Decimal }[] }[]) {
+  if (!redemptions.length) return groupDiscount;
+  const allocations = redemptions.flatMap(redemption => redemption.allocations).filter(allocation => allocation.storeGroupReference === storeGroupId);
+  const total = allocations.reduce((sum, allocation) => sum.add(allocation.discountAmount), new Prisma.Decimal(0));
+  assertStoreOrder(total.equals(groupDiscount) && allocations.every(allocation => allocation.platformFunding.add(allocation.storeFunding).equals(allocation.discountAmount)), "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Promotion funding evidence does not match the store payment plan.");
+  return allocations.reduce((sum, allocation) => sum.add(allocation.platformFunding), new Prisma.Decimal(0));
+}
+
 /** Only an unaccepted, unstarted child with no courier obligation has an
  * automatic full cancellation boundary. Later stages require policy review. */
 export function unearnedStoreOrderCancellation(order: { acceptanceStatus: string; preparationStatus: string; deliveryBridge: unknown }) {
@@ -57,6 +65,12 @@ export async function createUnstartedFullAdjustment(tx: Prisma.TransactionClient
     } catch {
       assertStoreOrder(false, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Malformed or unavailable frozen payment plan evidence.");
     }
+  }
+  // Seller basis already excludes store-funded discounts. Only the original
+  // platform-funded share is reversed from held funds on cancellation.
+  if (groupDiscount.greaterThan(0)) {
+    const redemptions = await tx.promotionRedemption.findMany({ where: { marketplaceOrderId: order.marketplaceOrderId }, include: { allocations: true } });
+    groupDiscount = platformFundedDiscountForStore(groupDiscount, order.checkoutStoreGroupId, redemptions);
   }
   const priorAdjustments = previous.filter(item => item.status !== "REJECTED");
   const priorSubsidyReversals = priorAdjustments.reduce((sum, item) => {

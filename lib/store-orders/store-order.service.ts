@@ -7,7 +7,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
 import { hashMarketplaceGuestSecret, verifyMarketplaceGuestSecret } from "@/lib/marketplace-checkout/tokens";
-import { frozenRefundAllocation, assertSubstitutionPriceCap, cents, money } from "@/lib/store-orders/allocation";
+import { frozenRefundAllocation, promotionLineRefund, assertSubstitutionPriceCap, cents, money } from "@/lib/store-orders/allocation";
 import { type StoreOrderDependencies } from "@/lib/store-orders/contracts";
 import { resolveStoreOrderProductionComposition } from "@/lib/store-orders/composition-root";
 import { StoreOrderError, assertStoreOrder } from "@/lib/store-orders/errors";
@@ -399,7 +399,7 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   const adjustmentReference = ref("soadj");
   const originalCharge = money(cents(sourceLine.effectiveUnitPrice.toFixed(2)) * BigInt(issue.affectedQuantity));
   const replacementCharge = input.replacementCharge ?? "0.00";
-  const grossRefundAmount = cents(originalCharge) > cents(replacementCharge) ? money(cents(originalCharge) - cents(replacementCharge)) : "0.00";
+  let grossRefundAmount = cents(originalCharge) > cents(replacementCharge) ? money(cents(originalCharge) - cents(replacementCharge)) : "0.00";
   let groupDiscount = new Prisma.Decimal(0);
   try {
     if (order.checkoutStoreGroup?.paymentPlan) {
@@ -416,11 +416,26 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   let customerRefund = grossRefundAmount;
   let platformSubsidyReversal = "0.00";
   if (groupDiscount.greaterThan(0)) {
-    const merchandiseTotal = new Prisma.Decimal(order.merchandiseSubtotal);
-    const lineProportion = merchandiseTotal.greaterThan(0) ? new Prisma.Decimal(originalCharge).dividedBy(merchandiseTotal) : new Prisma.Decimal(0);
-    const lineDiscount = groupDiscount.mul(lineProportion).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
-    customerRefund = Prisma.Decimal.max(0, new Prisma.Decimal(grossRefundAmount).sub(lineDiscount)).toFixed(2);
-    platformSubsidyReversal = new Prisma.Decimal(grossRefundAmount).sub(new Prisma.Decimal(customerRefund)).toFixed(2);
+    const redemptions = await model(tx, "promotionRedemption").findMany({ where: { marketplaceOrderId: order.marketplaceOrderId }, include: { allocations: true } });
+    if (redemptions.length) {
+      assertStoreOrder(cents(replacementCharge) === 0n, "STORE_ORDER_ADJUSTMENT_INVALID", "A discounted substitution requires financial review before applying its price difference.");
+      const groupAllocations = redemptions.flatMap((item: any) => item.allocations).filter((item: any) => item.storeGroupReference === order.checkoutStoreGroupId);
+      const groupDiscountEvidence = groupAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.discountAmount), new Prisma.Decimal(0));
+      assertStoreOrder(groupDiscountEvidence.equals(groupDiscount) && groupAllocations.every((item: any) => item.platformFunding.add(item.storeFunding).equals(item.discountAmount)), "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Promotion funding evidence does not match the store payment plan.");
+      const lineAllocations = groupAllocations.filter((item: any) => item.allocationType === "MERCHANDISE" && item.lineReference === sourceLine.checkoutLineSnapshotId);
+      const platformTotal = lineAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.platformFunding), new Prisma.Decimal(0));
+      const storeTotal = lineAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.storeFunding), new Prisma.Decimal(0));
+      const adjustment = promotionLineRefund({ originalCharge, storeFunding: storeTotal.toFixed(2), platformFunding: platformTotal.toFixed(2), originalQuantity: sourceLine.quantity, previouslyResolvedQuantity: before, resolvedQuantityAfter: after });
+      grossRefundAmount = adjustment.sellerBasisRefund;
+      platformSubsidyReversal = adjustment.platformSubsidyReversal;
+      customerRefund = adjustment.customerRefund;
+    } else {
+      const merchandiseTotal = new Prisma.Decimal(order.merchandiseSubtotal);
+      const lineProportion = merchandiseTotal.greaterThan(0) ? new Prisma.Decimal(originalCharge).dividedBy(merchandiseTotal) : new Prisma.Decimal(0);
+      const lineDiscount = groupDiscount.mul(lineProportion).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_EVEN);
+      customerRefund = Prisma.Decimal.max(0, new Prisma.Decimal(grossRefundAmount).sub(lineDiscount)).toFixed(2);
+      platformSubsidyReversal = new Prisma.Decimal(grossRefundAmount).sub(new Prisma.Decimal(customerRefund)).toFixed(2);
+    }
   }
   const refundAmount = customerRefund;
   const adjustment = await model(tx, "marketplaceStoreOrderAdjustment").create({ data: { publicReference: adjustmentReference, marketplaceStoreOrderId: order.id, adjustmentType: input.type, status: "APPROVED", reasonCode: input.reasonCode, sourceVersion: order.settlementSnapshots[0]?.settlementVersion ?? "phase20-v1", operationId: input.operationId, requestHash: input.requestHash, customerDecisionReference: input.decisionReference ?? null, refundAmount, financialEvidence: { settlementSnapshotReference: order.settlementSnapshots[0]?.publicReference ?? null, issueReference: issue.publicReference, originalLineId: sourceLine.id, originalQuantity: sourceLine.quantity, affectedQuantity: issue.affectedQuantity, replacementCharge, grossRefundAmount, platformSubsidyReversal, sourceCommercialFingerprint: order.operationalSnapshot?.sourceCommercialFingerprint ?? null } } });
