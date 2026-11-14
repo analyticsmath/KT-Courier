@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     assertPromotionsProductionReady("CAMPAIGN_CREATE");
 
-    const campaign = await createPlatformCampaign(body);
+    const campaign = await createPlatformCampaign(body, auth.user.id);
     return NextResponse.json(campaign, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });

@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { activateAdminCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, createPlatformCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -29,6 +29,21 @@ afterAll(async () => {
   if (!validated) return;
   // The guarded disposable database is removed by the enclosing runner.
   await prisma.$disconnect();
+});
+
+it("creates one platform draft under concurrent retries and rejects changed or foreign replays", async () => {
+  const draft = { requestId: randomUUID(), name: "Platform discount", description: "A carefully bounded platform promotion", mechanism: "FIXED_AMOUNT", value: "10.00", proposedBudget: "100.00", startsAt: "2026-01-01T00:00:00.000Z", endsAt: "2026-06-01T00:00:00.000Z", globalLimit: 10, perCustomerLimit: 1 };
+  const [first, second] = await Promise.all([createPlatformCampaign(draft, adminId), createPlatformCampaign(draft, adminId)]);
+  expect(first.reference).toBe(second.reference);
+  expect(first.status).toBe("DRAFT");
+  const stored = await prisma.promotionCampaign.findUniqueOrThrow({ where: { publicReference: first.reference }, include: { versions: { include: { targets: true, budget: true } } } });
+  expect(stored.ownerType).toBe("PLATFORM");
+  expect(stored.versions).toHaveLength(1);
+  expect(stored.versions[0].fundingType).toBe("PLATFORM_FUNDED");
+  expect(stored.versions[0].budget).toBeNull();
+  expect(stored.versions[0].targets[0].targetType).toBe("ALL_ELIGIBLE_MARKETPLACE_LINES");
+  await expect(createPlatformCampaign({ ...draft, name: "Different discount" }, adminId)).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
+  await expect(createPlatformCampaign(draft, "another-admin")).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
 });
 
 it("does not release a committed or future reservation in an expiry transaction", async () => {

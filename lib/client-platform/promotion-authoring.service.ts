@@ -199,7 +199,7 @@ export async function businessPromotionTargets(userId: string) {
     ],
   };
 }
-function couponData(d: z.infer<typeof PromotionDraftSchema>) {
+export function couponData(d: z.infer<typeof PromotionDraftSchema>) {
   if (!d.coupon) return null;
   const key = process.env.PROMOTION_CODE_HMAC_KEY;
   if (!key || key.length < 32)
@@ -248,7 +248,7 @@ async function validateTargets(
       422,
     );
 }
-function versionData(d: z.infer<typeof PromotionDraftSchema>) {
+export function versionData(d: z.infer<typeof PromotionDraftSchema>) {
   return {
     applicationMethod: d.coupon
       ? ("COUPON_CODE" as const)

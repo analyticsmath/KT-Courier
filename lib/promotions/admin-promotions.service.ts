@@ -3,7 +3,8 @@ import { assertPromotionsProductionReady } from "./production-lock";
 import { db } from "@/lib/db";
 import { PromotionReconciliationStatus } from "@prisma/client";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
+import { couponData, PromotionDraftSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
 
 export async function listAdminPromotions(...args: any[]): Promise<any> {
   return [];
@@ -14,9 +15,39 @@ export async function createAdminCampaign(...args: any[]): Promise<any> {
   return null;
 }
 
-export async function createPlatformCampaign(...args: any[]): Promise<any> {
+export async function createPlatformCampaign(raw: unknown, actorUserId: string) {
   assertPromotionsProductionReady("CAMPAIGN_CREATE");
-  return null;
+  if (!actorUserId?.trim()) throw new Error("An administrator is required.");
+  const draft = PromotionDraftSchema.parse(raw);
+  const code = couponData(draft);
+  const internalCode = `PLATFORM_${draft.requestId}`;
+  const requestHash = createHash("sha256").update(JSON.stringify({ ...draft, coupon: code?.codeHmac ?? null })).digest("hex");
+  const include = { versions: { orderBy: { versionNumber: "desc" as const }, take: 1, include: { targets: true, codes: { select: { maskedDisplay: true } }, budget: true, _count: { select: { redemptions: true } } } } };
+  return db.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${internalCode},0))`;
+    const prior = await tx.promotionCampaign.findUnique({ where: { internalCode }, include });
+    if (prior) {
+      const receipt = await tx.adminActivityLog.findFirst({ where: { entityType: "PromotionCampaign", entityId: prior.id, actorUserId, metadata: { path: ["requestHash"], equals: requestHash } } });
+      if (!receipt) throw new Error("PROMOTION_REPLAY_CONFLICT");
+      return promotionDraftProjection(prior);
+    }
+    const [productCount, categoryCount] = await Promise.all([
+      tx.product.count({ where: { id: { in: draft.productIds } } }),
+      tx.catalogCategory.count({ where: { id: { in: draft.categoryIds } } }),
+    ]);
+    if (productCount !== draft.productIds.length || categoryCount !== draft.categoryIds.length) throw new Error("PROMOTION_TARGET_SCOPE");
+    const targets = [
+      ...draft.productIds.map(id => ({ targetType: "PRODUCT" as const, targetReference: id })),
+      ...draft.categoryIds.map(id => ({ targetType: "CATEGORY" as const, targetReference: id })),
+      ...(draft.productIds.length || draft.categoryIds.length ? [] : [{ targetType: "ALL_ELIGIBLE_MARKETPLACE_LINES" as const, targetReference: "*" }]),
+    ];
+    const campaign = await tx.promotionCampaign.create({ data: {
+      publicReference: `PROMO_${randomUUID()}`, internalCode, ownerType: "PLATFORM", name: draft.name, purpose: draft.description,
+      versions: { create: { ...versionData(draft), publicReference: `PV_${randomUUID()}`, versionNumber: 1, fundingType: "PLATFORM_FUNDED", platformFundingShareBps: 10000, storeFundingShareBps: 0, targets: { create: targets }, ...(code ? { codes: { create: code } } : {}), statusHistory: { create: { toStatus: "DRAFT", actorUserId, operationId: `platform-draft:${draft.requestId}`, reason: "Administrator created platform promotion draft" } } } },
+    }, include });
+    await tx.adminActivityLog.create({ data: { actorUserId, action: "CREATE", entityType: "PromotionCampaign", entityId: campaign.id, message: "Administrator created platform promotion draft", metadata: { requestHash } } });
+    return promotionDraftProjection(campaign);
+  });
 }
 
 export async function getAdminCampaign(...args: any[]): Promise<any> {
