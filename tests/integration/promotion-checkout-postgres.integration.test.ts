@@ -10,6 +10,7 @@ import { reserveCheckoutPromotions } from "@/lib/promotions/promotion-reservatio
 import { commitMarketplacePromotionRedemptions } from "@/lib/promotions/promotion-redemption.service";
 import type { AppliedPromotion, PromotionEvaluationResult } from "@/lib/promotions/promotion-evaluation.service";
 import { reversePromotionBudgetForAdjustment } from "@/lib/promotions/promotion-adjustment-reversal";
+import { createPrismaMarketplaceFinalizationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-finalization.repository";
 
 beforeAll(() => requireDisposableStoreSettlementDatabase());
 
@@ -40,6 +41,13 @@ it("reserves reviewed allocations, posts one funded redemption and preserves sou
   const payRef = `PAY-${nonce}`;
   const receipt = await postLedgerJournal({ idempotencyKey: `${marker}-receipt`, sourceReference: `PROMOTEST:${nonce.replaceAll("-", "").toUpperCase()}`, correlationId: payRef, type: "EXTERNAL_PAYMENT_RECEIPT", currency: "ZAR", actor: { kind: "SYSTEM" }, entries: [{ accountId: cash.id, direction: "DEBIT", amount: "90.00", lineCode: "CASH" }, { accountId: held.id, direction: "CREDIT", amount: "90.00", lineCode: "HELD" }] });
   const payment = await prisma.payment.create({ data: { publicReference: payRef, userId: customer.id, marketplaceCheckoutId: checkout.id, subjectType: "MARKETPLACE_CHECKOUT", provider: "PAYSTACK", status: "PENDING", amount: "90.00", creationIdempotencyKey: `${marker}-payment`, creationRequestHash: "b".repeat(64) } });
+  const recovery = { checkoutId: checkout.id, paymentId: payment.id, operationId: `marketplace-finalization:${payment.id}` };
+  const recoveryCase = await prisma.marketplaceCheckoutReconciliationCase.create({ data: { publicReference: `${marker}-recovery`, ...recovery, reason: "ORDER_CREATION_FAILURE", safeSummary: "Retry fixture" } });
+  const repository = createPrismaMarketplaceFinalizationRepository();
+  await expect(repository.transaction(async () => { expect(await repository.mayRecoverFinalization!(recovery)).toBe(true); await repository.resolveFinalizationRecovery!(recovery); throw new Error("rollback fixture"); })).rejects.toThrow("rollback fixture");
+  expect((await prisma.marketplaceCheckoutReconciliationCase.findUniqueOrThrow({ where: { id: recoveryCase.id } })).status).toBe("OPEN");
+  await prisma.marketplaceCheckoutReconciliationCase.create({ data: { publicReference: `${marker}-independent-case`, ...recovery, operationId: `${marker}-independent`, reason: "PAYMENT_AMOUNT_MISMATCH", safeSummary: "Independent fixture" } });
+  await repository.transaction(async () => { expect(await repository.mayRecoverFinalization!(recovery)).toBe(false); });
   const attempt = await prisma.paymentAttempt.create({ data: { paymentId: payment.id, attemptNumber: 1, provider: "PAYSTACK", idempotencyKey: `${marker}-attempt`, requestHash: "c".repeat(64), merchantReference: `${marker}-merchant`, status: "SUCCEEDED", amount: "90.00", currency: "ZAR", providerEnvironment: "SANDBOX", providerConfirmedAt: new Date() } });
   const webhook = await prisma.paymentWebhookEvent.create({ data: { publicReference: `pwe_${nonce}`, provider: "PAYSTACK", environment: "SANDBOX", eventFingerprint: createHash("sha256").update(nonce).digest("hex"), merchantReference: attempt.merchantReference, providerStatus: "success", normalizedStatus: "COMPLETE", processingStatus: "APPLIED", paymentId: payment.id, attemptId: attempt.id, sourceAddressVerified: true, signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true, verifiedAt: new Date(), appliedAt: new Date(), ledgerJournalId: receipt.id } });
   await prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCEEDED", successfulAttemptId: attempt.id, successWebhookEventId: webhook.id, successLedgerJournalId: receipt.id, providerConfirmedAt: new Date(), succeededAt: new Date(), version: { increment: 1 } } });

@@ -64,6 +64,9 @@ export function createPrismaMarketplacePaymentSuccessHookRepository(database: an
     },
     async markCheckoutReconciliationRequired(input) {
       await database.$transaction(async (tx: any) => {
+        await tx.$queryRaw`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${input.checkoutId} FOR UPDATE`;
+        const completed = await tx.marketplaceOrder.findUnique({ where: { checkoutId: input.checkoutId }, select: { paymentId: true } });
+        if (completed?.paymentId === input.paymentId) return;
         await tx.marketplaceCheckout.update({ where: { id: input.checkoutId }, data: { status: "RECONCILIATION_REQUIRED" } });
         await tx.marketplaceCheckoutReconciliationCase.upsert({ where: { checkoutId_reason_operationId: { checkoutId: input.checkoutId, reason: "ORDER_CREATION_FAILURE", operationId: input.operationId } }, create: { publicReference: `mrec_${input.operationId}`, checkoutId: input.checkoutId, paymentId: input.paymentId, reason: "ORDER_CREATION_FAILURE", priority: "CRITICAL", safeSummary: input.safeReason, operationId: input.operationId }, update: { observationCount: { increment: 1 }, safeSummary: input.safeReason } });
       });

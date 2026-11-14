@@ -9,6 +9,8 @@ export type MarketplaceFinalizationRepository = Readonly<{
   transaction<T>(work: () => Promise<T>): Promise<T>;
   lockVerifiedSuccessfulPayment(paymentId: string): Promise<{ id: string; publicReference: string; status: string; amount: string; currency: string; marketplaceCheckoutId: string | null } | null>;
   lockCheckout(checkoutId: string): Promise<PaidMarketplaceCheckout | null>;
+  mayRecoverFinalization?(input: Readonly<{ checkoutId: string; paymentId: string; operationId: string }>): Promise<boolean>;
+  resolveFinalizationRecovery?(input: Readonly<{ checkoutId: string; paymentId: string; operationId: string }>): Promise<void>;
   lockReservation(checkoutId: string): Promise<{ id: string; status: string; commercialFingerprint: string } | null>;
   findOrderByCheckout(checkoutId: string): Promise<{ publicReference: string } | null>;
   consumeReservation(reservationId: string, paymentId: string, operationId: string): Promise<void>;
@@ -27,7 +29,9 @@ export async function finalizePaidMarketplaceCheckout(repository: MarketplaceFin
     if (!payment || payment.status !== "SUCCEEDED" || payment.marketplaceCheckoutId !== input.checkoutId || payment.currency !== "ZAR") throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Verified marketplace payment evidence is required.");
     const replay = await repository.findOrderByCheckout(input.checkoutId); if (replay) return { publicReference: replay.publicReference, replayed: true };
     const checkout = await repository.lockCheckout(input.checkoutId);
-    if (!checkout || !["PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING"].includes(checkout.status) || checkout.currency !== "ZAR" || payment.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || !checkout.commercialFingerprint) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Paid checkout evidence is invalid.");
+    if (!checkout || !["PAYMENT_PENDING", "PAYMENT_CONFIRMED", "COMPLETING", "RECONCILIATION_REQUIRED"].includes(checkout.status) || checkout.currency !== "ZAR" || payment.amount !== (checkout.digitalRequired ?? checkout.grandTotal) || !checkout.commercialFingerprint) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Paid checkout evidence is invalid.");
+    const recovery = checkout.status === "RECONCILIATION_REQUIRED";
+    if (recovery && (!repository.mayRecoverFinalization || !repository.resolveFinalizationRecovery || !await repository.mayRecoverFinalization(input))) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout reconciliation requires independent review.");
     assertMarketplacePaymentPlanTotals({ grandTotal: checkout.grandTotal, digitalRequired: checkout.digitalRequired, cashRequired: checkout.cashRequired, groups: checkout.storeGroups });
     const reservation = await repository.lockReservation(checkout.id);
     if (!reservation || !["ACTIVE", "PAYMENT_PENDING_HOLD"].includes(reservation.status) || reservation.commercialFingerprint !== checkout.commercialFingerprint) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Checkout inventory reservation is invalid.");
@@ -40,6 +44,7 @@ export async function finalizePaidMarketplaceCheckout(repository: MarketplaceFin
       if (repository.scheduleSettlement) await repository.scheduleSettlement({ marketplaceStoreOrderId: storeOrder.id, group, operationId: `${input.operationId}:settlement:${storeOrder.id}` });
     }
     await repository.completeCheckoutAndConvertCart(checkout.id, checkout.cartId);
+    if (recovery) await repository.resolveFinalizationRecovery!(input);
     return { publicReference: order.publicReference, replayed: false };
   });
 }

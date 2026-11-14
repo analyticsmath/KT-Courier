@@ -88,6 +88,13 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
       if (evidence.length !== row.storeGroups.length) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "Every accepted store group requires frozen settlement evidence.");
       return buildPaidMarketplaceCheckoutFromFrozenEvidence(row, evidence, acknowledgement);
     },
+    mayRecoverFinalization: async ({ checkoutId, paymentId, operationId }) => {
+      const cases = await db.marketplaceCheckoutReconciliationCase.findMany({ where: { checkoutId, status: { in: ["OPEN", "MONITORING"] } }, select: { reason: true, paymentId: true, operationId: true } });
+      return cases.length > 0 && cases.every((item: any) => item.reason === "ORDER_CREATION_FAILURE" && item.paymentId === paymentId && item.operationId === operationId);
+    },
+    resolveFinalizationRecovery: async ({ checkoutId, paymentId, operationId }) => {
+      await db.marketplaceCheckoutReconciliationCase.updateMany({ where: { checkoutId, paymentId, operationId, reason: "ORDER_CREATION_FAILURE", status: { in: ["OPEN", "MONITORING"] } }, data: { status: "RESOLVED", resolvedAt: new Date(), resolutionCode: "FINALIZATION_RETRIED" } });
+    },
     lockReservation: async (checkoutId: string) => {
       const row = await db.marketplaceInventoryReservation.findFirst({ where: { checkoutId, status: { in: ["ACTIVE", "PAYMENT_PENDING_HOLD"] } }, include: { items: true }, orderBy: { createdAt: "asc" } });
       if (row) await db.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceInventoryReservation" WHERE "id" = ${row.id} FOR UPDATE`);

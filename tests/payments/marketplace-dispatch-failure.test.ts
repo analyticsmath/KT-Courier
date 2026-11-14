@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 const finalize = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/marketplace-checkout/marketplace-checkout-finalization.service", () => ({ finalizePaidMarketplaceCheckout: finalize }));
-import { onVerifiedMarketplacePaymentSucceeded, type MarketplacePaymentSuccessHookRepository } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
+import { createPrismaMarketplacePaymentSuccessHookRepository, onVerifiedMarketplacePaymentSucceeded, type MarketplacePaymentSuccessHookRepository } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
 import type { MarketplaceFinalizationRepository } from "@/lib/marketplace-checkout/marketplace-checkout-finalization.service";
 
 describe("marketplace durable dispatch failure", () => {
@@ -16,5 +16,17 @@ describe("marketplace durable dispatch failure", () => {
     await expect(onVerifiedMarketplacePaymentSucceeded(repository, {} as MarketplaceFinalizationRepository, "payment", { approved: true })).rejects.toBe(failure);
     expect(repository.markCheckoutReconciliationRequired).toHaveBeenCalledWith({ checkoutId: "checkout", paymentId: "payment", operationId: "marketplace-finalization:payment", safeReason: "FINALIZATION_APPLICATION_FAILURE" });
     expect(finalize).toHaveBeenCalledOnce();
+  });
+  it("does not overwrite an order completed by a concurrent worker", async () => {
+    const update = vi.fn(), upsert = vi.fn(), lock = vi.fn(), findUnique = vi.fn().mockResolvedValue({ paymentId: "payment" });
+    const tx = { $queryRaw: lock, marketplaceOrder: { findUnique }, marketplaceCheckout: { update }, marketplaceCheckoutReconciliationCase: { upsert } };
+    const repository = createPrismaMarketplacePaymentSuccessHookRepository({ $transaction: async (work: (client: typeof tx) => unknown) => work(tx) });
+    await repository.markCheckoutReconciliationRequired({ checkoutId: "checkout", paymentId: "payment", operationId: "operation", safeReason: "FINALIZATION_APPLICATION_FAILURE" });
+    expect(lock).toHaveBeenCalledOnce();
+    expect(update).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+    findUnique.mockResolvedValueOnce(null);
+    await repository.markCheckoutReconciliationRequired({ checkoutId: "checkout", paymentId: "payment", operationId: "operation", safeReason: "FINALIZATION_APPLICATION_FAILURE" });
+    expect(update).toHaveBeenCalledOnce(); expect(upsert).toHaveBeenCalledOnce();
   });
 });
