@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { PromotionReconciliationStatus } from "@prisma/client";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
 import { createHash, randomUUID } from "node:crypto";
-import { couponData, PromotionDraftSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
+import { couponData, PromotionDraftSchema, PromotionUpdateSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
 
 export async function listAdminPromotions(...args: any[]): Promise<any> {
   return [];
@@ -54,9 +54,37 @@ export async function getAdminCampaign(...args: any[]): Promise<any> {
   return null;
 }
 
-export async function updateAdminCampaign(...args: any[]): Promise<any> {
+export async function updateAdminCampaign(reference: string, raw: unknown, actorUserId: string) {
   assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  return null;
+  if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim()) throw new Error("Invalid campaign action.");
+  const { draft, expectedRevision } = PromotionUpdateSchema.parse(raw);
+  const code = couponData(draft);
+  const include = { versions: { orderBy: { versionNumber: "desc" as const }, take: 1, include: { targets: true, codes: { select: { maskedDisplay: true } }, budget: true, _count: { select: { redemptions: true } } } } };
+  return db.$transaction(async tx => {
+    const campaign = await tx.promotionCampaign.findFirst({ where: { publicReference: reference, ownerType: "PLATFORM" }, include });
+    const version = campaign?.versions[0];
+    if (!campaign || !version) throw new Error("Campaign not found.");
+    await tx.$queryRaw`SELECT id FROM "PromotionCampaignVersion" WHERE id=${version.id} FOR UPDATE`;
+    const current = await tx.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id } });
+    if (!["DRAFT", "REJECTED"].includes(current.status) || current.clientDraftRevision !== expectedRevision) throw new Error("Campaign changed; reload before editing.");
+    const [productCount, categoryCount, nonDraftCodes, approvedBudget] = await Promise.all([
+      tx.product.count({ where: { id: { in: draft.productIds } } }),
+      tx.catalogCategory.count({ where: { id: { in: draft.categoryIds } } }),
+      tx.promotionCode.count({ where: { campaignVersionId: version.id, status: { not: "DRAFT" } } }),
+      tx.promotionBudget.findUnique({ where: { campaignVersionId: version.id }, select: { id: true } }),
+    ]);
+    if (productCount !== draft.productIds.length || categoryCount !== draft.categoryIds.length) throw new Error("PROMOTION_TARGET_SCOPE");
+    if (nonDraftCodes || approvedBudget) throw new Error("A campaign with issued codes or an approved budget cannot be edited.");
+    const targets = [...draft.productIds.map(id => ({ targetType: "PRODUCT" as const, targetReference: id })), ...draft.categoryIds.map(id => ({ targetType: "CATEGORY" as const, targetReference: id })), ...(draft.productIds.length || draft.categoryIds.length ? [] : [{ targetType: "ALL_ELIGIBLE_MARKETPLACE_LINES" as const, targetReference: "*" }])];
+    await tx.promotionCampaignVersionTarget.deleteMany({ where: { campaignVersionId: version.id } });
+    await tx.promotionCode.deleteMany({ where: { campaignVersionId: version.id, status: "DRAFT" } });
+    await tx.promotionCampaignVersion.update({ where: { id: version.id }, data: { ...versionData(draft), status: "DRAFT", clientDraftRevision: { increment: 1 }, targets: { create: targets }, ...(code ? { codes: { create: code } } : {}) } });
+    const updated = await tx.promotionCampaign.updateMany({ where: { id: campaign.id, status: current.status }, data: { name: draft.name, purpose: draft.description, status: "DRAFT" } });
+    if (updated.count !== 1) throw new Error("Campaign changed; reload before editing.");
+    if (current.status === "REJECTED") await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: "REJECTED", toStatus: "DRAFT", actorUserId, reason: "Administrator revised rejected campaign", operationId: `promotion-revision:${randomUUID()}` } });
+    await tx.adminActivityLog.create({ data: { actorUserId, action: "UPDATE", entityType: "PromotionCampaign", entityId: campaign.id, message: "Administrator updated platform promotion draft", metadata: { revision: expectedRevision + 1 } } });
+    return promotionDraftProjection(await tx.promotionCampaign.findUniqueOrThrow({ where: { id: campaign.id }, include }));
+  });
 }
 
 export async function submitAdminCampaign(reference: string, actorUserId: string) {

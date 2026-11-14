@@ -53,7 +53,7 @@ export async function PATCH(
     const body = await request.json();
     assertPromotionsProductionReady("CAMPAIGN_UPDATE");
 
-    const campaign = await updateAdminCampaign(params.reference, body);
+    const campaign = await updateAdminCampaign(params.reference, body, auth.user.id);
     return NextResponse.json(campaign, {
       headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
