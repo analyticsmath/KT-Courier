@@ -22,6 +22,7 @@ type ReviewableCheckout = Readonly<{
   grandTotal: string;
   commercialFingerprint: string | null;
   acceptedFingerprint: string | null;
+  appliedCouponCode?: string | null;
   contactSnapshotId: string | null;
   addressSnapshotId: string | null;
   addressServiceAreaReference: string | null;
@@ -83,6 +84,7 @@ export async function reviewMarketplaceCheckout(
       checkoutReference: checkout.publicReference,
       customerUserId: input.owner.type === "CUSTOMER" ? input.owner.userId : undefined,
       guestEvidenceReference: input.owner.type === "GUEST" ? input.owner.guestTokenHash : undefined,
+      appliedCouponCode: checkout.appliedCouponCode ?? undefined,
       serviceAreaReference: checkout.addressServiceAreaReference,
       reviewVersion: checkout.reviewVersion + 1,
       groups: checkout.groups,

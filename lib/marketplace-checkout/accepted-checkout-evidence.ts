@@ -46,6 +46,17 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
       const resp = reviewOp.response as any;
       if (resp.commercialFingerprint && resp.commercialFingerprint !== accepted.commercialFingerprint) fail();
       if (resp.promotionDiscount && !new Prisma.Decimal(resp.promotionDiscount).equals(totalPromoDiscount)) fail();
+      const applied = resp.promotionEvidence?.evidence?.applied;
+      if (Array.isArray(applied) && applied.length) {
+        const versionIds = applied.map((item: any) => item?.campaignVersionId);
+        if (versionIds.some((id: unknown) => typeof id !== "string" || !id) || new Set(versionIds).size !== versionIds.length) fail();
+        const reservations = await db.promotionReservation.findMany({ where: { checkoutId: checkout.id, checkoutReviewVersion: checkout.reviewVersion, campaignVersionId: { in: versionIds }, status: "RESERVED", expiresAt: { gt: at } } });
+        if (reservations.length !== versionIds.length || !reservations.reduce((total: Prisma.Decimal, reservation: any) => total.add(reservation.reservedDiscountAmount), new Prisma.Decimal(0)).equals(totalPromoDiscount)) fail();
+        for (const item of applied) {
+          const matches = reservations.filter((reservation: any) => reservation.campaignVersionId === item.campaignVersionId);
+          if (matches.length !== 1 || !matches[0].reservedDiscountAmount.equals(item.calculatedDiscount) || !matches[0].reservedPlatformFunding.equals(item.platformFunding) || !matches[0].reservedStoreFunding.equals(item.storeFunding)) fail();
+        }
+      }
     }
   }
 

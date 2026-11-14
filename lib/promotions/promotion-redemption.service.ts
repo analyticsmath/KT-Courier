@@ -113,6 +113,7 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
   assertMarketplaceDigitalReceipt(payment, marketplaceOrder.digitalRequired.toFixed(2));
 
   // 1. Idempotency Check
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`promotion-commit:${input.operationId}`},0))::text`;
   const existingRedemptions = await tx.promotionRedemption.findMany({
     where: { operationId: input.operationId }
   });
@@ -189,11 +190,31 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
 
   const redemptions: RedemptionRecord[] = [];
   const fundingIntents: PromotionJournalIntent[] = [];
+  const sourceGroups = await tx.marketplaceCheckoutStoreGroup.findMany({ where: { checkoutId: input.checkoutId }, include: { lines: { where: { reviewVersion: input.checkoutReviewVersion }, select: { id: true, lineTotal: true } } } });
 
   for (const reservation of reservations) {
-    if (reservation.status !== 'RESERVED' || reservation.expiresAt <= input.now) {
+    // A verified payment may arrive after expiry, but it must have been
+    // created while this reservation was valid. Expiry recovery retains any
+    // reservation with a payment until that payment is reconciled.
+    if (reservation.status !== 'RESERVED' || !payment.createdAt || reservation.createdAt > payment.createdAt || reservation.expiresAt <= payment.createdAt) {
       throw new Error(`Reservation ${reservation.id} is not active or is expired.`);
     }
+
+    if (!Array.isArray(reservation.allocationEvidence) || !reservation.allocationEvidence.length) throw new Error('Promotion allocation evidence is unavailable.');
+    let allocatedDiscount = new Decimal(0), allocatedPlatform = new Decimal(0), allocatedStore = new Decimal(0);
+    const seenLines = new Set<string>();
+    const frozenAllocations = reservation.allocationEvidence.map(item => {
+      if (!item || typeof item !== 'object' || Array.isArray(item) || typeof item.lineReference !== 'string' || typeof item.storeGroupReference !== 'string' || !['MERCHANDISE', 'DELIVERY'].includes(String(item.allocationType)) || typeof item.basisAmount !== 'string' || typeof item.discountAmount !== 'string' || typeof item.platformFunding !== 'string' || typeof item.storeFunding !== 'string') throw new Error('Promotion allocation evidence is invalid.');
+      const group = sourceGroups.find(candidate => candidate.id === item.storeGroupReference);
+      const line = group?.lines.find(candidate => candidate.id === item.lineReference);
+      const sourceBasis = item.allocationType === 'DELIVERY' && group && item.lineReference === `${group.storeId}_delivery` ? new Decimal(group.deliveryFee) : item.allocationType === 'MERCHANDISE' && line ? new Decimal(line.lineTotal) : null;
+      const [basis, discount, platform, store] = [item.basisAmount, item.discountAmount, item.platformFunding, item.storeFunding].map(value => new Decimal(value as string));
+      if (!sourceBasis || seenLines.has(item.lineReference) || [basis, discount, platform, store].some(value => !value.isFinite() || value.isNegative() || !value.toDecimalPlaces(2).equals(value)) || !basis.equals(sourceBasis) || discount.greaterThan(basis) || !platform.plus(store).equals(discount)) throw new Error('Promotion allocation evidence does not match its checkout source.');
+      seenLines.add(item.lineReference);
+      allocatedDiscount = allocatedDiscount.plus(discount); allocatedPlatform = allocatedPlatform.plus(platform); allocatedStore = allocatedStore.plus(store);
+      return { lineReference: item.lineReference, storeGroupReference: item.storeGroupReference, allocationType: String(item.allocationType), eligibleBasis: basis, discountAmount: discount, platformFunding: platform, storeFunding: store };
+    });
+    if (!allocatedDiscount.equals(reservation.reservedDiscountAmount) || !allocatedPlatform.equals(reservation.reservedPlatformFunding) || !allocatedStore.equals(reservation.reservedStoreFunding)) throw new Error('Promotion allocation evidence does not reconcile.');
 
     const budget = budgets.find(b => b.campaignVersionId === reservation.campaignVersionId);
     if (!budget) {
@@ -236,6 +257,7 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
         requestHash: input.requestHash,
       }
     });
+    await tx.promotionFinancialAllocation.createMany({ data: frozenAllocations.map(allocation => ({ ...allocation, publicReference: `PFA_${randomUUID()}`, redemptionId: record.id, calculationEvidence: { reservationReference: reservation.publicReference, checkoutReviewVersion: input.checkoutReviewVersion } })) });
 
     // Update reservation status to COMMITTED
     await tx.promotionReservation.update({

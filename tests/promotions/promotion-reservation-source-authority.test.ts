@@ -29,7 +29,7 @@ const applied = (id: string): AppliedPromotion => ({
   calculatedDiscount: dec("5.00"), fundingType: "PLATFORM",
   platformFundingShareBps: null, customerFacingTitle: "Test-only offer",
   campaignName: "Test-only campaign", category: "AUTOMATIC_MERCHANDISE",
-  allocations: [], platformFunding: dec("5.00"), storeFunding: dec("0.00"),
+  allocations: [{ lineId: "line-1", basisAmount: dec("20.00"), discountAmount: dec("5.00"), platformFunding: dec("5.00"), storeFunding: dec("0.00") }], platformFunding: dec("5.00"), storeFunding: dec("0.00"),
 });
 const buildInput = (names = ["ordinary"]): ReservationInput => {
   const promotions = names.map(applied);
@@ -61,6 +61,7 @@ function mockTransaction(input: ReservationInput) {
         guestAccessTokenHash: input.guestEvidenceReference ?? null,
       })),
     },
+    marketplaceCheckoutStoreGroup: { findMany: vi.fn(async () => [{ id: "group-1", storeId: "store-1", deliveryFee: dec("0.00"), lines: [{ id: "line-1", lineTotal: dec("20.00") }] }]) },
     promotionOperation: {
       findUnique: vi.fn(async () => null as null | { operationType: string; requestHash: string }),
       create: vi.fn(async () => ({ id: "operation-1" })),
@@ -73,7 +74,7 @@ function mockTransaction(input: ReservationInput) {
         return data;
       }),
     },
-    promotionCampaignVersion: { count: vi.fn(async () => 0) },
+    promotionCampaignVersion: { count: vi.fn(async () => 0), findMany: vi.fn(async () => input.appliedPromotions.map(p => ({ id: p.campaignVersionId, status: "ACTIVE", currency: "ZAR", startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01"), campaign: { status: "ACTIVE" }, maximumRedemptionsGlobal: null, maximumRedemptionsPerCustomer: null }))) },
     marketplaceOrder: { count: vi.fn(async () => 0) },
     promotionRedemption: { count: vi.fn(async () => 0) },
     promotionCode: { findMany: vi.fn(async () => []) },
@@ -99,6 +100,25 @@ describe("promotion reservation financial authority and multi-campaign idempoten
     });
     expect(database.marketplaceOrder.count).not.toHaveBeenCalled();
     expect(database.promotionReservation.create).toHaveBeenCalledTimes(1);
+    expect(database.promotionReservation.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ allocationEvidence: [expect.objectContaining({ lineReference: "line-1", storeGroupReference: "group-1", discountAmount: "5.00" })] }) }));
+  });
+
+  it("rejects allocation to a line outside the reviewed checkout", async () => {
+    const input = buildInput(), { tx, database } = mockTransaction(input);
+    input.appliedPromotions[0].allocations[0].lineId = "foreign-line";
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("checkout source");
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects a campaign paused after review and a fully claimed global limit", async () => {
+    const input = buildInput(), { tx, database } = mockTransaction(input);
+    const versions = await database.promotionCampaignVersion.findMany();
+    database.promotionCampaignVersion.findMany.mockResolvedValueOnce([{ ...versions[0], status: "PAUSED" }]);
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("no longer active");
+    database.promotionCampaignVersion.findMany.mockResolvedValueOnce([{ ...versions[0], maximumRedemptionsGlobal: 1 } as unknown as typeof versions[number]]);
+    database.promotionReservation.count.mockResolvedValueOnce(1);
+    await expect(reserveCheckoutPromotions(input, tx)).rejects.toThrow("redemption limit");
+    expect(database.promotionReservation.create).not.toHaveBeenCalled();
   });
 
   it("rejects first-order claims when a real source-verified order already exists", async () => {
@@ -123,7 +143,6 @@ describe("promotion reservation financial authority and multi-campaign idempoten
     expect(database.promotionReservation.count).toHaveBeenCalledWith({
       where: {
         customerUserId: "customer-1", status: "RESERVED",
-        expiresAt: { gt: input.now },
         campaignVersion: { eligibility: { some: { rule: "FIRST_MARKETPLACE_ORDER" } } },
       },
     });

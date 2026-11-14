@@ -6226,6 +6226,7 @@ model PromotionReservation {
   reservedDiscountAmount  Decimal                    @db.Decimal(18, 2)
   reservedPlatformFunding Decimal                    @default(0) @db.Decimal(18, 2)
   reservedStoreFunding    Decimal                    @default(0) @db.Decimal(18, 2)
+  allocationEvidence      Json?
   expiresAt               DateTime
   operationId             String
   requestHash             String

@@ -1,4 +1,5 @@
 import { Decimal } from '@prisma/client/runtime/library';
+import { randomUUID } from 'node:crypto';
 import { assertPromotionsProductionReady } from './production-lock';
 import type { PromotionEvaluationResult, AppliedPromotion } from './promotion-evaluation.service';
 import { recordBudgetMovement } from './promotion-budget.service';
@@ -45,7 +46,7 @@ export interface ReservationRecord {
 type PrismaTransactionClient = Parameters<Parameters<import('@prisma/client').PrismaClient['$transaction']>[0]>[0];
 
 export const RESERVATION_TTL_MS = 30 * 60 * 1000;
-const cuid = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+const cuid = () => randomUUID();
 
 export async function reserveCheckoutPromotions(input: ReservationInput, tx: PrismaTransactionClient): Promise<ReservationEvidence> {
   assertPromotionsProductionReady('RESERVATION');
@@ -154,6 +155,8 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
   // previous comparison was true for every applied campaign and incorrectly
   // disabled all repeat-customer discounts.
   await lockCampaignVersions(campaignVersionIds, tx);
+  const currentVersions = await tx.promotionCampaignVersion.findMany({ where: { id: { in: campaignVersionIds } }, include: { campaign: true } });
+  if (currentVersions.length !== campaignVersionIds.length || currentVersions.some(version => version.status !== 'ACTIVE' || version.campaign.status !== 'ACTIVE' || version.startsAt > input.now || version.endsAt <= input.now || version.currency !== 'ZAR')) throw new Error('A promotion is no longer active for this checkout.');
   const hasFirstOrderRule = campaignVersionIds.length > 0 && await tx.promotionCampaignVersion.count({
     where: {
       id: { in: campaignVersionIds },
@@ -180,7 +183,6 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
         where: {
           customerUserId: input.customerUserId,
           status: 'RESERVED',
-          expiresAt: { gt: input.now },
           campaignVersion: { eligibility: { some: { rule: 'FIRST_MARKETPLACE_ORDER' } } },
         },
       }),
@@ -208,11 +210,43 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
   const budgetIds = budgets.map(b => b.id);
   await lockBudgets(budgetIds, tx);
 
+  const sourceGroups = await tx.marketplaceCheckoutStoreGroup.findMany({ where: { checkoutId: input.checkoutId }, include: { lines: { where: { reviewVersion: input.checkoutReviewVersion }, select: { id: true, lineTotal: true } } } });
+  const sources = new Map<string, { storeGroupReference: string; allocationType: string; basis: Decimal }>();
+  for (const group of sourceGroups) {
+    for (const line of group.lines) {
+      if (sources.has(line.id)) throw new Error("Promotion allocation source is ambiguous.");
+      sources.set(line.id, { storeGroupReference: group.id, allocationType: "MERCHANDISE", basis: new Decimal(line.lineTotal) });
+    }
+    const deliveryReference = `${group.storeId}_delivery`;
+    if (sources.has(deliveryReference)) throw new Error("Promotion allocation source is ambiguous.");
+    sources.set(deliveryReference, { storeGroupReference: group.id, allocationType: "DELIVERY", basis: new Decimal(group.deliveryFee) });
+  }
+
   const expiresAt = new Date(input.now.getTime() + RESERVATION_TTL_MS);
   const reservations: ReservationRecord[] = [];
 
   for (const applied of input.appliedPromotions) {
+    const version = currentVersions.find(candidate => candidate.id === applied.campaignVersionId)!;
+    const [globalCommitted, globalHeld, customerCommitted, customerHeld] = await Promise.all([
+      version.maximumRedemptionsGlobal !== null ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id, status: 'COMMITTED' } }) : 0,
+      version.maximumRedemptionsGlobal !== null ? tx.promotionReservation.count({ where: { campaignVersionId: version.id, status: 'RESERVED' } }) : 0,
+      version.maximumRedemptionsPerCustomer !== null && input.customerUserId ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id, customerUserId: input.customerUserId, status: 'COMMITTED' } }) : 0,
+      version.maximumRedemptionsPerCustomer !== null && input.customerUserId ? tx.promotionReservation.count({ where: { campaignVersionId: version.id, customerUserId: input.customerUserId, status: 'RESERVED' } }) : 0,
+    ]);
+    if ((version.maximumRedemptionsGlobal !== null && globalCommitted + globalHeld >= version.maximumRedemptionsGlobal) || (version.maximumRedemptionsPerCustomer !== null && (!input.customerUserId || customerCommitted + customerHeld >= version.maximumRedemptionsPerCustomer))) throw new Error('Promotion redemption limit has been reached.');
     const reservationId = cuid();
+    const seenLines = new Set<string>();
+    let allocatedDiscount = new Decimal(0), allocatedPlatform = new Decimal(0), allocatedStore = new Decimal(0);
+    const allocationEvidence = applied.allocations.map(allocation => {
+      const source = sources.get(allocation.lineId);
+      const values = [allocation.basisAmount, allocation.discountAmount, allocation.platformFunding, allocation.storeFunding].map(value => new Decimal(value));
+      const [basis, discount, platform, store] = values;
+      if (!source || seenLines.has(allocation.lineId) || values.some(value => !value.isFinite() || value.isNegative() || !value.toDecimalPlaces(2).equals(value)) || !basis.equals(source.basis) || discount.greaterThan(basis) || !platform.plus(store).equals(discount)) throw new Error("Promotion allocation does not match its checkout source.");
+      seenLines.add(allocation.lineId);
+      allocatedDiscount = allocatedDiscount.plus(discount); allocatedPlatform = allocatedPlatform.plus(platform); allocatedStore = allocatedStore.plus(store);
+      return { lineReference: allocation.lineId, storeGroupReference: source.storeGroupReference, allocationType: source.allocationType, basisAmount: basis.toFixed(2), discountAmount: discount.toFixed(2), platformFunding: platform.toFixed(2), storeFunding: store.toFixed(2) };
+    });
+    if (!allocationEvidence.length || !allocatedDiscount.equals(applied.calculatedDiscount) || !allocatedPlatform.equals(applied.platformFunding) || !allocatedStore.equals(applied.storeFunding)) throw new Error("Promotion allocation amounts do not reconcile.");
     
     // A validated HMAC belongs to precisely one active, unexpired code.
     // Never attach the first arbitrary code from a campaign to a discount.
@@ -229,14 +263,14 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
     }
     if (code) {
       // Codes have already been row-locked in stable order. Count committed
-      // use plus OTHER live reservations, not just committed redemption:
-      // otherwise two unpaid checkouts could each hold the final use.
+      // use plus every unreleased reservation. An expired reservation can
+      // still have an in-flight payment and cannot be reused until released.
       const [committed, outstanding] = await Promise.all([
         tx.promotionRedemption.count({
           where: { promotionCodeId: code.id, status: "COMMITTED" },
         }),
         tx.promotionReservation.count({
-          where: { promotionCodeId: code.id, status: "RESERVED", expiresAt: { gt: input.now } },
+          where: { promotionCodeId: code.id, status: "RESERVED" },
         }),
       ]);
       if (code.maximumRedemptions !== null
@@ -254,7 +288,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
             where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "COMMITTED" },
           }),
           tx.promotionReservation.count({
-            where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "RESERVED", expiresAt: { gt: input.now } },
+            where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "RESERVED" },
           }),
         ]);
         if (customerCommitted + customerOutstanding >= code.maximumRedemptionsPerCustomer) {
@@ -297,6 +331,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
         reservedDiscountAmount: record.reservedDiscountAmount,
         reservedPlatformFunding: record.reservedPlatformFunding,
         reservedStoreFunding: record.reservedStoreFunding,
+        allocationEvidence,
         expiresAt: record.expiresAt,
         operationId: record.operationId,
         requestHash: record.requestHash,

@@ -256,6 +256,11 @@ describe("assertAcceptedCheckoutEvidence", () => {
     };
 
     await expect(assertAcceptedCheckoutEvidence("chk-2", new Date(), mockDb)).resolves.toBeUndefined();
+    mockDb.marketplaceCheckoutOperation.findFirst.mockResolvedValue({ response: { commercialFingerprint: "fingerprint-multi", promotionDiscount: "50.00", promotionEvidence: { evidence: { applied: [{ campaignVersionId: "promo-version", calculatedDiscount: "50.00", platformFunding: "30.00", storeFunding: "20.00" }] } } } });
+    mockDb.promotionReservation = { findMany: vi.fn().mockResolvedValue([]) };
+    await expect(assertAcceptedCheckoutEvidence("chk-2", new Date(), mockDb)).rejects.toMatchObject({ code: "CHECKOUT_REVIEW_REQUIRED" });
+    mockDb.promotionReservation.findMany.mockResolvedValue([{ campaignVersionId: "promo-version", reservedDiscountAmount: new Prisma.Decimal("50.00"), reservedPlatformFunding: new Prisma.Decimal("30.00"), reservedStoreFunding: new Prisma.Decimal("20.00") }]);
+    await expect(assertAcceptedCheckoutEvidence("chk-2", new Date(), mockDb)).resolves.toBeUndefined();
   });
 
   it("passes for undiscounted order with COD deposit split when permitted by policy", async () => {

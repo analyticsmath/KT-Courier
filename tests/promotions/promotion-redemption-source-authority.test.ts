@@ -22,6 +22,7 @@ import { normalizeLedgerPosting } from "@/lib/ledger/posting-normalization";
 const money = (value: string) => new Prisma.Decimal(value);
 const payment = () => ({
   id: "pay-1", marketplaceCheckoutId: "ck-1", marketplaceOrderId: "order-1",
+  createdAt: new Date("2026-11-08T11:00:00Z"),
   subjectType: "MARKETPLACE_CHECKOUT", status: "SUCCEEDED", currency: "ZAR",
   amount: money("50.00"),
   successfulAttempt: { status: "SUCCEEDED", amount: money("50.00") },
@@ -139,11 +140,13 @@ describe("promotion commitment provider and marketplace source authority", () =>
 
   it("submits a ledger-valid, balanced subsidy for a verified redemption", async () => {
     const tx = database();
-    const reservation = { id: "res-1", campaignVersionId: "campaign-1", checkoutId: "ck-1", checkoutReviewVersion: 2, customerUserId: "customer-1", status: "RESERVED", expiresAt: new Date("2027-01-01"), promotionCodeId: null, reservedDiscountAmount: money("5.00"), reservedPlatformFunding: money("5.00"), reservedStoreFunding: money("0.00") };
+    const reservation = { id: "res-1", publicReference: "reservation-ref", campaignVersionId: "campaign-1", checkoutId: "ck-1", checkoutReviewVersion: 2, customerUserId: "customer-1", status: "RESERVED", createdAt: new Date("2026-11-08T10:00:00Z"), expiresAt: new Date("2027-01-01"), promotionCodeId: null, reservedDiscountAmount: money("5.00"), reservedPlatformFunding: money("5.00"), reservedStoreFunding: money("0.00"), allocationEvidence: [{ lineReference: "line-1", storeGroupReference: "group-1", allocationType: "MERCHANDISE", basisAmount: "20.00", discountAmount: "5.00", platformFunding: "5.00", storeFunding: "0.00" }] };
     tx.promotionReservation.findMany.mockResolvedValue([reservation] as never);
     Object.assign(tx, {
       promotionBudget: { findMany: vi.fn(async () => [{ id: "budget-1", campaignVersionId: "campaign-1" }]) },
       promotionEventIntent: { create: vi.fn() },
+      promotionFinancialAllocation: { createMany: vi.fn() },
+      marketplaceCheckoutStoreGroup: { findMany: vi.fn(async () => [{ id: "group-1", storeId: "store-1", deliveryFee: money("0.00"), lines: [{ id: "line-1", lineTotal: money("20.00") }] }]) },
     });
     Object.assign(tx.promotionRedemption, { create: vi.fn() });
     Object.assign(tx.promotionReservation, { update: vi.fn() });
@@ -154,5 +157,6 @@ describe("promotion commitment provider and marketplace source authority", () =>
     const normalized = normalizeLedgerPosting(posting);
     expect(normalized.sourceReference).toMatch(/^PROMO:[A-F0-9]{64}$/);
     expect(normalized.totalDebits.toString()).toBe(normalized.totalCredits.toString());
+    expect((tx as unknown as { promotionFinancialAllocation: { createMany: ReturnType<typeof vi.fn> } }).promotionFinancialAllocation.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ lineReference: "line-1", storeGroupReference: "group-1" })] }));
   });
 });

@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db/prisma";
 import { createTransactionContext } from "@/lib/db/transaction-context";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { postPlatformSubsidyJournalInTx } from "@/lib/promotions/platform-subsidy-ledger.service";
+import { commitMarketplacePromotionRedemptions } from "@/lib/promotions/promotion-redemption.service";
+import type { PromotionEvaluationResult } from "@/lib/promotions/promotion-evaluation.service";
 import type { MarketplaceFinalizationRepository, MarketplacePaidLine, MarketplacePaidStoreGroup, PaidMarketplaceCheckout } from "@/lib/marketplace-checkout/marketplace-checkout-finalization.service";
 
 const reference = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
@@ -114,11 +116,28 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
       const promoDiscount = new Prisma.Decimal(paid.promotionDiscount ?? "0.00");
       if (promoDiscount.greaterThan(0)) {
         try {
-          await postPlatformSubsidyJournalInTx(db, {
-            orderId: created.id,
-            orderPublicReference: created.publicReference,
-            amount: promoDiscount,
-          });
+          const source = await db.marketplaceCheckout.findUniqueOrThrow({ where: { id: paid.id }, select: { reviewVersion: true, commercialFingerprint: true } });
+          const review = await db.marketplaceCheckoutOperation.findFirst({ where: { checkoutId: paid.id, type: "REVIEW" }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: { response: true } });
+          const response = review?.response as any;
+          if (!response || response.commercialFingerprint !== paid.commercialFingerprint || source.commercialFingerprint !== paid.commercialFingerprint || !new Prisma.Decimal(response.promotionDiscount ?? -1).equals(promoDiscount)) throw new Error("Promotion review evidence is unavailable.");
+          const evidence = response.promotionEvidence;
+          if (evidence?.type === "FIRST_STORE_WELCOME") {
+            if (!new Prisma.Decimal(evidence.discountAmount ?? -1).equals(promoDiscount)) throw new Error("Welcome promotion evidence does not match the paid order.");
+            await postPlatformSubsidyJournalInTx(db, { orderId: created.id, orderPublicReference: created.publicReference, amount: promoDiscount });
+          } else {
+            const applied = evidence?.evidence?.applied;
+            if (!Array.isArray(applied) || !applied.length) throw new Error("Promotion review evidence is unavailable.");
+            const normalized = applied.map((item: any) => {
+              if (!item || typeof item.campaignVersionId !== "string" || typeof item.calculatedDiscount !== "string" || typeof item.platformFunding !== "string" || typeof item.storeFunding !== "string") throw new Error("Promotion review evidence is invalid.");
+              return { ...item, calculatedDiscount: new Prisma.Decimal(item.calculatedDiscount), platformFunding: new Prisma.Decimal(item.platformFunding), storeFunding: new Prisma.Decimal(item.storeFunding) };
+            });
+            if (new Set(normalized.map((item: any) => item.campaignVersionId)).size !== normalized.length || !normalized.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.calculatedDiscount), new Prisma.Decimal(0)).equals(promoDiscount) || normalized.some((item: any) => !item.calculatedDiscount.isFinite() || !item.platformFunding.isFinite() || !item.storeFunding.isFinite() || item.calculatedDiscount.lte(0) || item.platformFunding.lt(0) || item.storeFunding.lt(0) || !item.platformFunding.add(item.storeFunding).equals(item.calculatedDiscount))) throw new Error("Promotion review amounts do not reconcile.");
+            const reservations = await db.promotionReservation.findMany({ where: { checkoutId: paid.id, checkoutReviewVersion: source.reviewVersion, campaignVersionId: { in: normalized.map((item: any) => item.campaignVersionId) }, status: "RESERVED" }, select: { id: true } });
+            if (reservations.length !== normalized.length) throw new Error("Promotion reservations are unavailable.");
+            const operationId = `promotion-commit:${createHash("sha256").update(paid.id).digest("hex").slice(0, 40)}`;
+            const requestHash = createHash("sha256").update(`${paid.id}:${paymentId}:${created.id}:${source.reviewVersion}:${paid.commercialFingerprint}`).digest("hex");
+            await commitMarketplacePromotionRedemptions({ checkoutId: paid.id, checkoutReviewVersion: source.reviewVersion, acknowledgementFingerprint: paid.commercialFingerprint, paymentId, paymentStatus: "SUCCEEDED", marketplaceOrderId: created.id, reservationIds: reservations.map((item: any) => item.id), frozenEvaluation: { applied: normalized, allocations: [] } as unknown as PromotionEvaluationResult, operationId, requestHash, now: new Date() }, db);
+          }
         } catch (error) {
           throw new MarketplaceCheckoutError(
             "CHECKOUT_REVIEW_REQUIRED",

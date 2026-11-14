@@ -22,6 +22,7 @@ const evidenceFingerprint = (value: unknown) => createHash("sha256").update(JSON
 function checkoutInclude(reviewVersion?: number) {
   return {
     addressSnapshot: { select: { serviceAreaReference: true } },
+    cart: { select: { appliedPromotionCode: { select: { codeHmac: true } } } },
     storeGroups: {
       include: {
         lines: { where: reviewVersion ? { reviewVersion } : undefined, include: { modifiers: true } },
@@ -38,6 +39,7 @@ function toReviewable(row: any): any {
     ...row,
     grandTotal: money(row.grandTotal),
     addressServiceAreaReference: row.addressSnapshot?.serviceAreaReference ?? null,
+    appliedCouponCode: row.cart?.appliedPromotionCode?.codeHmac ?? null,
     groups: row.storeGroups.map((group: any): ReviewGroup => ({
       storeReference: group.storeId,
       pickupLocationReference: group.pickupLocationReference ?? `loc_${group.storeId}`,
@@ -72,7 +74,9 @@ function toReviewable(row: any): any {
 function publicReview(result: MarketplaceCheckoutReviewResult) {
   const safe: any = { ...result };
   delete safe.revalidatedGroups;
-  return safe;
+  // Persist the same JSON representation returned over HTTP, including exact
+  // decimal strings and ISO timestamps, rather than Prisma runtime objects.
+  return JSON.parse(JSON.stringify(safe));
 }
 
 export function createPrismaMarketplaceReviewRepository(database: any = prisma): MarketplaceCheckoutReviewRepository {
@@ -177,9 +181,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
               const ref = a.storeReference;
               if (ref) {
                 const existing = groupDiscounts.get(ref) ?? new Prisma.Decimal(0);
-                const amt = new Prisma.Decimal(a.platformFundedDiscount ?? 0)
-                  .add(a.storeFundedDiscount ?? 0)
-                  .add(a.discountAmount ?? 0);
+                const amt = a.discountAmount != null ? new Prisma.Decimal(a.discountAmount) : new Prisma.Decimal(a.platformFundedDiscount ?? 0).add(a.storeFundedDiscount ?? 0);
                 groupDiscounts.set(ref, existing.add(amt));
               }
             }
@@ -187,26 +189,7 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         }
         const sumAllocated = Array.from(groupDiscounts.values()).reduce((sum, d) => sum.add(d), new Prisma.Decimal(0));
         if (!sumAllocated.equals(totalPromoDiscount)) {
-          groupDiscounts.clear();
-          const totalDiscountCents = BigInt(parseZarToCents(totalPromoDiscount.toFixed(2)));
-          const grossCentsList = authority.map(({ group }) => {
-            const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
-            const feeCents = reviewedQuote ? BigInt(parseZarToCents(new Prisma.Decimal(reviewedQuote.deliveryFee).toFixed(2))) : 0n;
-            const linesTotalCents = group.lines.reduce((acc, l) => acc + BigInt(parseZarToCents(new Prisma.Decimal(l.lineTotal).toFixed(2))), 0n);
-            return linesTotalCents + feeCents;
-          });
-          const totalGrossCents = grossCentsList.reduce((acc, c) => acc + c, 0n);
-          let distributed = 0n;
-          authority.forEach(({ group }, idx) => {
-            let allocated = 0n;
-            if (idx === authority.length - 1) {
-              allocated = totalDiscountCents - distributed;
-            } else if (totalGrossCents > 0n) {
-              allocated = (totalDiscountCents * grossCentsList[idx]) / totalGrossCents;
-              distributed += allocated;
-            }
-            groupDiscounts.set(group.storeReference, new Prisma.Decimal(centsToZar(allocated.toString())));
-          });
+          throw new MarketplaceCheckoutError("SETTLEMENT_ALLOCATION_MISMATCH", "Promotion allocations do not reconcile with the reviewed stores.");
         }
       }
 

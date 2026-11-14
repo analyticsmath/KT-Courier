@@ -8,6 +8,9 @@ import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine, WelcomeEl
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
 import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
 import { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
+import { reservePromotions } from "@/lib/promotions/checkout-promotions.service";
+import { attachPromotionStoreReferences } from "@/lib/promotions/promotion-allocation-policy";
 
 class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
   async evaluate(input: Parameters<PromotionEvaluationAdapter["evaluate"]>[0]) {
@@ -17,7 +20,7 @@ class Phase23PromotionEvaluationAdapter implements PromotionEvaluationAdapter {
         totalDiscount: result.totalDiscount,
         totalPlatformFunding: result.totalPlatformFunding,
         totalStoreFunding: result.totalStoreFunding,
-        allocations: result.allocations,
+        allocations: attachPromotionStoreReferences(result.allocations, input.storeGroups),
         evidence: {
           applied: result.applied,
           stackingEvidence: result.stackingEvidence,
@@ -86,7 +89,7 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
   const quoteAdapter = input.owner.type === "CUSTOMER"
     ? new SubscriptionAwareMarketplaceDeliveryQuoteAdapter(composition.deliveryQuotes, createPrismaCustomerDeliveryEntitlementRepository(), input.owner.userId, input.operationId)
     : composition.deliveryQuotes;
-  return reviewMarketplaceCheckout(createPrismaMarketplaceReviewRepository(), {
+  const result = await reviewMarketplaceCheckout(createPrismaMarketplaceReviewRepository(), {
     ...input,
     commissionPolicyVersion: "phase14-frozen-policy-v1",
     quoteAdapter,
@@ -94,6 +97,15 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
     welcomeEligibilityAdapter: input.welcomeEligibilityAdapter,
     resolveLine: revalidatedLine,
   });
+  const promotionEvidence = result.promotionEvidence;
+  if (result.status === "READY_FOR_REVIEW" && promotionEvidence && typeof promotionEvidence === "object" && "evidence" in promotionEvidence) {
+    const evidence = promotionEvidence.evidence;
+    if (evidence && typeof evidence === "object" && "applied" in evidence && Array.isArray(evidence.applied) && evidence.applied.length) {
+      const operationId = `promotion-review:${createHash("sha256").update(`${input.reference}:${result.reviewVersion}`).digest("hex").slice(0, 40)}`;
+      await reservePromotions({ owner: input.owner, checkoutReference: input.reference, operationId });
+    }
+  }
+  return result;
 }
 
 export async function executeMarketplaceCheckoutAcknowledgement(input: Readonly<{
