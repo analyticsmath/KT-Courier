@@ -228,9 +228,9 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
   for (const applied of input.appliedPromotions) {
     const version = currentVersions.find(candidate => candidate.id === applied.campaignVersionId)!;
     const [globalCommitted, globalHeld, customerCommitted, customerHeld] = await Promise.all([
-      version.maximumRedemptionsGlobal !== null ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id, status: 'COMMITTED' } }) : 0,
+      version.maximumRedemptionsGlobal !== null ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id } }) : 0,
       version.maximumRedemptionsGlobal !== null ? tx.promotionReservation.count({ where: { campaignVersionId: version.id, status: 'RESERVED' } }) : 0,
-      version.maximumRedemptionsPerCustomer !== null && input.customerUserId ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id, customerUserId: input.customerUserId, status: 'COMMITTED' } }) : 0,
+      version.maximumRedemptionsPerCustomer !== null && input.customerUserId ? tx.promotionRedemption.count({ where: { campaignVersionId: version.id, customerUserId: input.customerUserId } }) : 0,
       version.maximumRedemptionsPerCustomer !== null && input.customerUserId ? tx.promotionReservation.count({ where: { campaignVersionId: version.id, customerUserId: input.customerUserId, status: 'RESERVED' } }) : 0,
     ]);
     if ((version.maximumRedemptionsGlobal !== null && globalCommitted + globalHeld >= version.maximumRedemptionsGlobal) || (version.maximumRedemptionsPerCustomer !== null && (!input.customerUserId || customerCommitted + customerHeld >= version.maximumRedemptionsPerCustomer))) throw new Error('Promotion redemption limit has been reached.');
@@ -267,7 +267,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
       // still have an in-flight payment and cannot be reused until released.
       const [committed, outstanding] = await Promise.all([
         tx.promotionRedemption.count({
-          where: { promotionCodeId: code.id, status: "COMMITTED" },
+          where: { promotionCodeId: code.id },
         }),
         tx.promotionReservation.count({
           where: { promotionCodeId: code.id, status: "RESERVED" },
@@ -285,7 +285,7 @@ export async function reserveCheckoutPromotions(input: ReservationInput, tx: Pri
         }
         const [customerCommitted, customerOutstanding] = await Promise.all([
           tx.promotionRedemption.count({
-            where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "COMMITTED" },
+            where: { promotionCodeId: code.id, customerUserId: input.customerUserId },
           }),
           tx.promotionReservation.count({
             where: { promotionCodeId: code.id, customerUserId: input.customerUserId, status: "RESERVED" },

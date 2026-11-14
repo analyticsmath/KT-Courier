@@ -27,8 +27,8 @@ export async function applyCouponToCart(owner: CartOwner, code: string) {
     const version = current.campaignVersion, budget = version.budget, now = new Date();
     if (current.status !== "ACTIVE" || version.status !== "ACTIVE" || version.campaign.status !== "ACTIVE" || version.applicationMethod !== "COUPON_CODE" || version.currency !== "ZAR" || version.startsAt > now || version.endsAt <= now || (current.startsAt && current.startsAt > now) || (current.expiresAt && current.expiresAt <= now) || !budget || budget.status !== "ACTIVE" || budget.currency !== "ZAR" || budget.approvedAmount.minus(budget.reservedAmount).minus(budget.committedAmount).plus(budget.releasedAmount).plus(budget.reversedAmount).lessThan("0.01") || (current.restrictedCustomerUserId && (owner.type !== "CUSTOMER" || current.restrictedCustomerUserId !== owner.userId))) throw new Error("Coupon is unavailable.");
     const [globalUses, customerUses] = await Promise.all([
-      current.maximumRedemptions === null ? 0 : tx.promotionRedemption.count({ where: { promotionCodeId: current.id, status: "COMMITTED" } }),
-      current.maximumRedemptionsPerCustomer === null || owner.type !== "CUSTOMER" ? 0 : tx.promotionRedemption.count({ where: { promotionCodeId: current.id, customerUserId: owner.userId, status: "COMMITTED" } }),
+      current.maximumRedemptions === null ? 0 : tx.promotionRedemption.count({ where: { promotionCodeId: current.id } }),
+      current.maximumRedemptionsPerCustomer === null || owner.type !== "CUSTOMER" ? 0 : tx.promotionRedemption.count({ where: { promotionCodeId: current.id, customerUserId: owner.userId } }),
     ]);
     if ((current.maximumRedemptions !== null && globalUses >= current.maximumRedemptions) || (current.maximumRedemptionsPerCustomer !== null && (owner.type !== "CUSTOMER" || customerUses >= current.maximumRedemptionsPerCustomer))) throw new Error("Coupon is unavailable.");
     const result = cart.appliedPromotionCodeId === current.id ? cart : await tx.marketplaceCart.update({ where: { id: cart.id }, data: { appliedPromotionCodeId: current.id, version: { increment: 1 }, lastActivityAt: now } });

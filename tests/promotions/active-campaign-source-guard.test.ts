@@ -116,7 +116,7 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
     mocks.redemptionCount.mockResolvedValue(1);
     expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
     expect(mocks.redemptionCount).toHaveBeenCalledWith({
-      where: { promotionCodeId: "code-used", status: "COMMITTED" },
+      where: { promotionCodeId: "code-used" },
     });
   });
 

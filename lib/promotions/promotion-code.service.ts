@@ -23,7 +23,7 @@ export async function validatePromotionCode(code: string, hmacKey: string) {
   if (!item || item.status !== "ACTIVE" || item.campaignVersion.status !== "ACTIVE" || item.campaignVersion.applicationMethod !== "COUPON_CODE" || item.campaignVersion.campaign.status !== "ACTIVE" || item.campaignVersion.currency !== "ZAR" || item.campaignVersion.startsAt > now || item.campaignVersion.endsAt <= now || (item.startsAt && item.startsAt > now) || (item.expiresAt && item.expiresAt <= now) || !item.campaignVersion.budget || item.campaignVersion.budget.status !== "ACTIVE" || item.campaignVersion.budget.currency !== "ZAR") return null;
   const budget = item.campaignVersion.budget;
   if (budget.approvedAmount.minus(budget.reservedAmount).minus(budget.committedAmount).plus(budget.releasedAmount).plus(budget.reversedAmount).lessThan("0.01")) return null;
-  if (item.maximumRedemptions !== null && await prisma.promotionRedemption.count({ where: { promotionCodeId: item.id, status: "COMMITTED" } }) >= item.maximumRedemptions) return null;
+  if (item.maximumRedemptions !== null && await prisma.promotionRedemption.count({ where: { promotionCodeId: item.id } }) >= item.maximumRedemptions) return null;
   return { reference: item.publicReference, maskedDisplay: item.maskedDisplay, campaignReference: item.campaignVersion.campaign.publicReference };
 }
 

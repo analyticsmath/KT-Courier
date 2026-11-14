@@ -142,10 +142,10 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
           const candidates = [];
           for (const v of activeVersions) {
             const globalRedemptionsCount = await prisma.promotionRedemption.count({
-              where: { campaignVersionId: v.id, status: 'COMMITTED' }
+              where: { campaignVersionId: v.id }
             });
             const customerRedemptionsCount = input.customerUserId ? await prisma.promotionRedemption.count({
-              where: { campaignVersionId: v.id, customerUserId: input.customerUserId, status: 'COMMITTED' }
+              where: { campaignVersionId: v.id, customerUserId: input.customerUserId }
             }) : 0;
 
             candidates.push(toCampaignVersionCandidate(v, globalRedemptionsCount, customerRedemptionsCount));
@@ -186,20 +186,20 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
               && codeRecord.restrictedCustomerUserId !== input.customerUserId)) return null;
           if (codeRecord.maximumRedemptions !== null
             && await prisma.promotionRedemption.count({
-              where: { promotionCodeId: codeRecord.id, status: 'COMMITTED' },
+              where: { promotionCodeId: codeRecord.id },
             }) >= codeRecord.maximumRedemptions) return null;
           if (codeRecord.maximumRedemptionsPerCustomer !== null) {
             if (!input.customerUserId) return null;
             if (await prisma.promotionRedemption.count({
-              where: { promotionCodeId: codeRecord.id, customerUserId: input.customerUserId, status: 'COMMITTED' },
+              where: { promotionCodeId: codeRecord.id, customerUserId: input.customerUserId },
             }) >= codeRecord.maximumRedemptionsPerCustomer) return null;
           }
 
           const globalRedemptionsCount = await prisma.promotionRedemption.count({
-            where: { campaignVersionId: v.id, status: 'COMMITTED' }
+            where: { campaignVersionId: v.id }
           });
           const customerRedemptionsCount = input.customerUserId ? await prisma.promotionRedemption.count({
-            where: { campaignVersionId: v.id, customerUserId: input.customerUserId, status: 'COMMITTED' }
+            where: { campaignVersionId: v.id, customerUserId: input.customerUserId }
           }) : 0;
 
           return toCampaignVersionCandidate(v, globalRedemptionsCount, customerRedemptionsCount);
