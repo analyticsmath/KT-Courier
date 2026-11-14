@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { assertPromotionsProductionReady } from "./production-lock";
 import { db } from "@/lib/db";
 import { Prisma, PromotionReconciliationStatus } from "@prisma/client";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { couponData, PromotionDraftSchema, PromotionUpdateSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
 import { recordBudgetMovement } from "./promotion-budget.service";
+import { computeCodeFingerprint, computeCodeHmac, maskPromotionCode } from "./promotion-code-policy";
 
 const adminCampaignProjectionInclude = { versions: { orderBy: { versionNumber: "desc" as const }, take: 1, include: { targets: true, codes: { select: { maskedDisplay: true } }, budget: true, _count: { select: { redemptions: true } } } } };
 
@@ -72,14 +72,15 @@ export async function updateAdminCampaign(reference: string, raw: unknown, actor
     await tx.$queryRaw`SELECT id FROM "PromotionCampaignVersion" WHERE id=${version.id} FOR UPDATE`;
     const current = await tx.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id } });
     if (!["DRAFT", "REJECTED"].includes(current.status) || current.clientDraftRevision !== expectedRevision) throw new Error("Campaign changed; reload before editing.");
-    const [productCount, categoryCount, nonDraftCodes, approvedBudget] = await Promise.all([
+    const [productCount, categoryCount, nonDraftCodes, approvedBudget, generatedBatches] = await Promise.all([
       tx.product.count({ where: { id: { in: draft.productIds } } }),
       tx.catalogCategory.count({ where: { id: { in: draft.categoryIds } } }),
       tx.promotionCode.count({ where: { campaignVersionId: version.id, status: { not: "DRAFT" } } }),
       tx.promotionBudget.findUnique({ where: { campaignVersionId: version.id }, select: { id: true } }),
+      tx.promotionCodeBatch.count({ where: { campaignVersionId: version.id, status: "COMPLETED" } }),
     ]);
     if (productCount !== draft.productIds.length || categoryCount !== draft.categoryIds.length) throw new Error("PROMOTION_TARGET_SCOPE");
-    if (nonDraftCodes || approvedBudget) throw new Error("A campaign with issued codes or an approved budget cannot be edited.");
+    if (nonDraftCodes || approvedBudget || generatedBatches) throw new Error("A campaign with issued codes or an approved budget cannot be edited.");
     const targets = [...draft.productIds.map(id => ({ targetType: "PRODUCT" as const, targetReference: id })), ...draft.categoryIds.map(id => ({ targetType: "CATEGORY" as const, targetReference: id })), ...(draft.productIds.length || draft.categoryIds.length ? [] : [{ targetType: "ALL_ELIGIBLE_MARKETPLACE_LINES" as const, targetReference: "*" }])];
     await tx.promotionCampaignVersionTarget.deleteMany({ where: { campaignVersionId: version.id } });
     await tx.promotionCode.deleteMany({ where: { campaignVersionId: version.id, status: "DRAFT" } });
@@ -130,11 +131,13 @@ async function transitionActiveCampaign(reference: string, actorUserId: string, 
     if (target === "ACTIVE") {
       const budget = version.budget;
       if (!version.approvedByUserId || !version.approvedAt || (activation && version.approvedByUserId === actorUserId) || version.startsAt > now || version.endsAt <= now || !budget || budget.status !== "ACTIVE" || budget.currency !== version.currency || budget.approvedAmount.minus(budget.reservedAmount).minus(budget.committedAmount).plus(budget.releasedAmount).plus(budget.reversedAmount).lessThan("0.01")) throw new Error("Campaign approval, period or budget does not permit activation.");
+      if (version.applicationMethod === "COUPON_CODE" && !await tx.promotionCode.count({ where: { campaignVersionId: version.id, status: { in: ["DRAFT", "ACTIVE"] } } })) throw new Error("Coupon campaigns require an eligible code.");
     }
     const changed = await tx.promotionCampaignVersion.updateMany({ where: { id: version.id, status: version.status }, data: target === "ACTIVE" ? { status: target, pausedAt: null, ...(activation ? { activatedAt: now } : {}) } : target === "PAUSED" ? { status: target, pausedAt: now } : { status: target, endedAt: now } });
     if (changed.count !== 1) throw new Error("Campaign changed; reload before acting.");
     const parent = await tx.promotionCampaign.updateMany({ where: { id: campaign.id, status: campaign.status }, data: { status: target } });
     if (parent.count !== 1) throw new Error("Campaign changed; reload before acting.");
+    if (activation && version.applicationMethod === "COUPON_CODE") await tx.promotionCode.updateMany({ where: { campaignVersionId: version.id, status: "DRAFT" }, data: { status: "ACTIVE" } });
     const operationId = `promotion-admin:${randomUUID()}`;
     await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: version.status, toStatus: target, actorUserId, reason: `Administrator ${activation ? "activated" : target === "ACTIVE" ? "resumed" : target === "PAUSED" ? "paused" : "ended"} the campaign.`, operationId } });
     await tx.promotionEventIntent.create({ data: { eventType: activation ? "PROMOTION_ACTIVATED" : target === "ACTIVE" ? "PROMOTION_RESUMED" : `PROMOTION_${target}`, dedupeKey: operationId, payload: { campaignId: campaign.id, campaignVersionId: version.id } } });
@@ -198,9 +201,40 @@ export async function increaseAdminCampaignBudget(reference: string, amount: unk
   }, { isolationLevel: "ReadCommitted" });
 }
 
-export async function generateCodeBatch(...args: any[]): Promise<any> {
+export async function generateCodeBatch(reference: string, count: unknown, actorUserId: string, operationId: unknown) {
   assertPromotionsProductionReady("CODE_GENERATE");
-  return null;
+  if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim() || typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > 100 || typeof operationId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(operationId)) throw new Error("Invalid code batch request.");
+  const key = process.env.PROMOTION_CODE_HMAC_KEY;
+  if (!key || key.length < 32) throw new Error("Coupon setup is unavailable.");
+  const requestHash = createHash("sha256").update(JSON.stringify({ reference, count, actorUserId })).digest("hex");
+  const dedupeKey = `promotion-code-batch:${operationId}`;
+  const codes = Array.from({ length: count }, (_, index) => {
+    const plaintext = createHmac("sha256", key).update(`promotion-batch-code:${operationId}:${index}`).digest("hex").slice(0, 24).toUpperCase();
+    return { plaintext, publicReference: `PC_${createHash("sha256").update(`${operationId}:${index}`).digest("hex").slice(0, 32).toUpperCase()}`, codeHmac: computeCodeHmac(plaintext, key), codeFingerprint: computeCodeFingerprint(plaintext), maskedDisplay: maskPromotionCode(plaintext) };
+  });
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dedupeKey},0))::text`;
+    const replay = await tx.promotionEventIntent.findUnique({ where: { dedupeKey } });
+    if (replay) {
+      const payload = replay.payload;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) || payload.requestHash !== requestHash || typeof payload.batchId !== "string") throw new Error("PROMOTION_CODE_OPERATION_CONFLICT");
+      const batch = await tx.promotionCodeBatch.findUnique({ where: { id: payload.batchId }, include: { codes: true } });
+      if (!batch || batch.status !== "COMPLETED" || batch.codes.length !== count || codes.some(code => !batch.codes.some(stored => stored.publicReference === code.publicReference && stored.codeHmac === code.codeHmac))) throw new Error("PROMOTION_CODE_RECONCILIATION_REQUIRED");
+      return { reference: batch.publicReference, count, codes: codes.map(code => code.plaintext) };
+    }
+    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } } });
+    const version = campaign?.versions[0];
+    if (!campaign || !version) throw new Error("Campaign not found.");
+    await tx.$queryRaw`SELECT id FROM "PromotionCampaignVersion" WHERE id=${version.id} FOR UPDATE`;
+    const current = await tx.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id }, include: { campaign: true } });
+    if (current.status !== "DRAFT" || current.campaign.status !== "DRAFT" || current.applicationMethod !== "COUPON_CODE") throw new Error("Codes can only be generated for a draft coupon campaign.");
+    const existing = await tx.promotionCode.count({ where: { campaignVersionId: version.id, status: { not: "ARCHIVED" } } });
+    if (current.maximumRedemptionsGlobal !== null && existing + count > current.maximumRedemptionsGlobal) throw new Error("Code count exceeds the campaign limit.");
+    const batch = await tx.promotionCodeBatch.create({ data: { publicReference: `PCB_${randomUUID()}`, campaignVersionId: version.id, requestedCount: count, generatedCount: count, status: "COMPLETED", createdByUserId: actorUserId, codes: { create: codes.map(code => ({ campaignVersionId: version.id, publicReference: code.publicReference, codeHmac: code.codeHmac, codeFingerprint: code.codeFingerprint, maskedDisplay: code.maskedDisplay, status: "DRAFT", startsAt: current.startsAt, expiresAt: current.endsAt, maximumRedemptions: 1, maximumRedemptionsPerCustomer: 1 })) } } });
+    await tx.promotionEventIntent.create({ data: { eventType: "PROMOTION_CODE_BATCH_GENERATED", dedupeKey, payload: { batchId: batch.id, campaignId: campaign.id, requestHash } } });
+    await tx.adminActivityLog.create({ data: { actorUserId, action: "CREATE", entityType: "PromotionCampaign", entityId: campaign.id, message: "Administrator generated promotion codes", metadata: { batchReference: batch.publicReference, count } } });
+    return { reference: batch.publicReference, count, codes: codes.map(code => code.plaintext) };
+  }, { isolationLevel: "ReadCommitted" });
 }
 
 export async function getCampaignPerformance(reference: string) {

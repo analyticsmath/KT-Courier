@@ -22,7 +22,7 @@ export async function POST(
     const params = await context.params;
     const body = await request.json();
     assertPromotionsProductionReady("CODE_GENERATE");
-    const batch = await generateCodeBatch(params.reference, body.count);
+    const batch = await generateCodeBatch(params.reference, body.count, auth.user.id, body.operationId);
     return NextResponse.json(batch, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Generate failed", 422);

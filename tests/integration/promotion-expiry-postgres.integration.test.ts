@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, getAdminCampaign, getAuditTrail, getBudgetTracking, getCampaignPerformance, getDisputeLedger, increaseAdminCampaignBudget, listAdminPromotions, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, generateCodeBatch, getAdminCampaign, getAuditTrail, getBudgetTracking, getCampaignPerformance, getDisputeLedger, increaseAdminCampaignBudget, listAdminPromotions, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -92,6 +92,36 @@ it("increases an approved budget once across retries and rejects conflicting ope
   expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id, operationId } })).toBe(1);
   await expect(increaseAdminCampaignBudget(reference, "26", adminId, operationId)).rejects.toThrow("OPERATION_CONFLICT");
   await expect(increaseAdminCampaignBudget(reference, "25", "other-admin", operationId)).rejects.toThrow("OPERATION_CONFLICT");
+});
+
+it("generates a replayable coupon batch without storing plaintext and activates only draft codes", async () => {
+  const previousKey = process.env.PROMOTION_CODE_HMAC_KEY;
+  process.env.PROMOTION_CODE_HMAC_KEY = "disposable-test-coupon-key-with-adequate-entropy";
+  try {
+    const reviewer = await prisma.user.create({ data: { email: `${marker}-coupon-reviewer@example.test`, role: "ADMIN", status: "ACTIVE" } });
+    const draft = { requestId: randomUUID(), name: "Coupon promotion", description: "Discount with a bounded coupon batch", mechanism: "FIXED_AMOUNT", value: "10.00", proposedBudget: "100.00", startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 86400_000).toISOString(), globalLimit: 10, perCustomerLimit: 1, coupon: "INITIALCODE" };
+    const campaign = await createPlatformCampaign(draft, adminId);
+    const operationId = `coupon-batch:${randomUUID()}`;
+    const [batch, replay] = await Promise.all([generateCodeBatch(campaign.reference, 2, adminId, operationId), generateCodeBatch(campaign.reference, 2, adminId, operationId)]);
+    expect(batch).toEqual(replay);
+    expect(new Set(batch.codes).size).toBe(2);
+    const stored = await prisma.promotionCodeBatch.findUniqueOrThrow({ where: { publicReference: batch.reference }, include: { codes: true } });
+    expect(stored.codes).toHaveLength(2);
+    expect(batch.codes.every(code => !JSON.stringify(stored).includes(code))).toBe(true);
+    await expect(generateCodeBatch(campaign.reference, 3, adminId, operationId)).rejects.toThrow("OPERATION_CONFLICT");
+    await expect(updateAdminCampaign(campaign.reference, { draft, expectedRevision: 0 }, adminId)).rejects.toThrow("issued codes");
+    await prisma.promotionCode.update({ where: { id: stored.codes[0].id }, data: { status: "ARCHIVED" } });
+    await submitAdminCampaign(campaign.reference, adminId);
+    await approveAdminCampaign(campaign.reference, reviewer.id);
+    const version = await prisma.promotionCampaignVersion.findFirstOrThrow({ where: { campaign: { publicReference: campaign.reference } } });
+    await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 100 } });
+    await activateAdminCampaign(campaign.reference, adminId);
+    const states = await prisma.promotionCode.findMany({ where: { campaignVersionId: version.id }, select: { status: true } });
+    expect(states.filter(code => code.status === "ACTIVE")).toHaveLength(2);
+    expect(states.filter(code => code.status === "ARCHIVED")).toHaveLength(1);
+  } finally {
+    if (previousKey === undefined) delete process.env.PROMOTION_CODE_HMAC_KEY; else process.env.PROMOTION_CODE_HMAC_KEY = previousKey;
+  }
 });
 
 it("does not release a committed or future reservation in an expiry transaction", async () => {
