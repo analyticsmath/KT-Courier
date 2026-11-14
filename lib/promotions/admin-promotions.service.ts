@@ -7,13 +7,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { couponData, PromotionDraftSchema, PromotionUpdateSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
 import { recordBudgetMovement } from "./promotion-budget.service";
 
-export async function listAdminPromotions(...args: any[]): Promise<any> {
-  return [];
+const adminCampaignProjectionInclude = { versions: { orderBy: { versionNumber: "desc" as const }, take: 1, include: { targets: true, codes: { select: { maskedDisplay: true } }, budget: true, _count: { select: { redemptions: true } } } } };
+
+export async function listAdminPromotions() {
+  const campaigns = await db.promotionCampaign.findMany({ include: adminCampaignProjectionInclude, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100 });
+  return campaigns.map(promotionDraftProjection);
 }
 
-export async function createAdminCampaign(...args: any[]): Promise<any> {
-  assertPromotionsProductionReady("CAMPAIGN_CREATE");
-  return null;
+export async function createAdminCampaign(raw: unknown, actorUserId: string) {
+  return createPlatformCampaign(raw, actorUserId);
 }
 
 export async function createPlatformCampaign(raw: unknown, actorUserId: string) {
@@ -51,8 +53,10 @@ export async function createPlatformCampaign(raw: unknown, actorUserId: string) 
   });
 }
 
-export async function getAdminCampaign(...args: any[]): Promise<any> {
-  return null;
+export async function getAdminCampaign(reference: string) {
+  if (!reference?.trim() || reference.length > 200) throw new Error("Invalid campaign reference.");
+  const campaign = await db.promotionCampaign.findUnique({ where: { publicReference: reference }, include: adminCampaignProjectionInclude });
+  return campaign ? promotionDraftProjection(campaign) : null;
 }
 
 export async function updateAdminCampaign(reference: string, raw: unknown, actorUserId: string) {
@@ -199,20 +203,37 @@ export async function generateCodeBatch(...args: any[]): Promise<any> {
   return null;
 }
 
-export async function getCampaignPerformance(...args: any[]): Promise<any> {
-  return null;
+export async function getCampaignPerformance(reference: string) {
+  const campaign = await findCampaignIdentity(reference);
+  if (!campaign) return null;
+  const groups = await db.promotionRedemption.groupBy({ by: ["status"], where: { campaignVersion: { campaignId: campaign.id } }, _count: { _all: true }, _sum: { discountAmount: true, platformFunding: true, storeFunding: true } });
+  return { reference, statuses: groups.map(group => ({ status: group.status, count: group._count._all, grossDiscount: group._sum.discountAmount?.toFixed(2) ?? "0.00", grossPlatformFunding: group._sum.platformFunding?.toFixed(2) ?? "0.00", grossStoreFunding: group._sum.storeFunding?.toFixed(2) ?? "0.00" })) };
 }
 
-export async function getBudgetTracking(...args: any[]): Promise<any> {
-  return null;
+export async function getBudgetTracking(reference: string) {
+  const campaign = await findCampaignIdentity(reference);
+  if (!campaign) return null;
+  const budgets = await db.promotionBudget.findMany({ where: { campaignVersion: { campaignId: campaign.id } }, include: { campaignVersion: { select: { publicReference: true, versionNumber: true } } }, orderBy: { campaignVersion: { versionNumber: "desc" } } });
+  return { reference, budgets: budgets.map(budget => ({ versionReference: budget.campaignVersion.publicReference, versionNumber: budget.campaignVersion.versionNumber, status: budget.status, currency: budget.currency, approved: budget.approvedAmount.toFixed(2), reserved: budget.reservedAmount.toFixed(2), committed: budget.committedAmount.toFixed(2), released: budget.releasedAmount.toFixed(2), reversed: budget.reversedAmount.toFixed(2), available: budget.approvedAmount.minus(budget.reservedAmount).minus(budget.committedAmount).plus(budget.releasedAmount).plus(budget.reversedAmount).toFixed(2) })) };
 }
 
-export async function getDisputeLedger(...args: any[]): Promise<any> {
-  return null;
+export async function getDisputeLedger(reference: string) {
+  const campaign = await findCampaignIdentity(reference);
+  if (!campaign) return null;
+  const cases = await db.promotionReconciliationCase.findMany({ where: { campaignVersion: { campaignId: campaign.id } }, select: reconciliationSelection, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100 });
+  return { reference, cases };
 }
 
-export async function getAuditTrail(...args: any[]): Promise<any> {
-  return null;
+export async function getAuditTrail(reference: string) {
+  const campaign = await findCampaignIdentity(reference);
+  if (!campaign) return null;
+  const history = await db.promotionStatusHistory.findMany({ where: { campaignVersion: { campaignId: campaign.id } }, select: { fromStatus: true, toStatus: true, reason: true, actorUserId: true, createdAt: true }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100 });
+  return { reference, history };
+}
+
+async function findCampaignIdentity(reference: string) {
+  if (!reference?.trim() || reference.length > 200) throw new Error("Invalid campaign reference.");
+  return db.promotionCampaign.findUnique({ where: { publicReference: reference }, select: { id: true } });
 }
 
 const reconciliationSelection = {

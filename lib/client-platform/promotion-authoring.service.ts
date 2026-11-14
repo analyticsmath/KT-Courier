@@ -113,8 +113,8 @@ export function promotionDraftProjection(c: Campaign) {
     mechanism: v.discountMechanism,
     value:
       v.discountMechanism === "PERCENTAGE"
-        ? v.percentageValue!.div(100).toFixed(2)
-        : v.fixedAmount!.toFixed(2),
+        ? (v.percentageValue?.div(100).toFixed(2) ?? "")
+        : (v.fixedAmount?.toFixed(2) ?? ""),
     maximumDiscountAmount: v.maximumDiscountAmount?.toFixed(2) ?? null,
     minimumSubtotal: v.minimumEligibleSubtotal?.toFixed(2) ?? null,
     proposedBudget: v.proposedBudgetAmount?.toFixed(2) ?? "0.00",

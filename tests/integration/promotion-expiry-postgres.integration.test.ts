@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, increaseAdminCampaignBudget, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, getAdminCampaign, getAuditTrail, getBudgetTracking, getCampaignPerformance, getDisputeLedger, increaseAdminCampaignBudget, listAdminPromotions, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -42,6 +42,11 @@ it("creates one platform draft under concurrent retries and rejects changed or f
   expect(stored.versions[0].fundingType).toBe("PLATFORM_FUNDED");
   expect(stored.versions[0].budget).toBeNull();
   expect(stored.versions[0].targets[0].targetType).toBe("ALL_ELIGIBLE_MARKETPLACE_LINES");
+  expect((await getAdminCampaign(first.reference))?.reference).toBe(first.reference);
+  expect((await listAdminPromotions()).some(row => row.reference === first.reference)).toBe(true);
+  expect(await getCampaignPerformance(first.reference)).toEqual({ reference: first.reference, statuses: [] });
+  expect(await getDisputeLedger(first.reference)).toEqual({ reference: first.reference, cases: [] });
+  expect((await getAuditTrail(first.reference))?.history[0].toStatus).toBe("DRAFT");
   await expect(createPlatformCampaign({ ...draft, name: "Different discount" }, adminId)).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
   await expect(createPlatformCampaign(draft, "another-admin")).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
 });
@@ -83,6 +88,7 @@ it("increases an approved budget once across retries and rejects conflicting ope
   const [first, replay] = await Promise.all([increaseAdminCampaignBudget(reference, "25.00", adminId, operationId), increaseAdminCampaignBudget(reference, "25", adminId, operationId)]);
   expect(first).toEqual(replay);
   expect((await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } })).approvedAmount.toFixed(2)).toBe("125.00");
+  expect((await getBudgetTracking(reference))?.budgets[0]).toMatchObject({ approved: "125.00", available: "125.00" });
   expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id, operationId } })).toBe(1);
   await expect(increaseAdminCampaignBudget(reference, "26", adminId, operationId)).rejects.toThrow("OPERATION_CONFLICT");
   await expect(increaseAdminCampaignBudget(reference, "25", "other-admin", operationId)).rejects.toThrow("OPERATION_CONFLICT");
