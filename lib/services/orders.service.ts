@@ -27,6 +27,7 @@ import { resolvePaymentBreakdown } from "@/lib/payments/payment-policy.service";
 import { assertParcelPaymentChoice, assertSelectedPaymentMode } from "@/lib/payments/parcel-payment-method-selection";
 import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
 import { initialCourierBookingStatus } from "@/lib/orders/courier-confirmation-policy";
+import { releaseParcelOrderWalletReservationWithinTransaction } from "@/lib/services/wallet-spending.service";
 
 // ─── Full include for order queries ──────────────────────────────────────────
 
@@ -431,6 +432,31 @@ export async function cancelOrder(
         user.role === "STORE" ? "store_cancel_order" : "customer_cancel_order",
       context,
     });
+
+    const payment = tx.payment?.findUnique
+      ? await tx.payment.findUnique({
+          where: { orderId },
+          include: { attempts: { select: { id: true, status: true } } },
+        })
+      : null;
+    const meta =
+      payment?.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
+        ? (payment.metadata as Record<string, unknown>)
+        : null;
+    if (
+      payment &&
+      meta?.walletSplit === true &&
+      ["CREATED", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status) &&
+      !payment.attempts.some((a) =>
+        ["RESERVED", "REQUESTING", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN", "SUCCEEDED"].includes(a.status),
+      )
+    ) {
+      await releaseParcelOrderWalletReservationWithinTransaction(tx, {
+        orderId,
+        reason: input.reason?.trim() || "Parcel order cancelled before provider settlement",
+        actorUserId: user.id,
+      });
+    }
 
     return tx.order.findUniqueOrThrow({
       where: { id: orderId },

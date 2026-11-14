@@ -765,9 +765,9 @@ export async function cancelMarketplaceCheckout(input: {
     paymentOutcomeKnown,
   });
 
-  // Release any reserved split wallet funds
+  // Release any reserved split wallet funds only when provider outcome is conclusively non-succeeded
   const meta = checkout.payment?.metadata as Record<string, unknown> | null;
-  if (meta?.walletAmount && meta?.walletSplit) {
+  if (paymentOutcomeKnown && released.status === "RELEASED" && meta?.walletAmount && meta?.walletSplit) {
     const ownerType = (meta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
     const ownerId = (meta.walletOwnerId as string) || (checkout.customerUserId ?? "");
     await releaseWalletSpendWithinTransaction(prisma, {

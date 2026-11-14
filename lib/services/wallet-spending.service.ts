@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db/prisma";
 import { LedgerError } from "@/lib/ledger/errors";
+import { LedgerMoney } from "@/lib/ledger/money";
 import { PaymentError } from "@/lib/payments/errors";
 import { PAYMENT_POLICY_VERSION } from "@/lib/payments/types";
 import { canonicalPaymentHash } from "@/lib/payments/hash";
@@ -11,10 +13,256 @@ import {
   ensureWalletForOwnerInTx,
 } from "./wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
-import { resolveOrderPaymentSubject } from "./payment-subject.service";
+import { resolveOrderPaymentSubject, type ResolvedOrderPaymentSubject } from "./payment-subject.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { transitionOrderStatusInTx } from "./order-status.service";
 import { customerAccountPrefix } from "./customer-wallet.service";
+
+export type CanonicalOrderPaymentPreparationIntent = Readonly<{
+  subjectType: "ORDER";
+  orderId: string;
+  payerId: string;
+  currency: "ZAR";
+  policyVersion: string;
+  authoritativeDigitalPayableAmount: string;
+  authoritativeDigitalPayableMinorUnits: string;
+  requestedWalletAmount: string;
+  requestedWalletMinorUnits: string;
+  rawRequestedWalletAmount: string | null;
+  providerRemainderAmount: string;
+  providerRemainderMinorUnits: string;
+  fundingMode: "PROVIDER_ONLY" | "WALLET_ONLY" | "SPLIT_PAYSTACK" | "EXCEEDS_PAYABLE";
+  fundingSource: "PROVIDER" | "WALLET";
+  requestHash: string;
+  legacyCoordinatorHash: string;
+  legacyWalletHelperHash: string | null;
+}>;
+
+function zarDecimalToMinorUnits(amountFixed2: string): string {
+  const [whole, fraction = "00"] = amountFixed2.split(".");
+  return (BigInt(whole) * BigInt(100) + BigInt(fraction.padEnd(2, "0").slice(0, 2))).toString();
+}
+
+export function buildCanonicalOrderPaymentPreparationIntent(
+  subject: Pick<ResolvedOrderPaymentSubject, "subjectType" | "subjectId" | "payerUserId" | "currency"> & {
+    readonly amount: LedgerMoney | string;
+  },
+  rawWalletAmount?: string | null,
+): CanonicalOrderPaymentPreparationIntent {
+  const payableMoney =
+    typeof subject.amount === "string"
+      ? LedgerMoney.parse(subject.amount)
+      : subject.amount;
+  const authoritativeDigitalPayableAmount = payableMoney.toString();
+  const authoritativeDigitalPayableMinorUnits = zarDecimalToMinorUnits(authoritativeDigitalPayableAmount);
+
+  const trimmedWallet = (rawWalletAmount ?? "").trim();
+  let walletMoney = LedgerMoney.zero();
+  if (trimmedWallet && trimmedWallet !== "0" && trimmedWallet !== "0.0" && trimmedWallet !== "0.00") {
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(trimmedWallet)) {
+      throw new PaymentError("PAYMENT_INVALID_AMOUNT", "Wallet spend amount is invalid.");
+    }
+    walletMoney = LedgerMoney.parse(trimmedWallet);
+  }
+
+  const requestedWalletAmount = walletMoney.toString();
+  const requestedWalletMinorUnits = zarDecimalToMinorUnits(requestedWalletAmount);
+
+  let fundingMode: CanonicalOrderPaymentPreparationIntent["fundingMode"];
+  let fundingSource: CanonicalOrderPaymentPreparationIntent["fundingSource"];
+  let providerRemainderAmount: string;
+  let providerRemainderMinorUnits: string;
+
+  if (walletMoney.isZero()) {
+    fundingMode = "PROVIDER_ONLY";
+    fundingSource = "PROVIDER";
+    providerRemainderAmount = authoritativeDigitalPayableAmount;
+    providerRemainderMinorUnits = authoritativeDigitalPayableMinorUnits;
+  } else if (walletMoney.equals(payableMoney)) {
+    fundingMode = "WALLET_ONLY";
+    fundingSource = "WALLET";
+    providerRemainderAmount = "0.00";
+    providerRemainderMinorUnits = "0";
+  } else if (walletMoney.lessThan(payableMoney)) {
+    fundingMode = "SPLIT_PAYSTACK";
+    fundingSource = "WALLET";
+    const remainderMoney = payableMoney.subtract(walletMoney);
+    providerRemainderAmount = remainderMoney.toString();
+    providerRemainderMinorUnits = zarDecimalToMinorUnits(providerRemainderAmount);
+  } else {
+    fundingMode = "EXCEEDS_PAYABLE";
+    fundingSource = "WALLET";
+    providerRemainderAmount = "0.00";
+    providerRemainderMinorUnits = "0";
+  }
+
+  const requestHash = canonicalPaymentHash({
+    subjectType: subject.subjectType,
+    orderId: subject.subjectId,
+    payerId: subject.payerUserId,
+    currency: subject.currency,
+    policyVersion: PAYMENT_POLICY_VERSION,
+    amount: authoritativeDigitalPayableAmount,
+    authoritativeDigitalPayableMinorUnits,
+    walletAmount: walletMoney.isZero() ? null : requestedWalletAmount,
+    requestedWalletMinorUnits,
+    providerRemainderAmount,
+    providerRemainderMinorUnits,
+    fundingMode,
+    fundingSource,
+  });
+
+  const legacyCoordinatorHash = canonicalPaymentHash({
+    subjectType: subject.subjectType,
+    orderId: subject.subjectId,
+    payerId: subject.payerUserId,
+    amount: authoritativeDigitalPayableAmount,
+    currency: subject.currency,
+    policyVersion: PAYMENT_POLICY_VERSION,
+    walletAmount: rawWalletAmount ?? null,
+    fundingSource: rawWalletAmount && rawWalletAmount !== "0.00" ? "WALLET" : "PROVIDER",
+  });
+
+  const legacyWalletHelperHash =
+    fundingMode === "WALLET_ONLY" || fundingMode === "SPLIT_PAYSTACK"
+      ? canonicalPaymentHash({
+          subjectType: subject.subjectType,
+          orderId: subject.subjectId,
+          payerId: subject.payerUserId,
+          amount: fundingMode === "WALLET_ONLY" ? authoritativeDigitalPayableAmount : providerRemainderAmount,
+          currency: subject.currency,
+          policyVersion: PAYMENT_POLICY_VERSION,
+          walletAmount: rawWalletAmount ?? requestedWalletAmount,
+          fundingSource: "WALLET",
+        })
+      : null;
+
+  return Object.freeze({
+    subjectType: subject.subjectType,
+    orderId: subject.subjectId,
+    payerId: subject.payerUserId,
+    currency: subject.currency,
+    policyVersion: PAYMENT_POLICY_VERSION,
+    authoritativeDigitalPayableAmount,
+    authoritativeDigitalPayableMinorUnits,
+    requestedWalletAmount,
+    requestedWalletMinorUnits,
+    rawRequestedWalletAmount: rawWalletAmount ?? null,
+    providerRemainderAmount,
+    providerRemainderMinorUnits,
+    fundingMode,
+    fundingSource,
+    requestHash,
+    legacyCoordinatorHash,
+    legacyWalletHelperHash,
+  });
+}
+
+export function verifyLegacyOrderPaymentReplay(
+  existing: Readonly<{
+    orderId: string | null;
+    userId: string | null;
+    currency: string;
+    amount: { toFixed(n: number): string };
+    creationIdempotencyKey?: string | null;
+    creationRequestHash: string;
+    successLedgerJournalId?: string | null;
+    metadata?: unknown;
+  }>,
+  intent: CanonicalOrderPaymentPreparationIntent,
+  idempotencyKey: string,
+): boolean {
+  if (
+    existing.orderId !== intent.orderId ||
+    existing.userId !== intent.payerId ||
+    existing.currency !== intent.currency
+  ) {
+    return false;
+  }
+  if (existing.creationIdempotencyKey && existing.creationIdempotencyKey !== idempotencyKey) {
+    return false;
+  }
+  const meta =
+    existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
+      ? (existing.metadata as Record<string, unknown>)
+      : null;
+  if (!meta || meta.policyVersion !== intent.policyVersion || meta.subjectType !== "ORDER") {
+    return false;
+  }
+
+  const existingAmount = existing.amount.toFixed(2);
+
+  if (intent.fundingMode === "PROVIDER_ONLY") {
+    return (
+      meta.walletSettled !== true &&
+      meta.walletSplit !== true &&
+      existingAmount === intent.authoritativeDigitalPayableAmount &&
+      existing.creationRequestHash === intent.legacyCoordinatorHash
+    );
+  }
+
+  if (intent.fundingMode === "WALLET_ONLY") {
+    return (
+      meta.walletSettled === true &&
+      meta.walletAmount === intent.requestedWalletAmount &&
+      typeof meta.walletJournalId === "string" &&
+      meta.walletJournalId.length > 0 &&
+      (existing.successLedgerJournalId === undefined || existing.successLedgerJournalId === meta.walletJournalId) &&
+      existingAmount === intent.authoritativeDigitalPayableAmount &&
+      (existing.creationRequestHash === intent.legacyWalletHelperHash ||
+        existing.creationRequestHash === intent.legacyCoordinatorHash)
+    );
+  }
+
+  if (intent.fundingMode === "SPLIT_PAYSTACK") {
+    return (
+      meta.walletSplit === true &&
+      meta.walletAmount === intent.requestedWalletAmount &&
+      meta.totalPayableAmount === intent.authoritativeDigitalPayableAmount &&
+      meta.walletReserveOperationId === idempotencyKey &&
+      typeof meta.walletReserveJournalId === "string" &&
+      meta.walletReserveJournalId.length > 0 &&
+      existingAmount === intent.providerRemainderAmount &&
+      existing.creationRequestHash === intent.legacyWalletHelperHash
+    );
+  }
+
+  return false;
+}
+
+export function matchesOrderPaymentPreparationReplay(
+  existing: Readonly<{
+    orderId: string | null;
+    userId: string | null;
+    currency: string;
+    amount: { toFixed(n: number): string };
+    creationIdempotencyKey?: string | null;
+    creationRequestHash: string;
+    successLedgerJournalId?: string | null;
+    metadata?: unknown;
+  }>,
+  intent: CanonicalOrderPaymentPreparationIntent,
+  idempotencyKey: string,
+): boolean {
+  if (
+    existing.orderId !== intent.orderId ||
+    existing.userId !== intent.payerId ||
+    existing.currency !== intent.currency
+  ) {
+    return false;
+  }
+  if (existing.creationIdempotencyKey && existing.creationIdempotencyKey !== idempotencyKey) {
+    return false;
+  }
+  if (existing.creationRequestHash === intent.requestHash) {
+    const expectedAmount =
+      intent.fundingMode === "SPLIT_PAYSTACK"
+        ? intent.providerRemainderAmount
+        : intent.authoritativeDigitalPayableAmount;
+    return existing.amount.toFixed(2) === expectedAmount;
+  }
+  return verifyLegacyOrderPaymentReplay(existing, intent, idempotencyKey);
+}
 
 export type WalletOwner = Readonly<{
   ownerType: "CUSTOMER" | "STORE";
@@ -486,6 +734,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
     orderId: string;
     idempotencyKey: string;
     walletAmount?: string | null;
+    preparationIntent?: CanonicalOrderPaymentPreparationIntent;
   },
 ): Promise<PaymentSummaryDto | null> {
   const PAYMENT_SUMMARY_INCLUDE = {
@@ -494,8 +743,39 @@ export async function spendWalletForParcelOrderWithinTransaction(
   } as const;
 
   await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
+
+  const existingForOrder = await tx.payment.findUnique({
+    where: { orderId: input.orderId },
+    include: PAYMENT_SUMMARY_INCLUDE,
+  });
+  if (existingForOrder) {
+    const checkIntent =
+      input.preparationIntent ??
+      buildCanonicalOrderPaymentPreparationIntent(
+        await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx),
+        input.walletAmount,
+      );
+    if (
+      existingForOrder.creationIdempotencyKey !== input.idempotencyKey ||
+      !matchesOrderPaymentPreparationReplay(existingForOrder, checkIntent, input.idempotencyKey)
+    ) {
+      throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Order already has a payment under different key or evidence.");
+    }
+    return toPaymentSummaryDto(existingForOrder);
+  }
+
   const subject = await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx);
   const payable = subject.amount.toString();
+  const intent =
+    input.preparationIntent ??
+    buildCanonicalOrderPaymentPreparationIntent(subject, input.walletAmount);
+
+  if (
+    intent.authoritativeDigitalPayableAmount !== payable ||
+    intent.currency !== subject.currency
+  ) {
+    throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
+  }
 
   const order = await tx.order.findUniqueOrThrow({
     where: { id: input.orderId },
@@ -518,27 +798,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
     return null;
   }
 
-  const requestHash = canonicalPaymentHash({
-    subjectType: subject.subjectType,
-    orderId: subject.subjectId,
-    payerId: subject.payerUserId,
-    amount: breakdown.mode === "WALLET_ONLY" ? payable : breakdown.remainingProviderAmount,
-    currency: subject.currency,
-    policyVersion: PAYMENT_POLICY_VERSION,
-    walletAmount: input.walletAmount,
-    fundingSource: "WALLET",
-  });
-
-  const existingForOrder = await tx.payment.findUnique({
-    where: { orderId: subject.subjectId },
-    include: PAYMENT_SUMMARY_INCLUDE,
-  });
-  if (existingForOrder) {
-    if (existingForOrder.creationIdempotencyKey !== input.idempotencyKey || existingForOrder.creationRequestHash !== requestHash) {
-      throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Order already has a payment under different key or evidence.");
-    }
-    return toPaymentSummaryDto(existingForOrder);
-  }
+  const requestHash = intent.requestHash;
 
   const publicReference = newPublicPaymentReference();
 
@@ -688,4 +948,148 @@ export async function spendWalletForParcelOrderWithinTransaction(
   });
 
   return toPaymentSummaryDto(payment);
+}
+
+const UNRESOLVED_ATTEMPT_STATES = [
+  "RESERVED",
+  "REQUESTING",
+  "REQUIRES_ACTION",
+  "PROCESSING",
+  "UNKNOWN",
+] as const;
+
+export async function releaseParcelOrderWalletReservationWithinTransaction(
+  tx: Prisma.TransactionClient,
+  input: {
+    orderId: string;
+    reason: string;
+    actorUserId?: string;
+  },
+): Promise<{ released: boolean; journalId: string | null; amount: string | null; replayed: boolean }> {
+  await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
+  const order = await tx.order.findUnique({
+    where: { id: input.orderId },
+    select: { id: true, orderNumber: true },
+  });
+  if (!order) {
+    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Order was not found for wallet reservation release.");
+  }
+
+  const payment = await tx.payment.findUnique({
+    where: { orderId: input.orderId },
+    include: {
+      attempts: {
+        select: { id: true, status: true },
+      },
+    },
+  });
+  if (!payment) {
+    return { released: false, journalId: null, amount: null, replayed: false };
+  }
+
+  await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "id" = ${payment.id} FOR UPDATE`;
+  const freshPayment = await tx.payment.findUnique({
+    where: { id: payment.id },
+    include: {
+      attempts: {
+        select: { id: true, status: true },
+      },
+    },
+  });
+  if (!freshPayment) {
+    return { released: false, journalId: null, amount: null, replayed: false };
+  }
+
+  const meta =
+    freshPayment.metadata && typeof freshPayment.metadata === "object" && !Array.isArray(freshPayment.metadata)
+      ? (freshPayment.metadata as Record<string, unknown>)
+      : null;
+
+  if (!meta || meta.walletSplit !== true || typeof meta.walletAmount !== "string") {
+    return { released: false, journalId: null, amount: null, replayed: false };
+  }
+
+  if (freshPayment.status === "SUCCEEDED" || freshPayment.attempts.some((a) => a.status === "SUCCEEDED")) {
+    throw new PaymentError("PAYMENT_ORDER_ALREADY_PAID", "Cannot release wallet reservation for a succeeded payment.");
+  }
+
+  if (
+    ["PROVIDER_PENDING", "REQUIRES_ACTION", "PROCESSING"].includes(freshPayment.status) ||
+    freshPayment.attempts.some((a) => (UNRESOLVED_ATTEMPT_STATES as readonly string[]).includes(a.status))
+  ) {
+    throw new PaymentError(
+      "PAYMENT_PROVIDER_OUTCOME_UNKNOWN",
+      "Cannot release wallet reservation while provider outcome is unresolved.",
+    );
+  }
+
+  const ownerType = (meta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
+  const ownerId = (meta.walletOwnerId as string) || (freshPayment.userId ?? "");
+  const reserveOperationId =
+    (typeof meta.walletReserveOperationId === "string" && meta.walletReserveOperationId) ||
+    freshPayment.creationIdempotencyKey;
+
+  const released = await releaseWalletSpendWithinTransaction(tx, {
+    owner: { ownerType, ownerId },
+    amount: meta.walletAmount,
+    operationId: reserveOperationId,
+    subject: {
+      subjectType: "COURIER_ORDER",
+      subjectId: order.id,
+      subjectReference: order.orderNumber,
+    },
+    reason: input.reason,
+    actorUserId: input.actorUserId,
+  });
+
+  if (freshPayment.status !== "CANCELLED") {
+    const now = new Date();
+    await tx.payment.update({
+      where: { id: freshPayment.id },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: now,
+        version: { increment: 1 },
+        metadata: {
+          ...meta,
+          walletReservationReleased: true,
+          walletReleaseJournalId: released.journalId,
+          walletReleasedAt: now.toISOString(),
+        } as Prisma.InputJsonValue,
+      },
+    });
+    await tx.paymentStatusHistory.create({
+      data: {
+        paymentId: freshPayment.id,
+        fromStatus: freshPayment.status,
+        toStatus: "CANCELLED",
+        reasonCode: "WALLET_RESERVATION_RELEASED",
+        actorType: input.actorUserId ? "PAYER" : "SYSTEM",
+        actorId: input.actorUserId ?? null,
+        metadata: {
+          reason: input.reason,
+          walletAmount: meta.walletAmount,
+          walletReleaseJournalId: released.journalId,
+        },
+      },
+    });
+  }
+
+  return {
+    released: true,
+    journalId: released.journalId,
+    amount: released.amount,
+    replayed: released.replayed,
+  };
+}
+
+export async function releaseParcelOrderWalletReservation(input: {
+  orderId: string;
+  reason: string;
+  actorUserId?: string;
+}): Promise<{ released: boolean; journalId: string | null; amount: string | null; replayed: boolean }> {
+  return prisma.$transaction(
+    (tx) => releaseParcelOrderWalletReservationWithinTransaction(tx, input),
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
 }

@@ -2,18 +2,22 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { PaymentSummaryDto } from "@/lib/dto/payment.dto";
+import { LedgerMoney } from "@/lib/ledger/money";
 import { PaymentError } from "@/lib/payments/errors";
 import { canonicalPaymentHash } from "@/lib/payments/hash";
 import { toPaymentSummaryDto } from "@/lib/payments/payment-dto-mappers";
 import { PAYMENT_POLICY_VERSION } from "@/lib/payments/types";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
 import { PrepareOrderPaymentSchema, type PrepareOrderPaymentInput } from "@/lib/validation/payments";
-import { resolveOrderPaymentSubject } from "./payment-subject.service";
+import { resolveOrderPaymentSubject, type ResolvedOrderPaymentSubject } from "./payment-subject.service";
 import { assertMarketplacePaymentPlanTotals } from "@/lib/marketplace-checkout/payment-plan";
 import { assertPaymentSubjectIntegrity, marketplacePaymentSubject } from "@/lib/payments/payment-subject-policy";
 import {
+  buildCanonicalOrderPaymentPreparationIntent,
+  type CanonicalOrderPaymentPreparationIntent,
   consumeWalletSpendWithinTransaction,
   getWalletSpendableBalance,
+  matchesOrderPaymentPreparationReplay,
   reserveWalletSpendWithinTransaction,
   resolveWalletSpendBreakdown,
   spendWalletForParcelOrderWithinTransaction,
@@ -32,14 +36,14 @@ function newPublicPaymentReference(): string {
 
 async function replayAfterUniqueRace(
   idempotencyKey: string,
-  requestHash: string,
+  intent: CanonicalOrderPaymentPreparationIntent,
 ): Promise<PaymentSummaryDto | null> {
   const winner = await prisma.payment.findUnique({
     where: { creationIdempotencyKey: idempotencyKey },
     include: PAYMENT_SUMMARY_INCLUDE,
   });
   if (!winner) return null;
-  if (winner.creationRequestHash !== requestHash) {
+  if (!matchesOrderPaymentPreparationReplay(winner, intent, idempotencyKey)) {
     throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
   }
   return toPaymentSummaryDto(winner);
@@ -55,17 +59,45 @@ export async function prepareOrderPayment(
     throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required to prepare secure payment checkout.");
   }
 
-  const subject = await resolveOrderPaymentSubject(parsed.data.orderId, payer.id);
-  const requestHash = canonicalPaymentHash({
-    subjectType: subject.subjectType,
-    orderId: subject.subjectId,
-    payerId: subject.payerUserId,
-    amount: subject.amount.toString(),
-    currency: subject.currency,
-    policyVersion: PAYMENT_POLICY_VERSION,
-    walletAmount: parsed.data.walletAmount ?? null,
-    fundingSource: parsed.data.walletAmount && parsed.data.walletAmount !== "0.00" ? "WALLET" : "PROVIDER",
-  });
+  let subject: ResolvedOrderPaymentSubject;
+  try {
+    subject = await resolveOrderPaymentSubject(parsed.data.orderId, payer.id);
+  } catch (error) {
+    if (error instanceof PaymentError && error.code === "PAYMENT_ORDER_ALREADY_PAID") {
+      const committed = await prisma.payment?.findUnique?.({
+        where: { creationIdempotencyKey: parsed.data.idempotencyKey },
+        include: PAYMENT_SUMMARY_INCLUDE,
+      });
+      if (committed) {
+        const meta =
+          committed.metadata && typeof committed.metadata === "object" && !Array.isArray(committed.metadata)
+            ? (committed.metadata as Record<string, unknown>)
+            : null;
+        const payableStr =
+          meta?.walletSplit === true && typeof meta.totalPayableAmount === "string"
+            ? meta.totalPayableAmount
+            : committed.amount.toFixed(2);
+        const replayIntent = buildCanonicalOrderPaymentPreparationIntent(
+          {
+            subjectType: "ORDER",
+            subjectId: parsed.data.orderId,
+            payerUserId: payer.id,
+            currency: "ZAR",
+            amount: LedgerMoney.parse(payableStr),
+          },
+          parsed.data.walletAmount,
+        );
+        if (!matchesOrderPaymentPreparationReplay(committed, replayIntent, parsed.data.idempotencyKey)) {
+          throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
+        }
+        return toPaymentSummaryDto(committed);
+      }
+    }
+    throw error;
+  }
+
+  const preparationIntent = buildCanonicalOrderPaymentPreparationIntent(subject, parsed.data.walletAmount);
+  const requestHash = preparationIntent.requestHash;
 
   try {
     return await withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
@@ -74,7 +106,7 @@ export async function prepareOrderPayment(
         include: PAYMENT_SUMMARY_INCLUDE,
       });
       if (existing) {
-        if (existing.creationRequestHash !== requestHash) {
+        if (!matchesOrderPaymentPreparationReplay(existing, preparationIntent, parsed.data.idempotencyKey)) {
           throw new PaymentError("PAYMENT_IDEMPOTENCY_CONFLICT", "Payment preparation key was reused for a different request.");
         }
         return toPaymentSummaryDto(existing);
@@ -86,6 +118,7 @@ export async function prepareOrderPayment(
           orderId: parsed.data.orderId,
           idempotencyKey: parsed.data.idempotencyKey,
           walletAmount: parsed.data.walletAmount,
+          preparationIntent,
         });
         if (walletPayment) return walletPayment;
       }
@@ -141,7 +174,7 @@ export async function prepareOrderPayment(
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const replay = await replayAfterUniqueRace(parsed.data.idempotencyKey, requestHash);
+      const replay = await replayAfterUniqueRace(parsed.data.idempotencyKey, preparationIntent);
       if (replay) return replay;
       const orderWinner = await prisma.payment.findUnique({
         where: { orderId: subject.subjectId },

@@ -144,6 +144,12 @@ const approvedDestructiveOperations = [
     reason: "Replaces Payment_succeeded_requires_provider_evidence_check in-place to allow provider='MANUAL' internal wallet ledger evidence while preserving strict external provider attempt/webhook/journal checks.",
   },
   {
+    migration: "20261114190000_wallet_only_payment_evidence_coherence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+"Payment_success_evidence_coherence_check"\s*;\s*$/i,
+    reason: "Replaces Payment_success_evidence_coherence_check in-place to align with Payment_succeeded_requires_provider_evidence_check for provider='MANUAL' internal wallet payments while preserving strict external provider evidence checks.",
+  },
+  {
     migration: "20261111000000_marketplace_promotion_discount",
     label: "DROP CONSTRAINT",
     statement: /^\s*ALTER\s+TABLE\s+"MarketplaceCheckout"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"MarketplaceCheckout_totals_check"\s*;\s*$/i,
