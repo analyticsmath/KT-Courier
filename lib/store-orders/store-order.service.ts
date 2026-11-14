@@ -411,7 +411,7 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
       }
     }
   } catch {
-    groupDiscount = new Prisma.Decimal(0);
+    assertStoreOrder(false, "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Malformed or unavailable frozen payment plan evidence.");
   }
   let customerRefund = grossRefundAmount;
   let platformSubsidyReversal = "0.00";
