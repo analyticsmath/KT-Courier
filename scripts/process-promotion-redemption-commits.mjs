@@ -1,54 +1,38 @@
 #!/usr/bin/env node
-// @ts-check
+import { register } from "tsx/esm/api";
+import { register as registerCommonJs } from "tsx/cjs/api";
 
-const SCRIPT_NAME = 'process-promotion-redemption-commits';
-
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let mode = 'dry-run';
-  let limit = Infinity;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--apply') mode = 'apply';
-    if (args[i] === '--dry-run') mode = 'dry-run';
-    if (args[i] === '--limit' && args[i + 1]) limit = parseInt(args[i + 1], 10);
-  }
-  return { mode, limit };
+let apply = false, modeSet = false, limit = 100, after;
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === "--apply" || args[i] === "--dry-run") {
+    if (modeSet) throw new Error("Specify one mode.");
+    apply = args[i] === "--apply"; modeSet = true;
+  } else if (args[i] === "--limit" && i + 1 < args.length) limit = Number(args[++i]);
+  else if (args[i] === "--after" && i + 1 < args.length) after = args[++i];
+  else throw new Error("Usage: process-promotion-redemption-commits [--dry-run|--apply] [--limit N] [--after ID]");
 }
-
-async function main() {
-  const { mode, limit } = parseArgs();
-  console.log(`[${SCRIPT_NAME}] mode=${mode} limit=${limit}`);
-  console.log(`[${SCRIPT_NAME}] Phase 23 promotion script`);
-  console.log(`[${SCRIPT_NAME}] Production lock: PROMOTIONS_PRODUCTION_VALIDATION_APPROVED = false`);
-
-  // Step 1: Scan candidates
-  console.log(`[${SCRIPT_NAME}] Scanning candidates... (finds pending redemption commit intents)`);
-  const candidates = []; // Would query DB in production
-  const bounded = candidates.slice(0, limit);
-  console.log(`[${SCRIPT_NAME}] Found ${candidates.length} candidates, processing ${bounded.length}`);
-
-  if (mode === 'dry-run') {
-    console.log(`[${SCRIPT_NAME}] DRY RUN — no mutations applied`);
-    for (const c of bounded) {
-      console.log(`[${SCRIPT_NAME}]   candidate: ${JSON.stringify(c)}`);
-    }
-    console.log(`[${SCRIPT_NAME}] Dry run complete.`);
-    return;
+if (!Number.isInteger(limit) || limit < 1 || limit > 500 || (after !== undefined && (!after || after.length > 200))) throw new Error("Invalid recovery arguments.");
+const unregister = register(), unregisterCommonJs = registerCommonJs();
+let prisma;
+try {
+  const [database, recovery, lock] = await Promise.all([import("../lib/db/prisma.ts"), import("../lib/promotions/promotion-commit-recovery.ts"), import("../lib/promotions/production-lock.ts")]);
+  prisma = database.prisma;
+  if (apply) {
+    lock.assertPromotionsProductionReady("COMMITMENT");
+    const token = process.env.KT_PROMOTION_ADMIN_SESSION;
+    if (!token) throw new Error("An authenticated administrator session is required.");
+    const [{ findSessionWithUser, isUserStatusAllowedForSession }, { hasPermission }, { PERMISSIONS }] = await Promise.all([import("../lib/auth/session.ts"), import("../lib/auth/permissions.ts"), import("../lib/auth/permission-keys.ts")]);
+    const session = await findSessionWithUser(token);
+    if (!session || !isUserStatusAllowedForSession(session.user.status) || !["ADMIN", "SUPER_ADMIN"].includes(session.user.role) || !await hasPermission({ userId: session.user.id, role: session.user.role, permissionKey: PERMISSIONS.PROMOTIONS_RECONCILIATION_MANAGE })) throw new Error("Promotion reconciliation permission is required.");
   }
-
-  // Step 2: Apply mode — call canonical services
-  console.log(`[${SCRIPT_NAME}] APPLY MODE — calling canonical services`);
-  for (const c of bounded) {
-    const operationId = `promo_op_${SCRIPT_NAME}_${c.id || 'unknown'}_${Date.now()}`;
-    console.log(`[${SCRIPT_NAME}]   processing: ${c.id || 'unknown'} operationId=${operationId}`);
-    // Would call canonical service here, which hits production lock
-    // e.g., await activateApprovedCampaign(c, operationId);
-    console.log(`[${SCRIPT_NAME}]   result: blocked by production lock (expected)`);
-  }
-  console.log(`[${SCRIPT_NAME}] Apply complete.`);
-}
-
-main().catch((err) => {
-  console.error(`[${SCRIPT_NAME}] Fatal error:`, err.message || err);
+  const result = await recovery.recoverPromotionCommitments({ limit, after, apply });
+  console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", ...result }));
+  if (result.failed) process.exitCode = 1;
+} catch {
+  console.error("Promotion commitment recovery failed or is not authorized.");
   process.exitCode = 1;
-});
+} finally {
+  if (prisma) await prisma.$disconnect();
+  unregisterCommonJs(); unregister();
+}

@@ -11,6 +11,7 @@ import { commitMarketplacePromotionRedemptions } from "@/lib/promotions/promotio
 import type { AppliedPromotion, PromotionEvaluationResult } from "@/lib/promotions/promotion-evaluation.service";
 import { reversePromotionBudgetForAdjustment } from "@/lib/promotions/promotion-adjustment-reversal";
 import { createPrismaMarketplaceFinalizationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-finalization.repository";
+import { recoverPromotionCommitments } from "@/lib/promotions/promotion-commit-recovery";
 
 beforeAll(() => requireDisposableStoreSettlementDatabase());
 
@@ -51,6 +52,10 @@ it("reserves reviewed allocations, posts one funded redemption and preserves sou
   const attempt = await prisma.paymentAttempt.create({ data: { paymentId: payment.id, attemptNumber: 1, provider: "PAYSTACK", idempotencyKey: `${marker}-attempt`, requestHash: "c".repeat(64), merchantReference: `${marker}-merchant`, status: "SUCCEEDED", amount: "90.00", currency: "ZAR", providerEnvironment: "SANDBOX", providerConfirmedAt: new Date() } });
   const webhook = await prisma.paymentWebhookEvent.create({ data: { publicReference: `pwe_${nonce}`, provider: "PAYSTACK", environment: "SANDBOX", eventFingerprint: createHash("sha256").update(nonce).digest("hex"), merchantReference: attempt.merchantReference, providerStatus: "success", normalizedStatus: "COMPLETE", processingStatus: "APPLIED", paymentId: payment.id, attemptId: attempt.id, sourceAddressVerified: true, signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true, verifiedAt: new Date(), appliedAt: new Date(), ledgerJournalId: receipt.id } });
   await prisma.payment.update({ where: { id: payment.id }, data: { status: "SUCCEEDED", successfulAttemptId: attempt.id, successWebhookEventId: webhook.id, successLedgerJournalId: receipt.id, providerConfirmedAt: new Date(), succeededAt: new Date(), version: { increment: 1 } } });
+  await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "RECONCILIATION_REQUIRED" } });
+  expect(await recoverPromotionCommitments({ limit: 1, after: reserved.reservationIds[0].slice(0, -1) })).toMatchObject({ examined: 1, eligible: 1, completed: 0, failed: 0 });
+  expect((await prisma.promotionReservation.findUniqueOrThrow({ where: { id: reserved.reservationIds[0] } })).status).toBe("RESERVED");
+  await prisma.marketplaceCheckout.update({ where: { id: checkout.id }, data: { status: "READY_FOR_REVIEW" } });
   const order = await prisma.marketplaceOrder.create({ data: { publicReference: `${marker}-order`, checkoutId: checkout.id, paymentId: payment.id, customerUserId: customer.id, merchandiseSubtotal: "100.00", modifierSubtotal: "0.00", deliveryFeeTotal: "0.00", promotionDiscount: "10.00", grandTotal: "90.00", digitalRequired: "90.00", commercialFingerprint: marker, status: "CONFIRMED" } });
   const commit = () => prisma.$transaction(tx => commitMarketplacePromotionRedemptions({ checkoutId: checkout.id, checkoutReviewVersion: 1, acknowledgementFingerprint: marker, paymentId: payment.id, paymentStatus: "SUCCEEDED", marketplaceOrderId: order.id, reservationIds: reserved.reservationIds, frozenEvaluation: evaluation, operationId: `${marker}-commit`, requestHash: "d".repeat(64), now: new Date() }, tx));
   const [first, replay] = await Promise.all([commit(), commit()]);
