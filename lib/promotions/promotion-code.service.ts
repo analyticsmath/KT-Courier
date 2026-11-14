@@ -37,5 +37,5 @@ export async function resolvePromotionCodeForCheckout(code: string, checkoutCont
   if (!checkout) throw new Error("Checkout not found.");
   const result = await resolvePromotionProductionComposition("EVALUATION").evaluate({ ...projectCheckoutPromotionFacts(checkout, new Date()), appliedCouponCode });
   const applied = result.applied.find(item => item.applicationMethod === "COUPON_CODE");
-  return applied ? { campaignReference: applied.publicReference, discountAmount: applied.calculatedDiscount.toFixed(2), title: applied.customerFacingTitle } : null;
+  return applied ? { versionReference: applied.publicReference, discountAmount: applied.calculatedDiscount.toFixed(2), title: applied.customerFacingTitle } : null;
 }

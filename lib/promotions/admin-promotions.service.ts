@@ -119,11 +119,16 @@ export async function endAdminCampaign(reference: string, actorUserId: string) {
   return transitionActiveCampaign(reference, actorUserId, "ENDED");
 }
 
-async function transitionActiveCampaign(reference: string, actorUserId: string, target: "ACTIVE" | "PAUSED" | "ENDED", activation = false) {
+export async function transitionOwnedStoreCampaign(reference: string, actorUserId: string, storeId: string, target: "PAUSED" | "ENDED") {
+  if (!storeId?.trim()) throw new Error("Invalid store.");
+  return transitionActiveCampaign(reference, actorUserId, target, false, storeId);
+}
+
+async function transitionActiveCampaign(reference: string, actorUserId: string, target: "ACTIVE" | "PAUSED" | "ENDED", activation = false, storeId?: string) {
   assertPromotionsProductionReady(target === "ACTIVE" ? "CAMPAIGN_ACTIVATE" : "CAMPAIGN_UPDATE");
   if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim()) throw new Error("Invalid campaign action.");
   return db.$transaction(async (tx) => {
-    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { where: { status: { in: activation ? ["APPROVED", "ACTIVE", "PAUSED"] : ["ACTIVE", "PAUSED"] } }, include: { budget: true }, take: 2 } } });
+    const campaign = await tx.promotionCampaign.findFirst({ where: { publicReference: reference, ...(storeId ? { ownerType: "STORE", ownerStoreId: storeId } : {}) }, include: { versions: { where: { status: { in: activation ? ["APPROVED", "ACTIVE", "PAUSED"] : ["ACTIVE", "PAUSED"] } }, include: { budget: true }, take: 2 } } });
     const allowed = activation ? ["APPROVED"] : target === "ACTIVE" ? ["PAUSED"] : target === "PAUSED" ? ["ACTIVE"] : ["ACTIVE", "PAUSED"];
     if (!campaign || campaign.versions.length !== 1 || !allowed.includes(campaign.status) || campaign.versions[0].status !== campaign.status) throw new Error("Campaign is not in an actionable state.");
     const version = campaign.versions[0];
@@ -139,7 +144,7 @@ async function transitionActiveCampaign(reference: string, actorUserId: string, 
     if (parent.count !== 1) throw new Error("Campaign changed; reload before acting.");
     if (activation && version.applicationMethod === "COUPON_CODE") await tx.promotionCode.updateMany({ where: { campaignVersionId: version.id, status: "DRAFT" }, data: { status: "ACTIVE" } });
     const operationId = `promotion-admin:${randomUUID()}`;
-    await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: version.status, toStatus: target, actorUserId, reason: `Administrator ${activation ? "activated" : target === "ACTIVE" ? "resumed" : target === "PAUSED" ? "paused" : "ended"} the campaign.`, operationId } });
+    await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: version.status, toStatus: target, actorUserId, reason: `${storeId ? "Store user" : "Administrator"} ${activation ? "activated" : target === "ACTIVE" ? "resumed" : target === "PAUSED" ? "paused" : "ended"} the campaign.`, operationId } });
     await tx.promotionEventIntent.create({ data: { eventType: activation ? "PROMOTION_ACTIVATED" : target === "ACTIVE" ? "PROMOTION_RESUMED" : `PROMOTION_${target}`, dedupeKey: operationId, payload: { campaignId: campaign.id, campaignVersionId: version.id } } });
     await tx.adminActivityLog.create({ data: { actorUserId, action: "STATUS_CHANGE", entityType: "PromotionCampaign", entityId: campaign.id, message: `Promotion campaign moved to ${target}.`, metadata: { fromStatus: campaign.status, toStatus: target } } });
     return { reference: campaign.publicReference, status: target };

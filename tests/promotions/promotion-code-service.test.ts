@@ -22,7 +22,7 @@ it("evaluates only an owner-scoped checkout and passes a keyed code digest", asy
   const result = await resolvePromotionCodeForCheckout("offer-123", { checkoutReference: "checkout-ref", owner: { type: "CUSTOMER", userId: "customer-id" } });
   expect(mock.checkout).toHaveBeenCalledWith(expect.objectContaining({ where: { publicReference: "checkout-ref", customerUserId: "customer-id" } }));
   expect(mock.evaluate).toHaveBeenCalledWith(expect.objectContaining({ checkoutId: "checkout-id", appliedCouponCode: expect.stringMatching(/^[a-f0-9]{64}$/) }));
-  expect(result).toEqual({ campaignReference: "campaign-ref", discountAmount: "5.00", title: "Offer" });
+  expect(result).toEqual({ versionReference: "campaign-ref", discountAmount: "5.00", title: "Offer" });
 });
 
 it("does not evaluate a foreign checkout or reveal a code outcome", async () => {

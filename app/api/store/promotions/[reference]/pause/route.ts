@@ -6,6 +6,7 @@ import { getStoreForUser } from "@/lib/auth/store-context";
 import { ok, unauthorized, forbidden, unprocessable } from "@/lib/api/response";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { pauseStoreCampaign } from "@/lib/promotions/store-promotions.service";
+import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 /**
  * Pause active store campaign
@@ -14,6 +15,8 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ reference: string }> },
 ) {
+  const originFailure = await enforceSameOriginRequest(request);
+  if (originFailure) return originFailure;
   const workspaceDenied = await requireBusinessApi(
     "/api/store/promotions/[reference]/pause",
   );
@@ -27,7 +30,7 @@ export async function POST(
   try {
     const params = await context.params;
     assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-    const campaign = await pauseStoreCampaign(store.id, params.reference);
+    const campaign = await pauseStoreCampaign(store.id, params.reference, session.id);
     return ok(campaign);
   } catch {
     return unprocessable("Pause failed");

@@ -13,6 +13,7 @@ import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, en
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 import { createSession } from "@/lib/auth/session";
 import { validatePromotionCode } from "@/lib/promotions/promotion-code.service";
+import { endStoreCampaign, pauseStoreCampaign } from "@/lib/promotions/store-promotions.service";
 
 const marker = `promotion-expiry-${randomUUID()}`;
 let campaignId = "";
@@ -236,6 +237,18 @@ it("pauses and ends a campaign exactly once with actor-bound history", async () 
   expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: adminId } })).toBe(4);
   expect(await prisma.adminActivityLog.count({ where: { entityId: campaign.id, actorUserId: adminId } })).toBe(4);
   await expect(endAdminCampaign(reference, adminId)).rejects.toThrow();
+});
+
+it("allows a store to pause and end only its own campaign", async () => {
+  const owners = await Promise.all(["own", "foreign"].map(suffix => prisma.user.create({ data: { email: `${marker}-${suffix}-store@example.test`, role: "STORE", status: "ACTIVE" } })));
+  const stores = await Promise.all(owners.map((owner, index) => prisma.store.create({ data: { ownerUserId: owner.id, name: `Store ${index}`, slug: `${marker}-store-${index}`, status: "ACTIVE" } })));
+  const campaigns = await Promise.all(stores.map((store, index) => prisma.promotionCampaign.create({ data: { publicReference: `${marker}-store-campaign-${index}`, internalCode: `${marker}-store-campaign-${index}`, ownerType: "STORE", ownerStoreId: store.id, status: "ACTIVE", name: `Store campaign ${index}`, versions: { create: { publicReference: `${marker}-store-version-${index}`, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "LINE", discountMechanism: "FIXED_AMOUNT", fixedAmount: 5, fundingType: "STORE_FUNDED", startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } } } })));
+  await expect(pauseStoreCampaign(stores[1].id, campaigns[1].publicReference, owners[0].id)).rejects.toThrow();
+  await expect(pauseStoreCampaign(stores[0].id, campaigns[1].publicReference, owners[0].id)).rejects.toThrow();
+  expect((await pauseStoreCampaign(stores[0].id, campaigns[0].publicReference, owners[0].id)).status).toBe("PAUSED");
+  expect((await endStoreCampaign(stores[0].id, campaigns[0].publicReference, owners[0].id)).status).toBe("ENDED");
+  expect((await prisma.promotionCampaign.findUniqueOrThrow({ where: { id: campaigns[1].id } })).status).toBe("ACTIVE");
+  expect(await prisma.promotionStatusHistory.count({ where: { campaignVersion: { campaignId: campaigns[0].id }, actorUserId: owners[0].id } })).toBe(2);
 });
 
 it("requires separate approval and funded budget before campaign activation", async () => {
