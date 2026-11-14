@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { beforeAll, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -11,6 +12,11 @@ import type { AppliedPromotion, PromotionEvaluationResult } from "@/lib/promotio
 import { reversePromotionBudgetForAdjustment } from "@/lib/promotions/promotion-adjustment-reversal";
 
 beforeAll(() => requireDisposableStoreSettlementDatabase());
+
+it("checks the actual migrated database in the promotion preflight", () => {
+  const output = execFileSync(process.execPath, ["scripts/phase23-promotion-preflight.mjs"], { encoding: "utf8", env: process.env });
+  expect(JSON.parse(output)).toMatchObject({ databaseReachable: true, missingTables: [], failedMigrations: 0, missingPermissions: [] });
+}, 30_000);
 
 it("reserves reviewed allocations, posts one funded redemption and preserves source evidence", async () => {
   const nonce = randomUUID(), marker = `promo-flow-${nonce}`;
