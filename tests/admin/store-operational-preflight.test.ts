@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { evaluateStorePickupPreflight, type StorePickupPreflightFacts } from "@/lib/admin/store-operational-preflight";
+import {
+  CHECKOUT_CAPABILITY_BLOCKER_CODES,
+  evaluateCheckoutCapabilityPreflight,
+  evaluateStorePickupPreflight,
+  type CheckoutCapabilityPreflightFacts,
+  type StorePickupPreflightFacts,
+} from "@/lib/admin/store-operational-preflight";
 
 const ready: StorePickupPreflightFacts = {
   status: "ACTIVE", hasContact: true, pickupConfigured: true,
@@ -27,5 +33,68 @@ describe("admin store collection and pickup-area preflight", () => {
   });
   it("never treats a suspended store as eligible for new sales", () => {
     expect(evaluateStorePickupPreflight({ ...ready, status: "SUSPENDED" })).toMatchObject({ stage: "PAUSED", blockers: ["STORE_ACCOUNT_PAUSED"] });
+  });
+});
+
+const readyCapability: CheckoutCapabilityPreflightFacts = {
+  streetValid: true,
+  suburbValid: true,
+  postalCodeValid: true,
+  mapProofValid: true,
+  sellerApproved: true,
+  coverageActive: true,
+  routeVerified: true,
+  serviceActive: true,
+  policyActive: true,
+  paymentProviderReady: true,
+  certificationStale: false,
+  independentReviewerStatus: "APPROVED_CURRENT",
+};
+
+describe("§4.1 CheckoutCapabilityPreflight blocker taxonomy and independent reviewer status", () => {
+  it("reports preflightReady=true and liveReady=true when all capabilities pass and independent review is current", () => {
+    const res = evaluateCheckoutCapabilityPreflight(readyCapability);
+    expect(res).toMatchObject({
+      preflightReady: true,
+      liveReady: true,
+      capabilityBlockers: [],
+      blockers: [],
+      independentReviewerStatus: "APPROVED_CURRENT",
+    });
+  });
+
+  it("exposes every required blocker code with actionable merchant repair messages", () => {
+    const res = evaluateCheckoutCapabilityPreflight({
+      streetValid: false,
+      suburbValid: false,
+      postalCodeValid: false,
+      mapProofValid: false,
+      sellerApproved: false,
+      coverageActive: false,
+      routeVerified: false,
+      serviceActive: false,
+      policyActive: false,
+      paymentProviderReady: false,
+      certificationStale: true,
+      independentReviewerStatus: "STALE_OR_EXPIRED",
+    });
+    expect(res.preflightReady).toBe(false);
+    expect(res.liveReady).toBe(false);
+    expect(res.blockers).toEqual(CHECKOUT_CAPABILITY_BLOCKER_CODES);
+    for (const code of CHECKOUT_CAPABILITY_BLOCKER_CODES) {
+      expect(res.blockerMessages[code]?.length).toBeGreaterThan(20);
+    }
+  });
+
+  it("allows preflight preparation when capability blockers are empty even if prior certification is stale", () => {
+    const res = evaluateCheckoutCapabilityPreflight({
+      ...readyCapability,
+      certificationStale: true,
+      independentReviewerStatus: "STALE_OR_EXPIRED",
+    });
+    expect(res.preflightReady).toBe(true);
+    expect(res.liveReady).toBe(false);
+    expect(res.capabilityBlockers).toEqual([]);
+    expect(res.blockers).toEqual(["CERTIFICATION_STALE"]);
   });
 });

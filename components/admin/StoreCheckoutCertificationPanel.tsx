@@ -38,21 +38,27 @@ export function StoreCheckoutCertificationPanel({
   });
   const endpoint = "/api/admin/stores/" + encodeURIComponent(storeId) + "/checkout-certification";
 
-  async function submit(action: "prepare" | "approve") {
+  async function submit(action: "prepare" | "prepare_preflight" | "approve") {
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(endpoint, {
-        method: action === "prepare" ? "POST" : "PATCH",
+        method: action === "approve" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "prepare" ? data : { expectedRevision: revision }),
+        body: JSON.stringify(
+          action === "prepare"
+            ? data
+            : action === "prepare_preflight"
+              ? { mode: "PREFLIGHT", ...(data.reviewNote.trim().length >= 24 ? { reviewNote: data.reviewNote.trim() } : {}) }
+              : { expectedRevision: revision },
+        ),
       });
       const payload = await response.json();
       if (!response.ok) throw Error(payload.error ?? "Certification cannot proceed.");
       // The server's status is authoritative. No client-side promotion to Live.
       setStatus(payload.status);
       setRevision(payload.revision);
-      setNotice(action === "prepare"
+      setNotice(action !== "approve"
         ? "Evidence recorded. A different authorized administrator must independently inspect and approve it."
         : "Independent certification approved. Store activation remains a separate authorized action.");
       router.refresh();
@@ -107,7 +113,12 @@ export function StoreCheckoutCertificationPanel({
               onChange={e => setData(previous => ({ ...previous, reviewNote: e.target.value }))}
               className="min-h-28 w-full rounded-xl border border-[var(--kt-border)] p-3 text-sm" />
           </div>
-          <Button type="submit" disabled={busy} loading={busy}>Submit staging certification for independent review</Button>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="secondary" disabled={busy} loading={busy} onClick={() => void submit("prepare_preflight")}>
+              Generate deterministic capability preflight for review
+            </Button>
+            <Button type="submit" disabled={busy} loading={busy}>Submit staging certification for independent review</Button>
+          </div>
         </form>
       ) : null}
       {status === "PENDING_REVIEW" ? (

@@ -6,7 +6,10 @@ import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { badRequest, conflict, notFound, ok, serverError, unprocessable } from "@/lib/api/response";
 import {
-  prepareStoreCheckoutCertification, approveStoreCheckoutCertification,
+  prepareStoreCheckoutCertification,
+  prepareStoreCheckoutCertificationFromPreflight,
+  approveStoreCheckoutCertification,
+  evaluateStoreCheckoutCapabilityPreflight,
   StoreCertificationError,
 } from "@/lib/admin/store-checkout-certification.service";
 
@@ -16,6 +19,10 @@ const evidence = z.object({
   checkoutEvidenceReference: z.string().trim().min(12).max(160),
   checkoutEvidenceDigest: z.string().regex(/^[a-f0-9]{64}$/),
   reviewNote: z.string().trim().min(24).max(2000),
+}).strict();
+const preflightPrepare = z.object({
+  mode: z.literal("PREFLIGHT"),
+  reviewNote: z.string().trim().min(24).max(2000).optional(),
 }).strict();
 const approval = z.object({ expectedRevision: z.number().int().nonnegative() }).strict();
 
@@ -39,17 +46,20 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   const auth = await requireAdminApiPermission(PERMISSIONS.STORES_READ, { request });
   if (auth.response) return auth.response;
   const { id } = await context.params;
-  const cert = await prisma.storeCheckoutCertification.findUnique({
-    where: { storeId: id },
-    select: {
-      status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
-      routeEvidenceReference: true, routeEvidenceDigest: true,
-      checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
-      pickupAddressId: true, coverageRegionId: true, reviewNote: true,
-      preparedByUserId: true, approvedByUserId: true,
-    },
-  });
-  return ok({ certification: cert });
+  const [cert, preflight] = await Promise.all([
+    prisma.storeCheckoutCertification.findUnique({
+      where: { storeId: id },
+      select: {
+        status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
+        routeEvidenceReference: true, routeEvidenceDigest: true,
+        checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
+        pickupAddressId: true, coverageRegionId: true, reviewNote: true,
+        preparedByUserId: true, approvedByUserId: true,
+      },
+    }),
+    evaluateStoreCheckoutCapabilityPreflight(id),
+  ]);
+  return ok({ certification: cert, preflight });
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -59,6 +69,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   if (auth.response) return auth.response;
   let raw: unknown;
   try { raw = await request.json(); } catch { return badRequest("Invalid JSON body."); }
+  const preflightParsed = preflightPrepare.safeParse(raw);
+  if (preflightParsed.success) {
+    try {
+      const { id } = await context.params;
+      return ok(await prepareStoreCheckoutCertificationFromPreflight(id, auth.user.id, preflightParsed.data.reviewNote));
+    } catch (error) { return errorResponse(error); }
+  }
   const parsed = evidence.safeParse(raw);
   if (!parsed.success) return unprocessable("Two staging receipt references, digests and review notes are required.");
   try {

@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
+import { evaluateStoreCheckoutCapabilityPreflight } from "@/lib/admin/store-checkout-certification.service";
+import { CHECKOUT_CAPABILITY_BLOCKER_MESSAGES } from "@/lib/admin/store-operational-preflight";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
@@ -20,6 +22,7 @@ const BLOCKER_LABELS: Record<string, string> = {
   PICKUP_MAP_LOCATION_MISSING: "Confirm the collection location on the map.",
   PICKUP_COVERAGE_UNVERIFIED: "The saved pickup is not confirmed within enabled coverage. Review regions and geocoding.",
   ACTIVE_COURIER_SERVICE_MISSING: "No active courier service currently includes this pickup region.",
+  ...CHECKOUT_CAPABILITY_BLOCKER_MESSAGES,
 };
 const REMAINING_LABELS: Record<string, string> = {
   TRADING_HOURS_NOT_CONFIRMED: "Trading hours still require structured verification.",
@@ -30,7 +33,10 @@ const REMAINING_LABELS: Record<string, string> = {
 export default async function StorePickupPreflightPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const { id } = await params;
-  const report = await getStorePickupOperationalPreflight(id);
+  const [report, capabilityPreflight] = await Promise.all([
+    getStorePickupOperationalPreflight(id),
+    evaluateStoreCheckoutCapabilityPreflight(id),
+  ]);
   if (!report) notFound();
 
   return <ProtectedPageFrame>
@@ -46,6 +52,29 @@ export default async function StorePickupPreflightPage({ params }: { params: Pro
       {report.blockers.length ? <section className="mt-5"><h2 className="font-semibold">Required corrections</h2><ul className="mt-2 list-disc space-y-1 pl-5">{report.blockers.map(code => <li key={code}>{BLOCKER_LABELS[code] ?? code}</li>)}</ul></section> : <p className="mt-4">Pickup evidence is recorded for the current active service area. Proceed to the remaining checks before store publication.</p>}
       <section className="mt-5"><h2 className="font-semibold">Still required before Live status</h2><ul className="mt-2 list-disc space-y-1 pl-5">{report.outstandingChecks.map(code => <li key={code}>{REMAINING_LABELS[code] ?? code}</li>)}</ul></section>
     </OperationalPanel>
+    {capabilityPreflight ? (
+      <OperationalPanel title={capabilityPreflight.liveReady ? "Checkout capability preflight: Ready & independently certified" : capabilityPreflight.preflightReady ? "Checkout capability preflight: Ready for independent certification review" : "Checkout capability preflight: Blockers detected"} description="Canonical non-mutating CheckoutCapabilityPreflight evaluated against current pickup, seller identity, coverage, route feasibility, operational/commission policies and payment provider readiness.">
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <div><dt className="text-sm">Preflight capability ready</dt><dd className="font-semibold">{capabilityPreflight.preflightReady ? "YES" : "NO"}</dd></div>
+          <div><dt className="text-sm">Independent reviewer status</dt><dd className="font-semibold">{capabilityPreflight.independentReviewerStatus}</dd></div>
+          <div><dt className="text-sm">Route feasibility</dt><dd className="font-semibold">{capabilityPreflight.routeFeasibility.verified ? `Verified (${capabilityPreflight.routeFeasibility.provider ?? "route"})` : "Unverified"}</dd></div>
+          <div><dt className="text-sm">Payment provider readiness</dt><dd className="font-semibold">{capabilityPreflight.policySummary.paymentProviderReady ? `Ready (${capabilityPreflight.policySummary.paymentProviderEnvironment ?? "configured"})` : "Not ready"}</dd></div>
+        </dl>
+        {capabilityPreflight.blockers.length > 0 ? (
+          <section className="mt-5">
+            <h2 className="font-semibold">Capability and certification blockers</h2>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {capabilityPreflight.blockers.map((code) => (
+                <li key={code}>
+                  <span className="font-mono text-xs font-semibold">{code}</span>:{" "}
+                  {capabilityPreflight.blockerMessages[code] ?? BLOCKER_LABELS[code] ?? code}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+      </OperationalPanel>
+    ) : null}
     <p className="text-sm">No store status or payment data is changed by this check.</p>
   </ProtectedPageFrame>;
 }

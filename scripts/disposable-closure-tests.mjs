@@ -37,9 +37,12 @@ files.push("tests/integration/qualification-confirmation-postgres.integration.te
 files.push("tests/integration/developer-credential-expiry-postgres.integration.test.ts");
 files.push("tests/integration/developer-webhook-claim-postgres.integration.test.ts");
 files.push("tests/integration/subscription-cycle-boundary-postgres.integration.test.ts");
+files.push("tests/integration/parcel-wallet-split-retry-postgres.integration.test.ts");
+files.push("tests/integration/store-go-live-certification.integration.test.ts");
+files.push("tests/integration/store-live-two-reviewer.integration.test.ts");
 const selection = process.argv.slice(2);
-if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions", "--onboarding-regressions"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");
-const selectedFiles = selection[0] === "--verified-consumer-regression" ? ["tests/integration/verified-payment-consumer-concurrency.integration.test.ts"] : selection[0] === "--authority-regressions" ? ["tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts", "tests/integration/business-support-denial.integration.test.ts"] : selection[0] === "--onboarding-regressions" ? ["tests/integration/driver-registration-code.integration.test.ts"] : files;
+if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions", "--onboarding-regressions", "--wallet-split-regression"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");
+const selectedFiles = selection[0] === "--verified-consumer-regression" ? ["tests/integration/verified-payment-consumer-concurrency.integration.test.ts"] : selection[0] === "--authority-regressions" ? ["tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts", "tests/integration/business-support-denial.integration.test.ts"] : selection[0] === "--onboarding-regressions" ? ["tests/integration/driver-registration-code.integration.test.ts"] : selection[0] === "--wallet-split-regression" ? ["tests/integration/parcel-wallet-split-retry-postgres.integration.test.ts", "tests/integration/store-go-live-certification.integration.test.ts", "tests/integration/store-live-two-reviewer.integration.test.ts"] : files;
 let failed = false; let started = false;
 try {
   // The database URL is constructed here; a supplied production URL is never used.

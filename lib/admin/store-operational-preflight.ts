@@ -48,3 +48,128 @@ export function evaluateStorePickupPreflight(facts: StorePickupPreflightFacts): 
     checkoutCertified: false,
   };
 }
+
+export const CHECKOUT_CAPABILITY_BLOCKER_CODES = [
+  "MISSING_STREET",
+  "MISSING_SUBURB",
+  "MISSING_POSTCODE",
+  "MISSING_MAP_PROOF",
+  "UNAPPROVED_SELLER",
+  "COVERAGE_INACTIVE",
+  "ROUTE_UNVERIFIED",
+  "SERVICE_INACTIVE",
+  "POLICY_INACTIVE",
+  "PAYMENT_PROVIDER_NOT_READY",
+  "CERTIFICATION_STALE",
+] as const;
+
+export type CheckoutCapabilityBlockerCode = (typeof CHECKOUT_CAPABILITY_BLOCKER_CODES)[number];
+
+export const CHECKOUT_CAPABILITY_BLOCKER_MESSAGES: Readonly<
+  Record<CheckoutCapabilityBlockerCode, string>
+> = Object.freeze({
+  MISSING_STREET:
+    "Save a complete South African street address, city, and province in the store's collection settings.",
+  MISSING_SUBURB:
+    "Add the suburb or locality (address line 2) to the store's saved collection address.",
+  MISSING_POSTCODE:
+    "Add a valid 4-digit South African postal code to the store's saved collection address.",
+  MISSING_MAP_PROOF:
+    "Confirm the collection point on the map so verified latitude, longitude, and place evidence are recorded.",
+  UNAPPROVED_SELLER:
+    "Submit seller legal identity and supporting verification evidence for independent administrator approval.",
+  COVERAGE_INACTIVE:
+    "The store's collection coordinates do not fall within an active, pricing-enabled delivery region.",
+  ROUTE_UNVERIFIED:
+    "Road-route feasibility from the store's collection point to a representative point in the covered region could not be verified.",
+  SERVICE_INACTIVE:
+    "No active courier service or parcel size profile currently supports this store's collection province and region.",
+  POLICY_INACTIVE:
+    "An active store order operational policy and approved store commission plan are required before checkout capability can be certified.",
+  PAYMENT_PROVIDER_NOT_READY:
+    "Paystack payment provider configuration is not ready or has configuration issues.",
+  CERTIFICATION_STALE:
+    "The store's collection address, coverage region, active service, or commercial policy changed since the last certification; prepare and approve a fresh certification.",
+});
+
+export type IndependentReviewerStatus =
+  | "NOT_PREPARED"
+  | "PENDING_INDEPENDENT_REVIEW"
+  | "SELF_APPROVAL_BLOCKED"
+  | "APPROVED_CURRENT"
+  | "STALE_OR_EXPIRED"
+  | "REVOKED";
+
+export type CheckoutCapabilityPreflightFacts = Readonly<{
+  streetValid: boolean;
+  suburbValid: boolean;
+  postalCodeValid: boolean;
+  mapProofValid: boolean;
+  sellerApproved: boolean;
+  coverageActive: boolean;
+  routeVerified: boolean;
+  serviceActive: boolean;
+  policyActive: boolean;
+  paymentProviderReady: boolean;
+  certificationStale: boolean;
+  independentReviewerStatus: IndependentReviewerStatus;
+}>;
+
+export type CheckoutCapabilityEvaluation = Readonly<{
+  preflightReady: boolean;
+  liveReady: boolean;
+  capabilityBlockers: readonly CheckoutCapabilityBlockerCode[];
+  blockers: readonly CheckoutCapabilityBlockerCode[];
+  blockerMessages: Readonly<Record<string, string>>;
+  independentReviewerStatus: IndependentReviewerStatus;
+}>;
+
+export function evaluateCheckoutCapabilityPreflight(
+  facts: CheckoutCapabilityPreflightFacts,
+): CheckoutCapabilityEvaluation {
+  const capabilityBlockers: CheckoutCapabilityBlockerCode[] = [];
+  if (!facts.streetValid) capabilityBlockers.push("MISSING_STREET");
+  if (!facts.suburbValid) capabilityBlockers.push("MISSING_SUBURB");
+  if (!facts.postalCodeValid) capabilityBlockers.push("MISSING_POSTCODE");
+  if (!facts.mapProofValid) capabilityBlockers.push("MISSING_MAP_PROOF");
+  if (!facts.sellerApproved) capabilityBlockers.push("UNAPPROVED_SELLER");
+  if (facts.streetValid && facts.suburbValid && facts.postalCodeValid && facts.mapProofValid) {
+    if (!facts.coverageActive) {
+      capabilityBlockers.push("COVERAGE_INACTIVE");
+    } else {
+      if (!facts.routeVerified) capabilityBlockers.push("ROUTE_UNVERIFIED");
+      if (!facts.serviceActive) capabilityBlockers.push("SERVICE_INACTIVE");
+    }
+  } else {
+    if (!facts.coverageActive) capabilityBlockers.push("COVERAGE_INACTIVE");
+    if (!facts.routeVerified) capabilityBlockers.push("ROUTE_UNVERIFIED");
+    if (!facts.serviceActive) capabilityBlockers.push("SERVICE_INACTIVE");
+  }
+  if (!facts.policyActive) capabilityBlockers.push("POLICY_INACTIVE");
+  if (!facts.paymentProviderReady) capabilityBlockers.push("PAYMENT_PROVIDER_NOT_READY");
+
+  const blockers: CheckoutCapabilityBlockerCode[] = [...capabilityBlockers];
+  if (facts.certificationStale && !blockers.includes("CERTIFICATION_STALE")) {
+    blockers.push("CERTIFICATION_STALE");
+  }
+
+  const blockerMessages: Record<string, string> = {};
+  for (const code of blockers) {
+    blockerMessages[code] = CHECKOUT_CAPABILITY_BLOCKER_MESSAGES[code];
+  }
+
+  const preflightReady = capabilityBlockers.length === 0;
+  const liveReady =
+    preflightReady &&
+    !facts.certificationStale &&
+    facts.independentReviewerStatus === "APPROVED_CURRENT";
+
+  return Object.freeze({
+    preflightReady,
+    liveReady,
+    capabilityBlockers: Object.freeze(capabilityBlockers),
+    blockers: Object.freeze(blockers),
+    blockerMessages: Object.freeze(blockerMessages),
+    independentReviewerStatus: facts.independentReviewerStatus,
+  });
+}
