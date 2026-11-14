@@ -162,6 +162,7 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
                   eligibility: true,
                   campaign: true,
                   allowlist: true,
+                  budget: true,
                 }
               }
             }
@@ -176,6 +177,8 @@ export function resolvePromotionProductionComposition(operation: Parameters<type
             || v.applicationMethod !== 'COUPON_CODE'
             || v.campaign.status !== 'ACTIVE'
             || v.currency !== 'ZAR'
+            || !v.budget || v.budget.status !== 'ACTIVE' || v.budget.currency !== 'ZAR'
+            || v.budget.approvedAmount.minus(v.budget.reservedAmount).minus(v.budget.committedAmount).plus(v.budget.releasedAmount).plus(v.budget.reversedAmount).lessThan('0.01')
             || input.now < v.startsAt || input.now >= v.endsAt
             || (codeRecord.startsAt && input.now < codeRecord.startsAt)
             || (codeRecord.expiresAt && input.now >= codeRecord.expiresAt)

@@ -12,6 +12,7 @@ import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-re
 import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, generateCodeBatch, getAdminCampaign, getAuditTrail, getBudgetTracking, getCampaignPerformance, getDisputeLedger, increaseAdminCampaignBudget, listAdminPromotions, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 import { createSession } from "@/lib/auth/session";
+import { validatePromotionCode } from "@/lib/promotions/promotion-code.service";
 
 const marker = `promotion-expiry-${randomUUID()}`;
 let campaignId = "";
@@ -120,6 +121,11 @@ it("generates a replayable coupon batch without storing plaintext and activates 
     const states = await prisma.promotionCode.findMany({ where: { campaignVersionId: version.id }, select: { status: true } });
     expect(states.filter(code => code.status === "ACTIVE")).toHaveLength(2);
     expect(states.filter(code => code.status === "ARCHIVED")).toHaveLength(1);
+    expect(await validatePromotionCode("INITIALCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toMatchObject({ campaignReference: campaign.reference });
+    expect(await validatePromotionCode("UNKNOWNCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toBeNull();
+    await expect(validatePromotionCode("INITIALCODE", "a-different-test-key-that-is-long-enough")).rejects.toThrow("unavailable");
+    await prisma.promotionBudget.update({ where: { campaignVersionId: version.id }, data: { status: "FROZEN" } });
+    expect(await validatePromotionCode("INITIALCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toBeNull();
   } finally {
     if (previousKey === undefined) delete process.env.PROMOTION_CODE_HMAC_KEY; else process.env.PROMOTION_CODE_HMAC_KEY = previousKey;
   }

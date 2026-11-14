@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
   campaignVersions: vi.fn(),
@@ -26,6 +27,7 @@ import { resolvePromotionProductionComposition } from "@/lib/promotions/promotio
 import type { PromotionEvaluationDependencies } from "@/lib/promotions/promotion-evaluation.service";
 
 const now = new Date("2026-11-09T05:00:00.000Z");
+const budget = { status: "ACTIVE", currency: "ZAR", approvedAmount: new Prisma.Decimal(100), reservedAmount: new Prisma.Decimal(0), committedAmount: new Prisma.Decimal(0), releasedAmount: new Prisma.Decimal(0), reversedAmount: new Prisma.Decimal(0) };
 const input = {
   checkoutId: "checkout-source", customerUserId: "customer-01",
   storeGroups: [], deliveryQuotes: [], now,
@@ -65,6 +67,7 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
     const validVersion = {
       status: "ACTIVE", applicationMethod: "COUPON_CODE",
       campaign: { status: "ACTIVE" }, currency: "ZAR",
+      budget,
       startsAt: new Date("2026-01-01"), endsAt: new Date("2026-12-01"),
     };
     mocks.code.mockResolvedValue({
@@ -90,7 +93,7 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
     const deps = await dependencies();
     await deps.fetchActiveCampaignVersions(now);
     expect(mocks.campaignVersions).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ endsAt: { gt: now } }) }));
-    const version = { status: "ACTIVE", applicationMethod: "COUPON_CODE", campaign: { status: "ACTIVE" }, currency: "ZAR", startsAt: new Date("2026-01-01"), endsAt: now };
+    const version = { status: "ACTIVE", applicationMethod: "COUPON_CODE", campaign: { status: "ACTIVE" }, currency: "ZAR", budget, startsAt: new Date("2026-01-01"), endsAt: now };
     mocks.code.mockResolvedValue({ id: "code", startsAt: null, expiresAt: null, restrictedCustomerUserId: null, maximumRedemptions: null, maximumRedemptionsPerCustomer: null, campaignVersion: version });
     expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
     mocks.code.mockResolvedValue({ id: "code", startsAt: null, expiresAt: now, restrictedCustomerUserId: null, maximumRedemptions: null, maximumRedemptionsPerCustomer: null, campaignVersion: { ...version, endsAt: new Date("2026-12-01") } });
@@ -106,6 +109,7 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
       campaignVersion: {
         status: "ACTIVE", applicationMethod: "COUPON_CODE",
         campaign: { status: "ACTIVE" }, currency: "ZAR",
+        budget,
         startsAt: new Date("2026-01-01"), endsAt: new Date("2026-12-01"),
       },
     });
@@ -114,5 +118,16 @@ describe("promotion source authorization for welcome and coupon checkout", () =>
     expect(mocks.redemptionCount).toHaveBeenCalledWith({
       where: { promotionCodeId: "code-used", status: "COMMITTED" },
     });
+  });
+
+  it("does not offer a coupon when its budget is frozen or depleted", async () => {
+    const deps = await dependencies();
+    const version = { status: "ACTIVE", applicationMethod: "COUPON_CODE", campaign: { status: "ACTIVE" }, currency: "ZAR", startsAt: new Date("2026-01-01"), endsAt: new Date("2026-12-01") };
+    const code = { id: "code", startsAt: null, expiresAt: null, restrictedCustomerUserId: null, maximumRedemptions: null, maximumRedemptionsPerCustomer: null };
+    mocks.code.mockResolvedValue({ ...code, campaignVersion: { ...version, budget: { ...budget, status: "FROZEN" } } });
+    expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
+    mocks.code.mockResolvedValue({ ...code, campaignVersion: { ...version, budget: { ...budget, committedAmount: new Prisma.Decimal(100) } } });
+    expect(await deps.fetchCouponCampaignVersion!("code-hmac")).toBeNull();
+    expect(mocks.redemptionCount).not.toHaveBeenCalled();
   });
 });
