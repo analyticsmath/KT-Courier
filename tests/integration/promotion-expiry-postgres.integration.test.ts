@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { expirePromotionCampaigns } from "@/lib/promotions/promotion-expiry-batch";
@@ -11,6 +11,7 @@ import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliat
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
 import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, generateCodeBatch, getAdminCampaign, getAuditTrail, getBudgetTracking, getCampaignPerformance, getDisputeLedger, increaseAdminCampaignBudget, listAdminPromotions, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
+import { createSession } from "@/lib/auth/session";
 
 const marker = `promotion-expiry-${randomUUID()}`;
 let campaignId = "";
@@ -244,3 +245,21 @@ it("requires separate approval and funded budget before campaign activation", as
   expect((await prisma.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id } })).status).toBe("ACTIVE");
   expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: activator.id, toStatus: "ACTIVE" } })).toBe(1);
 });
+
+it("previews real activation candidates and requires an authorized operator session to apply", async () => {
+  const actor = await prisma.user.create({ data: { email: `${marker}-batch-operator@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+  const reference = `${marker}-batch-activation`;
+  const campaign = await prisma.promotionCampaign.create({ data: { publicReference: reference, internalCode: reference, ownerType: "PLATFORM", status: "APPROVED", name: "Scheduled activation" } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, status: "APPROVED", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fixedAmount: 5, fundingType: "PLATFORM_FUNDED", approvedByUserId: adminId, approvedAt: new Date(), startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01") } });
+  await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 10, status: "ACTIVE" } });
+  const args = ["scripts/activate-approved-promotions.mjs", "--reference", reference];
+  const preview = JSON.parse(execFileSync(process.execPath, [...args, "--dry-run"], { encoding: "utf8", timeout: 30000 }).trim());
+  expect(preview).toMatchObject({ examined: 1, activated: 0 });
+  const denied = spawnSync(process.execPath, [...args, "--apply"], { encoding: "utf8", timeout: 30000, env: { ...process.env, KT_PROMOTION_ADMIN_SESSION: "" } });
+  expect(denied.status).not.toBe(0);
+  expect((await prisma.promotionCampaign.findUniqueOrThrow({ where: { id: campaign.id } })).status).toBe("APPROVED");
+  const token = await createSession(actor.id);
+  const result = JSON.parse(execFileSync(process.execPath, [...args, "--apply"], { encoding: "utf8", timeout: 30000, env: { ...process.env, KT_PROMOTION_ADMIN_SESSION: token } }).trim());
+  expect(result).toMatchObject({ examined: 1, activated: 1, failed: 0 });
+  expect(await prisma.promotionStatusHistory.count({ where: { campaignVersionId: version.id, actorUserId: actor.id, toStatus: "ACTIVE" } })).toBe(1);
+}, 30_000);
