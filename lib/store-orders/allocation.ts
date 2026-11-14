@@ -23,11 +23,13 @@ export function cumulativeLineAllocation(input: Readonly<{ totalAmount: string; 
   return money(after - before);
 }
 
-export function promotionLineRefund(input: Readonly<{ originalCharge: string; platformFunding: string; storeFunding: string; originalQuantity: number; previouslyResolvedQuantity: number; resolvedQuantityAfter: number }>) {
+export function promotionLineRefund(input: Readonly<{ originalCharge: string; platformFunding: string; storeFunding: string; originalQuantity: number; previouslyResolvedQuantity: number; resolvedQuantityAfter: number; replacementCharge?: string }>) {
   const proportional = (totalAmount: string) => cents(cumulativeLineAllocation({ ...input, totalAmount }));
   const platform = proportional(input.platformFunding), store = proportional(input.storeFunding), charge = cents(input.originalCharge);
   if (platform + store > charge) throw new StoreOrderError("STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Promotion discounts exceed the affected line value.");
-  return { sellerBasisRefund: money(charge - store), customerRefund: money(charge - store - platform), platformSubsidyReversal: money(platform) };
+  const replacement = cents(input.replacementCharge ?? "0.00");
+  if (replacement > charge - store - platform) throw new StoreOrderError("STORE_ORDER_SUBSTITUTION_PRICE_CAP", "The replacement exceeds the amount paid for the original item.");
+  return { sellerBasisRefund: money(charge - store - replacement), customerRefund: money(charge - store - platform - replacement), platformSubsidyReversal: money(platform) };
 }
 
 export function assertSubstitutionPriceCap(input: Readonly<{ substituteCharge: string; originalRemainingCharge: string }>): void {

@@ -60,7 +60,10 @@ export async function applyPromotionRefundAdjustment(context: PromotionRefundCon
   const platform = matching.reduce((sum, row) => sum.add(row.platformFunding), new Decimal(0));
   const store = matching.reduce((sum, row) => sum.add(row.storeFunding), new Decimal(0));
   const originalCharge = line.effectiveUnitPrice.mul(affectedQuantity).toFixed(2);
-  const calculated = promotionLineRefund({ originalCharge, platformFunding: platform.toFixed(2), storeFunding: store.toFixed(2), originalQuantity: line.quantity, previouslyResolvedQuantity: item.resolvedQuantityBefore, resolvedQuantityAfter: item.resolvedQuantityAfter });
+  const evidence = adjustment.financialEvidence;
+  const replacementCharge = adjustment.adjustmentType === 'SUBSTITUTION' ? (evidence && typeof evidence === 'object' && !Array.isArray(evidence) ? evidence.replacementCharge : undefined) : '0.00';
+  if (typeof replacementCharge !== 'string') throw new Error('Frozen replacement charge is unavailable.');
+  const calculated = promotionLineRefund({ originalCharge, platformFunding: platform.toFixed(2), storeFunding: store.toFixed(2), originalQuantity: line.quantity, previouslyResolvedQuantity: item.resolvedQuantityBefore, resolvedQuantityAfter: item.resolvedQuantityAfter, replacementCharge });
   if (!refund.amount.equals(calculated.customerRefund) || !item.amount.equals(calculated.sellerBasisRefund)) throw new Error('Refund amount does not match the frozen promotion funding.');
   const targetAllocations = target.allocations.filter(row => row.storeGroupReference === adjustment.storeOrder.checkoutStoreGroupId && row.lineReference === context.lineReference && row.allocationType === 'MERCHANDISE');
   const proportional = (amount: Decimal) => new Decimal(cumulativeLineAllocation({ totalAmount: amount.toFixed(2), originalQuantity: line.quantity, previouslyResolvedQuantity: item.resolvedQuantityBefore, resolvedQuantityAfter: item.resolvedQuantityAfter }));

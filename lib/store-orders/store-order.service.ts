@@ -418,14 +418,13 @@ async function createLineAdjustment(tx: Phase21Database, order: any, issue: any,
   if (groupDiscount.greaterThan(0)) {
     const redemptions = await model(tx, "promotionRedemption").findMany({ where: { marketplaceOrderId: order.marketplaceOrderId }, include: { allocations: true } });
     if (redemptions.length) {
-      assertStoreOrder(cents(replacementCharge) === 0n, "STORE_ORDER_ADJUSTMENT_INVALID", "A discounted substitution requires financial review before applying its price difference.");
       const groupAllocations = redemptions.flatMap((item: any) => item.allocations).filter((item: any) => item.storeGroupReference === order.checkoutStoreGroupId);
       const groupDiscountEvidence = groupAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.discountAmount), new Prisma.Decimal(0));
       assertStoreOrder(groupDiscountEvidence.equals(groupDiscount) && groupAllocations.every((item: any) => item.platformFunding.add(item.storeFunding).equals(item.discountAmount)), "STORE_ORDER_FINANCIAL_ALLOCATION_INVALID", "Promotion funding evidence does not match the store payment plan.");
       const lineAllocations = groupAllocations.filter((item: any) => item.allocationType === "MERCHANDISE" && item.lineReference === sourceLine.checkoutLineSnapshotId);
       const platformTotal = lineAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.platformFunding), new Prisma.Decimal(0));
       const storeTotal = lineAllocations.reduce((sum: Prisma.Decimal, item: any) => sum.add(item.storeFunding), new Prisma.Decimal(0));
-      const adjustment = promotionLineRefund({ originalCharge, storeFunding: storeTotal.toFixed(2), platformFunding: platformTotal.toFixed(2), originalQuantity: sourceLine.quantity, previouslyResolvedQuantity: before, resolvedQuantityAfter: after });
+      const adjustment = promotionLineRefund({ originalCharge, storeFunding: storeTotal.toFixed(2), platformFunding: platformTotal.toFixed(2), originalQuantity: sourceLine.quantity, previouslyResolvedQuantity: before, resolvedQuantityAfter: after, replacementCharge });
       grossRefundAmount = adjustment.sellerBasisRefund;
       platformSubsidyReversal = adjustment.platformSubsidyReversal;
       customerRefund = adjustment.customerRefund;

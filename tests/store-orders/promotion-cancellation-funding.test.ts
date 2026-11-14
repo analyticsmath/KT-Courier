@@ -21,3 +21,10 @@ it("uses immutable per-line funding shares and conserves cents across partial re
   expect(promotionLineRefund({ ...base, platformFunding: "0", storeFunding: "0", previouslyResolvedQuantity: 0, resolvedQuantityAfter: 1 }).customerRefund).toBe("10.00");
   expect(() => promotionLineRefund({ ...base, originalCharge: "0.10", previouslyResolvedQuantity: 0, resolvedQuantityAfter: 1 })).toThrow("exceed");
 });
+
+it("funds an affordable replacement from the customer's original payment while reversing the promotion", () => {
+  const input = { originalCharge: "100.00", platformFunding: "6.00", storeFunding: "4.00", originalQuantity: 1, previouslyResolvedQuantity: 0, resolvedQuantityAfter: 1 };
+  expect(promotionLineRefund({ ...input, replacementCharge: "50.00" })).toEqual({ sellerBasisRefund: "46.00", customerRefund: "40.00", platformSubsidyReversal: "6.00" });
+  expect(promotionLineRefund({ ...input, replacementCharge: "90.00" })).toEqual({ sellerBasisRefund: "6.00", customerRefund: "0.00", platformSubsidyReversal: "6.00" });
+  expect(() => promotionLineRefund({ ...input, replacementCharge: "90.01" })).toThrow("exceeds the amount paid");
+});

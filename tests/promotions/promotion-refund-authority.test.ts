@@ -9,7 +9,7 @@ const decimal = (value: string) => new Prisma.Decimal(value);
 const context: PromotionRefundContext = { refundId: 'refund', storeOrderId: 'store-order', lineReference: 'checkout-line', refundProportion: decimal('1'), lineTotal: decimal('100'), frozenPromotionAllocations: [], redemptionId: 'redemption', operationId: 'refund-operation', requestHash: 'hash' };
 function fixture() {
   const allocation = { id: 'allocation', storeGroupReference: 'group', lineReference: 'checkout-line', allocationType: 'MERCHANDISE', platformFunding: decimal('6'), storeFunding: decimal('4') };
-  const adjustment = { id: 'adjustment', refundId: 'refund', marketplaceStoreOrderId: 'store-order', status: 'COMPLETED', refundAmount: decimal('90'), deliveryFeeAmount: decimal('0'), allocations: [{ allocationType: 'SELLER_BASIS', marketplaceOrderLineId: 'order-line', originalQuantity: 1, resolvedQuantityBefore: 0, resolvedQuantityAfter: 1, amount: decimal('96') }], storeOrder: { marketplaceOrderId: 'order', checkoutStoreGroupId: 'group', marketplaceOrder: { paymentId: 'payment', customerUserId: 'customer' } } };
+  const adjustment = { id: 'adjustment', adjustmentType: 'ITEM_REMOVAL', financialEvidence: { replacementCharge: '0.00' }, refundId: 'refund', marketplaceStoreOrderId: 'store-order', status: 'COMPLETED', refundAmount: decimal('90'), deliveryFeeAmount: decimal('0'), allocations: [{ allocationType: 'SELLER_BASIS', marketplaceOrderLineId: 'order-line', originalQuantity: 1, resolvedQuantityBefore: 0, resolvedQuantityAfter: 1, amount: decimal('96') }], storeOrder: { marketplaceOrderId: 'order', checkoutStoreGroupId: 'group', marketplaceOrder: { paymentId: 'payment', customerUserId: 'customer' } } };
   const refund = { status: 'SUCCEEDED', completedAt: new Date(), paymentId: 'payment', customerUserId: 'customer', amount: decimal('90'), completionLedgerJournal: { type: 'REFUND_WALLET_CREDIT', totalDebits: decimal('90'), totalCredits: decimal('90') } };
   const tx = { $queryRaw: vi.fn(), marketplaceStoreOrderAdjustment: { findFirst: vi.fn(async () => adjustment) }, paymentRefund: { findUnique: vi.fn(async () => refund) }, marketplaceOrderLine: { findFirst: vi.fn(async () => ({ id: 'order-line', quantity: 1, lineTotal: decimal('100'), effectiveUnitPrice: decimal('100') })) }, promotionRedemption: { findMany: vi.fn(async () => [{ id: 'redemption', redemptionReusePolicy: 'NEVER_RESTORE', allocations: [allocation] }]) }, promotionOperation: { findUnique: vi.fn(async () => null), create: vi.fn() } };
   return { tx, refund, adjustment };
@@ -35,4 +35,15 @@ it('rejects forged amounts even when caller-provided allocations claim otherwise
   const { tx, refund } = fixture(); refund.amount = decimal('91'); refund.completionLedgerJournal.totalDebits = decimal('91'); refund.completionLedgerJournal.totalCredits = decimal('91');
   await expect(applyPromotionRefundAdjustment(context, tx as unknown as Prisma.TransactionClient)).rejects.toThrow();
   expect(mock.reverse).not.toHaveBeenCalled();
+});
+
+it('verifies the frozen replacement charge before recovering a discounted substitution refund', async () => {
+  const { tx, refund, adjustment } = fixture();
+  adjustment.adjustmentType = 'SUBSTITUTION'; adjustment.financialEvidence.replacementCharge = '50.00';
+  adjustment.refundAmount = decimal('40'); adjustment.allocations[0].amount = decimal('46');
+  refund.amount = decimal('40'); refund.completionLedgerJournal.totalDebits = decimal('40'); refund.completionLedgerJournal.totalCredits = decimal('40');
+  const result = await applyPromotionRefundAdjustment(context, tx as unknown as Prisma.TransactionClient);
+  expect(result.customerRefundAmount.toFixed(2)).toBe('40.00');
+  adjustment.financialEvidence.replacementCharge = '91.00';
+  await expect(applyPromotionRefundAdjustment(context, tx as unknown as Prisma.TransactionClient)).rejects.toThrow('exceeds the amount paid');
 });
