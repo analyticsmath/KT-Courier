@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
 import { Decimal } from '@prisma/client/runtime/library';
 import { assertPromotionsProductionReady } from './production-lock';
 import { recordBudgetMovement } from './promotion-budget.service';
@@ -50,7 +51,7 @@ export interface RedemptionCommitResult {
 
 type PrismaTransactionClient = Parameters<Parameters<import('@prisma/client').PrismaClient['$transaction']>[0]>[0];
 
-const cuid = () => Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+const cuid = () => randomUUID();
 
 async function getOrCreatePromotionLedgerAccounts(tx: PrismaTransactionClient) {
   // Use canonical ledger purposes, account codes and a single platform wallet.
@@ -268,7 +269,7 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
         idempotencyKey: `LJ-PROMO-${record.id}`,
         type: 'GENERAL',
         currency: 'ZAR',
-        sourceReference: record.id,
+        sourceReference: `PROMO:${createHash('sha256').update(record.id).digest('hex').toUpperCase()}`,
         correlationId: input.marketplaceOrderId,
         memo: `Platform Promotion Subsidy for redemption ${record.id}`,
         actor: { kind: 'SYSTEM' },

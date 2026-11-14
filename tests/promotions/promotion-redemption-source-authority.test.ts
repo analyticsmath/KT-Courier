@@ -10,9 +10,14 @@ vi.mock("@/lib/promotions/promotion-budget.service", () => ({
 vi.mock("@/lib/services/ledger-posting.service", () => ({
   postLedgerJournalWithinTransaction: vi.fn(),
 }));
+vi.mock("@/lib/services/wallet-account.service", () => ({
+  ensureWalletForOwnerInTx: vi.fn(async () => ({ id: "wallet-1" })),
+  ensureLedgerAccountInTx: vi.fn(async (_tx, input) => ({ id: input.purpose === "HELD" ? "account-held" : "account-expense" })),
+}));
 
 import { commitMarketplacePromotionRedemptions, type RedemptionCommitInput } from "@/lib/promotions/promotion-redemption.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import { normalizeLedgerPosting } from "@/lib/ledger/posting-normalization";
 
 const money = (value: string) => new Prisma.Decimal(value);
 const payment = () => ({
@@ -130,5 +135,24 @@ describe("promotion commitment provider and marketplace source authority", () =>
     await expect(commitMarketplacePromotionRedemptions({
       ...input(), reservationIds: ["somebody-elses-reservation"],
     }, asTx(tx))).rejects.toThrow("replay does not match");
+  });
+
+  it("submits a ledger-valid, balanced subsidy for a verified redemption", async () => {
+    const tx = database();
+    const reservation = { id: "res-1", campaignVersionId: "campaign-1", checkoutId: "ck-1", checkoutReviewVersion: 2, customerUserId: "customer-1", status: "RESERVED", expiresAt: new Date("2027-01-01"), promotionCodeId: null, reservedDiscountAmount: money("5.00"), reservedPlatformFunding: money("5.00"), reservedStoreFunding: money("0.00") };
+    tx.promotionReservation.findMany.mockResolvedValue([reservation] as never);
+    Object.assign(tx, {
+      promotionBudget: { findMany: vi.fn(async () => [{ id: "budget-1", campaignVersionId: "campaign-1" }]) },
+      promotionEventIntent: { create: vi.fn() },
+    });
+    Object.assign(tx.promotionRedemption, { create: vi.fn() });
+    Object.assign(tx.promotionReservation, { update: vi.fn() });
+    const request = input();
+    request.frozenEvaluation.applied = [{ campaignVersionId: "campaign-1", calculatedDiscount: money("5.00"), platformFunding: money("5.00"), storeFunding: money("0.00") }] as typeof request.frozenEvaluation.applied;
+    await commitMarketplacePromotionRedemptions(request, asTx(tx));
+    const posting = vi.mocked(postLedgerJournalWithinTransaction).mock.calls[0][1];
+    const normalized = normalizeLedgerPosting(posting);
+    expect(normalized.sourceReference).toMatch(/^PROMO:[A-F0-9]{64}$/);
+    expect(normalized.totalDebits.toString()).toBe(normalized.totalCredits.toString());
   });
 });
