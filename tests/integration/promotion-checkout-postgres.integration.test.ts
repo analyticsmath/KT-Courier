@@ -494,7 +494,7 @@ it("executes mixed-discount substitute/refund lifecycle on PostgreSQL with negat
   const platformWallet = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
   const cashAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
   const heldAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" });
-  const revenueAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-COMMISSION-EARNED-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR" });
+  const revenueAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-COMMISSION-REVENUE-ZAR", purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR" });
   const promoExpenseAccount = await ensureLedgerAccount({ walletId: platformWallet.id, code: "PLATFORM-PROMOTION-EXPENSE-ZAR", purpose: "PLATFORM_PROMOTION_EXPENSE", category: "EXPENSE", currency: "ZAR" });
   await ensureWalletForOwner({ ownerType: "STORE", ownerId: store.id, currency: "ZAR" });
   const storePayable = await ensureStoreEarningPayableAccount(store.id);
