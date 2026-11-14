@@ -9,6 +9,7 @@ import { StoreOrderError } from "@/lib/store-orders/errors";
 import { storeAdjustmentChildOperation } from "./financial-operation";
 import { assertUnstartedMarketplaceCodFunding } from "@/lib/services/marketplace-adjustment-refund-authority";
 import { reversePlatformSubsidyJournalInTx } from "@/lib/promotions/platform-subsidy-ledger.service";
+import { reversePromotionBudgetForAdjustment } from "@/lib/promotions/promotion-adjustment-reversal";
 
 const zero = () => new Prisma.Decimal(0);
 
@@ -142,6 +143,7 @@ export class ExistingPhaseFinancialAdjustmentAuthority implements StoreOrderFina
         commissionReversals.push(reversed.reversalLedgerJournalReference);
       }
       const earningReversal = storeEarning.isZero() ? null : await adjustStoreEarningInTransaction(tx, { publicReference: earning.publicReference, originalSellerBasis: earning.settlementBasisAmount.toFixed(2), originalCommission: earning.attributedCommissionAmount.toFixed(2), originalAmount: earning.amount.toFixed(2), previouslyAdjustedAmount: priorStoreEarning.toFixed(2) }, { sellerBasisAmount: sellerBasis.toFixed(2), commissionAmount: commission.toFixed(2), storeEarningAmount: storeEarning.toFixed(2) }, { operationId: storeAdjustmentChildOperation(input.operationId, "store-earning"), reasonCode: "MARKETPLACE_STORE_ADJUSTMENT" });
+      await reversePromotionBudgetForAdjustment(tx, { adjustmentId: adjustment.id, storeOrderId: adjustment.marketplaceStoreOrderId, marketplaceOrderId: adjustment.storeOrder.marketplaceOrderId, checkoutStoreGroupId: adjustment.storeOrder.checkoutStoreGroupId, deliveryFeeAmount: adjustment.deliveryFeeAmount, allocations: adjustment.allocations });
       let platformSubsidyReversalReference: string | undefined;
       if (platformSubsidy.greaterThan(0)) {
         try {

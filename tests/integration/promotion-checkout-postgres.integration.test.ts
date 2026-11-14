@@ -8,6 +8,7 @@ import { postLedgerJournal } from "@/lib/services/ledger-posting.service";
 import { reserveCheckoutPromotions } from "@/lib/promotions/promotion-reservation.service";
 import { commitMarketplacePromotionRedemptions } from "@/lib/promotions/promotion-redemption.service";
 import type { AppliedPromotion, PromotionEvaluationResult } from "@/lib/promotions/promotion-evaluation.service";
+import { reversePromotionBudgetForAdjustment } from "@/lib/promotions/promotion-adjustment-reversal";
 
 beforeAll(() => requireDisposableStoreSettlementDatabase());
 
@@ -20,12 +21,12 @@ it("reserves reviewed allocations, posts one funded redemption and preserves sou
   const group = await prisma.marketplaceCheckoutStoreGroup.create({ data: { checkoutId: checkout.id, storeId: store.id, fulfilmentMode: "COURIER_DELIVERY", merchandiseSubtotal: "100.00", groupTotal: "100.00" } });
   const line = await prisma.marketplaceCheckoutLineSnapshot.create({ data: { checkoutId: checkout.id, storeGroupId: group.id, reviewVersion: 1, productReference: `${marker}-product`, variantReference: `${marker}-variant`, offerReference: `${marker}-offer`, storeReference: store.id, productTitle: "Item", variantTitle: "Default", quantity: 1, sellingUnit: "EACH", publicationVersion: "1", priceVersion: "1", baseUnitPrice: "100.00", modifierUnitTotal: "0.00", effectiveUnitPrice: "100.00", lineTotal: "100.00", taxTreatment: "INCLUDED" } });
   const campaign = await prisma.promotionCampaign.create({ data: { publicReference: `${marker}-campaign`, internalCode: marker, ownerType: "PLATFORM", name: "Promotion", status: "ACTIVE" } });
-  const version = await prisma.promotionCampaignVersion.create({ data: { campaignId: campaign.id, publicReference: `${marker}-version`, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "LINE", discountMechanism: "FIXED_AMOUNT", fixedAmount: 10, fundingType: "PLATFORM_FUNDED", startsAt: new Date(Date.now()-60000), endsAt: new Date(Date.now()+86400000) } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { campaignId: campaign.id, publicReference: `${marker}-version`, versionNumber: 1, status: "ACTIVE", applicationMethod: "AUTOMATIC", discountScope: "LINE", discountMechanism: "FIXED_AMOUNT", fixedAmount: 10, fundingType: "SHARED_PLATFORM_STORE", platformFundingShareBps: 6000, storeFundingShareBps: 4000, maximumRedemptionsGlobal: 1, startsAt: new Date(Date.now()-60000), endsAt: new Date(Date.now()+86400000) } });
   const budget = await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 100 } });
   const amount = (v: string) => new Prisma.Decimal(v);
-  const allocation = { lineId: line.id, basisAmount: amount("100"), discountAmount: amount("10"), platformFunding: amount("10"), storeFunding: amount("0") };
-  const applied: AppliedPromotion = { campaignVersionId: version.id, campaignId: campaign.id, publicReference: version.publicReference, applicationMethod: "AUTOMATIC", discountScope: "LINE", calculatedDiscount: amount("10"), fundingType: "PLATFORM", platformFundingShareBps: 10000, customerFacingTitle: "Promotion", campaignName: "Promotion", category: "AUTOMATIC_MERCHANDISE", allocations: [allocation], platformFunding: amount("10"), storeFunding: amount("0") };
-  const evaluation: PromotionEvaluationResult = { eligible: [applied], applied: [applied], rejected: [], stackingEvidence: { selectedPromotionIds: [version.id], rejectedPromotionIds: [], rejectionReasons: {} }, totalDiscount: amount("10"), totalPlatformFunding: amount("10"), totalStoreFunding: amount("0"), allocations: [allocation] };
+  const allocation = { lineId: line.id, basisAmount: amount("100"), discountAmount: amount("10"), platformFunding: amount("6"), storeFunding: amount("4") };
+  const applied: AppliedPromotion = { campaignVersionId: version.id, campaignId: campaign.id, publicReference: version.publicReference, applicationMethod: "AUTOMATIC", discountScope: "LINE", calculatedDiscount: amount("10"), fundingType: "SHARED", platformFundingShareBps: 6000, customerFacingTitle: "Promotion", campaignName: "Promotion", category: "AUTOMATIC_MERCHANDISE", allocations: [allocation], platformFunding: amount("6"), storeFunding: amount("4") };
+  const evaluation: PromotionEvaluationResult = { eligible: [applied], applied: [applied], rejected: [], stackingEvidence: { selectedPromotionIds: [version.id], rejectedPromotionIds: [], rejectionReasons: {} }, totalDiscount: amount("10"), totalPlatformFunding: amount("6"), totalStoreFunding: amount("4"), allocations: [allocation] };
   const reserved = await prisma.$transaction(tx => reserveCheckoutPromotions({ checkoutId: checkout.id, checkoutReviewVersion: 1, customerUserId: customer.id, evaluationResult: evaluation, appliedPromotions: [applied], operationId: `${marker}-reserve`, requestHash: "a".repeat(64), now: new Date() }, tx));
   const platform = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" });
   const cash = await ensureLedgerAccount({ walletId: platform.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" });
@@ -45,6 +46,16 @@ it("reserves reviewed allocations, posts one funded redemption and preserves sou
   expect(redemption.allocations[0]).toMatchObject({ lineReference: line.id, storeGroupReference: group.id, allocationType: "MERCHANDISE" });
   expect((await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } })).committedAmount.toFixed(2)).toBe("10.00");
   const journal = await prisma.ledgerJournal.findUniqueOrThrow({ where: { idempotencyKey: `LJ-PROMO-${redemption.id}` } });
-  expect(journal.totalDebits.toFixed(2)).toBe("10.00");
-  expect(journal.totalCredits.toFixed(2)).toBe("10.00");
+  expect(journal.totalDebits.toFixed(2)).toBe("6.00");
+  expect(journal.totalCredits.toFixed(2)).toBe("6.00");
+  const storeOrder = await prisma.marketplaceStoreOrder.create({ data: { publicReference: `${marker}-store-order`, marketplaceOrderId: order.id, checkoutStoreGroupId: group.id, storeId: store.id, merchandiseSubtotal: "100.00", modifierSubtotal: "0.00", deliveryFee: "0.00", groupTotal: "100.00" } });
+  const orderLine = await prisma.marketplaceOrderLine.create({ data: { marketplaceStoreOrderId: storeOrder.id, checkoutLineSnapshotId: line.id, productReference: line.productReference, variantReference: line.variantReference, offerReference: line.offerReference, title: "Item", variantTitle: "Default", quantity: 1, baseUnitPrice: "100.00", modifierUnitTotal: "0.00", effectiveUnitPrice: "100.00", lineTotal: "100.00", taxTreatment: "INCLUDED" } });
+  const adjustment = { adjustmentId: `${marker}-adjustment`, storeOrderId: storeOrder.id, marketplaceOrderId: order.id, checkoutStoreGroupId: group.id, deliveryFeeAmount: amount("0"), allocations: [{ marketplaceOrderLineId: orderLine.id, allocationType: "SELLER_BASIS", originalQuantity: 1, resolvedQuantityBefore: 0, resolvedQuantityAfter: 1 }] };
+  const reverse = () => prisma.$transaction(tx => reversePromotionBudgetForAdjustment(tx, adjustment));
+  const [reversed, repeated] = await Promise.all([reverse(), reverse()]);
+  expect(reversed).toEqual(repeated);
+  expect((await prisma.promotionRedemption.findUniqueOrThrow({ where: { id: redemption.id } })).status).toBe("FULLY_REVERSED");
+  expect((await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } })).reversedAmount.toFixed(2)).toBe("10.00");
+  expect(await prisma.promotionBudgetMovement.count({ where: { redemptionId: redemption.id, movementType: "REVERSE" } })).toBe(1);
+  await expect(prisma.$transaction(tx => reserveCheckoutPromotions({ checkoutId: checkout.id, checkoutReviewVersion: 1, customerUserId: customer.id, evaluationResult: evaluation, appliedPromotions: [applied], operationId: `${marker}-retry-after-reversal`, requestHash: "e".repeat(64), now: new Date() }, tx))).rejects.toThrow("redemption limit");
 }, 30_000);
