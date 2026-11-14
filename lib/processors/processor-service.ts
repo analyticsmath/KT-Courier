@@ -59,7 +59,15 @@ export interface ProcessorHandlerOutcome {
 export type ProcessorHandler = (context: ProcessorHandlerContext) => Promise<ProcessorHandlerOutcome>;
 
 export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandler> = {
+  "process-privacy-requests": async ({ mode, batchSize }) => {
+    const { runConsentWithdrawalBatch } = await import("@/lib/privacy/consent-withdrawal-batch");
+    return runConsentWithdrawalBatch({ mode, batchSize });
+  },
   "process-promoter-qualifications": async ({ mode, batchSize }) => {
+    if (mode === "APPLY") {
+      const { assertPromotersProductionReady } = await import("@/lib/promoters/production-readiness");
+      assertPromotersProductionReady();
+    }
     const candidates = await prisma.promoterQualification.findMany({
       where: { status: "EVIDENCE_OBSERVED" },
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
@@ -67,8 +75,6 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       select: { id: true, publicReference: true },
     });
     if (mode === "DRY_RUN") return { itemsExamined: candidates.length, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: candidates.length, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Found ${candidates.length} observed promoter qualifications.` };
-    const { assertPromotersProductionReady } = await import("@/lib/promoters/production-readiness");
-    assertPromotersProductionReady();
     const { confirmPromoterQualification } = await import("@/lib/promoters/qualification-earning.service");
     let completed = 0;
     for (const candidate of candidates) {

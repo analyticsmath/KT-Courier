@@ -57,9 +57,11 @@ describe("Phase 1: Promoter Production Safety Gate Invariant", () => {
       /CONSOLIDATED_VALIDATION_NOT_APPROVED/,
     );
 
-    // Boundary 5: Processor Registry disabled invariant
+    // Boundary 5: The implemented processor retains the production authorization gate.
     const promoterProcessor = PROCESSOR_REGISTRY["process-promoter-qualifications"];
     expect(promoterProcessor).toBeDefined();
-    expect(promoterProcessor.status).toBe("DISABLED");
+    expect(promoterProcessor.status).toBe("IMPLEMENTED");
+    const { PROCESSOR_HANDLERS } = await import("@/lib/processors/processor-service");
+    await expect(PROCESSOR_HANDLERS["process-promoter-qualifications"]({ mode: "APPLY", batchSize: 1, operationId: "safety-gate" })).rejects.toThrowError(/CONSOLIDATED_VALIDATION_NOT_APPROVED/);
   });
 });

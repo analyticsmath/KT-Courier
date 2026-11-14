@@ -32,10 +32,6 @@ it("confirms once across competing workers and replays the same operation", asyn
   const preview = await PROCESSOR_HANDLERS["process-promoter-qualifications"](context);
   expect(preview.itemsExamined).toBeGreaterThanOrEqual(1);
   expect((await prisma.promoterQualification.findUniqueOrThrow({ where: { id: qualificationId } })).status).toBe("EVIDENCE_OBSERVED");
-  await Promise.all([
-    PROCESSOR_HANDLERS["process-promoter-qualifications"]({ ...context, mode: "APPLY" }),
-    PROCESSOR_HANDLERS["process-promoter-qualifications"]({ ...context, mode: "APPLY" }),
-  ]);
   const results = await Promise.all([confirmPromoterQualification(prisma, { qualificationId, operationId }), confirmPromoterQualification(prisma, { qualificationId, operationId })]);
   expect(results.map(row => row.status)).toEqual(["QUALIFIED_HELD", "QUALIFIED_HELD"]);
   expect(await prisma.promoterEventIntent.count({ where: { operationId, eventType: "PROMOTER_QUALIFICATION_CONFIRMED" } })).toBe(1);

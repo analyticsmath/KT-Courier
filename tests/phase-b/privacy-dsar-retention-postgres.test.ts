@@ -8,11 +8,26 @@ import { UserRole, UserStatus } from "@/types/db";
 import { buildPrivacyExport, createPrivacyRequest, getPrivacyRequest, processConsentWithdrawal, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
 import { createRetentionHold, releaseRetentionHold } from "@/lib/retention/hold-evaluator";
 import { activateRetentionPolicy, createRetentionPolicyVersion, executeAccountAnonymisation, executeRetentionTarget } from "@/lib/retention/privacy-retention.service";
+import { runConsentWithdrawalBatch } from "@/lib/privacy/consent-withdrawal-batch";
 
 const marker = `DSAR${randomUUID().replaceAll("-", "").toUpperCase()}`; let userA = ""; let userB = ""; let admin = "";
 beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = await Promise.all(["a", "b", "admin"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin] = rows.map((row) => row.id); });
 
 describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
+  it("recovers authenticated consent withdrawals without advancing an administrator's review", async () => {
+    const [owner, reviewedOwner] = await Promise.all(["batch", "manual"].map(suffix => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, role: UserRole.CUSTOMER, status: UserStatus.ACTIVE } })));
+    const recovering = await createPrivacyRequest({ requesterUserId: owner.id, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-RECOVERY` });
+    const manual = await createPrivacyRequest({ requesterUserId: reviewedOwner.id, requestType: "CONSENT_WITHDRAWAL", operationId: `${marker}-MANUAL` });
+    await transitionPrivacyRequest({ actorUserId: owner.id, publicReference: String(recovering.publicReference), nextStatus: "UNDER_REVIEW", reasonCode: "CANONICAL_CONSENT_WITHDRAWAL_REVIEW", operationId: `privacy-consent:${recovering.id}:REVIEW` });
+    await transitionPrivacyRequest({ actorUserId: admin, publicReference: String(manual.publicReference), nextStatus: "UNDER_REVIEW", reasonCode: "MANUAL_REVIEW", operationId: `${marker}-MANUAL-REVIEW` });
+    const preview = await runConsentWithdrawalBatch({ mode: "DRY_RUN", batchSize: 50 });
+    expect(preview.itemsExamined).toBeGreaterThanOrEqual(1);
+    expect((await prisma.privacyRequest.findUniqueOrThrow({ where: { id: String(recovering.id) } })).status).toBe("UNDER_REVIEW");
+    await runConsentWithdrawalBatch({ mode: "APPLY", batchSize: 50 });
+    expect((await prisma.privacyRequest.findUniqueOrThrow({ where: { id: String(recovering.id) } })).status).toBe("COMPLETED");
+    expect((await prisma.privacyRequest.findUniqueOrThrow({ where: { id: String(manual.id) } })).status).toBe("UNDER_REVIEW");
+    expect(await prisma.notificationConsentRecord.count({ where: { userId: owner.id, purpose: "MARKETING", status: "REVOKED" } })).toBe(4);
+  });
   it("rolls back privacy request creation if its first audit event cannot be written", async () => {
     const existing = await createPrivacyRequest({ requesterUserId: userA, requestType: "OBJECTION", operationId: `${marker}-ATOMIC-SEED` });
     const targetOperation = `${marker}-ATOMIC-FAIL`;

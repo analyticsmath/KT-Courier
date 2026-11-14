@@ -75,23 +75,10 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
     }
   });
 
-  it("throws PROCESSOR_HANDLER_NOT_IMPLEMENTED when executing a disabled processor", async () => {
-    const allProcessors = Object.values(PROCESSOR_REGISTRY) as Array<
-      (typeof PROCESSOR_REGISTRY)[ProcessorName]
-    >;
-    const disabledNames = allProcessors
-      .filter((p) => p.status === "DISABLED")
-      .map((p) => p.name as ProcessorName);
-
-    expect(disabledNames.length).toBeGreaterThan(0);
-
-    for (const name of disabledNames) {
-      await expect(
-        executeRegisteredProcessor({
-          name,
-          mode: "APPLY",
-        }),
-      ).rejects.toThrow(/PROCESSOR_HANDLER_NOT_IMPLEMENTED/);
+  it("has a handler for every registered processor", () => {
+    for (const processor of Object.values(PROCESSOR_REGISTRY)) {
+      expect(processor.status).toBe("IMPLEMENTED");
+      expect(PROCESSOR_HANDLERS[processor.name as ImplementedProcessorName]).toBeTypeOf("function");
     }
   });
 
