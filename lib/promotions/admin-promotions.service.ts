@@ -1,10 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 import { assertPromotionsProductionReady } from "./production-lock";
 import { db } from "@/lib/db";
-import { PromotionReconciliationStatus } from "@prisma/client";
+import { Prisma, PromotionReconciliationStatus } from "@prisma/client";
 import { safeOperationalText } from "@/lib/operations/phase5-repository";
 import { createHash, randomUUID } from "node:crypto";
 import { couponData, PromotionDraftSchema, PromotionUpdateSchema, promotionDraftProjection, versionData } from "@/lib/client-platform/promotion-authoring.service";
+import { recordBudgetMovement } from "./promotion-budget.service";
 
 export async function listAdminPromotions(...args: any[]): Promise<any> {
   return [];
@@ -167,9 +168,30 @@ async function transitionReviewCampaign(reference: string, actorUserId: string, 
   });
 }
 
-export async function increaseAdminCampaignBudget(...args: any[]): Promise<any> {
-  assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  return null;
+export async function increaseAdminCampaignBudget(reference: string, amount: unknown, actorUserId: string, operationId: unknown) {
+  assertPromotionsProductionReady("BUDGET_MOVEMENT");
+  if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim() || typeof amount !== "string" || !/^(?:0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(amount) || typeof operationId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(operationId)) throw new Error("Invalid budget increase.");
+  const value = new Prisma.Decimal(amount);
+  if (value.lessThanOrEqualTo(0)) throw new Error("Budget increase must be positive.");
+  const requestHash = createHash("sha256").update(JSON.stringify({ reference, actorUserId, amount: value.toFixed(2) })).digest("hex");
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`promotion-budget:${operationId}`},0))::text`;
+    const replay = await tx.promotionBudgetMovement.findUnique({ where: { operationId_movementType: { operationId, movementType: "APPROVED_INCREASE" } }, include: { budget: { include: { campaignVersion: { include: { campaign: true } } } } } });
+    if (replay) {
+      if (replay.requestHash !== requestHash || replay.budget.campaignVersion.campaign.publicReference !== reference) throw new Error("PROMOTION_BUDGET_OPERATION_CONFLICT");
+      return { reference, amount: replay.amount.toFixed(2), balanceAfter: replay.balanceAfter.toFixed(2), operationId };
+    }
+    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { orderBy: { versionNumber: "desc" }, take: 1, include: { budget: true } } } });
+    const version = campaign?.versions[0];
+    if (!campaign || !version || !version.budget || !["APPROVED", "ACTIVE", "PAUSED"].includes(campaign.status) || campaign.status !== version.status || !version.approvedByUserId || !version.approvedAt) throw new Error("An independently approved campaign and budget are required.");
+    await tx.$queryRaw`SELECT id FROM "PromotionCampaignVersion" WHERE id=${version.id} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM "PromotionBudget" WHERE id=${version.budget.id} FOR UPDATE`;
+    const current = await tx.promotionCampaignVersion.findUniqueOrThrow({ where: { id: version.id }, include: { campaign: true } });
+    if (current.status !== campaign.status || current.campaign.status !== campaign.status || !current.approvedByUserId || !current.approvedAt) throw new Error("Campaign changed; reload before acting.");
+    const movement = await recordBudgetMovement({ budgetId: version.budget.id, campaignVersionId: version.id, movementType: "APPROVED_INCREASE", amount: value, operationId, requestHash }, tx);
+    await tx.adminActivityLog.create({ data: { actorUserId, action: "UPDATE", entityType: "PromotionCampaign", entityId: campaign.id, message: "Administrator increased approved promotion budget", metadata: { operationId, amount: value.toFixed(2) } } });
+    return { reference, amount: value.toFixed(2), balanceAfter: movement.balanceAfter.toFixed(2), operationId };
+  }, { isolationLevel: "ReadCommitted" });
 }
 
 export async function generateCodeBatch(...args: any[]): Promise<any> {

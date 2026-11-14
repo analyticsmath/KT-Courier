@@ -22,7 +22,7 @@ export async function POST(
     const params = await context.params;
     const body = await request.json();
     assertPromotionsProductionReady("BUDGET_MOVEMENT");
-    const budget = await increaseAdminCampaignBudget(params.reference, body.amount);
+    const budget = await increaseAdminCampaignBudget(params.reference, body.amount, auth.user.id, body.operationId);
     return NextResponse.json(budget, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Budget increase failed", 422);

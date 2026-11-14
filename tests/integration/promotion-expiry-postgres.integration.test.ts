@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, increaseAdminCampaignBudget, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign, updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -72,6 +72,20 @@ it("requires independent review and records a single campaign decision", async (
   const protectedVersion = await prisma.promotionCampaignVersion.findFirstOrThrow({ where: { campaign: { publicReference: protectedDraft.reference } } });
   await prisma.promotionBudget.create({ data: { campaignVersionId: protectedVersion.id, approvedAmount: 100 } });
   await expect(updateAdminCampaign(protectedDraft.reference, { draft: revisedDraft, expectedRevision: 0 }, adminId)).rejects.toThrow("approved budget");
+});
+
+it("increases an approved budget once across retries and rejects conflicting operations", async () => {
+  const reference = `${marker}-budget-approval`;
+  const campaign = await prisma.promotionCampaign.create({ data: { publicReference: reference, internalCode: reference, ownerType: "PLATFORM", name: "Approved budget", status: "APPROVED" } });
+  const version = await prisma.promotionCampaignVersion.create({ data: { publicReference: `${reference}-version`, campaignId: campaign.id, versionNumber: 1, status: "APPROVED", applicationMethod: "AUTOMATIC", discountScope: "ORDER", discountMechanism: "FIXED_AMOUNT", fundingType: "PLATFORM_FUNDED", startsAt: new Date("2020-01-01"), endsAt: new Date("2099-01-01"), approvedByUserId: adminId, approvedAt: new Date() } });
+  const budget = await prisma.promotionBudget.create({ data: { campaignVersionId: version.id, approvedAmount: 100 } });
+  const operationId = `budget-increase:${randomUUID()}`;
+  const [first, replay] = await Promise.all([increaseAdminCampaignBudget(reference, "25.00", adminId, operationId), increaseAdminCampaignBudget(reference, "25", adminId, operationId)]);
+  expect(first).toEqual(replay);
+  expect((await prisma.promotionBudget.findUniqueOrThrow({ where: { id: budget.id } })).approvedAmount.toFixed(2)).toBe("125.00");
+  expect(await prisma.promotionBudgetMovement.count({ where: { budgetId: budget.id, operationId } })).toBe(1);
+  await expect(increaseAdminCampaignBudget(reference, "26", adminId, operationId)).rejects.toThrow("OPERATION_CONFLICT");
+  await expect(increaseAdminCampaignBudget(reference, "25", "other-admin", operationId)).rejects.toThrow("OPERATION_CONFLICT");
 });
 
 it("does not release a committed or future reservation in an expiry transaction", async () => {
