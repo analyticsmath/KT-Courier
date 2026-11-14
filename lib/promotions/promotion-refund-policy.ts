@@ -16,9 +16,10 @@ export interface RefundAllocationResult {
 }
 
 export function calculateRefundAllocations(context: RefundAllocationContext): RefundAllocationResult {
-  // Customer paid amount is line total minus platform subsidies
-  // Store funded discounts were already deducted from line total in the customer's view
-  const customerPaidTotal = context.lineTotal.minus(context.platformFundedDiscount);
+  const { lineTotal, platformFundedDiscount, storeFundedDiscount, refundProportion } = context;
+  if ([lineTotal, platformFundedDiscount, storeFundedDiscount, refundProportion].some(value => !value.isFinite() || value.isNegative()) || refundProportion.greaterThan(1) || platformFundedDiscount.plus(storeFundedDiscount).greaterThan(lineTotal)) throw new Error("Invalid promotion refund amounts.");
+  // The customer paid the line price less both sources of the discount.
+  const customerPaidTotal = lineTotal.minus(platformFundedDiscount).minus(storeFundedDiscount);
 
   const customerRefundAmount = customerPaidTotal.times(context.refundProportion).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
   const platformSubventionReversal = context.platformFundedDiscount.times(context.refundProportion).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);

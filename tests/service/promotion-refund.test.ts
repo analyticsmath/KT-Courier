@@ -24,8 +24,8 @@ describe('promotion-refund service', () => {
       storeFundedDiscount: new Prisma.Decimal('10.00'),
       refundProportion: new Prisma.Decimal('1.0'),
     });
-    // Customer paid: 100 - 20 = 80
-    expect(result.customerRefundAmount.toFixed(2)).toBe('80.00');
+    // Customer paid: 100 - 20 platform - 10 store = 70.
+    expect(result.customerRefundAmount.toFixed(2)).toBe('70.00');
     expect(result.platformSubventionReversal.toFixed(2)).toBe('20.00');
     expect(result.storeBasisReversal.toFixed(2)).toBe('10.00');
   });
