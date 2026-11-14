@@ -5,7 +5,7 @@ import { computeCodeHmac, normalizePromotionCode } from "./promotion-code-policy
 import { resolvePromotionProductionComposition } from "./promotion-composition-root";
 import { projectCheckoutPromotionFacts } from "./checkout-promotion-facts";
 
-function codeHmac(code: string, suppliedKey?: string) {
+export function promotionCodeHash(code: string, suppliedKey?: string) {
   const key = process.env.PROMOTION_CODE_HMAC_KEY;
   if (!key || key.length < 32 || (suppliedKey !== undefined && suppliedKey !== key)) throw new Error("Coupon setup is unavailable.");
   if (typeof code !== "string" || code.length > 80) throw new Error("Invalid promotion code.");
@@ -17,7 +17,7 @@ function codeHmac(code: string, suppliedKey?: string) {
 /** Looks up code state; checkout eligibility is decided separately from source-owned facts. */
 export async function validatePromotionCode(code: string, hmacKey: string) {
   assertPromotionsProductionReady("CODE_VALIDATE");
-  const hash = codeHmac(code, hmacKey);
+  const hash = promotionCodeHash(code, hmacKey);
   const now = new Date();
   const item = await prisma.promotionCode.findUnique({ where: { codeHmac: hash }, include: { campaignVersion: { include: { campaign: true, budget: true } } } });
   if (!item || item.status !== "ACTIVE" || item.campaignVersion.status !== "ACTIVE" || item.campaignVersion.applicationMethod !== "COUPON_CODE" || item.campaignVersion.campaign.status !== "ACTIVE" || item.campaignVersion.currency !== "ZAR" || item.campaignVersion.startsAt > now || item.campaignVersion.endsAt <= now || (item.startsAt && item.startsAt > now) || (item.expiresAt && item.expiresAt <= now) || !item.campaignVersion.budget || item.campaignVersion.budget.status !== "ACTIVE" || item.campaignVersion.budget.currency !== "ZAR") return null;
@@ -32,7 +32,7 @@ export async function resolvePromotionCodeForCheckout(code: string, checkoutCont
   assertPromotionsProductionReady("CODE_VALIDATE");
   const { owner, checkoutReference } = checkoutContext ?? {};
   if (!owner || typeof checkoutReference !== "string" || !checkoutReference.trim() || checkoutReference.length > 200 || (owner.type === "CUSTOMER" ? !owner.userId : owner.type === "GUEST" ? !owner.guestTokenHash : true)) throw new Error("Checkout not found.");
-  const appliedCouponCode = codeHmac(code);
+  const appliedCouponCode = promotionCodeHash(code);
   const checkout = await prisma.marketplaceCheckout.findFirst({ where: { publicReference: checkoutReference, ...(owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { customerUserId: null, guestAccessTokenHash: owner.guestTokenHash }) }, include: { storeGroups: { include: { lines: { include: { modifiers: true } } } } } });
   if (!checkout) throw new Error("Checkout not found.");
   const result = await resolvePromotionProductionComposition("EVALUATION").evaluate({ ...projectCheckoutPromotionFacts(checkout, new Date()), appliedCouponCode });

@@ -14,6 +14,7 @@ import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-s
 import { createSession } from "@/lib/auth/session";
 import { validatePromotionCode } from "@/lib/promotions/promotion-code.service";
 import { endStoreCampaign, pauseStoreCampaign } from "@/lib/promotions/store-promotions.service";
+import { applyCouponToCart, removeCouponFromCart } from "@/lib/promotions/cart-coupon.service";
 
 const marker = `promotion-expiry-${randomUUID()}`;
 let campaignId = "";
@@ -125,6 +126,19 @@ it("generates a replayable coupon batch without storing plaintext and activates 
     expect(await validatePromotionCode("INITIALCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toMatchObject({ campaignReference: campaign.reference });
     expect(await validatePromotionCode("UNKNOWNCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toBeNull();
     await expect(validatePromotionCode("INITIALCODE", "a-different-test-key-that-is-long-enough")).rejects.toThrow("unavailable");
+    const customer = await prisma.user.create({ data: { email: `${marker}-coupon-customer@example.test`, role: "CUSTOMER", status: "ACTIVE" } });
+    const cart = await prisma.marketplaceCart.create({ data: { publicReference: `${marker}-coupon-cart`, ownerType: "CUSTOMER", customerUserId: customer.id, status: "ACTIVE" } });
+    const owner = { type: "CUSTOMER" as const, userId: customer.id };
+    const selections = await Promise.all([applyCouponToCart(owner, "INITIALCODE"), applyCouponToCart(owner, "INITIALCODE")]);
+    expect(selections[0]).toEqual(selections[1]);
+    expect(selections[0].version).toBe(cart.version + 1);
+    const selected = await prisma.marketplaceCart.findUniqueOrThrow({ where: { id: cart.id }, include: { appliedPromotionCode: true } });
+    expect(selected.appliedPromotionCode?.maskedDisplay).toBe(selections[0].coupon);
+    expect(JSON.stringify(selected)).not.toContain("INITIALCODE");
+    await expect(removeCouponFromCart({ type: "CUSTOMER", userId: "another-customer" })).rejects.toThrow("unavailable");
+    const removed = await removeCouponFromCart(owner);
+    expect(removed.version).toBe(cart.version + 2);
+    expect(await removeCouponFromCart(owner)).toEqual(removed);
     await prisma.promotionBudget.update({ where: { campaignVersionId: version.id }, data: { status: "FROZEN" } });
     expect(await validatePromotionCode("INITIALCODE", process.env.PROMOTION_CODE_HMAC_KEY)).toBeNull();
   } finally {

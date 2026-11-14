@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { marketplaceOwner, marketplaceJson, marketplaceError } from "@/lib/marketplace-checkout/api-policy";
+import { marketplaceOwner, marketplaceJson, marketplaceError, enforceMarketplaceMutation } from "@/lib/marketplace-checkout/api-policy";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { evaluateEligiblePromotions } from "@/lib/promotions/cart-coupon.service";
 
@@ -8,6 +8,8 @@ import { evaluateEligiblePromotions } from "@/lib/promotions/cart-coupon.service
  */
 export async function POST(request: NextRequest) {
   try {
+    const mutationFailure = await enforceMarketplaceMutation(request, "cart");
+    if (mutationFailure) return mutationFailure;
     const owner = await marketplaceOwner(request);
     if (!owner) return marketplaceJson({ error: "Unauthorized" }, 401);
 

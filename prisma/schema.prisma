@@ -6130,6 +6130,7 @@ model PromotionCode {
   reservations        PromotionReservation[]
   redemptions         PromotionRedemption[]
   reconciliationCases PromotionReconciliationCase[]
+  appliedCarts        MarketplaceCart[] @relation("MarketplaceCartAppliedPromotionCode")
 
   /// Batch generation tracking for promotion codes.
 
@@ -9339,10 +9340,12 @@ model MarketplaceCart {
   expiresAt            DateTime?
   convertedCheckoutId  String?
   mergedIntoCartId     String?
+  appliedPromotionCodeId String?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
 
   customer       User?                       @relation("MarketplaceCartCustomer", fields: [customerUserId], references: [id], onDelete: Restrict, map: "MarketplaceCart_customer_fkey")
+  appliedPromotionCode PromotionCode? @relation("MarketplaceCartAppliedPromotionCode", fields: [appliedPromotionCodeId], references: [id], onDelete: SetNull)
   mergedIntoCart MarketplaceCart?            @relation("MarketplaceCartMerge", fields: [mergedIntoCartId], references: [id], onDelete: Restrict, map: "MarketplaceCart_mergedInto_fkey")
   mergedCarts    MarketplaceCart[]           @relation("MarketplaceCartMerge")
   storeGroups    MarketplaceCartStoreGroup[]
@@ -9354,6 +9357,7 @@ model MarketplaceCart {
   @@index([guestTokenHash])
   @@index([status, expiresAt])
   @@index([lastActivityAt])
+  @@index([appliedPromotionCodeId])
 }
 
 model MarketplaceCartStoreGroup {
