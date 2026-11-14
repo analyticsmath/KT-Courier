@@ -59,14 +59,14 @@ export async function updateAdminCampaign(...args: any[]): Promise<any> {
   return null;
 }
 
-export async function submitAdminCampaign(...args: any[]): Promise<any> {
+export async function submitAdminCampaign(reference: string, actorUserId: string) {
   assertPromotionsProductionReady("CAMPAIGN_SUBMIT");
-  return null;
+  return transitionReviewCampaign(reference, actorUserId, "UNDER_REVIEW");
 }
 
-export async function approveAdminCampaign(...args: any[]): Promise<any> {
-  assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  return null;
+export async function approveAdminCampaign(reference: string, actorUserId: string) {
+  assertPromotionsProductionReady("CAMPAIGN_APPROVE");
+  return transitionReviewCampaign(reference, actorUserId, "APPROVED");
 }
 
 export async function activateAdminCampaign(reference: string, actorUserId: string) {
@@ -110,9 +110,33 @@ async function transitionActiveCampaign(reference: string, actorUserId: string, 
   });
 }
 
-export async function rejectAdminCampaign(...args: any[]): Promise<any> {
+export async function rejectAdminCampaign(reference: string, reason: unknown, actorUserId: string) {
   assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-  return null;
+  if (typeof reason !== "string" || reason.trim().length < 10 || reason.length > 1000) throw new Error("A review reason of 10 to 1000 characters is required.");
+  return transitionReviewCampaign(reference, actorUserId, "REJECTED", safeOperationalText(reason, 1000));
+}
+
+async function transitionReviewCampaign(reference: string, actorUserId: string, target: "UNDER_REVIEW" | "APPROVED" | "REJECTED", reason?: string) {
+  if (!reference?.trim() || reference.length > 200 || !actorUserId?.trim()) throw new Error("Invalid campaign action.");
+  return db.$transaction(async tx => {
+    const campaign = await tx.promotionCampaign.findUnique({ where: { publicReference: reference }, include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } } });
+    const version = campaign?.versions[0];
+    const expected = target === "UNDER_REVIEW" ? "DRAFT" : "UNDER_REVIEW";
+    if (!campaign || !version || campaign.status !== expected || version.status !== expected) throw new Error("Campaign is not in an actionable state.");
+    if (target !== "REJECTED" && version.endsAt <= new Date()) throw new Error("An expired campaign cannot be submitted or approved.");
+    if (target !== "UNDER_REVIEW" && (!version.submittedByUserId || version.submittedByUserId === actorUserId)) throw new Error("A different administrator must review this campaign.");
+    const now = new Date();
+    const changes = target === "UNDER_REVIEW" ? { submittedAt: now, submittedByUserId: actorUserId, rejectionReason: null, rejectedAt: null, rejectedByUserId: null } : target === "APPROVED" ? { approvedAt: now, approvedByUserId: actorUserId } : { rejectedAt: now, rejectedByUserId: actorUserId, rejectionReason: reason };
+    const updated = await tx.promotionCampaignVersion.updateMany({ where: { id: version.id, status: expected, clientDraftRevision: version.clientDraftRevision }, data: { ...changes, status: target, clientDraftRevision: { increment: 1 } } });
+    if (updated.count !== 1) throw new Error("Campaign changed; reload before acting.");
+    const parent = await tx.promotionCampaign.updateMany({ where: { id: campaign.id, status: expected }, data: { status: target } });
+    if (parent.count !== 1) throw new Error("Campaign changed; reload before acting.");
+    const operationId = `promotion-review:${randomUUID()}`;
+    await tx.promotionStatusHistory.create({ data: { campaignVersionId: version.id, fromStatus: expected, toStatus: target, actorUserId, reason: reason ?? `Administrator moved campaign to ${target}.`, operationId } });
+    await tx.promotionEventIntent.create({ data: { eventType: `PROMOTION_${target}`, dedupeKey: operationId, payload: { campaignId: campaign.id, campaignVersionId: version.id } } });
+    await tx.adminActivityLog.create({ data: { actorUserId, action: "STATUS_CHANGE", entityType: "PromotionCampaign", entityId: campaign.id, message: `Promotion campaign moved to ${target}.`, metadata: { fromStatus: expected, toStatus: target } } });
+    return { reference: campaign.publicReference, status: target };
+  });
 }
 
 export async function increaseAdminCampaignBudget(...args: any[]): Promise<any> {

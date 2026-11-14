@@ -21,7 +21,7 @@ export async function POST(
   try {
     const params = await context.params;
     assertPromotionsProductionReady("CAMPAIGN_APPROVE");
-    const campaign = await approveAdminCampaign(params.reference);
+    const campaign = await approveAdminCampaign(params.reference, auth.user.id);
     return NextResponse.json(campaign, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Approve failed", 422);

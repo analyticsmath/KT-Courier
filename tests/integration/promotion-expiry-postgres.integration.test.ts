@@ -9,7 +9,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { expirePromotionReservations } from "@/lib/promotions/promotion-reservation-expiry-batch";
 import { createReconciliationCase } from "@/lib/promotions/promotion-reconciliation.service";
 import { scanPromotionBudgetReconciliation } from "@/lib/promotions/promotion-reconciliation-scan";
-import { activateAdminCampaign, createPlatformCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { activateAdminCampaign, approveAdminCampaign, createPlatformCampaign, endAdminCampaign, monitorPromotionReconciliation, pauseAdminCampaign, rejectAdminCampaign, resolvePromotionReconciliation, resumeAdminCampaign, submitAdminCampaign } from "@/lib/promotions/admin-promotions.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
 const marker = `promotion-expiry-${randomUUID()}`;
@@ -44,6 +44,25 @@ it("creates one platform draft under concurrent retries and rejects changed or f
   expect(stored.versions[0].targets[0].targetType).toBe("ALL_ELIGIBLE_MARKETPLACE_LINES");
   await expect(createPlatformCampaign({ ...draft, name: "Different discount" }, adminId)).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
   await expect(createPlatformCampaign(draft, "another-admin")).rejects.toThrow("PROMOTION_REPLAY_CONFLICT");
+});
+
+it("requires independent review and records a single campaign decision", async () => {
+  const reviewer = await prisma.user.create({ data: { email: `${marker}-reviewer@example.test`, role: "ADMIN", status: "ACTIVE" } });
+  const draft = { requestId: randomUUID(), name: "Reviewable discount", description: "A bounded campaign for independent review", mechanism: "FIXED_AMOUNT", value: "10.00", proposedBudget: "100.00", startsAt: new Date(Date.now() - 60_000).toISOString(), endsAt: new Date(Date.now() + 86400_000).toISOString(), globalLimit: 10, perCustomerLimit: 1 };
+  const campaign = await createPlatformCampaign(draft, adminId);
+  expect((await submitAdminCampaign(campaign.reference, adminId)).status).toBe("UNDER_REVIEW");
+  await expect(approveAdminCampaign(campaign.reference, adminId)).rejects.toThrow("different administrator");
+  const decisions = await Promise.allSettled([approveAdminCampaign(campaign.reference, reviewer.id), approveAdminCampaign(campaign.reference, reviewer.id)]);
+  expect(decisions.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  const persisted = await prisma.promotionCampaign.findUniqueOrThrow({ where: { publicReference: campaign.reference }, include: { versions: { include: { budget: true, statusHistory: true } } } });
+  expect(persisted.status).toBe("APPROVED");
+  expect(persisted.versions[0].approvedByUserId).toBe(reviewer.id);
+  expect(persisted.versions[0].budget).toBeNull();
+  expect(persisted.versions[0].statusHistory.filter(row => row.toStatus === "APPROVED")).toHaveLength(1);
+  const rejected = await createPlatformCampaign({ ...draft, requestId: randomUUID() }, adminId);
+  await submitAdminCampaign(rejected.reference, adminId);
+  await expect(rejectAdminCampaign(rejected.reference, "short", reviewer.id)).rejects.toThrow("review reason");
+  expect((await rejectAdminCampaign(rejected.reference, "Does not meet the approved policy", reviewer.id)).status).toBe("REJECTED");
 });
 
 it("does not release a committed or future reservation in an expiry transaction", async () => {

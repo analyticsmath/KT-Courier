@@ -21,7 +21,7 @@ export async function POST(
   try {
     const params = await context.params;
     assertPromotionsProductionReady("CAMPAIGN_SUBMIT");
-    const campaign = await submitAdminCampaign(params.reference);
+    const campaign = await submitAdminCampaign(params.reference, auth.user.id);
     return NextResponse.json(campaign, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Submit failed", 422);

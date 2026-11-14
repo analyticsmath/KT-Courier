@@ -22,7 +22,7 @@ export async function POST(
     const params = await context.params;
     const body = await request.json();
     assertPromotionsProductionReady("CAMPAIGN_UPDATE");
-    const campaign = await rejectAdminCampaign(params.reference, body.reason);
+    const campaign = await rejectAdminCampaign(params.reference, body.reason, auth.user.id);
     return NextResponse.json(campaign, { headers: { "Cache-Control": "private, no-store, max-age=0" } });
   } catch {
     return errorResponse("Reject failed", 422);
