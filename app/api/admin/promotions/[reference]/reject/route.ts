@@ -3,6 +3,7 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { rejectAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "private, no-store, max-age=0" } });
@@ -15,6 +16,8 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ reference: string }> }
 ) {
+  const originFailure = await enforceSameOriginRequest(request);
+  if (originFailure) return originFailure;
   const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_REVIEW, { request });
   if (auth.response) return auth.response;
 

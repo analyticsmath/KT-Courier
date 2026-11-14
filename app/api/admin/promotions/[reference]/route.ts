@@ -3,6 +3,7 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { updateAdminCampaign } from "@/lib/promotions/admin-promotions.service";
+import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 import { getAdminPromotionRecord } from "@/lib/client-platform/promotion-authoring.service";
 
@@ -43,6 +44,8 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ reference: string }> },
 ) {
+  const originFailure = await enforceSameOriginRequest(request);
+  if (originFailure) return originFailure;
   const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_MANAGE, {
     request,
   });

@@ -3,6 +3,7 @@ import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { assertPromotionsProductionReady } from "@/lib/promotions/production-lock";
 import { createPlatformCampaign } from "@/lib/promotions/admin-promotions.service";
+import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 
 import { listAdminPromotionRecords } from "@/lib/client-platform/promotion-authoring.service";
 
@@ -36,6 +37,8 @@ export async function GET(request: NextRequest) {
  * Create platform campaign
  */
 export async function POST(request: NextRequest) {
+  const originFailure = await enforceSameOriginRequest(request);
+  if (originFailure) return originFailure;
   const auth = await requireAdminApiPermission(PERMISSIONS.PROMOTIONS_MANAGE, {
     request,
   });

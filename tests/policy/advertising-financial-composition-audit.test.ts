@@ -147,7 +147,6 @@ describe("Phase 24: Advertising Financial Composition & Source Audits", () => {
       "activate-approved-advertising.mjs",
       "end-expired-advertising.mjs",
       "pause-exhausted-advertising.mjs",
-      "process-valid-click-charges.mjs",
       "process-invalid-click-reversals.mjs",
       "return-unused-advertising-funding.mjs",
       "process-advertising-aggregation.mjs",
@@ -159,5 +158,9 @@ describe("Phase 24: Advertising Financial Composition & Source Audits", () => {
       expect(content).toContain("resolveAdvertisingProductionComposition");
       expect(content).toContain("LOCKED");
     }
+    const clickScript = fs.readFileSync(path.join(scriptsDir, "process-valid-click-charges.mjs"), "utf-8");
+    const clickBatch = fs.readFileSync(path.join(libDir, "click-charge-batch.ts"), "utf-8");
+    expect(clickScript).toContain("runAdvertisingClickBatch");
+    expect(clickBatch).toContain('assertAdvertisingProductionReady("CLICK_CHARGING")');
   });
 });
