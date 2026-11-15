@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 import { isStorePubliclyCheckoutReady } from "@/lib/storefront/store-publication-readiness";
 
 const pickup = {
@@ -11,6 +12,7 @@ const pickup = {
 const now = new Date("2026-11-09T08:00:00Z");
 const cert = {
   status: "APPROVED",
+  evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
   pickupAddressId: pickup.id,
   pickupFingerprint: pickupCertificationFingerprint(pickup),
   preparedByUserId: "admin-one",
@@ -19,6 +21,11 @@ const cert = {
   expiresAt: new Date("2026-11-10T08:00:00Z"),
   routeEvidenceDigest: "a".repeat(64),
   checkoutEvidenceDigest: "b".repeat(64),
+  engineProofDigest: "c".repeat(64),
+  proofOfferReference: "OFF-TEST-1",
+  proofPriceVersionReference: "PRC-TEST-1",
+  sourceCommerceReadinessRevision: 2,
+  globalPolicyRevision: 3,
 };
 const input = {
   status: "ACTIVE",
@@ -28,6 +35,9 @@ const input = {
   certification: cert,
   hasApprovedSellerIdentity: true,
   hasActiveOperationalPolicy: true,
+  hasActiveCommissionPlan: true,
+  storeCommerceReadinessRevision: 2,
+  currentGlobalPolicyRevision: 3,
   now,
 };
 
@@ -79,6 +89,9 @@ describe("publication demands the same independent checkout authority as store L
       certification: cert,
       hasApprovedSellerIdentity: false,
       hasActiveOperationalPolicy: true,
+      hasActiveCommissionPlan: true,
+      storeCommerceReadinessRevision: 2,
+      currentGlobalPolicyRevision: 3,
       now,
     });
     expect(missingIdentityBlockers).toContain("Approved legal seller identity missing or expired");
@@ -91,6 +104,9 @@ describe("publication demands the same independent checkout authority as store L
       certification: cert,
       hasApprovedSellerIdentity: true,
       hasActiveOperationalPolicy: false,
+      hasActiveCommissionPlan: true,
+      storeCommerceReadinessRevision: 2,
+      currentGlobalPolicyRevision: 3,
       now,
     });
     expect(missingPolicyBlockers).toContain(
@@ -102,15 +118,22 @@ describe("publication demands the same independent checkout authority as store L
     { status: "PENDING_REVIEW" }, { status: "REVOKED" }, { approvedByUserId: null },
     { approvedByUserId: "admin-one" }, { approvedAt: null },
     { expiresAt: new Date("2026-11-09T08:00:00Z") },
+    { evidenceType: "SAVEPOINT_SYNTHETIC" }, { evidenceType: null },
+    { engineProofDigest: null }, { engineProofDigest: "bad" },
+    { proofOfferReference: null }, { proofPriceVersionReference: null },
+    { sourceCommerceReadinessRevision: 1 }, { globalPolicyRevision: 2 },
     { routeEvidenceDigest: null }, { checkoutEvidenceDigest: "invalid" },
     { pickupAddressId: "old-pickup" }, { pickupFingerprint: "bad" },
-  ])("rejects invalid, stale or self-approved receipt: %o", patch => {
+  ])("rejects invalid, stale, synthetic or self-approved receipt: %o", patch => {
     expect(isStorePubliclyCheckoutReady({ ...input, certification: { ...cert, ...patch } })).toBe(false);
   });
 
-  it("prevents stale or incomplete store/product facts from being advertised", () => {
+  it("prevents stale, uncommitted commission plan, revision drift or incomplete facts from being advertised", () => {
     expect(isStorePubliclyCheckoutReady({ ...input, status: "PENDING" })).toBe(false);
     expect(isStorePubliclyCheckoutReady({ ...input, documentsCount: 0 })).toBe(false);
+    expect(isStorePubliclyCheckoutReady({ ...input, hasActiveCommissionPlan: false })).toBe(false);
+    expect(isStorePubliclyCheckoutReady({ ...input, storeCommerceReadinessRevision: 3 })).toBe(false);
+    expect(isStorePubliclyCheckoutReady({ ...input, currentGlobalPolicyRevision: 4 })).toBe(false);
     expect(isStorePubliclyCheckoutReady({ ...input, pickup: { ...pickup, line2: null } })).toBe(false);
     expect(isStorePubliclyCheckoutReady({ ...input, pickup: { ...pickup, latitude: null } })).toBe(false);
     expect(isStorePubliclyCheckoutReady({ ...input, pickup: { ...pickup, storeId: "another-store" } })).toBe(false);

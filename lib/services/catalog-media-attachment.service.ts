@@ -3,6 +3,19 @@ import { type Prisma } from "@prisma/client";
 import { assertCatalogMediaAttachment } from "@/lib/catalog/media/catalog-media-attachment";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
+import { getApprovedCertProof, invalidateStoreCheckoutReadinessInTx } from "@/lib/admin/store-readiness-sync";
+
+async function invalidateStoreIfProofMediaTouched(tx: Prisma.TransactionClient, storeId: string, productId: string) {
+  const approvedCert = await getApprovedCertProof(tx, storeId);
+  if (!approvedCert?.proofOfferReference) return;
+  const linkedProofOffer = await tx.storeCatalogOffer.findFirst({
+    where: { productId, storeId, publicReference: approvedCert.proofOfferReference },
+    select: { id: true },
+  });
+  if (linkedProofOffer) {
+    await invalidateStoreCheckoutReadinessInTx(tx, storeId);
+  }
+}
 
 type AttachInput = Readonly<{ operationId: string; productVersion: number; assetPublicReference: string; role: "PRIMARY" | "GALLERY" | "VARIANT" | "SWATCH" | "LABEL"; altText: string; displayOrder: number; variantPublicReference?: string | null }>;
 
@@ -28,6 +41,7 @@ export async function attachStoreCatalogMedia(storeId: string, productReference:
     const versionUpdate = await tx.catalogProduct.updateMany({ where: { id: product.id, version: input.productVersion }, data: { version: { increment: 1 } } });
     if (versionUpdate.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before attaching media.");
     const association = await tx.catalogProductMedia.create({ data: { productId: product.id, variantId: variant?.id, assetId: asset.id, role: input.role, altText: input.altText.trim(), displayOrder: input.displayOrder } });
+    await invalidateStoreIfProofMediaTouched(tx, storeId, product.id);
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT", aggregateReference: product.publicReference, aggregateVersion: product.version + 1, action: "MEDIA_ATTACHED", eventType: "PRODUCT_UPDATED", actorUserId, safeMetadata: { assetReference: asset.publicReference, role: input.role }, operation: { operationId: input.operationId, storeId, request: input } });
     return { association, productVersion: product.version + 1 };
   });
@@ -42,6 +56,7 @@ export async function updateStoreCatalogMediaAssociation(storeId: string, produc
     if (versionUpdate.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before updating media.");
     if (input.primary) await tx.catalogProductMedia.updateMany({ where: { productId: product.id, variantId: null, role: "PRIMARY", id: { not: association.id } }, data: { role: "GALLERY" } });
     const updated = await tx.catalogProductMedia.update({ where: { id: association.id }, data: { altText: input.altText.trim(), displayOrder: input.displayOrder, ...(association.variantId ? {} : { role: input.primary ? "PRIMARY" : association.role === "PRIMARY" ? "GALLERY" : association.role }) } });
+    await invalidateStoreIfProofMediaTouched(tx, storeId, product.id);
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT", aggregateReference: product.publicReference, aggregateVersion: product.version + 1, action: "MEDIA_ASSOCIATION_UPDATED", eventType: "PRODUCT_UPDATED", actorUserId, safeMetadata: { associationId }, operation: { operationId: input.operationId, storeId, request: input } });
     return { association: updated, productVersion: product.version + 1 };
   });
@@ -55,6 +70,7 @@ export async function removeStoreCatalogMediaAssociation(storeId: string, produc
     const versionUpdate = await tx.catalogProduct.updateMany({ where: { id: product.id, version: input.productVersion }, data: { version: { increment: 1 } } });
     if (versionUpdate.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before removing media.");
     await tx.catalogProductMedia.delete({ where: { id: association.id } });
+    await invalidateStoreIfProofMediaTouched(tx, storeId, product.id);
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT", aggregateReference: product.publicReference, aggregateVersion: product.version + 1, action: "MEDIA_ASSOCIATION_REMOVED", eventType: "PRODUCT_UPDATED", actorUserId, safeMetadata: { associationId, assetId: association.assetId }, operation: { operationId: input.operationId, storeId, request: input } });
     return { removedAssociationId: association.id, assetPreserved: true, productVersion: product.version + 1 };
   });

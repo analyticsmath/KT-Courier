@@ -1,5 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
+import { STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA } from "@/lib/admin/store-checkout-engine-proof.service";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { buildCatalogPublicationSnapshot } from "@/lib/catalog/catalog-publication-snapshot";
@@ -65,6 +68,27 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
       },
     });
   }
+  const globalPolicyRevision = await prisma.$transaction((tx) => getGlobalCommercePolicyRevision(tx));
+  await prisma.commissionPlan.create({
+    data: {
+      publicReference: `CMP-DISPOSABLE-${randomUUID()}`,
+      subjectType: "MARKETPLACE_STORE_ORDER",
+      scopeKey: `STORE:${store.id}`,
+      currency: "ZAR",
+      versionNumber: 1,
+      status: "ACTIVE",
+      basisType: "ORDER_SUBTOTAL",
+      effectiveFrom: new Date(Date.now() - 60_000),
+      effectiveUntil: null,
+      createdByUserId: source.adminUser.id,
+      submittedByUserId: store.ownerUserId!,
+      submittedAt: new Date(),
+      approvedByUserId: source.adminUser.id,
+      approvedAt: new Date(),
+      activatedAt: new Date(),
+      calculationVersion: "disposable-v1",
+    },
+  });
   await prisma.storeCheckoutCertification.create({ data: {
     storeId: store.id, pickupAddressId: pickup.id,
     pickupFingerprint: pickupCertificationFingerprint(pickup),
@@ -73,6 +97,13 @@ export async function createStorefrontFixture(options?: { privateSnapshot: boole
     routeEvidenceDigest: createHash("sha256").update(`${certRef}:synthetic-route`).digest("hex"),
     checkoutEvidenceReference: `${certRef}:synthetic-checkout`,
     checkoutEvidenceDigest: createHash("sha256").update(`${certRef}:synthetic-checkout`).digest("hex"),
+    evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
+    engineProofDigest: createHash("sha256").update(`${certRef}:engine-proof`).digest("hex"),
+    engineProofSuiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+    proofOfferReference: source.offer.publicReference,
+    proofPriceVersionReference: source.priceVersion.publicReference,
+    sourceCommerceReadinessRevision: store.commerceReadinessRevision,
+    globalPolicyRevision,
     preparedByUserId: store.ownerUserId!, approvedByUserId: source.adminUser.id,
     status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
     reviewNote: "Disposable integration fixture only; no customer payment or production approval.",

@@ -22,7 +22,7 @@ it("activates the reviewed vendor account through the permission-protected statu
 
   try {
     await act(async () => root.render(React.createElement(StoreAccountApproval, { storeId: "store-123" })));
-    const button = [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Approve vendor account"));
+    const button = [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Approve business account"));
     const acknowledgement = host.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
     expect(button).toBeDefined();
     expect(acknowledgement).not.toBeNull();
@@ -45,10 +45,13 @@ it("activates the reviewed vendor account through the permission-protected statu
     expect(fetchMock).toHaveBeenCalledWith("/api/admin/stores/store-123/status", expect.objectContaining({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "ACTIVE" }),
+      body: JSON.stringify({
+        status: "ACTIVE",
+        reason: "Owner identity email verified and business contact confirmed.",
+      }),
     }));
-    expect(host.textContent).toContain("Vendor account approved.");
-    expect(host.textContent).toContain("Seller identity and catalog review remain separate.");
+    expect(host.textContent).toContain("Business account approved.");
+    expect(host.textContent).toContain("seller identity, pickup readiness, catalog approval, and checkout capability certification pass.");
     expect(refresh).toHaveBeenCalledOnce();
   } finally {
     await act(async () => root.unmount());

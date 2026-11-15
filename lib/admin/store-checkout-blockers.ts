@@ -1,4 +1,5 @@
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
 import {
   isStorePubliclyCheckoutReady,
@@ -14,6 +15,9 @@ export type AdminStoreCheckoutFacts = Readonly<{
   certification: PublicStoreCheckoutCertificate | null;
   hasApprovedSellerIdentity: boolean;
   hasActiveOperationalPolicy: boolean;
+  hasActiveCommissionPlan: boolean;
+  storeCommerceReadinessRevision: number;
+  currentGlobalPolicyRevision: number;
   now?: Date;
 }>;
 
@@ -34,6 +38,9 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
   if (input.hasActiveOperationalPolicy !== true) {
     blockers.push("Active store order operational policy missing or expired");
   }
+  if (input.hasActiveCommissionPlan !== true) {
+    blockers.push("Active store commission plan missing or expired");
+  }
 
   const collection = describeStoreCollectionEvidence(input.pickup);
   if (!collection.checkoutPickupConfigured) blockers.push(...collection.missing);
@@ -48,6 +55,20 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
       !/^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? "") ||
       !/^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? "")) {
       blockers.push("Independent route and paid-checkout review incomplete");
+    }
+    if (cert.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE) {
+      blockers.push("Real sellable-offer checkout proof required");
+    }
+    if (!/^[a-f0-9]{64}$/.test(cert.engineProofDigest ?? "") ||
+      typeof cert.proofOfferReference !== "string" || cert.proofOfferReference.trim().length === 0 ||
+      typeof cert.proofPriceVersionReference !== "string" || cert.proofPriceVersionReference.trim().length === 0) {
+      blockers.push("Verified sellable-offer checkout engine proof incomplete");
+    }
+    if (cert.sourceCommerceReadinessRevision !== input.storeCommerceReadinessRevision) {
+      blockers.push("Store catalog, pricing, pickup, or commercial readiness changed since certification");
+    }
+    if (cert.globalPolicyRevision !== input.currentGlobalPolicyRevision) {
+      blockers.push("Platform delivery, tax, or operational policy changed since certification");
     }
     if (!(cert.expiresAt instanceof Date) || !Number.isFinite(cert.expiresAt.getTime()) ||
       cert.expiresAt.getTime() <= now.getTime()) blockers.push("Checkout certification expired");
@@ -72,6 +93,9 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
     certification: input.certification,
     hasApprovedSellerIdentity: input.hasApprovedSellerIdentity,
     hasActiveOperationalPolicy: input.hasActiveOperationalPolicy,
+    hasActiveCommissionPlan: input.hasActiveCommissionPlan,
+    storeCommerceReadinessRevision: input.storeCommerceReadinessRevision,
+    currentGlobalPolicyRevision: input.currentGlobalPolicyRevision,
     now,
   }) && blockers.length === 0) {
     blockers.push("Reconfirm the saved pickup against current approved checkout evidence");

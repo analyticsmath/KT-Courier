@@ -1,7 +1,17 @@
 import { createHash, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
+import sharp from "sharp";
 import { expect, test } from "@playwright/test";
 import { prisma } from "@/lib/db/prisma";
+import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
+import { actOnTrustedPackageVersion, listTrustedPackageVersions, saveTrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-configuration.service";
+import { createStoreInventoryLocation } from "@/lib/services/catalog-inventory-location.service";
+import { createStoreCatalogListingDraft } from "@/lib/services/catalog-listing-draft.service";
+import { publishApprovedCatalogListing } from "@/lib/services/catalog-listing-publication.service";
+import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
+import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
+import { submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
 import { login, logout } from "./fixtures/auth";
 import {
   DeliveryType,
@@ -21,6 +31,13 @@ const createdParcelIds: string[] = [];
 const createdPolicyIds: string[] = [];
 const createdOrderIds: string[] = [];
 const createdQuoteIds: string[] = [];
+const createdSettingKeys: string[] = [];
+const createdCategoryIds: string[] = [];
+const createdProductTypeIds: string[] = [];
+const createdProductIds: string[] = [];
+const createdMediaAssetIds: string[] = [];
+const createdLocationIds: string[] = [];
+const createdCommissionPlanIds: string[] = [];
 
 async function ensureJhbServiceCoverage(creatorUserId: string, suffix: string) {
   let region = await prisma.deliveryRegion.findFirst({
@@ -86,27 +103,36 @@ async function ensureJhbServiceCoverage(creatorUserId: string, suffix: string) {
     createdServiceIds.push(service.id);
   }
 
-  let parcel = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: "SMALL", status: "ACTIVE" } });
-  if (!parcel) {
-    const latestParcel = await prisma.parcelProfileVersion.findFirst({
-      where: { stableKey: "SMALL" },
-      orderBy: { versionNumber: "desc" },
-    });
-    parcel = await prisma.parcelProfileVersion.create({
-      data: {
-        stableKey: "SMALL",
-        displayName: "Small",
-        versionNumber: (latestParcel?.versionNumber ?? 0) + 1,
-        status: "ACTIVE",
-        lengthCm: 30,
-        widthCm: 20,
-        heightCm: 10,
-        maximumWeightKg: 5,
-        effectiveFrom: new Date(Date.now() - 60_000),
-        createdByUserId: creatorUserId,
-      },
-    });
-    createdParcelIds.push(parcel.id);
+  const parcelSpecs = [
+    { stableKey: "SMALL", displayName: "Small", lengthCm: 30, widthCm: 20, heightCm: 10, maximumWeightKg: 5 },
+    { stableKey: "MEDIUM", displayName: "Medium", lengthCm: 50, widthCm: 35, heightCm: 25, maximumWeightKg: 15 },
+    { stableKey: "LARGE", displayName: "Large", lengthCm: 80, widthCm: 60, heightCm: 45, maximumWeightKg: 30 },
+  ] as const;
+  let parcel: Awaited<ReturnType<typeof prisma.parcelProfileVersion.create>> | null = null;
+  for (const spec of parcelSpecs) {
+    let profile = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: spec.stableKey, status: "ACTIVE" } });
+    if (!profile) {
+      const latestParcel = await prisma.parcelProfileVersion.findFirst({
+        where: { stableKey: spec.stableKey },
+        orderBy: { versionNumber: "desc" },
+      });
+      profile = await prisma.parcelProfileVersion.create({
+        data: {
+          stableKey: spec.stableKey,
+          displayName: spec.displayName,
+          versionNumber: (latestParcel?.versionNumber ?? 0) + 1,
+          status: "ACTIVE",
+          lengthCm: spec.lengthCm,
+          widthCm: spec.widthCm,
+          heightCm: spec.heightCm,
+          maximumWeightKg: spec.maximumWeightKg,
+          effectiveFrom: new Date(Date.now() - 60_000),
+          createdByUserId: creatorUserId,
+        },
+      });
+      createdParcelIds.push(profile.id);
+    }
+    if (spec.stableKey === "SMALL") parcel = profile;
   }
 
   let opPolicy = await prisma.storeOrderOperationalPolicy.findFirst({ where: { status: "ACTIVE" } });
@@ -135,9 +161,62 @@ async function ensureJhbServiceCoverage(creatorUserId: string, suffix: string) {
 }
 
 test.afterAll(async () => {
+  if (createdSettingKeys.length) {
+    await prisma.systemSetting.deleteMany({ where: { key: { in: createdSettingKeys } } }).catch(() => {});
+  }
   for (const id of createdOrderIds) await prisma.order.delete({ where: { id } }).catch(() => {});
   for (const id of createdQuoteIds) await prisma.pricingQuote.delete({ where: { id } }).catch(() => {});
-  for (const id of createdStoreIds) await prisma.store.delete({ where: { id } }).catch(() => {});
+  for (const id of createdStoreIds) {
+    await prisma.storefrontProductDocument.deleteMany({ where: { storeId: id } }).catch(() => {});
+    await prisma.storefrontStoreDocument.deleteMany({ where: { storeId: id } }).catch(() => {});
+    await prisma.storeCheckoutCertification.deleteMany({ where: { storeId: id } }).catch(() => {});
+    await prisma.storeSellerLegalIdentity.deleteMany({ where: { storeId: id } }).catch(() => {});
+  }
+  for (const id of createdProductIds) {
+    await prisma.storefrontProductDocument.deleteMany({ where: { productId: id } }).catch(() => {});
+    await prisma.catalogModerationHistory.deleteMany({ where: { moderationCase: { productId: id } } }).catch(() => {});
+    await prisma.catalogModerationCase.deleteMany({ where: { productId: id } }).catch(() => {});
+    const offers = await prisma.storeCatalogOffer.findMany({ where: { productId: id }, select: { id: true } }).catch(() => []);
+    const offerIds = offers.map((o) => o.id);
+    if (offerIds.length) {
+      await prisma.catalogModerationHistory.deleteMany({ where: { moderationCase: { offerId: { in: offerIds } } } }).catch(() => {});
+      await prisma.catalogModerationCase.deleteMany({ where: { offerId: { in: offerIds } } }).catch(() => {});
+      await prisma.catalogInventoryMovement.deleteMany({ where: { inventoryItem: { offerId: { in: offerIds } } } }).catch(() => {});
+      await prisma.catalogInventoryLevel.deleteMany({ where: { inventoryItem: { offerId: { in: offerIds } } } }).catch(() => {});
+      await prisma.catalogInventoryItem.deleteMany({ where: { offerId: { in: offerIds } } }).catch(() => {});
+      await prisma.storeCatalogOffer.updateMany({ where: { id: { in: offerIds } }, data: { currentPriceVersionId: null, primaryInventoryLocationId: null } }).catch(() => {});
+      await prisma.catalogPublicationSnapshot.deleteMany({ where: { offerId: { in: offerIds } } }).catch(() => {});
+      await prisma.storeOfferPriceVersion.deleteMany({ where: { offerId: { in: offerIds } } }).catch(() => {});
+      await prisma.storeCatalogOffer.deleteMany({ where: { id: { in: offerIds } } }).catch(() => {});
+    }
+    await prisma.catalogPublicationSnapshot.deleteMany({ where: { productId: id } }).catch(() => {});
+    await prisma.catalogProductMedia.deleteMany({ where: { productId: id } }).catch(() => {});
+    await prisma.catalogVariantOptionValue.deleteMany({ where: { variant: { productId: id } } }).catch(() => {});
+    await prisma.catalogProductVariant.deleteMany({ where: { productId: id } }).catch(() => {});
+    await prisma.catalogProduct.delete({ where: { id } }).catch(() => {});
+  }
+  for (const ref of createdMediaAssetIds) {
+    await prisma.catalogMediaUploadIntent.deleteMany({ where: { asset: { publicReference: ref } } }).catch(() => {});
+    await prisma.catalogMediaAsset.deleteMany({ where: { publicReference: ref } }).catch(() => {});
+  }
+  for (const ref of createdLocationIds) await prisma.inventoryLocation.deleteMany({ where: { publicReference: ref } }).catch(() => {});
+  for (const id of createdProductTypeIds) await prisma.productTypeDefinition.delete({ where: { id } }).catch(() => {});
+  for (const id of createdCategoryIds) {
+    await prisma.storefrontCategoryDocument.deleteMany({ where: { categoryId: id } }).catch(() => {});
+    await prisma.catalogCategoryProductType.deleteMany({ where: { categoryId: id } }).catch(() => {});
+    await prisma.catalogCategory.delete({ where: { id } }).catch(() => {});
+  }
+  for (const id of createdCommissionPlanIds) {
+    await prisma.commissionPlanStatusHistory.deleteMany({ where: { planId: id } }).catch(() => {});
+    await prisma.commissionRule.deleteMany({ where: { planId: id } }).catch(() => {});
+    await prisma.commissionPlan.delete({ where: { id } }).catch(() => {});
+  }
+  for (const id of createdStoreIds) {
+    await prisma.catalogOperationReceipt.deleteMany({ where: { storeId: id } }).catch(() => {});
+    await prisma.store.update({ where: { id }, data: { defaultPickupAddressId: null } }).catch(() => {});
+    await prisma.address.deleteMany({ where: { storeId: id } }).catch(() => {});
+    await prisma.store.delete({ where: { id } }).catch(() => {});
+  }
   for (const id of createdServiceIds) await prisma.deliveryServiceDefinition.delete({ where: { id } }).catch(() => {});
   for (const id of createdParcelIds) await prisma.parcelProfileVersion.delete({ where: { id } }).catch(() => {});
   for (const id of createdPolicyIds) await prisma.storeOrderOperationalPolicy.delete({ where: { id } }).catch(() => {});
@@ -482,7 +561,7 @@ test.describe("Phase A P0 browser closure workflows (F01..F04)", () => {
         ownerUserId: storeOwner.id,
         name: `Phase A Cert Store ${suffix}`,
         slug: `pa-cert-store-${suffix}`,
-        status: "PENDING",
+        status: "ACTIVE",
         contactEmail: storeOwner.email,
       },
     });
@@ -519,7 +598,7 @@ test.describe("Phase A P0 browser closure workflows (F01..F04)", () => {
       },
     });
 
-    await prisma.commissionPlan.create({
+    const f03CommissionPlan = await prisma.commissionPlan.create({
       data: {
         publicReference: `CPL-E2E-PA-${suffix}`,
         subjectType: "MARKETPLACE_STORE_ORDER",
@@ -549,6 +628,174 @@ test.describe("Phase A P0 browser closure workflows (F01..F04)", () => {
         },
       },
     });
+    createdCommissionPlanIds.push(f03CommissionPlan.id);
+
+    const shortTag = suffix.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+    const f03Category = await prisma.catalogCategory.create({
+      data: {
+        publicReference: catalogPublicReference("CC"),
+        name: `F03 E2E Cat ${shortTag}`,
+        slug: `f03-e2e-cat-${shortTag}`,
+        path: `/f03-e2e-cat-${shortTag}`,
+        depth: 0,
+        status: "ACTIVE",
+        createdByUserId: admin1.id,
+        updatedByUserId: admin1.id,
+      },
+    });
+    createdCategoryIds.push(f03Category.id);
+    const f03Type = await prisma.productTypeDefinition.create({
+      data: {
+        publicReference: catalogPublicReference("PT"),
+        code: `F03_E2E_TYPE_${shortTag.toUpperCase()}`,
+        name: `F03 E2E Type ${shortTag}`,
+        versionNumber: 1,
+        status: "ACTIVE",
+        attributeSchema: { attributes: [] },
+        variantSchema: {},
+        complianceSchema: { requirements: [] },
+        searchFacetSchema: {},
+        createdByUserId: admin1.id,
+      },
+    });
+    createdProductTypeIds.push(f03Type.id);
+    const f03Location = await createStoreInventoryLocation(store.id, storeOwner.id, {
+      name: `F03 E2E Stockroom ${shortTag}`,
+      operationId: randomUUID(),
+    });
+    createdLocationIds.push(f03Location.publicReference);
+    const pngBytes = await sharp({
+      create: { width: 400, height: 400, channels: 3, background: { r: 60, g: 120, b: 170 } },
+    })
+      .png()
+      .toBuffer();
+    await login(page, storeOwner.email);
+    const mediaResponse = await page.request.post("/api/store/catalog/media/normalized", {
+      headers: { Origin: process.env.E2E_BASE_URL!, "x-catalog-operation-id": randomUUID() },
+      multipart: {
+        purpose: "PRODUCT_IMAGE",
+        file: { name: `f03-proof-${shortTag}.png`, mimeType: "image/png", buffer: pngBytes },
+      },
+    });
+    expect(mediaResponse.status(), await mediaResponse.text()).toBe(201);
+    const { asset: uploadedAsset } = (await mediaResponse.json()) as { asset: { publicReference: string } };
+    const readyMedia = { asset: uploadedAsset };
+    await logout(page);
+    createdMediaAssetIds.push(readyMedia.asset.publicReference);
+    const draft = await createStoreCatalogListingDraft(store.id, storeOwner.id, {
+      operationId: randomUUID(),
+      product: {
+        scope: "STORE_PRIVATE",
+        productTypeDefinitionId: f03Type.id,
+        primaryCategoryId: f03Category.id,
+        title: `F03 E2E Proof Item ${shortTag}`,
+        description: "Real sellable product for F03 E2E checkout proof.",
+        condition: "NEW",
+        attributeValues: {},
+        complianceValues: {},
+      },
+      variants: [],
+      storeSku: `F03E2E-${shortTag}`,
+      price: {
+        amount: "65.00",
+        currency: "ZAR",
+        priceIncludesTax: false,
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+      },
+      openingStock: 5,
+      inventoryLocationPublicReference: f03Location.publicReference,
+      packaging: {
+        lengthCm: 20,
+        widthCm: 15,
+        heightCm: 10,
+        weightKg: 0.7,
+        description: "Sealed standard parcel",
+      },
+      modifiers: [],
+      media: [
+        {
+          assetPublicReference: readyMedia.asset.publicReference,
+          altText: "F03 E2E product",
+          displayOrder: 0,
+          primary: true,
+          variantAssociation: "PRODUCT",
+        },
+      ],
+    });
+    const createdProduct = await prisma.catalogProduct.findUniqueOrThrow({ where: { publicReference: draft.publicReference }, select: { id: true } });
+    createdProductIds.push(createdProduct.id);
+    const offerRef = draft.offers[0]!.publicReference;
+    const variantRef = draft.variants[0]!.publicReference;
+    createdSettingKeys.push(`${PACKAGING_PREFIX}${offerRef}`);
+    const subProd = await submitStoreCatalogProduct(store.id, draft.publicReference, storeOwner.id, {
+      version: draft.version,
+      operationId: randomUUID(),
+    });
+    const appProd = await moderateCatalogProduct(subProd.id, admin1.id, "APPROVE", {
+      version: subProd.version,
+      operationId: randomUUID(),
+      reasonCode: "F03_PRODUCT_APPROVAL",
+    });
+    const subOffer = await transitionStoreCatalogOffer(store.id, offerRef, storeOwner.id, "SUBMITTED", {
+      version: draft.offers[0]!.version,
+      operationId: randomUUID(),
+    });
+    const appOffer = await moderateCatalogOffer(subOffer.id, admin1.id, "APPROVE", {
+      version: subOffer.version,
+      operationId: randomUUID(),
+      reasonCode: "F03_OFFER_APPROVAL",
+    });
+    const published = await publishApprovedCatalogListing(appOffer.id, admin2.id, {
+      version: appOffer.version,
+      productVersion: appProd.version,
+      priceVersionReference: draft.offers[0]!.priceVersions[0]!.publicReference,
+      operationId: randomUUID(),
+      reasonCode: "F03_PUBLICATION",
+    });
+    const pkgSetting = await prisma.systemSetting.findUniqueOrThrow({ where: { key: `${PACKAGING_PREFIX}${offerRef}` } });
+    const pkgRevision = (pkgSetting.value as { revision: string }).revision;
+    const versions = await listTrustedPackageVersions();
+    const activePkgVersion = versions.filter((v) => v.status === "ACTIVE").sort((a, b) => b.version - a.version)[0];
+    const latestPkgVersion = Math.max(0, ...versions.map((v) => v.version));
+    const savedPkg = await saveTrustedPackageVersion(admin1.id, {
+      packages: [
+        ...(activePkgVersion?.packages ?? []).filter((p) => p.offerReference !== offerRef),
+        {
+          storeId: store.id,
+          offerReference: offerRef,
+          variantReference: variantRef,
+          publicationVersion: String(published.offer.version),
+          modifiers: [],
+          packingRule: "SINGLE_PREPACKAGED_UNIT",
+          lengthCm: 20,
+          widthCm: 15,
+          heightCm: 10,
+          weightKg: 0.7,
+          authorityReference: `${PACKAGING_PREFIX}${offerRef}:${pkgRevision}`,
+        },
+      ],
+      bundles: activePkgVersion?.bundles ?? [],
+      effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+      effectiveTo: null,
+      expectedVersion: latestPkgVersion,
+      reason: "Trusted measurement for F03 E2E real-source checkout capability proof",
+    });
+    const pkgKey = `production_marketplace_trusted_packages_v${savedPkg.version}`;
+    createdSettingKeys.push(pkgKey);
+    const pkgRow = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+    const approvedPkg = await actOnTrustedPackageVersion(admin2.id, {
+      version: savedPkg.version,
+      expectedUpdatedAt: pkgRow.updatedAt.toISOString(),
+      action: "APPROVE",
+      reason: "Independent packaging approval for F03 E2E",
+    });
+    const pkgRow2 = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+    await actOnTrustedPackageVersion(admin2.id, {
+      version: savedPkg.version,
+      expectedUpdatedAt: pkgRow2.updatedAt.toISOString(),
+      action: "ACTIVATE",
+      reason: `Activate packaging v${approvedPkg.version} for F03 E2E`,
+    });
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await login(page, admin1.email);
@@ -565,18 +812,18 @@ test.describe("Phase A P0 browser closure workflows (F01..F04)", () => {
     await page.locator("#cert-paid-ref").fill("trx_fabricated_ref_123");
     await page.locator("#cert-paid-digest").fill("b".repeat(64));
     await page.locator("#cert-review-note").fill("Browser E2E negative check rejecting fabricated external receipts.");
-    await page.getByRole("button", { name: "Submit staging certification for independent review", exact: true }).click();
+    await page.getByRole("button", { name: "Submit manual route & checkout certification for review", exact: true }).click();
     await expect(page.locator('p[role="alert"]')).toContainText(/Fabricated external transaction references/i);
 
     const prepResPromise = page.waitForResponse(
       (res) => res.url().endsWith(`/api/admin/stores/${store.id}/checkout-certification`) && res.request().method() === "POST",
     );
-    await page.getByRole("button", { name: "Generate deterministic capability preflight for review", exact: true }).click();
+    await page.getByRole("button", { name: "Run real-source checkout capability proof & submit for review", exact: true }).click();
     const prepRes = await prepResPromise;
     expect(prepRes.status(), await prepRes.text()).toBe(200);
     await expect(page.getByTestId("engine-proof-stages")).toBeVisible();
     await expect(page.getByTestId("engine-proof-stages").getByText("PASS")).toHaveCount(6);
-    await expect(page.getByText(/DISPOSABLE END TO END CHECKOUT PROOF|DISPOSABLE_END_TO_END_CHECKOUT_PROOF/i)).toBeVisible();
+    await expect(page.getByText(/REAL STORE CATALOG CHECKOUT CAPABILITY PROOF|REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF/i)).toBeVisible();
 
     // Self-approval blocked for admin1
     await page.getByRole("button", { name: "Approve independently reviewed staging evidence", exact: true }).click();

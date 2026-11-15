@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { requireDisposableDriverSettlementDatabase } from "./disposable-driver-settlement-guard";
 
 /** Catalog input facts only. Paid state, stock consumption and orders must be
@@ -19,6 +20,7 @@ export async function createDisposableResidualCatalog() {
     await prisma.catalogInventoryMovement.create({ data: { publicReference: `MOV-RESIDUAL-${suffix}`, inventoryItemId: item.id, locationId: location.id, type: "INITIAL_STOCK", quantityDelta: 20, operationId: `residual-opening-${suffix}`, requestHash: `residual-opening-${suffix}`, reasonCode: "DISPOSABLE_INPUT_STOCK", actorUserId: store.ownerUserId!, resultingOnHand: 20 } });
     await prisma.catalogInventoryLevel.create({ data: { inventoryItemId: item.id, locationId: location.id, onHand: 20, available: 20, reserved: 0 } });
   }
+  await rebuildStorefrontStoreDocument(store.id);
   // The independently reviewed half-cent policy is supplied once by
   // createDisposableCheckoutAuthorities; overlapping active plans are refused.
 }

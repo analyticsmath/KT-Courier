@@ -32,6 +32,7 @@ export interface StoreOverviewPageProps {
   period?: DashboardPeriod;
   activity?: React.ReactNode;
   refreshControl?: React.ReactNode;
+  onboardingBanner?: React.ReactNode;
 }
 export function StoreOverviewPage({
   storeName,
@@ -46,6 +47,7 @@ export function StoreOverviewPage({
   period = "12_WEEKS",
   activity,
   refreshControl,
+  onboardingBanner,
 }: StoreOverviewPageProps) {
   const summary = getStoreFulfilmentSummary(queue);
   const state = storeAccountState(storeStatus);
@@ -86,6 +88,7 @@ export function StoreOverviewPage({
           </Link>
         </div>
       </header>
+      {onboardingBanner}
       <section className={s.analytics} aria-label="Store analytics">
         <article className={s.panel}>
           <div className={s.panelTitle}>

@@ -18,7 +18,12 @@ describe("commission plan service contract", () => {
     expect(db.commissionPlan.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ subjectType: "MARKETPLACE_STORE_ORDER", scopeKey: `STORE:${storeId}`, status: "DRAFT", versionNumber: 3, createdByUserId: "maker" }) }));
     expect(db.commissionPlan.create.mock.calls[0][0].data).not.toHaveProperty("approvedByUserId");
   });
-  it.each([null, { id: storeId, status: "PENDING" }, { id: storeId, status: "SUSPENDED" }])("rejects unknown or inactive stores before policy writes %#", async (store) => {
+  it("allows draft commission plan creation for pending onboarding stores without auto-activating", async () => {
+    db.store.findUnique.mockResolvedValue({ id: storeId, status: "PENDING" });
+    await expect(createCommissionPlan(draft)).resolves.toMatchObject({ status: "DRAFT" });
+    expect(db.commissionPlan.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "DRAFT" }) }));
+  });
+  it.each([null, { id: storeId, status: "SUSPENDED" }, { id: storeId, status: "REJECTED" }])("rejects unknown or suspended/rejected stores before policy writes %#", async (store) => {
     db.store.findUnique.mockResolvedValue(store);
     await expect(createCommissionPlan(draft)).rejects.toMatchObject({ code: "COMMISSION_INVALID_PLAN" });
     expect(db.commissionPlan.create).not.toHaveBeenCalled();

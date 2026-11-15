@@ -1,7 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { catalogRequestHash } from "@/lib/catalog/catalog-normalization";
-const m = vi.hoisted(() => ({ current: { id: "offer", publicReference: "CO-test", status: "PAUSED", publicationStatus: "PUBLISHED", version: 4, priceVersions: [] }, receipt: null as unknown, update: vi.fn(), evidence: vi.fn(), snapshot: vi.fn(), project: vi.fn(), withdraw: vi.fn() }));
+const m = vi.hoisted(() => ({ current: { id: "offer", publicReference: "CO-test", status: "PAUSED", publicationStatus: "PUBLISHED", version: 4, priceVersions: [] }, receipt: null as unknown, update: vi.fn(), evidence: vi.fn(), snapshot: vi.fn(), project: vi.fn(), withdraw: vi.fn(), rebuild: vi.fn(), invalidate: vi.fn(), syncReadiness: vi.fn(), isProofOffer: vi.fn() }));
 vi.mock("@/lib/services/storefront-projection.service", () => ({ StorefrontProjectionService: class { buildPublishedSnapshot = m.project; withdrawOffer = m.withdraw; } }));
+vi.mock("@/lib/services/storefront-store.service", () => ({ rebuildStorefrontStoreDocument: m.rebuild }));
+vi.mock("@/lib/admin/store-readiness-sync", () => ({ invalidateStoreCheckoutReadinessInTx: m.invalidate, syncStoreReadinessAfterCatalogOfferChange: m.syncReadiness, isApprovedCertProofOffer: m.isProofOffer }));
 vi.mock("@/lib/services/catalog-service-support", () => ({ recordCatalogEvidence: m.evidence, withCatalogTransaction: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { $transaction: async (run: (tx: unknown) => unknown) => run({ $queryRaw: vi.fn(), storeCatalogOffer: { findFirst: async () => m.current, updateMany: m.update, findUniqueOrThrow: async () => ({ ...m.current, status: "ACTIVE", version: 5 }) }, catalogOperationReceipt: { findUnique: async () => m.receipt }, catalogPublicationSnapshot: { findFirst: m.snapshot } }) } }));
 import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
@@ -12,6 +14,7 @@ it("resumes only the paused state while preserving publication and recording evi
   expect(m.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "offer", storeId: "store", version: 4, status: "PAUSED" }, data: expect.objectContaining({ status: "ACTIVE", publicationStatus: "PUBLISHED" }) }));
   expect(m.evidence).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: "ACTIVE", actorUserId: "owner", aggregateVersion: 5 }));
   expect(m.project).toHaveBeenCalledWith("CPS-approved");
+  expect(m.rebuild).toHaveBeenCalledWith("store", expect.anything());
 });
 it.each(["DRAFT", "SUBMITTED", "SUSPENDED", "NEEDS_CHANGES", "OUT_OF_STOCK", "ARCHIVED"])("does not let resume bypass review from %s", async status => {
   m.current.status = status;

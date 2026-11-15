@@ -21,7 +21,7 @@ export async function createStoreInventoryLocation(storeId: string, actorUserId:
     // Serialize first-location selection, duplicate-name checks and receipts per store.
     await tx.$queryRaw`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`;
     const store = await tx.store.findUnique({ where: { id: storeId }, select: { status: true } });
-    if (store?.status !== "ACTIVE") throw new CatalogOwnershipError();
+    if (!store || !["PENDING", "ACTIVE"].includes(store.status)) throw new CatalogOwnershipError();
     const receipt = await tx.catalogOperationReceipt.findUnique({ where: { actorUserId_action_operationId: { actorUserId, action: ACTION, operationId: input.operationId } } });
     if (receipt) {
       if (receipt.storeId !== storeId || receipt.requestHash !== hash || !receipt.aggregateReference) throw new CatalogConflictError("OPERATION_REPLAY_MISMATCH", "This operation was used for another stock location.");

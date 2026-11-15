@@ -16,6 +16,8 @@ import {
   getStoreCourierInsights,
   getStoreCourierBreakdown,
 } from "@/lib/dashboard-insights/store-dashboard-insights";
+import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
+import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 
 export const metadata: Metadata = { title: "Store operations" };
@@ -41,6 +43,7 @@ export default async function StoreDashboardPage({
     insight,
     courierInsight,
     courierBreakdown,
+    onboarding,
   ] = await Promise.all([
     getStorePickupAddress(user.id, "deliveries"),
     listOrders(user, { page: 1, pageSize: 5 }, true),
@@ -63,11 +66,13 @@ export default async function StoreDashboardPage({
     getStoreDashboardInsights(period),
     getStoreCourierInsights(period),
     getStoreCourierBreakdown(period),
+    store ? getStoreOnboardingByStoreId(store.id) : Promise.resolve(null),
   ]);
 
   const queue = marketplaceQueue as StoreFulfilmentQueue;
   return (
     <StoreOverviewPage
+      onboardingBanner={<StoreOnboardingStatusBanner onboarding={onboarding} />}
       storeName={store?.name ?? storeUser?.name ?? user.name ?? "Store"}
       storeStatus={store?.status ?? null}
       queue={queue}

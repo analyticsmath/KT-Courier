@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import { expect, type Page } from "@playwright/test";
 import { login } from "./auth";
 import { assertDisposablePaystackAcceptance } from "../../../lib/testing/disposable-paystack-policy";
+import { executeStoreOrderControl } from "../../../scripts/phase2-store-order-control";
 const execute = promisify(execFile);
 export type PaymentSnapshot = {
   checkout: { status: string; grandTotal: string };
@@ -134,12 +135,7 @@ export type StoreSnapshot = {
 };
 export async function storeControl(reference: string, action = "snapshot"): Promise<StoreSnapshot> {
   assertDisposablePaystackAcceptance();
-  const { stdout } = await execute(process.execPath, ["node_modules/tsx/dist/cli.mjs", "scripts/phase2-store-order-control.ts", reference, action], { env: process.env, timeout: 60_000, maxBuffer: 2_000_000 });
-  const line = stdout.split(/\r?\n/).find(value => value.startsWith("STORE_ORDER_SNAPSHOT "));
-  if (!line) throw new Error("Canonical store-order snapshot was not produced.");
-  const custodyLine = stdout.split(/\r?\n/).find(value => value.startsWith("STORE_ORDER_CUSTODY "));
-  if (!custodyLine) throw new Error("Canonical custody snapshot was not produced.");
-  return { ...JSON.parse(line.slice("STORE_ORDER_SNAPSHOT ".length)), custody: JSON.parse(custodyLine.slice("STORE_ORDER_CUSTODY ".length)) };
+  return executeStoreOrderControl(reference, action) as Promise<StoreSnapshot>;
 }
 export async function prepareStoreOrder(page: Page, suffix: string, width: number, options: Parameters<typeof prepareCheckout>[4] = {}) {
   const paid = await createPaidCheckout(page, suffix, width, options);

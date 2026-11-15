@@ -7,7 +7,18 @@ import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-pay
 import { login } from "./fixtures/auth";
 import { canonicalDriverDeliveryJourney } from "./fixtures/driver-delivery";
 import { createDisposableNewVendorCommission } from "@/scripts/e2e-checkout-authorities";
-import { prepareStoreCheckoutCertification, approveStoreCheckoutCertification } from "@/lib/admin/store-checkout-certification.service";
+import { filterValidTrustedPackages } from "@/scripts/phase3-parcel-control";
+import {
+  prepareStoreCheckoutCertification,
+  prepareStoreCheckoutCertificationFromPreflight,
+  approveStoreCheckoutCertification,
+} from "@/lib/admin/store-checkout-certification.service";
+import {
+  actOnTrustedPackageVersion,
+  listTrustedPackageVersions,
+  saveTrustedPackageVersion,
+} from "@/lib/marketplace-checkout/parcel-configuration.service";
+import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 import { createHash } from "node:crypto";
 
 test("new vendor verifies, creates five products with ten images, publishes, sells and delivers through persisted chat", async ({ page }, info) => {
@@ -141,28 +152,35 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
   });
   expect(foreignReuse.status()).toBe(422);
   await login(page, "superadmin@ktcouriers.local");
-  const blocked = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } });
-  expect(blocked.status()).toBe(422);
-  expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("PENDING");
-  // Two distinct preprovisioned reviewers register synthetic staging receipts
-  // against the exact pickup fingerprint. This is isolated acceptance evidence,
-  // not a production route or authentic consumer payment.
+  // Independent admin approves the merchant business account first; catalog
+  // moderation and publication require ACTIVE account status, while public shop
+  // go-live remains blocked until real-source checkout capability certification passes.
+  const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } });
+  expect(approval.status(), await approval.text()).toBe(200);
+  expect((await prisma.store.findUniqueOrThrow({ where: { id: store.id } })).status).toBe("ACTIVE");
+  expect((await prisma.storefrontStoreDocument.findUnique({ where: { storeId: store.id } }))?.publicStatus ?? "ABSENT").not.toBe("ACTIVE");
   const preparer = await prisma.user.findUniqueOrThrow({ where: { email: "superadmin@ktcouriers.local" } });
   const reviewer = await prisma.user.findUniqueOrThrow({ where: { email: "disposable-checkout-reviewer@example.test" } });
   expect(preparer.id).not.toBe(reviewer.id);
+  // Real-source preflight rejects an active store before seller identity,
+  // commission plan, and published courier-packaged offers exist.
+  await expect(prepareStoreCheckoutCertificationFromPreflight(store.id, preparer.id)).rejects.toMatchObject({
+    code: "PREFLIGHT_CAPABILITY_BLOCKED",
+  });
+  // Unverified manual route/checkout references cannot pass live certification.
   const syntheticRouteRef = `synthetic-route-${tag}-jhb`;
   const syntheticCheckoutRef = `synthetic-checkout-${tag}-paystack`;
-  const certification = await prepareStoreCheckoutCertification(store.id, preparer.id, {
+  const manualCertification = await prepareStoreCheckoutCertification(store.id, preparer.id, {
     routeEvidenceReference: syntheticRouteRef,
     routeEvidenceDigest: createHash("sha256").update(syntheticRouteRef).digest("hex"),
     checkoutEvidenceReference: syntheticCheckoutRef,
     checkoutEvidenceDigest: createHash("sha256").update(syntheticCheckoutRef).digest("hex"),
-    reviewNote: "Disposable synthetic vendor approval for end-to-end catalog and marketplace tests only; not live receipt authority.",
+    reviewNote: "Disposable negative check verifying manual evidence cannot substitute real-source proof.",
   });
-  expect(certification.status).toBe("PENDING_REVIEW");
-  const certified = await approveStoreCheckoutCertification(store.id, reviewer.id, certification.revision);
-  expect(certified.status).toBe("APPROVED");
-  const approval = await page.request.patch(`/api/admin/stores/${store.id}/status`, { headers, data: { status: "ACTIVE" } }); expect(approval.status(), await approval.text()).toBe(200);
+  expect(manualCertification.status).toBe("PENDING_REVIEW");
+  await expect(approveStoreCheckoutCertification(store.id, reviewer.id, manualCertification.revision)).rejects.toMatchObject({
+    code: "CERTIFICATION_STALE",
+  });
   const categoryName = `Synthetic accessories ${tag}`;
   const category = await page.request.post("/api/admin/catalog/categories", { headers, data: { name: categoryName, slug: `synthetic-accessories-${tag}`, status: "ACTIVE", displayOrder: 0, operationId: randomUUID() } }); expect(category.status(), await category.text()).toBe(201);
   const createdCategory = (await category.json()).category;
@@ -215,7 +233,10 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
       await page.getByLabel("Option name", { exact: true }).fill("color");
       await page.getByLabel("Option value", { exact: true }).fill("blue");
     }
-    if (index === 2) await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
+    if (index === 2) {
+      await page.getByText("Advanced modifier groups JSON", { exact: true }).click();
+      await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: `Synthetic gift wrap ${tag}`, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
+    }
     for (const image of [0, 1]) {
       const bytes = await sharp({ create: { width: 400, height: 400, channels: 3, background: { r: 40 + index * 25, g: 70 + image * 70, b: 120 } } }).png().toBuffer();
       const upload = page.waitForResponse(response => response.url().endsWith("/api/store/catalog/media/normalized") && response.request().method() === "POST");
@@ -226,11 +247,11 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     await step("Offer & stock"); await page.getByLabel("Packaged length (cm)", { exact: true }).fill("20"); await page.getByLabel("Packaged width (cm)", { exact: true }).fill("15"); await page.getByLabel("Packaged height (cm)", { exact: true }).fill("5"); await page.getByLabel("Packaged weight (kg)", { exact: true }).fill("0.4"); await page.getByLabel("How is this product packed?", { exact: true }).fill("Disposable test unit in a protective box.");
     if (index === 1) {
       await page.getByLabel("Variant SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
-      await page.getByLabel("Variant price including VAT (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+      await page.getByLabel("Variant selling price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
       await page.getByLabel("Variant opening stock", { exact: true }).fill("7");
     } else {
       await page.getByLabel("Store SKU", { exact: true }).fill(`SYNTHETIC-${tag}-${index}`);
-      await page.getByLabel("VAT-inclusive price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
+      await page.getByLabel("Selling price (ZAR)", { exact: true }).fill(`${20 + index}.25`);
       await page.getByLabel("Opening stock", { exact: true }).fill("7");
     }
     await page.getByLabel("Inventory location", { exact: true }).selectOption({ label: "Synthetic stockroom" });
@@ -270,6 +291,83 @@ test("new vendor verifies, creates five products with ten images, publishes, sel
     expect((await page.request.post(`/api/admin/catalog/offers/${product.offerId}/publish`, { headers, data: { ...command, reasonCode: "CHANGED_OPERATION" } })).status()).toBe(409);
   }
   expect(await prisma.storefrontProductDocument.count({ where: { storeId: store.id, status: "ACTIVE", searchable: true } })).toBe(5);
+  // Products are approved and published privately, yet the shop stays hidden
+  // from public storefront until trusted packaging + real-source certification pass.
+  expect((await prisma.storefrontStoreDocument.findUnique({ where: { storeId: store.id } }))?.publicStatus ?? "ABSENT").not.toBe("ACTIVE");
+  await page.goto(`/shop/stores/${store.slug}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("That marketplace item is not available.");
+  expect(await page.content()).not.toContain(store.name);
+  const publishedOffers = await prisma.storeCatalogOffer.findMany({
+    where: { storeId: store.id, status: "ACTIVE", publicationStatus: "PUBLISHED" },
+    include: { variant: true },
+    orderBy: { createdAt: "asc" },
+  });
+  expect(publishedOffers).toHaveLength(5);
+  const packageEntries = await Promise.all(
+    publishedOffers.map(async (offer) => {
+      const pkgSetting = await prisma.systemSetting.findUniqueOrThrow({
+        where: { key: `${PACKAGING_PREFIX}${offer.publicReference}` },
+      });
+      const pkgRevision = (pkgSetting.value as { revision: string }).revision;
+      return {
+        storeId: store.id,
+        offerReference: offer.publicReference,
+        variantReference: offer.variant.publicReference,
+        publicationVersion: String(offer.version),
+        modifiers: [] as Array<{ optionReference: string; quantity: number }>,
+        packingRule: "SINGLE_PREPACKAGED_UNIT" as const,
+        lengthCm: 20,
+        widthCm: 15,
+        heightCm: 5,
+        weightKg: 0.4,
+        authorityReference: `${PACKAGING_PREFIX}${offer.publicReference}:${pkgRevision}`,
+      };
+    }),
+  );
+  const pkgVersions = await listTrustedPackageVersions();
+  const activePkgVersion = pkgVersions
+    .filter((version) => version.status === "ACTIVE")
+    .sort((a, b) => b.version - a.version)[0];
+  const latestPkgVersion = Math.max(0, ...pkgVersions.map((version) => version.version));
+  const ownOfferRefs = new Set(publishedOffers.map((offer) => offer.publicReference));
+  const preservedPackages = await filterValidTrustedPackages(
+    (activePkgVersion?.packages ?? []).filter((entry) => !ownOfferRefs.has(entry.offerReference)),
+  );
+  const savedPkg = await saveTrustedPackageVersion(preparer.id, {
+    packages: [
+      ...preservedPackages,
+      ...packageEntries,
+    ],
+    bundles: activePkgVersion?.bundles ?? [],
+    effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+    effectiveTo: null,
+    expectedVersion: latestPkgVersion,
+    reason: "Trusted synthetic packaging for five-product E2E vendor capability proof",
+  });
+  const pkgKey = `production_marketplace_trusted_packages_v${savedPkg.version}`;
+  const pkgRow1 = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+  const approvedPkg = await actOnTrustedPackageVersion(reviewer.id, {
+    version: savedPkg.version,
+    expectedUpdatedAt: pkgRow1.updatedAt.toISOString(),
+    action: "APPROVE",
+    reason: "Independent synthetic packaging approval for five-product vendor",
+  });
+  const pkgRow2 = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+  await actOnTrustedPackageVersion(reviewer.id, {
+    version: savedPkg.version,
+    expectedUpdatedAt: pkgRow2.updatedAt.toISOString(),
+    action: "ACTIVATE",
+    reason: `Activate synthetic packaging v${approvedPkg.version}`,
+  });
+  const realCert = await prepareStoreCheckoutCertificationFromPreflight(
+    store.id,
+    preparer.id,
+    "Disposable synthetic real-source checkout capability proof for five-product E2E vendor only; not live receipt authority.",
+  );
+  expect(realCert.status).toBe("PENDING_REVIEW");
+  const certified = await approveStoreCheckoutCertification(store.id, reviewer.id, realCert.revision);
+  expect(certified.status).toBe("APPROVED");
+  await expect.poll(async () => (await prisma.storefrontStoreDocument.findUnique({ where: { storeId: store.id } }))?.publicStatus).toBe("ACTIVE");
   await login(page, "e2e-paystack-vendor-five-products@ktcouriers.local");
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); await page.goto(`/shop/stores/${store.slug}`);

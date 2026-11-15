@@ -95,6 +95,14 @@ export function humanizeAvailability(
   }
 }
 
+export function formatVatStatusLabel(
+  includesTax: boolean | undefined,
+): string | null {
+  if (includesTax === true) return "Incl. VAT";
+  if (includesTax === false) return "No VAT added";
+  return null;
+}
+
 export function formatCommercePrice(
   amount: string | number,
   currency: string = "ZAR",

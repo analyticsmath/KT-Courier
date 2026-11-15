@@ -293,4 +293,32 @@ describe("atomic canonical catalog listing drafts on isolated PostgreSQL", { tim
     expect(suggestions).toEqual([{ publicReference: own.publicReference, title: source.input.product.title, reason: "NORMALIZED_TITLE", confidenceBand: "MEDIUM" }]);
     expect(suggestions[0]).not.toHaveProperty("candidateProductId");
   });
+  it("reuses an existing active store modifier group when a second product uses the exact same definition", async () => {
+    const source = await foundation();
+    const first = await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const second = await createStoreCatalogListingDraft(source.store.id, source.user.id, {
+      ...source.input,
+      operationId: randomUUID(),
+      product: { ...source.input.product, title: `${source.input.product.title} two` },
+      storeSku: `${source.input.storeSku}-2`,
+    });
+    expect(second.offers[0]?.modifierGroups).toEqual(first.offers[0]?.modifierGroups);
+    expect(await prisma.storeModifierGroup.count({ where: { storeId: source.store.id } })).toBe(1);
+    expect(await prisma.storeOfferModifierGroup.count({ where: { group: { storeId: source.store.id } } })).toBe(2);
+  });
+  it("rejects a second product that reuses an existing modifier group name with conflicting options", async () => {
+    const source = await foundation();
+    await createStoreCatalogListingDraft(source.store.id, source.user.id, source.input);
+    const before = await counts(source.store.id);
+    await expect(
+      createStoreCatalogListingDraft(source.store.id, source.user.id, {
+        ...source.input,
+        operationId: randomUUID(),
+        product: { ...source.input.product, title: `${source.input.product.title} conflict` },
+        storeSku: `${source.input.storeSku}-CONFLICT`,
+        modifiers: [{ name: "Gift wrap", minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Foil", priceDelta: "5.50", currency: "ZAR", displayOrder: 0 }] }],
+      }),
+    ).rejects.toMatchObject({ code: "MODIFIER_GROUP_NAME_CONFLICT", status: 409 });
+    expect(await counts(source.store.id)).toEqual(before);
+  });
 });

@@ -46,6 +46,7 @@ const readyCapability: CheckoutCapabilityPreflightFacts = {
   routeVerified: true,
   serviceActive: true,
   policyActive: true,
+  sellableOfferReady: true,
   paymentProviderReady: true,
   certificationStale: false,
   independentReviewerStatus: "APPROVED_CURRENT",
@@ -74,6 +75,7 @@ describe("§4.1 CheckoutCapabilityPreflight blocker taxonomy and independent rev
       routeVerified: false,
       serviceActive: false,
       policyActive: false,
+      sellableOfferReady: false,
       paymentProviderReady: false,
       certificationStale: true,
       independentReviewerStatus: "STALE_OR_EXPIRED",
@@ -96,5 +98,16 @@ describe("§4.1 CheckoutCapabilityPreflight blocker taxonomy and independent rev
     expect(res.liveReady).toBe(false);
     expect(res.capabilityBlockers).toEqual([]);
     expect(res.blockers).toEqual(["CERTIFICATION_STALE"]);
+  });
+
+  it("blocks checkout capability preflight with NO_SELLABLE_OFFER when the store has no eligible published offer", () => {
+    const res = evaluateCheckoutCapabilityPreflight({
+      ...readyCapability,
+      sellableOfferReady: false,
+    });
+    expect(res.preflightReady).toBe(false);
+    expect(res.liveReady).toBe(false);
+    expect(res.capabilityBlockers).toEqual(["NO_SELLABLE_OFFER"]);
+    expect(res.blockerMessages.NO_SELLABLE_OFFER).toMatch(/publish at least one eligible product offer/i);
   });
 });

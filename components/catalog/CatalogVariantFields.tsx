@@ -27,9 +27,10 @@ export function readCatalogVariantDrafts(raw: string): CatalogVariantDraft[] | n
 
 const blankVariant = (codes = ["colour"]): CatalogVariantDraft => ({ title: "", options: codes.map(code => ({ code, value: "" })), attributeValues: {}, storeSku: "", price: "", openingStock: "", inventoryLocationPublicReference: "" });
 
-export function CatalogVariantFields({ raw, onChange, mode, locations = [] }: {
+export function CatalogVariantFields({ raw, onChange, mode, locations = [], vatContext }: {
   raw: string; onChange: (value: string) => void; mode: "options" | "commerce";
   locations?: { publicReference: string; name: string }[];
+  vatContext?: { defaultPriceIncludesTax: boolean; vatNote?: string };
 }) {
   const custom = raw.trim() !== "Default";
   const rows = readCatalogVariantDrafts(raw);
@@ -51,10 +52,10 @@ export function CatalogVariantFields({ raw, onChange, mode, locations = [] }: {
           <div className="flex flex-wrap gap-3"><Button type="button" variant="secondary" disabled={row.options.length >= 20} onClick={() => update(index, { options: [...row.options, { code: "", value: "" }] })}>Add option to variant {index + 1}</Button><Button type="button" variant="ghost" onClick={() => save((rows ?? []).filter((_, rowIndex) => rowIndex !== index))}>Remove variant {index + 1}</Button></div>
         </> : <>
           <p className="text-sm">{row.options.map(option => `${option.code}: ${option.value}`).join(" · ")}</p>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div><label className="text-sm font-bold" htmlFor={`variant-${index}-sku`}>Variant SKU</label><Input id={`variant-${index}-sku`} value={row.storeSku} maxLength={100} onChange={event => update(index, { storeSku: event.target.value })} /></div>
-            <div><label className="text-sm font-bold" htmlFor={`variant-${index}-price`}>Variant price including VAT (ZAR)</label><Input id={`variant-${index}-price`} inputMode="decimal" value={row.price} onChange={event => update(index, { price: event.target.value })} placeholder="19.25" /></div>
-            <div><label className="text-sm font-bold" htmlFor={`variant-${index}-stock`}>Variant opening stock</label><Input id={`variant-${index}-stock`} inputMode="numeric" value={row.openingStock} onChange={event => update(index, { openingStock: event.target.value })} placeholder="0" /></div>
+          <div className="grid min-w-0 gap-4 md:grid-cols-3">
+            <div className="min-w-0"><label className="text-sm font-bold" htmlFor={`variant-${index}-sku`}>Variant SKU</label><Input id={`variant-${index}-sku`} value={row.storeSku} maxLength={100} onChange={event => update(index, { storeSku: event.target.value })} /></div>
+            <div className="min-w-0"><label className="text-sm font-bold" htmlFor={`variant-${index}-price`}>Variant selling price (ZAR)</label><Input id={`variant-${index}-price`} inputMode="decimal" value={row.price} onChange={event => update(index, { price: event.target.value })} placeholder="19.25" /><p className="mt-1 text-xs text-[var(--kt-text-muted)]">{vatContext?.vatNote ?? "No VAT added unless marketplace VAT is enabled and seller is VAT-registered."}</p></div>
+            <div className="min-w-0"><label className="text-sm font-bold" htmlFor={`variant-${index}-stock`}>Variant opening stock</label><Input id={`variant-${index}-stock`} inputMode="numeric" value={row.openingStock} onChange={event => update(index, { openingStock: event.target.value })} placeholder="0" /></div>
           </div>
           <div><label className="text-sm font-bold" htmlFor={`variant-${index}-location`}>Variant stock location</label><select id={`variant-${index}-location`} className="min-h-11 w-full rounded-lg border p-2" value={row.inventoryLocationPublicReference} onChange={event => update(index, { inventoryLocationPublicReference: event.target.value })}><option value="">Use shared stock location below</option>{locations.map(location => <option key={location.publicReference} value={location.publicReference}>{location.name}</option>)}</select></div>
         </>}

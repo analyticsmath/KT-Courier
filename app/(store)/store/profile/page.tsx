@@ -14,6 +14,8 @@ import { getStoreProfile } from "@/lib/services/profiles.service";
 import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
 import { StoreSellerIdentityForm } from "@/components/store/StoreSellerIdentityForm";
 import { getStoreSellerIdentityState } from "@/lib/services/store-seller-identity.service";
+import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
+import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
 
 export const metadata: Metadata = { title: "Store settings" };
 
@@ -21,9 +23,10 @@ export default async function StoreProfilePage() {
   const access = await requireBusinessPage("/store/profile");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const [profile, pickupState] = await Promise.all([
+  const [profile, pickupState, onboarding] = await Promise.all([
     getStoreProfile(user.id),
     getStorePickupAddress(user.id, "settings"),
+    access.owner ? getStoreOnboardingByStoreId(access.store.id) : Promise.resolve(null),
   ]);
   const avatar = await prisma.user.findUnique({
     where: { id: user.id },
@@ -49,11 +52,12 @@ export default async function StoreProfilePage() {
         title="Store settings"
         description="Update your store information, contact details, photos and collection address."
       />
+      <StoreOnboardingStatusBanner onboarding={onboarding} />
       <OperationalPanel title="Your profile image">
         <ProfileAvatar hasAvatar={!!avatar?.avatarMediaReference} />
       </OperationalPanel>
       <OperationalPanel title="Store photos"><StoreBrandingUploader /></OperationalPanel>
-      {sellerIdentity ? <OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}{/^PMO-[a-f0-9-]{36}$/.test(item.input.sourceEvidenceReference) ? <a className="ml-3 underline" href={`/api/private-media/${encodeURIComponent(item.input.sourceEvidenceReference)}`}>Download submitted document</a> : null}</li>)}</ul></OperationalPanel> : null}
+      {sellerIdentity ? <div id="seller-identity"><OperationalPanel title="Legal seller identity"><p>{sellerIdentity.currentIdentity ? `Approved version: ${sellerIdentity.currentIdentity.identityVersion}` : "Seller identity requires independent review before checkout."}</p><StoreSellerIdentityForm currentReference={sellerIdentity.currentIdentity?.publicReference ?? null} /><ul className="mt-4 space-y-2">{sellerIdentity.proposals.map(item => <li key={item.reference}>{item.input.identityVersion} · {item.status.replaceAll("_", " ")}{/^PMO-[a-f0-9-]{36}$/.test(item.input.sourceEvidenceReference) ? <a className="ml-3 underline" href={`/api/private-media/${encodeURIComponent(item.input.sourceEvidenceReference)}`}>Download submitted document</a> : null}</li>)}</ul></OperationalPanel></div> : null}
       <OperationalPanel
         title="Store identity"
         description="These details identify your business and its main contact. Your login email is shown separately."
@@ -64,11 +68,12 @@ export default async function StoreProfilePage() {
           userEmail={profile?.user.email ?? ""}
         />
       </OperationalPanel>
-      <OperationalPanel
-        title="Pickup address"
-        description="The saved address is used by the existing store delivery request workflow."
-        padding="compact"
-      >
+      <div id="pickup-address">
+        <OperationalPanel
+          title="Pickup address"
+          description="The saved address is used by the existing store delivery request workflow."
+          padding="compact"
+        >
         <StorePickupAddressManager
           pickupAddress={pickupState?.pickupAddress ?? null}
           legacyAddress={{
@@ -83,7 +88,8 @@ export default async function StoreProfilePage() {
             country: profile?.store?.address.country,
           }}
         />
-      </OperationalPanel>
+        </OperationalPanel>
+      </div>
     </ProtectedPageFrame>
   );
 }

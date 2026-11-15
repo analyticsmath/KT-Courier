@@ -90,7 +90,7 @@ export const StorePriceVersionCreateSchema = z.object({
   offerPublicReference: publicReference,
   amount: z.string().regex(/^(?:0|[1-9]\d{0,15})\.\d{2}$/),
   currency: z.literal("ZAR"),
-  priceIncludesTax: z.literal(true),
+  priceIncludesTax: z.boolean(),
   effectiveFrom: z.string().datetime(),
   effectiveUntil: z.string().datetime().nullable().optional(),
   reasonCode: z.string().trim().regex(/^[A-Z][A-Z0-9_]{2,79}$/).optional(),

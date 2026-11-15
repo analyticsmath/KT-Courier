@@ -5,6 +5,7 @@ import { CatalogPackagingSchema, type CatalogPackaging } from "@/lib/validation/
 import { publicParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { packageFitsLimits } from "@/lib/catalog/package-fit";
 import { CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
+import { isApprovedCertProofOffer, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
 export const PACKAGING_PREFIX = "vendor_catalog_packaging:";
 export type PackagingDeclaration = CatalogPackaging & { offerReference: string; storeId: string; actorUserId: string; revision: string; submittedAt: string };
 /** Resolve the exact current vendor submission rather than searching the most
@@ -36,6 +37,20 @@ export async function saveCatalogPackaging(storeId: string, actorUserId: string,
     const data = { label: "Vendor measured delivery package", type: "JSON" as const, value: value as unknown as Prisma.InputJsonValue };
     await tx.systemSetting.upsert({ where: { key: PACKAGING_PREFIX + offerReference }, create: { key: PACKAGING_PREFIX + offerReference, ...data }, update: data });
     await tx.adminActivityLog.create({ data: { actorUserId, action: "UPDATE", entityType: "VendorCatalogPackaging", entityId: offer.id, message: "Vendor submitted packaged dimensions and weight for operational review.", metadata: { offerReference, storeId, revision: value.revision } } });
+    if (typeof (tx as unknown as { store?: { update?: unknown } }).store?.update === "function") {
+      const offerState = await tx.storeCatalogOffer.findFirst({
+        where: { id: offer.id },
+        select: { status: true, publicationStatus: true },
+      });
+      if (
+        offerState &&
+        (offerState.status === "ACTIVE" ||
+          offerState.publicationStatus === "PUBLISHED" ||
+          (await isApprovedCertProofOffer(tx, storeId, offerReference)))
+      ) {
+        await syncStoreReadinessAfterCatalogOfferChange(tx, storeId, [offerReference]);
+      }
+    }
     return value;
   };
   return transaction ? save(transaction) : prisma.$transaction(save);

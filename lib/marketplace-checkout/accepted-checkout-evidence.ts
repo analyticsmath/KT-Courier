@@ -6,6 +6,8 @@ import { resolveMarketplaceCartLine } from "./cart.service";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 import { listDeliveryMatrices } from "./delivery-policy-configuration";
 import { MarketplaceCheckoutError } from "./errors";
+import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
+import { assertStoreCurrentlySellingLive } from "@/lib/storefront/store-live-authority";
 
 /** Recheck mutable authorities before the first provider action, while retaining
  * frozen settlement facts. A changed source must produce a new customer review.
@@ -64,6 +66,14 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
   let sumGroupNetLiabilities = new Prisma.Decimal(0);
 
   for (const group of checkout.storeGroups) {
+    if (
+      !isLocalFullFlowAllowed() &&
+      typeof db.commissionPlan?.findFirst === "function" &&
+      typeof db.storeCatalogOffer?.count === "function" &&
+      typeof db.storeOrderOperationalPolicy?.findFirst === "function"
+    ) {
+      await assertStoreCurrentlySellingLive(db, group.storeId, at, "CHECKOUT_REVIEW_REQUIRED");
+    }
     if (!group.deliveryQuoteReference || !group.deliveryQuoteExpiresAt || group.deliveryQuoteExpiresAt <= at || !group.deliveryQuoteVersion) fail();
     const quote = await db.pricingQuote.findUnique({ where: { id: group.deliveryQuoteReference! } });
     if (!quote) return fail();

@@ -28,7 +28,7 @@ export type StorefrontDocument = {
   condition: "NEW" | "REFURBISHED" | "RECONDITIONED" | "USED";
   fulfilmentMode: "COURIER_DELIVERY" | "STORE_PICKUP" | "PICKUP_AND_DELIVERY";
   sellingUnit: "EACH" | "PAIR" | "PACK" | "BULK" | "FIXED_WEIGHT" | "VARIABLE_WEIGHT" | "VOLUME" | "LENGTH";
-  price: { publicReference: string; amount: string; currency: "ZAR"; includesTax: true; unitAmount?: string; unit?: string; quantity?: string };
+  price: { publicReference: string; amount: string; currency: "ZAR"; includesTax: boolean; unitAmount?: string; unit?: string; quantity?: string };
   availability: StorefrontAvailabilityState;
   primaryMedia?: { publicReference: string; width: number; height: number; alt: string };
   mediaGallery?: Array<{ publicReference: string; width: number; height: number; alt: string; role?: string }>;
@@ -45,7 +45,7 @@ export type StorefrontProductCard = {
   brandName?: string;
   primaryMedia?: StorefrontDocument["primaryMedia"];
   representativeVariantReference: string;
-  price: { amount: string; currency: "ZAR"; from: boolean };
+  price: { amount: string; currency: "ZAR"; from: boolean; includesTax?: boolean };
   variantCount: number;
   storeCount: number;
   availability: StorefrontAvailabilityState;

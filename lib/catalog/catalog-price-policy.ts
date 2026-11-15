@@ -11,7 +11,9 @@ export function assertExactZarPrice(value: {
     throw new CatalogPolicyError("INVALID_CATALOG_PRICE", "Price must be a positive exact amount with two decimals.");
   }
   if (value.currency !== "ZAR") throw new CatalogPolicyError("CATALOG_PRICE_CURRENCY", "Catalog prices must use ZAR.");
-  if (!value.priceIncludesTax) throw new CatalogPolicyError("CATALOG_PRICE_TAX", "Consumer-facing catalog prices must include VAT.");
+  if (typeof value.priceIncludesTax !== "boolean") {
+    throw new CatalogPolicyError("CATALOG_PRICE_TAX", "Specify whether VAT is included.");
+  }
 }
 
 export type PricePeriod = { effectiveFrom: Date; effectiveUntil?: Date | null; status?: string };

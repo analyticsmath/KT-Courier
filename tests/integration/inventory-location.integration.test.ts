@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createStoreInventoryLocation, listStoreInventoryLocations } from "@/lib/services/catalog-inventory-location.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
 
-async function store(status: "ACTIVE" | "PENDING" = "ACTIVE") {
+async function store(status: "ACTIVE" | "PENDING" | "SUSPENDED" = "ACTIVE") {
   const tag = randomUUID();
   const owner = await prisma.user.create({ data: { email: `stock-owner-${tag}@example.test`, role: "STORE", status: "ACTIVE" } });
   const store = await prisma.store.create({ data: { name: "Synthetic new vendor", slug: `stock-${tag}`, ownerUserId: owner.id, status } });
@@ -35,11 +35,17 @@ describe("stock location onboarding on disposable PostgreSQL", () => {
     expect((await createStoreInventoryLocation(foreign.store.id, foreign.owner.id, { name: "Front stockroom", operationId: randomUUID() })).isPrimary).toBe(true);
   });
 
-  it("rejects pending stores and client-supplied ownership without persistent side effects", async () => {
-    const source = await store("PENDING"); const command = { name: "Pending stockroom", operationId: randomUUID() };
-    await expect(createStoreInventoryLocation(source.store.id, source.owner.id, command)).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
-    expect(await listStoreInventoryLocations(source.store.id)).toEqual([]);
-    await expect(createStoreInventoryLocation(source.store.id, source.owner.id, { ...command, storeId: "foreign" } as typeof command)).rejects.toMatchObject({ code: "INVENTORY_LOCATION_INVALID" });
-    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: source.owner.id } })).toBe(0);
+  it("allows pending stores to prepare stock locations while rejecting suspended stores and client-supplied ownership without persistent side effects", async () => {
+    const pending = await store("PENDING");
+    const pendingCreated = await createStoreInventoryLocation(pending.store.id, pending.owner.id, { name: "Pending prep stockroom", operationId: randomUUID() });
+    expect(pendingCreated).toMatchObject({ name: "Pending prep stockroom", status: "ACTIVE", isPrimary: true, version: 1 });
+    const pendingStoreRow = await prisma.store.findUniqueOrThrow({ where: { id: pending.store.id }, select: { status: true } });
+    expect(pendingStoreRow.status).toBe("PENDING");
+
+    const suspended = await store("SUSPENDED"); const command = { name: "Suspended stockroom", operationId: randomUUID() };
+    await expect(createStoreInventoryLocation(suspended.store.id, suspended.owner.id, command)).rejects.toMatchObject({ code: "CATALOG_OWNERSHIP_DENIED" });
+    expect(await listStoreInventoryLocations(suspended.store.id)).toEqual([]);
+    await expect(createStoreInventoryLocation(suspended.store.id, suspended.owner.id, { ...command, storeId: "foreign" } as typeof command)).rejects.toMatchObject({ code: "INVENTORY_LOCATION_INVALID" });
+    expect(await prisma.catalogOperationReceipt.count({ where: { actorUserId: suspended.owner.id } })).toBe(0);
   });
 });

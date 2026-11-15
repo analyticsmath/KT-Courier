@@ -168,7 +168,6 @@ export async function upsertStorePickupAddressForStore(
       && current.defaultPickupAddress.storeId === store.id
       ? current.defaultPickupAddress : null;
     const locationChanged = hasStorePickupLocationChanged(existingPickup, input);
-    const revokeLiveStatus = current.status === "ACTIVE" && locationChanged;
     await tx.address.updateMany({
       where: { storeId: store.id, type: "PICKUP", isDefault: true },
       data: { isDefault: false },
@@ -186,24 +185,27 @@ export async function upsertStorePickupAddressForStore(
         })
       : await tx.address.create({ data: createAddressData(store.id, input) });
 
+    // Moving/setting collection coordinates invalidates route/checkout certification and
+    // bumps commerceReadinessRevision without stripping Business Account ACTIVE status.
+    const revokedCert = locationChanged
+      ? await tx.storeCheckoutCertification.updateMany({
+          where: { storeId: store.id, status: "APPROVED" },
+          data: { status: "REVOKED", revision: { increment: 1 } },
+        })
+      : { count: 0 };
+    const previouslyLiveOrCertified = locationChanged && (revokedCert.count > 0 || Boolean(current.featured));
+
     await tx.store.update({
       where: { id: store.id },
       data: {
         ...storeAddressData(input),
         defaultPickupAddressId: address.id,
-        ...(revokeLiveStatus ? { status: "PENDING", featured: false } : {}),
+        ...(locationChanged ? { featured: false, commerceReadinessRevision: { increment: 1 } } : {}),
       },
     });
-    // A stale ACTIVE storefront document must never keep accepting sales after
-    // the certified collection point has moved. Projection refresh is atomic.
     if (locationChanged) {
-      // Revoke stale checkout evidence even if the store is already pending.
-      await tx.storeCheckoutCertification.updateMany({
-        where: { storeId: store.id, status: "APPROVED" },
-        data: { status: "REVOKED", revision: { increment: 1 } },
-      });
+      await rebuildStorefrontStoreDocument(store.id, tx);
     }
-    if (revokeLiveStatus) await rebuildStorefrontStoreDocument(store.id, tx);
 
     await tx.adminActivityLog.create({
       data: {
@@ -215,8 +217,10 @@ export async function upsertStorePickupAddressForStore(
         metadata: {
           addressId: address.id,
           locationChanged,
-          liveStatusRevoked: revokeLiveStatus,
-          ...(revokeLiveStatus ? { reason: "PICKUP_CHANGED_REQUIRES_ROUTE_AND_CHECKOUT_RECERTIFICATION" } : {}),
+          liveStatusRevoked: previouslyLiveOrCertified,
+          ...(previouslyLiveOrCertified
+            ? { reason: "PICKUP_CHANGED_REQUIRES_ROUTE_AND_CHECKOUT_RECERTIFICATION" }
+            : {}),
         },
       },
     });

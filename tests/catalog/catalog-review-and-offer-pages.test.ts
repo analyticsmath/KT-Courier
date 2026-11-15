@@ -48,12 +48,12 @@ describe("catalog review and correction pages", () => {
     expect(html).toContain('src="/api/admin/catalog/media/asset-1/content"');
   });
 
-  it("exposes offer correction and exact VAT-inclusive draft pricing to permitted vendors", async () => {
+  it("exposes offer correction and truthful draft pricing to permitted vendors", async () => {
     f.offer.mockResolvedValue(offer()); f.locations.mockResolvedValue([]);
     const html = renderToStaticMarkup(await OfferPage({ params: Promise.resolve({ publicReference: "CO-offer" }) }));
     expect(html).toContain("Save offer changes");
     expect(html).toContain("Create reviewed-price draft");
-    expect(html).toContain("Price including VAT (ZAR)");
+    expect(html).toContain("Selling price (ZAR)");
   });
 
   it("keeps price and offer editors off active records and denied accounts", async () => {

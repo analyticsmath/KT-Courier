@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@prisma/client";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { catalogRequestHash as digest } from "@/lib/catalog/catalog-normalization";
+import { bumpStoreCommerceReadinessRevision } from "@/lib/admin/commerce-readiness-revision";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { StoreSellerIdentityProposalSchema, StoreSellerIdentityReviewSchema, ExternalSellerEvidenceSchema, assertCanonicalSellerEvidenceReference, CANONICAL_SELLER_EVIDENCE_MESSAGE, type SellerIdentityProposalInput, type SellerIdentityReviewInput } from "@/lib/validation/store-seller-identity";
 
 type Proposal = { schemaVersion: 1; reference: string; storeId: string; makerUserId: string; requestHash: string; input: SellerIdentityProposalInput; status: "PENDING_REVIEW" | "APPROVED" | "REJECTED"; review?: SellerIdentityReviewInput; reviewerUserId?: string; identityReference?: string };
@@ -158,7 +160,7 @@ export async function reviewStoreSellerIdentity(storeId: string, actorUserId: st
   return prisma.$transaction(async tx => {
     await lockStore(tx, storeId);
     const [store, actor] = await Promise.all([tx.store.findUnique({ where: { id: storeId } }), tx.user.findUnique({ where: { id: actorUserId }, select: { role: true, status: true } })]);
-    if (!store || store.status !== "ACTIVE" || actor?.status !== "ACTIVE" || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)) throw new PlatformError("SELLER_REVIEW_DENIED", "An active store and administrator are required.", 403);
+    if (!store || !["PENDING", "ACTIVE"].includes(store.status) || actor?.status !== "ACTIVE" || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)) throw new PlatformError("SELLER_REVIEW_DENIED", "A pending or active store and active administrator are required.", 403);
     const row = await tx.systemSetting.findFirst({ where: { key: { startsWith: prefix(storeId) }, value: { path: ["reference"], equals: input.proposalReference } } });
     if (!row) throw new PlatformError("SELLER_PROPOSAL_NOT_FOUND", "Seller identity proposal was not found.", 404);
     const saved = proposal(row.value);
@@ -186,6 +188,8 @@ export async function reviewStoreSellerIdentity(storeId: string, actorUserId: st
       identityReference = `SID-${randomUUID().replaceAll("-", "").toUpperCase()}`;
       const fields = saved.input;
       await tx.storeSellerLegalIdentity.create({ data: { storeId, publicReference: identityReference, identityVersion: fields.identityVersion, legalName: fields.legalName, tradingName: fields.tradingName, registrationReference: fields.registrationReference, vatRegistrationStatus: fields.vatRegistrationStatus, vatNumber: fields.vatNumber, countryCode: fields.countryCode, termsReference: fields.termsReference, invoiceClassification: fields.invoiceClassification, status: "APPROVED", effectiveFrom: start, effectiveUntil: end } });
+      await bumpStoreCommerceReadinessRevision(tx, storeId);
+      await rebuildStorefrontStoreDocument(storeId, tx);
     }
     const reviewed: Proposal = { ...saved, status: input.action === "APPROVE" ? "APPROVED" : "REJECTED", review: input, reviewerUserId: actorUserId, ...(identityReference ? { identityReference } : {}) };
     const updated = await tx.systemSetting.update({ where: { id: row.id }, data: { value: jsonValue(reviewed) } });

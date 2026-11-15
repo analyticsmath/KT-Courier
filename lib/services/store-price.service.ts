@@ -6,12 +6,13 @@ import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { assertCatalogProductionActivationAllowed } from "@/lib/catalog/catalog-production-lock";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
+import { isApprovedCertProofOffer, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
 
 export async function createStoreOfferPriceVersion(storeId: string, actorUserId: string, input: {
   offerPublicReference: string;
   amount: string;
   currency: "ZAR";
-  priceIncludesTax: true;
+  priceIncludesTax: boolean;
   effectiveFrom: string;
   effectiveUntil?: string | null;
   reasonCode?: string;
@@ -36,8 +37,8 @@ export async function createStoreOfferPriceVersion(storeId: string, actorUserId:
   return withCatalogTransaction(transaction, async (tx) => {
     const current = await tx.storeCatalogOffer.updateMany({ where: { id: offer.id, storeId, version: input.offerVersion }, data: { version: { increment: 1 } } });
     if (current.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before adding a price.");
-    const price = await tx.storeOfferPriceVersion.create({ data: { publicReference, offerId: offer.id, versionNumber: nextNumber, amount: input.amount, currency: "ZAR", priceIncludesTax: true, effectiveFrom, effectiveUntil, status: "DRAFT", reasonCode: input.reasonCode, volumeTiers, createdByUserId: actorUserId } });
-    await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: publicReference, aggregateVersion: nextNumber, action: "DRAFT_CREATED", eventType: "OFFER_UPDATED", actorUserId, safeMetadata: { offerReference: offer.publicReference, currency: "ZAR", includesTax: true }, operation: { operationId: input.operationId, storeId, request: input } });
+    const price = await tx.storeOfferPriceVersion.create({ data: { publicReference, offerId: offer.id, versionNumber: nextNumber, amount: input.amount, currency: "ZAR", priceIncludesTax: input.priceIncludesTax, effectiveFrom, effectiveUntil, status: "DRAFT", reasonCode: input.reasonCode, volumeTiers, createdByUserId: actorUserId } });
+    await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: publicReference, aggregateVersion: nextNumber, action: "DRAFT_CREATED", eventType: "OFFER_UPDATED", actorUserId, safeMetadata: { offerReference: offer.publicReference, currency: "ZAR", includesTax: input.priceIncludesTax }, operation: { operationId: input.operationId, storeId, request: input } });
     return price;
   });
 }
@@ -49,7 +50,18 @@ export async function activateStoreOfferPriceVersion(priceId: string, actorUserI
   return prisma.$transaction(async (tx) => {
     await tx.storeOfferPriceVersion.updateMany({ where: { offerId: price.offerId, status: "ACTIVE" }, data: { status: "RETIRED", retiredAt: new Date() } });
     const activated = await tx.storeOfferPriceVersion.update({ where: { id: price.id }, data: { status: "ACTIVE", activatedByUserId: actorUserId, activatedAt: new Date() } });
+    const previousOffer = await tx.storeCatalogOffer.findUniqueOrThrow({
+      where: { id: price.offerId },
+      select: { storeId: true, publicReference: true, status: true, publicationStatus: true },
+    });
     await tx.storeCatalogOffer.update({ where: { id: price.offerId }, data: { currentPriceVersionId: price.id, version: { increment: 1 } } });
+    if (
+      previousOffer.status === "ACTIVE" ||
+      previousOffer.publicationStatus === "PUBLISHED" ||
+      (await isApprovedCertProofOffer(tx, previousOffer.storeId, previousOffer.publicReference))
+    ) {
+      await syncStoreReadinessAfterCatalogOfferChange(tx, previousOffer.storeId, [previousOffer.publicReference]);
+    }
     await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: price.publicReference, aggregateVersion: price.versionNumber, action: "ACTIVATED", eventType: "PRICE_ACTIVATED", actorUserId });
     return activated;
   });

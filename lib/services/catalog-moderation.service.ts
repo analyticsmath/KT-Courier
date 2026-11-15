@@ -4,6 +4,8 @@ import { CatalogConflictError, CatalogNotFoundError, CatalogPolicyError } from "
 import { recordCatalogEvidence } from "@/lib/services/catalog-service-support";
 import { type Prisma } from "@prisma/client";
 import { catalogRequestHash } from "@/lib/catalog/catalog-normalization";
+import { getApprovedCertProof, isApprovedCertProofOffer, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
+import { StorefrontProjectionService } from "@/lib/services/storefront-projection.service";
 
 export async function listCatalogModerationCases(filters: { status?: string; needsAttention?: boolean } = {}) {
   return prisma.catalogModerationCase.findMany({ where: filters.status ? { status: filters.status as never } : filters.needsAttention ? { status: { in: ["OPEN", "UNDER_REVIEW", "NEEDS_CHANGES"] } } : undefined, include: { product: { include: { variants: true, primaryCategory: true, productTypeDefinition: true } }, offer: { include: { priceVersions: true, inventoryItem: { include: { levels: true } } } }, history: { orderBy: { createdAt: "asc" } } }, orderBy: [{ priority: "desc" }, { openedAt: "asc" }] });
@@ -65,6 +67,39 @@ export async function moderateCatalogProduct(id: string, actorUserId: string, ac
       await tx.catalogModerationCase.update({ where: { id: moderationCase.id }, data: { status: caseStatus, reviewedByUserId: actorUserId, resolvedAt: action === "REQUEST_CHANGES" ? null : new Date() } });
       await tx.catalogModerationHistory.create({ data: { caseId: moderationCase.id, fromStatus: moderationCase.status, toStatus: caseStatus, action, reasonCode: input.reasonCode, safeNote: input.safeNote, actorUserId, aggregateVersion: product.version + 1 } });
     }
+    if (
+      product.sourceStoreId &&
+      (action === "SUSPEND" || action === "REJECT" || action === "REQUEST_CHANGES")
+    ) {
+      const productOffers = await tx.storeCatalogOffer.findMany({
+        where: { productId: product.id, storeId: product.sourceStoreId },
+        select: { publicReference: true, status: true, publicationStatus: true },
+      });
+      const approvedCert = await getApprovedCertProof(tx, product.sourceStoreId);
+      const affectedLive =
+        product.status === "ACTIVE" ||
+        product.publicationStatus === "PUBLISHED" ||
+        productOffers.some(
+          (offer) =>
+            offer.status === "ACTIVE" ||
+            offer.publicationStatus === "PUBLISHED" ||
+            offer.publicReference === approvedCert?.proofOfferReference,
+        );
+      if (action === "SUSPEND" || action === "REJECT") {
+        for (const offer of productOffers) {
+          if (offer.status === "ACTIVE" || offer.publicationStatus === "PUBLISHED") {
+            await new StorefrontProjectionService(tx).withdrawOffer(offer.publicReference);
+          }
+        }
+      }
+      if (affectedLive) {
+        await syncStoreReadinessAfterCatalogOfferChange(
+          tx,
+          product.sourceStoreId,
+          productOffers.map((offer) => offer.publicReference),
+        );
+      }
+    }
     await recordCatalogEvidence(tx, { aggregateType: "MODERATION", aggregateReference: product.publicReference, aggregateVersion: product.version + 1, action, eventType: action === "SUSPEND" ? "PRODUCT_SUSPENDED" : "MODERATION_RECORDED", actorUserId, reasonCode: input.reasonCode, operation: { operationId: input.operationId, request } });
     return tx.catalogProduct.findUniqueOrThrow({ where: { id } });
   });
@@ -93,6 +128,18 @@ export async function moderateCatalogOffer(id: string, actorUserId: string, acti
       const caseStatus = { APPROVE: "APPROVED", REQUEST_CHANGES: "NEEDS_CHANGES", SUSPEND: "SUSPENDED" }[action] as never;
       await tx.catalogModerationCase.update({ where: { id: moderationCase.id }, data: { status: caseStatus, reviewedByUserId: actorUserId, resolvedAt: action === "REQUEST_CHANGES" ? null : new Date() } });
       await tx.catalogModerationHistory.create({ data: { caseId: moderationCase.id, fromStatus: moderationCase.status, toStatus: caseStatus, action, reasonCode: input.reasonCode, safeNote: input.safeNote, actorUserId, aggregateVersion: offer.version + 1 } });
+    }
+    if (action === "SUSPEND" || action === "REQUEST_CHANGES") {
+      const isLiveOrProof =
+        offer.status === "ACTIVE" ||
+        offer.publicationStatus === "PUBLISHED" ||
+        (await isApprovedCertProofOffer(tx, offer.storeId, offer.publicReference));
+      if (action === "SUSPEND" && (offer.status === "ACTIVE" || offer.publicationStatus === "PUBLISHED")) {
+        await new StorefrontProjectionService(tx).withdrawOffer(offer.publicReference);
+      }
+      if (isLiveOrProof) {
+        await syncStoreReadinessAfterCatalogOfferChange(tx, offer.storeId, [offer.publicReference]);
+      }
     }
     await recordCatalogEvidence(tx, { aggregateType: "MODERATION", aggregateReference: offer.publicReference, aggregateVersion: offer.version + 1, action, eventType: "MODERATION_RECORDED", actorUserId, reasonCode: input.reasonCode, operation: { operationId: input.operationId, storeId: offer.storeId, request } });
     return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id } });

@@ -19,7 +19,7 @@ it("provides native fields for product options and independent variant commerce"
     expect([...host.querySelectorAll("label")].map(label => label.textContent)).toEqual(expect.arrayContaining(["Variant name", "Option name", "Option value"]));
     expect(host.querySelector("textarea")).toBeNull();
     await act(async () => root.render(createElement(CatalogVariantFields, { raw, onChange: vi.fn(), mode: "commerce" })));
-    for (const text of ["Variant SKU", "Variant price including VAT (ZAR)", "Variant opening stock"]) {
+    for (const text of ["Variant SKU", "Variant selling price (ZAR)", "Variant opening stock"]) {
       const label = [...host.querySelectorAll("label")].find(item => item.textContent === text)!;
       expect(label.control).toBeInstanceOf(HTMLInputElement);
     }
@@ -53,7 +53,7 @@ it("submits explicit per-variant price and stock from the real wizard and links 
     expect(fetcher).toHaveBeenCalledOnce(); expect(fetcher.mock.calls[0][0]).toBe("/api/store/catalog/listing-drafts");
     const body = JSON.parse(fetcher.mock.calls[0][1].body);
     expect(body).not.toHaveProperty("storeSku"); expect(body).not.toHaveProperty("openingStock");
-    expect(body.variants).toMatchObject([{ title: "Blue", storeSku: "SHIRT-BLUE", price: { amount: "19.25", currency: "ZAR", priceIncludesTax: true }, openingStock: 3 }, { title: "Red", storeSku: "SHIRT-RED", price: { amount: "27.50" }, openingStock: 8 }]);
+    expect(body.variants).toMatchObject([{ title: "Blue", storeSku: "SHIRT-BLUE", price: { amount: "19.25", currency: "ZAR", priceIncludesTax: false }, openingStock: 3 }, { title: "Red", storeSku: "SHIRT-RED", price: { amount: "27.50" }, openingStock: 8 }]);
     expect(host.querySelectorAll('a[href^="/store/catalog/offers/"]')).toHaveLength(2);
     expect(host.textContent).toContain("View saved offer: Blue"); expect(host.textContent).toContain("View saved offer: Red");
   } finally { await act(async () => root.unmount()); host.remove(); }

@@ -18,6 +18,7 @@ import {
   pricingInputSnapshot,
 } from "@/lib/pricing/input-hash";
 import { toQuoteDto } from "@/lib/services/pricing-quote.service";
+import { bumpGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import {
   DeliveryConfigurationSchema,
   PlatformError,
@@ -122,6 +123,10 @@ export async function saveDeliveryConfiguration(
         message: data.reason,
         metadata: { stableKey: data.stableKey, version: row.versionNumber },
       },
+    });
+    await bumpGlobalCommercePolicyRevision(tx, {
+      actorUserId: actorId,
+      reason: `Updated delivery service configuration ${data.stableKey} v${row.versionNumber}`,
     });
     return { id: row.id, version: row.versionNumber };
   });

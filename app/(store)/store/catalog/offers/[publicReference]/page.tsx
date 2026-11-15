@@ -17,6 +17,7 @@ import { StoreOfferAvailability } from "@/components/catalog/StoreOfferAvailabil
 import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { StoreOfferEditor } from "@/components/catalog/StoreOfferEditor";
+import { getStoreVatPricingContext } from "@/lib/catalog/store-vat-context";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function StoreOfferDetailPage({
@@ -28,11 +29,12 @@ export default async function StoreOfferDetailPage({
   const { store, user } = await getCurrentStoreForCatalogPage();
   const { publicReference } = await params;
   const offer = await getStoreCatalogOffer(store.id, publicReference);
-  const [submit, manage, pricing, locations] = await Promise.all([
+  const [submit, manage, pricing, locations, vatContext] = await Promise.all([
     storeCatalogPermission(user.id, PERMISSIONS.CATALOG_SUBMIT),
     storeCatalogPermission(user.id, PERMISSIONS.CATALOG_MANAGE),
     storeCatalogPermission(user.id, PERMISSIONS.CATALOG_PRICING_MANAGE),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getStoreVatPricingContext(store.id),
   ]);
   return (
     <ProtectedPageFrame>
@@ -59,7 +61,7 @@ export default async function StoreOfferDetailPage({
         <Link className="underline underline-offset-4" href="/store/catalog/inventory">Record received stock</Link>
       </div>
       {["DRAFT", "NEEDS_CHANGES", "PAUSED"].includes(offer.status) && (manage.allowed || pricing.allowed) ? <OperationalPanel title="Correct offer and draft price">
-        <StoreOfferEditor key={`${offer.publicReference}:${offer.version}`} offer={{ publicReference: offer.publicReference, version: offer.version, status: offer.status, merchantTitle: offer.merchantTitle, merchantDescription: offer.merchantDescription, fulfilmentMode: offer.fulfilmentMode, primaryInventoryLocationId: offer.primaryInventoryLocationId }} locations={locations} canManage={manage.allowed} canPrice={pricing.allowed} initialPrice={offer.priceVersions[0]?.amount.toFixed(2) ?? ""} initialEffectiveFrom={new Date().toISOString()} />
+        <StoreOfferEditor key={`${offer.publicReference}:${offer.version}`} offer={{ publicReference: offer.publicReference, version: offer.version, status: offer.status, merchantTitle: offer.merchantTitle, merchantDescription: offer.merchantDescription, fulfilmentMode: offer.fulfilmentMode, primaryInventoryLocationId: offer.primaryInventoryLocationId }} locations={locations} canManage={manage.allowed} canPrice={pricing.allowed} initialPrice={offer.priceVersions[0]?.amount.toFixed(2) ?? ""} initialEffectiveFrom={new Date().toISOString()} vatContext={vatContext} />
       </OperationalPanel> : null}
       {submit.allowed && ["DRAFT", "NEEDS_CHANGES"].includes(offer.status) && <OperationalPanel title="Offer review"><StoreOfferSubmit key={`${offer.publicReference}:${offer.version}`} reference={offer.publicReference} version={offer.version} /></OperationalPanel>}
       {manage.allowed && ["ACTIVE", "OUT_OF_STOCK", "PAUSED"].includes(offer.status) ? <OperationalPanel title="Listing availability"><StoreOfferAvailability key={`${offer.publicReference}:${offer.version}`} reference={offer.publicReference} version={offer.version} status={offer.status} /></OperationalPanel> : null}

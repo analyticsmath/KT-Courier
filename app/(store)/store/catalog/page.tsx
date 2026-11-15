@@ -15,13 +15,16 @@ import {
   getCurrentStoreForCatalogPage,
   getStoreCatalogPageSummary,
 } from "@/lib/services/catalog-page.service";
+import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
+import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
 
 export default async function StoreCatalogPage() {
   await requireBusinessPage("/store/catalog");
   const { store } = await getCurrentStoreForCatalogPage();
-  const [summary, commissionReadiness] = await Promise.all([
+  const [summary, commissionReadiness, onboarding] = await Promise.all([
     getStoreCatalogPageSummary(store.id),
     getStoreCommissionReadiness(store.id),
+    getStoreOnboardingByStoreId(store.id),
   ]);
   return (
     <ProtectedPageFrame>
@@ -39,6 +42,7 @@ export default async function StoreCatalogPage() {
         }
       />
       <StoreCatalogNavigation />
+      <StoreOnboardingStatusBanner onboarding={onboarding} compact />
       {store.status === "PENDING" ? (
         <div role="status" className="rounded-[var(--eo-radius-panel)] border border-[var(--eo-border)] p-4 text-sm text-[var(--eo-text-secondary)]">
           Business verification is pending. You can prepare product drafts, images, prices and stock now. Products become public only after the business is approved and the catalog passes moderation and publication checks.

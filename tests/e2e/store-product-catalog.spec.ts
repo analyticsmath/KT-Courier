@@ -26,6 +26,7 @@ for (const width of [1440, 390]) {
     await page.getByLabel("Variant name", { exact: true }).fill("Blue");
     await page.getByLabel("Option name", { exact: true }).fill("color");
     await page.getByLabel("Option value", { exact: true }).fill("blue");
+    await page.getByText("Advanced modifier groups JSON", { exact: true }).click();
     await page.getByLabel("Modifier groups", { exact: true }).fill(JSON.stringify([{ name: modifierName, minimumSelections: 0, maximumSelections: 1, isRequired: false, options: [{ name: "Paper", priceDelta: "1.10", currency: "ZAR", displayOrder: 0 }] }]));
     const file = page.getByLabel("Upload product image", { exact: true });
     await file.setInputFiles({ name: "invalid.svg", mimeType: "image/svg+xml", buffer: Buffer.from("<svg/>") });
@@ -41,7 +42,7 @@ for (const width of [1440, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
 
     await step(page, "Offer & stock"); await page.getByLabel("Packaged length (cm)", { exact: true }).fill("20"); await page.getByLabel("Packaged width (cm)", { exact: true }).fill("15"); await page.getByLabel("Packaged height (cm)", { exact: true }).fill("5"); await page.getByLabel("Packaged weight (kg)", { exact: true }).fill("0.4"); await page.getByLabel("How is this product packed?", { exact: true }).fill("Disposable test unit in a protective box."); await page.getByLabel("Variant SKU", { exact: true }).fill(sku);
-    const price = page.getByLabel("Variant price including VAT (ZAR)", { exact: true });
+    const price = page.getByLabel("Variant selling price (ZAR)", { exact: true });
     await expect(price).toHaveCount(1); await expect(price).toBeVisible();
     expect(await price.evaluate(input => (input as HTMLInputElement).labels?.length)).toBe(1);
     await price.focus(); await price.pressSequentially("19.25");
@@ -116,6 +117,7 @@ for (const width of [1440, 390]) {
     // This is a new draft, so the prior product's category must not leak into it.
     await page.getByLabel("Category", { exact: true }).selectOption({ label: "Electronics" });
     await step(page, "Photos & options"); await page.getByText("Variants, compliance and modifiers (optional)", { exact: true }).click();
+    await page.getByText("Advanced modifier groups JSON", { exact: true }).click();
     await expect(page.getByLabel("Modifier groups", { exact: true })).toHaveValue("");
     await step(page, "Product details"); await expect(page.getByLabel("Product type", { exact: true })).toHaveCount(0);
     await page.getByText("Check for an existing product (optional)", { exact: true }).click();

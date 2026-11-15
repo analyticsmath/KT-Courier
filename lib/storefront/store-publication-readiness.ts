@@ -1,4 +1,5 @@
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 import {
   completeStorePickupAddress,
   type StorePickupAddressCandidate,
@@ -6,6 +7,7 @@ import {
 
 export type PublicStoreCheckoutCertificate = Readonly<{
   status: string;
+  evidenceType?: string | null;
   pickupAddressId: string;
   pickupFingerprint: string;
   preparedByUserId: string;
@@ -14,6 +16,11 @@ export type PublicStoreCheckoutCertificate = Readonly<{
   expiresAt: Date;
   routeEvidenceDigest: string | null;
   checkoutEvidenceDigest: string | null;
+  engineProofDigest?: string | null;
+  proofOfferReference?: string | null;
+  proofPriceVersionReference?: string | null;
+  sourceCommerceReadinessRevision?: number | null;
+  globalPolicyRevision?: number | null;
 }>;
 
 export type StoreSellerIdentityReadinessFact = Readonly<{
@@ -71,10 +78,25 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
   certification: PublicStoreCheckoutCertificate | null;
   hasApprovedSellerIdentity: boolean;
   hasActiveOperationalPolicy: boolean;
+  hasActiveCommissionPlan: boolean;
+  storeCommerceReadinessRevision: number;
+  currentGlobalPolicyRevision: number;
   now?: Date;
 }>): boolean {
   const { pickup, certification } = input;
-  if (input.hasApprovedSellerIdentity !== true || input.hasActiveOperationalPolicy !== true) {
+  if (
+    input.hasApprovedSellerIdentity !== true ||
+    input.hasActiveOperationalPolicy !== true ||
+    input.hasActiveCommissionPlan !== true
+  ) {
+    return false;
+  }
+  if (
+    !Number.isSafeInteger(input.storeCommerceReadinessRevision) ||
+    input.storeCommerceReadinessRevision < 1 ||
+    !Number.isSafeInteger(input.currentGlobalPolicyRevision) ||
+    input.currentGlobalPolicyRevision < 1
+  ) {
     return false;
   }
   if (input.status !== "ACTIVE" || input.name.trim().length === 0 ||
@@ -82,6 +104,7 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
       !pickup?.id || !pickup.storeId || pickup.type !== "PICKUP" ||
       !completeStorePickupAddress(pickup) || !certification) return false;
   if (certification.status !== "APPROVED" ||
+      certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE ||
       !certification.approvedByUserId || !certification.preparedByUserId ||
       certification.approvedByUserId === certification.preparedByUserId ||
       !(certification.approvedAt instanceof Date) ||
@@ -91,6 +114,13 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
       certification.expiresAt.getTime() <= (input.now ?? new Date()).getTime() ||
       !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") ||
       !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") ||
+      !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") ||
+      typeof certification.proofOfferReference !== "string" ||
+      certification.proofOfferReference.trim().length === 0 ||
+      typeof certification.proofPriceVersionReference !== "string" ||
+      certification.proofPriceVersionReference.trim().length === 0 ||
+      certification.sourceCommerceReadinessRevision !== input.storeCommerceReadinessRevision ||
+      certification.globalPolicyRevision !== input.currentGlobalPolicyRevision ||
       certification.pickupAddressId !== pickup.id) return false;
   try {
     return certification.pickupFingerprint === pickupCertificationFingerprint(pickup);

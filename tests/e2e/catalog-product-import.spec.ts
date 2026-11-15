@@ -53,7 +53,7 @@ for (const width of [320, 390, 1440]) test(`vendor product CSV preview, apply, r
   await expect(page.getByRole("img", { name: "Synthetic imported product image", exact: true })).toBeVisible();
   await page.getByLabel("Store offer SKU", { exact: true }).fill(`IMPORT-${tag}`);
   await page.getByRole("button", { name: "Create offer and add price", exact: true }).click();
-  await expect(page.getByLabel("Price including VAT (ZAR)", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Selling price (ZAR)", { exact: true })).toBeVisible();
   expect(await prisma.storeCatalogOffer.count({ where: { storeId: store.id, productId: products[0].id, status: "DRAFT" } })).toBe(1);
   const endpoint = `/api/store/catalog/imports/${job.publicReference}/apply`;
   const headers = { origin: process.env.E2E_BASE_URL! };

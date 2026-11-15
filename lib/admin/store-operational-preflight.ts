@@ -59,6 +59,7 @@ export const CHECKOUT_CAPABILITY_BLOCKER_CODES = [
   "ROUTE_UNVERIFIED",
   "SERVICE_INACTIVE",
   "POLICY_INACTIVE",
+  "NO_SELLABLE_OFFER",
   "PAYMENT_PROVIDER_NOT_READY",
   "CERTIFICATION_STALE",
 ] as const;
@@ -86,6 +87,8 @@ export const CHECKOUT_CAPABILITY_BLOCKER_MESSAGES: Readonly<
     "No active courier service or parcel size profile currently supports this store's collection province and region.",
   POLICY_INACTIVE:
     "An active store order operational policy and approved store commission plan are required before checkout capability can be certified.",
+  NO_SELLABLE_OFFER:
+    "Create, approve, media-ready, stock, package, price in ZAR, and publish at least one eligible product offer before certifying live checkout capability.",
   PAYMENT_PROVIDER_NOT_READY:
     "Paystack payment provider configuration is not ready or has configuration issues.",
   CERTIFICATION_STALE:
@@ -110,6 +113,7 @@ export type CheckoutCapabilityPreflightFacts = Readonly<{
   routeVerified: boolean;
   serviceActive: boolean;
   policyActive: boolean;
+  sellableOfferReady: boolean;
   paymentProviderReady: boolean;
   certificationStale: boolean;
   independentReviewerStatus: IndependentReviewerStatus;
@@ -146,6 +150,7 @@ export function evaluateCheckoutCapabilityPreflight(
     if (!facts.serviceActive) capabilityBlockers.push("SERVICE_INACTIVE");
   }
   if (!facts.policyActive) capabilityBlockers.push("POLICY_INACTIVE");
+  if (!facts.sellableOfferReady) capabilityBlockers.push("NO_SELLABLE_OFFER");
   if (!facts.paymentProviderReady) capabilityBlockers.push("PAYMENT_PROVIDER_NOT_READY");
 
   const blockers: CheckoutCapabilityBlockerCode[] = [...capabilityBlockers];

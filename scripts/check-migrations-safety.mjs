@@ -161,6 +161,18 @@ const approvedDestructiveOperations = [
     statement: /^\s*ALTER\s+TABLE\s+"MarketplaceOrder"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"MarketplaceOrder_total_check"\s*;\s*$/i,
     reason: "Updates MarketplaceOrder_total_check to account for promotional discounts while preserving non-negative invariant and ledger reconciliation.",
   },
+  {
+    migration: "20261116010000_vendor_readiness_revision_and_real_proof",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"StoreOfferPriceVersion"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"StoreOfferPriceVersion_money_check"\s*;\s*$/i,
+    reason: "Updates StoreOfferPriceVersion_money_check in-place to allow explicit non-VAT prices (priceIncludesTax = false) for VAT-unregistered sole traders and VAT-off marketplace configuration while preserving positive ZAR money invariants.",
+  },
+  {
+    migration: "20261116010000_vendor_readiness_revision_and_real_proof",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"StorefrontProductDocument"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"StorefrontProductDocument_source_shape_check"\s*;\s*$/i,
+    reason: "Updates StorefrontProductDocument_source_shape_check in-place to allow truthful priceIncludesTax = false projections while preserving all catalog document invariants.",
+  },
 ];
 
 function checksum(file) {

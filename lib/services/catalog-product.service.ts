@@ -10,6 +10,8 @@ import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, Cata
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 import { toInputJsonObject } from "@/lib/json/input-json";
 import { projectCatalogMediaAsset } from "@/lib/services/catalog-media-intake.service";
+import { getApprovedCertProof, invalidateStoreCheckoutReadinessInTx, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
+import { StorefrontProjectionService } from "@/lib/services/storefront-projection.service";
 
 export type CatalogProductDraftInput = {
   scope: "GLOBAL_CANONICAL" | "STORE_PRIVATE";
@@ -159,6 +161,16 @@ export async function updateStoreCatalogProduct(storeId: string, publicReference
       },
     });
     if (updated.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before saving.");
+    const approvedCert = await getApprovedCertProof(tx, storeId);
+    if (approvedCert?.proofOfferReference) {
+      const linkedProofOffer = await tx.storeCatalogOffer.findFirst({
+        where: { productId: current.id, storeId, publicReference: approvedCert.proofOfferReference },
+        select: { id: true },
+      });
+      if (linkedProofOffer) {
+        await invalidateStoreCheckoutReadinessInTx(tx, storeId);
+      }
+    }
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT", aggregateReference: publicReference, aggregateVersion: nextVersion, action: "DRAFT_UPDATED", eventType: "PRODUCT_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request: input } });
     return tx.catalogProduct.findUniqueOrThrow({ where: { id: current.id }, include: { variants: true } });
   });
@@ -198,6 +210,32 @@ export async function archiveStoreCatalogProduct(storeId: string, publicReferenc
     assertProductTransition(current.status, "ARCHIVED");
     const result = await tx.catalogProduct.updateMany({ where: { id: current.id, version: input.version, status: current.status }, data: { status: "ARCHIVED", publicationStatus: "WITHDRAWN", version: { increment: 1 } } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Product changed; reload before archiving.");
+    const offers = await tx.storeCatalogOffer.findMany({
+      where: { productId: current.id, storeId },
+      select: { id: true, publicReference: true, status: true, publicationStatus: true },
+    });
+    const approvedCert = await getApprovedCertProof(tx, storeId);
+    const affectedLive =
+      current.status === "ACTIVE" ||
+      current.publicationStatus === "PUBLISHED" ||
+      offers.some(
+        (offer) =>
+          offer.status === "ACTIVE" ||
+          offer.publicationStatus === "PUBLISHED" ||
+          offer.publicReference === approvedCert?.proofOfferReference,
+      );
+    for (const offer of offers) {
+      if (offer.publicationStatus === "PUBLISHED" || offer.status === "ACTIVE") {
+        await new StorefrontProjectionService(tx).withdrawOffer(offer.publicReference);
+      }
+    }
+    if (affectedLive) {
+      await syncStoreReadinessAfterCatalogOfferChange(
+        tx,
+        storeId,
+        offers.map((offer) => offer.publicReference),
+      );
+    }
     await recordCatalogEvidence(tx, { aggregateType: "PRODUCT", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: "ARCHIVED", eventType: "PRODUCT_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request: input } });
     return tx.catalogProduct.findUniqueOrThrow({ where: { id: current.id } });
   });

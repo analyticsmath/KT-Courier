@@ -8,10 +8,9 @@ import {
 } from "@/lib/dto/user.dto";
 import type { StoreStatus } from "@/types/db";
 import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
-import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
-import { currentStoreCertificationFacts, requireCurrentStoreCheckoutCertification, type StoreCertificationFacts } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCollectionEvidence, type StoreCollectionEvidenceSummary } from "@/lib/admin/store-pickup-readiness";
 import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +66,7 @@ export async function listStores(
 
   const now = new Date();
   const storeIds = stores.map((store) => store.id);
-  const [sellerIdentities, activeOperationalPolicy] = await Promise.all([
+  const [sellerIdentities, activeOperationalPolicy, commissionPlans, currentGlobalPolicyRevision] = await Promise.all([
     storeIds.length > 0 && prisma.storeSellerLegalIdentity?.findMany
       ? prisma.storeSellerLegalIdentity.findMany({
           where: {
@@ -89,9 +88,29 @@ export async function listStores(
           select: { id: true },
         })
       : Promise.resolve(undefined),
+    storeIds.length > 0 && prisma.commissionPlan?.findMany
+      ? prisma.commissionPlan.findMany({
+          where: {
+            subjectType: "MARKETPLACE_STORE_ORDER",
+            scopeKey: { in: storeIds.map((storeId) => `STORE:${storeId}`) },
+            currency: "ZAR",
+            status: "ACTIVE",
+            approvedAt: { not: null },
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+          },
+          select: { scopeKey: true },
+        })
+      : Promise.resolve([]),
+    typeof (prisma as unknown as { systemSetting?: { findUnique?: unknown } }).systemSetting?.findUnique === "function"
+      ? getGlobalCommercePolicyRevision(prisma)
+      : Promise.resolve(1),
   ]);
   const approvedIdentityStoreIds = new Set(
     (sellerIdentities ?? []).map((item) => item.storeId),
+  );
+  const activeCommissionPlanScopes = new Set(
+    (commissionPlans ?? []).map((item) => item.scopeKey),
   );
   const hasActiveOperationalPolicy = Boolean(activeOperationalPolicy);
   const mapped = stores.map((store) => {
@@ -107,6 +126,9 @@ export async function listStores(
         certification: store.checkoutCertification,
         hasApprovedSellerIdentity: approvedIdentityStoreIds.has(store.id),
         hasActiveOperationalPolicy,
+        hasActiveCommissionPlan: activeCommissionPlanScopes.has(`STORE:${store.id}`),
+        storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 1,
+        currentGlobalPolicyRevision,
         now,
       }),
     };
@@ -145,6 +167,7 @@ export async function getStoreDetail(id: string) {
     slug: store.slug,
     status: store.status,
     featured: store.featured,
+    commerceReadinessRevision: store.commerceReadinessRevision,
     contactName: store.contactName,
     contactEmail: store.contactEmail,
     contactPhone: store.contactPhone,
@@ -217,8 +240,11 @@ export async function adminUpdateStore(
 }
 
 export class StoreActivationReadinessError extends Error {
-  constructor(readonly blockers: readonly string[]) {
-    super(`Store approval is blocked until the collection address and pickup service-area checks pass: ${blockers.join(", ")}.`);
+  constructor(readonly blockers: readonly string[], message?: string) {
+    super(
+      message ??
+        `Business account approval is blocked until owner verification and business contact checks pass: ${blockers.join(", ")}.`,
+    );
     this.name = "StoreActivationReadinessError";
   }
 }
@@ -228,28 +254,66 @@ export async function setStoreStatus(
   status: StoreStatus,
   audit?: { actorUserId: string; reason?: string },
 ) {
-  let certificationFacts: StoreCertificationFacts | null = null;
-  if (status === "ACTIVE") {
-    const readiness = await getStorePickupOperationalPreflight(id);
-    if (!readiness || readiness.blockers.length > 0) {
-      throw new StoreActivationReadinessError(readiness?.blockers ?? ["STORE_NOT_FOUND"]);
-    }
-    certificationFacts = await currentStoreCertificationFacts(id);
-  }
-  // Status, visibility and the reason shown to the vendor must commit together.
+  // Status, visibility and the audit reason must commit together cleanly.
   return prisma.$transaction(async (tx) => {
-    // Serialize approval with an owner changing the checkout-owned pickup pin.
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${id} FOR UPDATE`);
-    const before = await tx.store.findUniqueOrThrow({
+    const before = await tx.store.findUnique({
       where: { id },
-      select: { name: true, status: true },
+      select: {
+        name: true,
+        status: true,
+        contactEmail: true,
+        contactPhone: true,
+        ownerUser: {
+          select: {
+            id: true,
+            status: true,
+            emailVerifiedAt: true,
+            storeProfile: {
+              select: {
+                businessEmail: true,
+                businessPhone: true,
+              },
+            },
+          },
+        },
+      },
     });
-    // Legacy ACTIVE accounts are not blindly delisted; every NEW transition
-    // into Live requires independent approval of current staging evidence.
-    if (status === "ACTIVE" && before.status !== "ACTIVE") {
-      if (!certificationFacts) throw new StoreActivationReadinessError(["CHECKOUT_CERTIFICATION_REQUIRED"]);
-      await requireCurrentStoreCheckoutCertification(tx, id, certificationFacts);
+    if (!before) {
+      throw new StoreActivationReadinessError(["STORE_NOT_FOUND"]);
     }
+
+    if (audit?.actorUserId) {
+      const actor = await tx.user.findUnique({
+        where: { id: audit.actorUserId },
+        select: { role: true, status: true },
+      });
+      if (!actor || actor.status !== "ACTIVE" || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)) {
+        throw new StoreActivationReadinessError(["ADMIN_AUTHORIZATION_REQUIRED"]);
+      }
+    }
+
+    if (status === "ACTIVE") {
+      const blockers: string[] = [];
+      if (!before.name.trim()) blockers.push("STORE_NAME_MISSING");
+      if (!before.ownerUser) {
+        blockers.push("STORE_OWNER_MISSING");
+      } else {
+        if (before.ownerUser.status !== "ACTIVE") blockers.push("OWNER_ACCOUNT_NOT_ACTIVE");
+        if (!before.ownerUser.emailVerifiedAt) blockers.push("OWNER_EMAIL_NOT_VERIFIED");
+      }
+      const contactEmail = (before.contactEmail ?? before.ownerUser?.storeProfile?.businessEmail ?? "").trim();
+      const contactPhone = (before.contactPhone ?? before.ownerUser?.storeProfile?.businessPhone ?? "").trim();
+      const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail);
+      const hasValidPhone = contactPhone.replace(/\D/g, "").length >= 7;
+      if (!hasValidEmail && !hasValidPhone) {
+        blockers.push("BUSINESS_CONTACT_MISSING");
+      }
+      if (blockers.length > 0) {
+        throw new StoreActivationReadinessError(blockers);
+      }
+    }
+
     const updated = await tx.store.update({
       where: { id },
       data: { status, ...(status !== "ACTIVE" ? { featured: false } : {}) },

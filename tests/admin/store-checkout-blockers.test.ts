@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 
 const pickup = {
   id: "pickup-1", storeId: "store-1", type: "PICKUP",
@@ -9,12 +10,19 @@ const pickup = {
   latitude: -26.1076, longitude: 28.0567, placeId: "verified-map-point",
 };
 const cert = {
-  status: "APPROVED", pickupAddressId: "pickup-1",
+  status: "APPROVED",
+  evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
+  pickupAddressId: "pickup-1",
   pickupFingerprint: pickupCertificationFingerprint(pickup),
   preparedByUserId: "admin-maker", approvedByUserId: "admin-reviewer",
   approvedAt: new Date("2026-11-09T08:00:00.000Z"),
   expiresAt: new Date("2026-11-10T08:00:00.000Z"),
   routeEvidenceDigest: "a".repeat(64), checkoutEvidenceDigest: "b".repeat(64),
+  engineProofDigest: "c".repeat(64),
+  proofOfferReference: "OFF-1",
+  proofPriceVersionReference: "PRC-1",
+  sourceCommerceReadinessRevision: 1,
+  globalPolicyRevision: 1,
 };
 const base = {
   status: "ACTIVE",
@@ -24,6 +32,9 @@ const base = {
   certification: cert,
   hasApprovedSellerIdentity: true,
   hasActiveOperationalPolicy: true,
+  hasActiveCommissionPlan: true,
+  storeCommerceReadinessRevision: 1,
+  currentGlobalPolicyRevision: 1,
   now: new Date("2026-11-09T12:00:00.000Z"),
 };
 
@@ -70,5 +81,15 @@ describe("superuser store checkout-blocked inventory", () => {
       .toContain("Collection address changed since checkout certification");
     expect(describeStoreCheckoutBlockers({ ...base, pickup: { ...pickup, latitude: -26.2001 } }))
       .toContain("Reconfirm the saved pickup against current approved checkout evidence");
+  });
+  it("flags synthetic evidence, missing commission plan, and revision drift", () => {
+    expect(describeStoreCheckoutBlockers({ ...base, hasActiveCommissionPlan: false }))
+      .toContain("Active store commission plan missing or expired");
+    expect(describeStoreCheckoutBlockers({ ...base, certification: { ...cert, evidenceType: "SAVEPOINT_SYNTHETIC" } }))
+      .toContain("Real sellable-offer checkout proof required");
+    expect(describeStoreCheckoutBlockers({ ...base, storeCommerceReadinessRevision: 2 }))
+      .toContain("Store catalog, pricing, pickup, or commercial readiness changed since certification");
+    expect(describeStoreCheckoutBlockers({ ...base, currentGlobalPolicyRevision: 2 }))
+      .toContain("Platform delivery, tax, or operational policy changed since certification");
   });
 });

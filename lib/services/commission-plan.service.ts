@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import {
+  bumpGlobalCommercePolicyRevision,
+  bumpStoreCommerceReadinessRevision,
+} from "@/lib/admin/commerce-readiness-revision";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { assertCommissionPlanTransition } from "@/lib/commissions/commission-plan-state-machine";
 import { assertCommissionProductionReady } from "@/lib/commissions/commission-production-readiness";
 import { CommissionError } from "@/lib/commissions/errors";
@@ -85,7 +90,7 @@ export async function createCommissionPlanDraftInTransaction(tx: Prisma.Transact
   const draft = normalizedDraft(input);
   if (draft.subjectType === "MARKETPLACE_STORE_ORDER") {
     const store = await tx.store.findUnique({ where: { id: draft.scopeKey.slice("STORE:".length) }, select: { id: true, status: true } });
-    if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "The commission scope must identify an active marketplace store.");
+    if (!store || !["PENDING", "ACTIVE"].includes(store.status)) throw new CommissionError("COMMISSION_INVALID_PLAN", "The commission scope must identify a pending or active marketplace store.");
   }
   const latest = await tx.commissionPlan.aggregate({ where: { subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR" }, _max: { versionNumber: true } });
   return tx.commissionPlan.create({ data: { publicReference: ref("CP"), subjectType: draft.subjectType, scopeKey: draft.scopeKey, currency: "ZAR", versionNumber: (latest._max.versionNumber ?? 0) + 1, status: "DRAFT", basisType: draft.basisType, effectiveFrom: draft.effectiveFrom, effectiveUntil: draft.effectiveUntil, createdByUserId: input.actorUserId, calculationVersion: draft.calculationVersion, rules: { create: draft.rules }, statusHistory: { create: { fromStatus: null, toStatus: "DRAFT", actorUserId: input.actorUserId, operationId: input.operationId, reasonCode: "PLAN_CREATED" } } }, include: planInclude });
@@ -129,14 +134,27 @@ async function transitionPlan(planId: string, actorUserId: string, operationId: 
       assertCommissionProductionReady(options);
       if (plan.subjectType === "MARKETPLACE_STORE_ORDER") {
         const store = await tx.store.findUnique({ where: { id: plan.scopeKey.slice("STORE:".length) }, select: { status: true } });
-        if (!store || store.status !== "ACTIVE") throw new CommissionError("COMMISSION_INVALID_PLAN", "Store settlement policy requires an active canonical store.");
+        if (!store || !["PENDING", "ACTIVE"].includes(store.status)) throw new CommissionError("COMMISSION_INVALID_PLAN", "Store settlement policy requires a pending or active canonical store.");
       }
       if (!plan.approvedByUserId || plan.approvedByUserId === plan.createdByUserId || plan.rules.length === 0) throw new CommissionError("COMMISSION_MAKER_CHECKER_REQUIRED", "Activation requires an independently approved plan with rules.");
       const overlap = await tx.commissionPlan.findFirst({ where: { id: { not: plan.id }, subjectType: plan.subjectType, scopeKey: plan.scopeKey, currency: plan.currency, status: "ACTIVE", effectiveFrom: { lt: plan.effectiveUntil ?? new Date("9999-12-31T00:00:00.000Z") }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: plan.effectiveFrom } }] }, select: { id: true } });
       if (overlap) throw new CommissionError("COMMISSION_POLICY_OVERLAP", "An active commission policy already covers this effective period.");
     }
     const now = new Date();
-    return tx.commissionPlan.update({ where: { id: plan.id }, data: { status: to, version: { increment: 1 }, ...(to === "UNDER_REVIEW" ? { submittedByUserId: actorUserId, submittedAt: now } : {}), ...(to === "APPROVED" ? { approvedByUserId: actorUserId, approvedAt: now } : {}), ...(to === "ACTIVE" ? { activatedAt: now } : {}), ...(to === "RETIRED" ? { retiredByUserId: actorUserId, retiredAt: now } : {}), statusHistory: { create: { fromStatus: plan.status, toStatus: to, actorUserId, operationId, reasonCode: `PLAN_${to}` } } }, include: planInclude });
+    const updatedPlan = await tx.commissionPlan.update({ where: { id: plan.id }, data: { status: to, version: { increment: 1 }, ...(to === "UNDER_REVIEW" ? { submittedByUserId: actorUserId, submittedAt: now } : {}), ...(to === "APPROVED" ? { approvedByUserId: actorUserId, approvedAt: now } : {}), ...(to === "ACTIVE" ? { activatedAt: now } : {}), ...(to === "RETIRED" ? { retiredByUserId: actorUserId, retiredAt: now } : {}), statusHistory: { create: { fromStatus: plan.status, toStatus: to, actorUserId, operationId, reasonCode: `PLAN_${to}` } } }, include: planInclude });
+    if (to === "ACTIVE" || to === "RETIRED") {
+      if (plan.subjectType === "MARKETPLACE_STORE_ORDER" && plan.scopeKey.startsWith("STORE:")) {
+        const storeId = plan.scopeKey.slice("STORE:".length);
+        await bumpStoreCommerceReadinessRevision(tx, storeId);
+        await rebuildStorefrontStoreDocument(storeId, tx);
+      } else if (plan.subjectType === "COURIER_ORDER") {
+        await bumpGlobalCommercePolicyRevision(tx, {
+          actorUserId,
+          reason: `COMMISSION_PLAN_${to}:${plan.publicReference}`,
+        });
+      }
+    }
+    return updatedPlan;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 

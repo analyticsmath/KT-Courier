@@ -94,6 +94,12 @@ export function ProductInformation({
               <dt className={styles.pdpSpecKey}>Fulfilment</dt>
               <dd className={styles.pdpSpecVal}>{fulfilmentLabel}</dd>
             </div>
+            <div className={styles.pdpSpecRow}>
+              <dt className={styles.pdpSpecKey}>VAT status</dt>
+              <dd className={styles.pdpSpecVal}>
+                {activeOffer.price.includesTax ? "Incl. VAT" : "No VAT added"}
+              </dd>
+            </div>
             {product.brandName && (
               <div className={styles.pdpSpecRow}>
                 <dt className={styles.pdpSpecKey}>Brand</dt>
@@ -155,6 +161,12 @@ export function ProductInformation({
                 <div className={styles.pdpSpecRow}>
                   <dt className={styles.pdpSpecKey}>Condition</dt>
                   <dd className={styles.pdpSpecVal}>{conditionLabel}</dd>
+                </div>
+                <div className={styles.pdpSpecRow}>
+                  <dt className={styles.pdpSpecKey}>VAT status</dt>
+                  <dd className={styles.pdpSpecVal}>
+                    {activeOffer.price.includesTax ? "Incl. VAT" : "No VAT added"}
+                  </dd>
                 </div>
                 {product.brandName && (
                   <div className={styles.pdpSpecRow}>

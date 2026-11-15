@@ -40,6 +40,7 @@ files.push("tests/integration/subscription-cycle-boundary-postgres.integration.t
 files.push("tests/integration/parcel-wallet-split-retry-postgres.integration.test.ts");
 files.push("tests/integration/store-go-live-certification.integration.test.ts");
 files.push("tests/integration/store-live-two-reviewer.integration.test.ts");
+files.push("tests/integration/vendor-onboarding-v001-v004-closure.integration.test.ts");
 files.push("tests/integration/phase-a-p0-closure-postgres.integration.test.ts");
 files.push("tests/integration/phase-b-commerce-closure-postgres.integration.test.ts");
 files.push("tests/integration/phase-c-domain-closure-postgres.integration.test.ts");

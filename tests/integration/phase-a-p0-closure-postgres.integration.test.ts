@@ -1,4 +1,5 @@
 import { createHmac, randomInt, randomUUID } from "node:crypto";
+import sharp from "sharp";
 import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -56,6 +57,24 @@ import {
 } from "@/lib/services/wallet-spending.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { requireDisposableStoreSettlementDatabase } from "@/scripts/disposable-store-settlement-guard";
+import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
+import { createStoreInventoryLocation } from "@/lib/services/catalog-inventory-location.service";
+import { createStoreCatalogListingDraft } from "@/lib/services/catalog-listing-draft.service";
+import { submitStoreCatalogProduct } from "@/lib/services/catalog-product.service";
+import { transitionStoreCatalogOffer } from "@/lib/services/store-offer.service";
+import { moderateCatalogOffer, moderateCatalogProduct } from "@/lib/services/catalog-moderation.service";
+import { publishApprovedCatalogListing } from "@/lib/services/catalog-listing-publication.service";
+import { CatalogMediaIntakeService, PrismaCatalogMediaRepository } from "@/lib/services/catalog-media-intake.service";
+import { DeterministicCatalogMediaStorageAdapter } from "@/lib/catalog/media/deterministic-catalog-media-storage-adapter";
+import { actOnTrustedPackageVersion, listTrustedPackageVersions, saveTrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-configuration.service";
+import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
+import {
+  activateCommissionPlan,
+  approveCommissionPlan,
+  createCommissionPlan,
+  submitCommissionPlan,
+} from "@/lib/services/commission-plan.service";
 import { createDriver, createRegion, createUser, uniqueTag } from "./phase7-5-fixtures";
 import { OrderStatus, UserRole } from "@/types/db";
 
@@ -571,11 +590,26 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
   describe("F03 (CR-091..095): Real disposable store checkout engine proof, provenance, two-reviewer approval, and drift invalidation", () => {
     it("rejects fabricated paid strings, executes isolated SAVEPOINT engine proof with zero leftover orders, enforces independent approver, and invalidates on drift", async () => {
       const label = randomUUID();
-      const owner = await prisma.user.create({ data: { email: `f03-own-${label}@example.test`, role: "STORE", status: "ACTIVE" } });
-      const admin1 = await prisma.user.create({ data: { email: `f03-adm1-${label}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
-      const admin2 = await prisma.user.create({ data: { email: `f03-adm2-${label}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" } });
+      const owner = await prisma.user.create({
+        data: {
+          email: `f03-own-${label}@example.test`,
+          role: "STORE",
+          status: "ACTIVE",
+          emailVerifiedAt: new Date(),
+          phone: "+27820001234",
+        },
+      });
+      const admin1 = await prisma.user.create({ data: { email: `f03-adm1-${label}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE", emailVerifiedAt: new Date() } });
+      const admin2 = await prisma.user.create({ data: { email: `f03-adm2-${label}@example.test`, role: "SUPER_ADMIN", status: "ACTIVE", emailVerifiedAt: new Date() } });
       const store = await prisma.store.create({
-        data: { ownerUserId: owner.id, name: `F03 Merchant ${label}`, slug: `f03-${label}`, status: "PENDING", contactEmail: owner.email },
+        data: {
+          ownerUserId: owner.id,
+          name: `F03 Merchant ${label}`,
+          slug: `f03-${label}`,
+          status: "PENDING",
+          contactEmail: owner.email,
+          contactPhone: "+27820001234",
+        },
       });
       const pickup = await prisma.address.create({
         data: {
@@ -628,23 +662,54 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
           },
         });
       }
-      const existingParcel = await prisma.parcelProfileVersion.findFirst({ where: { status: "ACTIVE" } });
-      if (!existingParcel) {
-        await prisma.parcelProfileVersion.create({
-          data: {
-            stableKey: "SMALL",
-            displayName: "Small",
-            versionNumber: 1,
-            status: "ACTIVE",
-            lengthCm: 30,
-            widthCm: 20,
-            heightCm: 10,
-            maximumWeightKg: 5,
-            effectiveFrom: new Date(Date.now() - 60_000),
-            createdByUserId: admin1.id,
-          },
+      const parcelSpecs = [
+        { stableKey: "SMALL", displayName: "Small Parcel", l: 30, w: 20, h: 10, kg: 5 },
+        { stableKey: "MEDIUM", displayName: "Medium Parcel", l: 45, w: 35, h: 25, kg: 15 },
+        { stableKey: "LARGE", displayName: "Large Parcel", l: 70, w: 50, h: 40, kg: 30 },
+      ] as const;
+      for (const spec of parcelSpecs) {
+        const existingParcel = await prisma.parcelProfileVersion.findFirst({
+          where: { stableKey: spec.stableKey, status: "ACTIVE" },
         });
+        if (!existingParcel) {
+          await prisma.parcelProfileVersion.create({
+            data: {
+              stableKey: spec.stableKey,
+              displayName: spec.displayName,
+              versionNumber: 1,
+              status: "ACTIVE",
+              lengthCm: spec.l,
+              widthCm: spec.w,
+              heightCm: spec.h,
+              maximumWeightKg: spec.kg,
+              effectiveFrom: new Date(Date.now() - 60_000),
+              createdByUserId: admin1.id,
+            },
+          });
+        }
       }
+      const f03CommissionPlan = await createCommissionPlan({
+        subjectType: "MARKETPLACE_STORE_ORDER",
+        scopeKey: `STORE:${store.id}`,
+        basisType: "ORDER_SUBTOTAL",
+        effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+        calculationVersion: `f03-plan-${label}`,
+        rules: [
+          {
+            ruleCode: "STORE_PLATFORM_FEE",
+            allocationType: "PLATFORM_COMMISSION_REVENUE",
+            beneficiaryType: "PLATFORM",
+            calculationMethod: "PERCENTAGE_BPS",
+            rateBasisPoints: 800,
+            priority: 1,
+          },
+        ],
+        actorUserId: admin1.id,
+        operationId: randomUUID(),
+      });
+      await submitCommissionPlan(f03CommissionPlan.id, admin1.id, randomUUID());
+      await approveCommissionPlan(f03CommissionPlan.id, admin2.id, randomUUID());
+      await activateCommissionPlan(f03CommissionPlan.id, admin2.id, randomUUID());
 
       const testRegion = await prisma.deliveryRegion.create({
         data: {
@@ -697,6 +762,7 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
         },
       });
 
+      const f03SettingKeysToClean: string[] = [];
       try {
         const preflightOpts = {
           routeCalculator: async () => ({
@@ -728,6 +794,193 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
           }),
         ).rejects.toMatchObject({ code: "CERTIFICATION_REFERENCE_INVALID" });
 
+        // Activate the verified business account BEFORE catalog publication (public storefront remains INELIGIBLE until cert approval)
+        const approvedAccount = await setStoreStatus(store.id, "ACTIVE", {
+          actorUserId: admin1.id,
+          reason: "Verified owner email and contact details",
+        });
+        expect(approvedAccount.status).toBe("ACTIVE");
+
+        // Seed one real published sellable courier-packaged offer (V-003 requires a real offer)
+        const shortTag = label.replace(/-/g, "").slice(0, 10);
+        const f03Category = await prisma.catalogCategory.create({
+          data: {
+            publicReference: catalogPublicReference("CC"),
+            name: `F03 Cat ${shortTag}`,
+            slug: `f03-cat-${shortTag}`,
+            path: `/f03-cat-${shortTag}`,
+            depth: 0,
+            status: "ACTIVE",
+            createdByUserId: admin1.id,
+            updatedByUserId: admin1.id,
+          },
+        });
+        const f03Type = await prisma.productTypeDefinition.create({
+          data: {
+            publicReference: catalogPublicReference("PT"),
+            code: `F03_TYPE_${shortTag.toUpperCase()}`,
+            name: `F03 Type ${shortTag}`,
+            versionNumber: 1,
+            status: "ACTIVE",
+            attributeSchema: { attributes: [] },
+            variantSchema: {},
+            complianceSchema: { requirements: [] },
+            searchFacetSchema: {},
+            createdByUserId: admin1.id,
+          },
+        });
+        const f03Location = await createStoreInventoryLocation(store.id, owner.id, {
+          name: `F03 Stockroom ${shortTag}`,
+          operationId: randomUUID(),
+        });
+        const intake = new CatalogMediaIntakeService(
+          new PrismaCatalogMediaRepository(),
+          new DeterministicCatalogMediaStorageAdapter(),
+        );
+        const pngBytes = await sharp({
+          create: { width: 400, height: 400, channels: 3, background: { r: 60, g: 120, b: 170 } },
+        })
+          .png()
+          .toBuffer();
+        const intent = await intake.createUploadIntent({
+          actorUserId: owner.id,
+          ownerType: "STORE",
+          storeId: store.id,
+          purpose: "PRODUCT_IMAGE",
+          declaredMimeType: "image/png",
+          declaredByteSize: pngBytes.length,
+          operationId: randomUUID(),
+        });
+        await intake.receiveUploadBytes({
+          actorUserId: owner.id,
+          storeId: store.id,
+          uploadReference: intent.upload.publicReference,
+          operationId: randomUUID(),
+          bytes: pngBytes,
+        });
+        const readyMedia = await intake.completeUpload({
+          actorUserId: owner.id,
+          storeId: store.id,
+          uploadReference: intent.upload.publicReference,
+          operationId: randomUUID(),
+        });
+        const draft = await createStoreCatalogListingDraft(store.id, owner.id, {
+          operationId: randomUUID(),
+          product: {
+            scope: "STORE_PRIVATE",
+            productTypeDefinitionId: f03Type.id,
+            primaryCategoryId: f03Category.id,
+            title: `F03 Proof Item ${shortTag}`,
+            description: "Real sellable product for F03 checkout proof.",
+            condition: "NEW",
+            attributeValues: {},
+            complianceValues: {},
+          },
+          variants: [],
+          storeSku: `F03-${shortTag}`,
+          price: {
+            amount: "65.00",
+            currency: "ZAR",
+            priceIncludesTax: false,
+            effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+          },
+          openingStock: 5,
+          inventoryLocationPublicReference: f03Location.publicReference,
+          packaging: {
+            lengthCm: 20,
+            widthCm: 15,
+            heightCm: 10,
+            weightKg: 0.7,
+            description: "Sealed standard parcel",
+          },
+          modifiers: [],
+          media: [
+            {
+              assetPublicReference: readyMedia.asset.publicReference,
+              altText: "F03 product",
+              displayOrder: 0,
+              primary: true,
+              variantAssociation: "PRODUCT",
+            },
+          ],
+        });
+        const offerRef = draft.offers[0]!.publicReference;
+        const variantRef = draft.variants[0]!.publicReference;
+        f03SettingKeysToClean.push(`${PACKAGING_PREFIX}${offerRef}`);
+        const subProd = await submitStoreCatalogProduct(store.id, draft.publicReference, owner.id, {
+          version: draft.version,
+          operationId: randomUUID(),
+        });
+        const appProd = await moderateCatalogProduct(subProd.id, admin1.id, "APPROVE", {
+          version: subProd.version,
+          operationId: randomUUID(),
+          reasonCode: "F03_PRODUCT_APPROVAL",
+        });
+        const subOffer = await transitionStoreCatalogOffer(store.id, offerRef, owner.id, "SUBMITTED", {
+          version: draft.offers[0]!.version,
+          operationId: randomUUID(),
+        });
+        const appOffer = await moderateCatalogOffer(subOffer.id, admin1.id, "APPROVE", {
+          version: subOffer.version,
+          operationId: randomUUID(),
+          reasonCode: "F03_OFFER_APPROVAL",
+        });
+        const published = await publishApprovedCatalogListing(appOffer.id, admin2.id, {
+          version: appOffer.version,
+          productVersion: appProd.version,
+          priceVersionReference: draft.offers[0]!.priceVersions[0]!.publicReference,
+          operationId: randomUUID(),
+          reasonCode: "F03_PUBLICATION",
+        });
+        const pkgSetting = await prisma.systemSetting.findUniqueOrThrow({
+          where: { key: `${PACKAGING_PREFIX}${offerRef}` },
+        });
+        const pkgRevision = (pkgSetting.value as { revision: string }).revision;
+        const versions = await listTrustedPackageVersions();
+        const activePkgVersion = versions
+          .filter((v) => v.status === "ACTIVE")
+          .sort((a, b) => b.version - a.version)[0];
+        const latestPkgVersion = Math.max(0, ...versions.map((v) => v.version));
+        const savedPkg = await saveTrustedPackageVersion(admin1.id, {
+          packages: [
+            ...(activePkgVersion?.packages ?? []).filter((p) => p.offerReference !== offerRef),
+            {
+              storeId: store.id,
+              offerReference: offerRef,
+              variantReference: variantRef,
+              publicationVersion: String(published.offer.version),
+              modifiers: [],
+              packingRule: "SINGLE_PREPACKAGED_UNIT",
+              lengthCm: 20,
+              widthCm: 15,
+              heightCm: 10,
+              weightKg: 0.7,
+              authorityReference: `${PACKAGING_PREFIX}${offerRef}:${pkgRevision}`,
+            },
+          ],
+          bundles: activePkgVersion?.bundles ?? [],
+          effectiveFrom: new Date(Date.now() - 60_000).toISOString(),
+          effectiveTo: null,
+          expectedVersion: latestPkgVersion,
+          reason: "Trusted measurement for F03 real-source checkout capability proof",
+        });
+        const pkgKey = `production_marketplace_trusted_packages_v${savedPkg.version}`;
+        f03SettingKeysToClean.push(pkgKey);
+        const pkgRow = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+        const approvedPkg = await actOnTrustedPackageVersion(admin2.id, {
+          version: savedPkg.version,
+          expectedUpdatedAt: pkgRow.updatedAt.toISOString(),
+          action: "APPROVE",
+          reason: "Independent packaging approval",
+        });
+        const pkgRow2 = await prisma.systemSetting.findUniqueOrThrow({ where: { key: pkgKey } });
+        await actOnTrustedPackageVersion(admin2.id, {
+          version: savedPkg.version,
+          expectedUpdatedAt: pkgRow2.updatedAt.toISOString(),
+          action: "ACTIVATE",
+          reason: `Activate packaging v${approvedPkg.version}`,
+        });
+
         // CR-093: Disposable SAVEPOINT engine proof executes 6 stages with zero leaked production rows
         const orderCountBefore = await prisma.order.count({ where: { storeId: store.id } });
         const merchantOrderCountBefore = await prisma.marketplaceStoreOrder.count({ where: { storeId: store.id } });
@@ -735,7 +988,7 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
         expect(preflight?.preflightReady).toBe(true);
 
         const prepared = await prepareStoreCheckoutCertificationFromPreflight(store.id, admin1.id, "Engine proof run", preflightOpts);
-        expect(prepared.evidenceType).toBe("DISPOSABLE_END_TO_END_CHECKOUT_PROOF");
+        expect(prepared.evidenceType).toBe("REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF");
         expect(prepared.engineProofSuiteSha).toMatch(/^[a-f0-9]{12,64}/);
         expect(prepared.policyFingerprint).toHaveLength(64);
         expect(Array.isArray(prepared.stageResults)).toBe(true);
@@ -743,10 +996,11 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
         expect(await prisma.order.count({ where: { storeId: store.id } })).toBe(orderCountBefore);
         expect(await prisma.marketplaceStoreOrder.count({ where: { storeId: store.id } })).toBe(merchantOrderCountBefore);
 
-        // CR-094: Self-approval blocked; independent admin activates store
-        await expect(approveStoreCheckoutCertification(store.id, admin1.id, prepared.revision)).rejects.toMatchObject({ code: "INDEPENDENT_REVIEWER_REQUIRED" });
-        await approveStoreCheckoutCertification(store.id, admin2.id, prepared.revision);
-        const liveStore = await setStoreStatus(store.id, "ACTIVE");
+        // CR-094: Self-approval blocked; independent admin approves certification to open public store
+        await expect(approveStoreCheckoutCertification(store.id, admin1.id, prepared.revision, preflightOpts)).rejects.toMatchObject({ code: "INDEPENDENT_REVIEWER_REQUIRED" });
+        const approvedCert = await approveStoreCheckoutCertification(store.id, admin2.id, prepared.revision, preflightOpts);
+        expect(approvedCert.status).toBe("APPROVED");
+        const liveStore = await prisma.store.findUniqueOrThrow({ where: { id: store.id } });
         expect(liveStore.status).toBe("ACTIVE");
 
         // CR-095: Drift invalidates certification and blocks public checkout readiness
@@ -760,6 +1014,7 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
         });
         expect(staleStore.checkoutCertification?.status).toBe("REVOKED");
         expect(staleStore.storefrontDocument?.publicStatus).toBe("INELIGIBLE");
+        const globalRevision = await getGlobalCommercePolicyRevision();
         expect(
           isStorePubliclyCheckoutReady({
             status: staleStore.status,
@@ -769,9 +1024,20 @@ describe("Phase A P0 closure contracts (F01-F04 / CR-064..075, CR-082..095)", { 
             certification: staleStore.checkoutCertification,
             hasApprovedSellerIdentity: true,
             hasActiveOperationalPolicy: true,
+            hasActiveCommissionPlan: true,
+            storeCommerceReadinessRevision: staleStore.commerceReadinessRevision,
+            currentGlobalPolicyRevision: globalRevision,
           }),
         ).toBe(false);
       } finally {
+        if (f03SettingKeysToClean.length) {
+          await prisma.systemSetting
+            .deleteMany({ where: { key: { in: f03SettingKeysToClean } } })
+            .catch(() => {});
+        }
+        await prisma.commissionPlanStatusHistory.deleteMany({ where: { planId: f03CommissionPlan.id } }).catch(() => {});
+        await prisma.commissionRule.deleteMany({ where: { planId: f03CommissionPlan.id } }).catch(() => {});
+        await prisma.commissionPlan.deleteMany({ where: { id: f03CommissionPlan.id } }).catch(() => {});
         await prisma.deliveryServiceDefinition.delete({ where: { id: testService.id } }).catch(() => {});
         await prisma.deliveryRegion.delete({ where: { id: testRegion.id } }).catch(() => {});
       }

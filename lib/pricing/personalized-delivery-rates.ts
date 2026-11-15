@@ -1,5 +1,6 @@
 import { Prisma, PricingQuoteOwnerType } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { invalidateStoreCheckoutReadinessInTx } from "@/lib/admin/store-readiness-sync";
 import { z } from "zod";
 
 /**
@@ -102,6 +103,9 @@ export async function changePersonalizedDeliveryRate(actorId:string,raw:unknown)
     const nextRow=await tx.personalizedDeliveryRate.update({where:{id:row.id},data:{
       status:next, ...(next==="ACTIVE"?{activatedByUserId:actorId,activatedAt:new Date()}:{}) ,
     }});
+    if (row.ownerType === "STORE") {
+      await invalidateStoreCheckoutReadinessInTx(tx, row.ownerId);
+    }
     await tx.adminActivityLog.create({data:{
       actorUserId:actorId,action:"STATUS_CHANGE",entityType:"PersonalizedDeliveryRate",entityId:row.id,
       message:x.action==="ACTIVATE"?"Activated owner-scoped delivery tariff.":"Deactivated owner-scoped delivery tariff.",

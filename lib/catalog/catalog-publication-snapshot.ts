@@ -14,7 +14,7 @@ export type CatalogPublicationSnapshotValue = {
   identifiers: Record<string, string>;
   attributes: Record<string, unknown>;
   variantOptions: Record<string, string>;
-  price: { versionReference: string; amount: string; currency: "ZAR"; includesTax: true };
+  price: { versionReference: string; amount: string; currency: "ZAR"; includesTax: boolean };
   availability: Record<string, unknown>;
   media: Array<{ assetReference: string; role: string; altText: string; order: number }>;
   compliance: Record<string, unknown>;

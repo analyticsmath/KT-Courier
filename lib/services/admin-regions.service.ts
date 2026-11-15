@@ -3,6 +3,7 @@ import type { DeliveryRegion } from "@/types/db";
 import { assertRegionActivation, regionBoundaryIssues, RegionConfigurationError } from "@/lib/maps/region-boundaries";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
 import { getHighRiskRegionIds, setDeliveryRegionHighRisk } from "@/lib/settings/high-risk-region-policy";
+import { bumpGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 
 // ─── DTO ──────────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ export async function createDeliveryRegion(
     },
   });
   await setDeliveryRegionHighRisk(tx, created.id, input.highRisk ?? false);
+  await bumpGlobalCommercePolicyRevision(tx, { actorUserId, reason: `Created delivery region ${created.name}` });
   if (actorUserId) await tx.adminActivityLog.create({ data: { actorUserId, action: "CREATE", entityType: "DeliveryRegion", entityId: created.id, message: `Created delivery region: ${created.name}`, metadata: { active: created.active, pricingEnabled: created.pricingEnabled, highRisk: input.highRisk ?? false, boundaryIssues: regionBoundaryIssues(created) } } });
   return created;
   });
@@ -175,6 +177,7 @@ export async function updateDeliveryRegion(
     },
   });
   if (input.highRisk !== undefined) await setDeliveryRegionHighRisk(tx, id, input.highRisk);
+  await bumpGlobalCommercePolicyRevision(tx, { actorUserId, reason: `Updated delivery region ${updated.name}` });
   if (actorUserId) await tx.adminActivityLog.create({ data: { actorUserId, action: "UPDATE", entityType: "DeliveryRegion", entityId: id, message: `Updated delivery region: ${updated.name}`, metadata: { priorUpdatedAt: existing.updatedAt.toISOString(), changedFields: Object.keys(input).filter((key) => key !== "expectedUpdatedAt"), active: updated.active, pricingEnabled: updated.pricingEnabled, highRisk: input.highRisk, boundaryIssues: regionBoundaryIssues(updated) } } });
   return updated;
   });

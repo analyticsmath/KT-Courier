@@ -1,12 +1,16 @@
 import { createHash } from "node:crypto";
 import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 import { prisma } from "@/lib/db/prisma";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
+import { STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA } from "@/lib/admin/store-checkout-engine-proof.service";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import { saveDeliveryConfiguration } from "@/lib/client-platform/delivery.service";
 import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
 import { saveParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan } from "@/lib/services/commission-plan.service";
 import { createLegalDocumentDraft, publishLegalDocumentVersion } from "@/lib/services/legal-documents.service";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import { createStoreOrderOperationalPolicy, submitStoreOrderOperationalPolicy, approveStoreOrderOperationalPolicy, activateStoreOrderOperationalPolicy } from "@/lib/store-orders/operational-policy.service";
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
 
@@ -45,8 +49,14 @@ export async function createDisposableCheckoutAuthorities() {
   const initial = INITIAL_DELIVERY[0];
   const priorService = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: initial.stableKey }, orderBy: { versionNumber: "desc" } });
   await saveDeliveryConfiguration(maker.id, { ...initial, regionIds: [region.id], expectedVersion: priorService?.versionNumber ?? 0, reason: "Disposable service fixture; no production coverage approval implied." });
-  const priorParcel = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: "SMALL" }, orderBy: { versionNumber: "desc" } });
-  await saveParcelProfile(maker.id, { stableKey: "SMALL", displayName: "Disposable small parcel", lengthCm: 30, widthCm: 20, heightCm: 15, maximumWeightKg: 10, status: "ACTIVE", effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: priorParcel?.versionNumber ?? 0, reason: "Synthetic browser limits only; no production dimensional or packing approval implied." });
+  for (const parcel of [
+    { stableKey: "SMALL", displayName: "Disposable small parcel", lengthCm: 30, widthCm: 20, heightCm: 15, maximumWeightKg: 10 },
+    { stableKey: "MEDIUM", displayName: "Disposable medium parcel", lengthCm: 45, widthCm: 35, heightCm: 25, maximumWeightKg: 15 },
+    { stableKey: "LARGE", displayName: "Disposable large parcel", lengthCm: 70, widthCm: 50, heightCm: 40, maximumWeightKg: 30 },
+  ] as const) {
+    const priorParcel = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: parcel.stableKey }, orderBy: { versionNumber: "desc" } });
+    await saveParcelProfile(maker.id, { ...parcel, status: "ACTIVE", effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: priorParcel?.versionNumber ?? 0, reason: "Synthetic browser limits only; no production dimensional or packing approval implied." });
+  }
 
   const latest = Math.max(0, ...(await listDeliveryMatrices()).map((item) => item.version));
   const draft = await saveDeliveryMatrix(maker.id, { expectedVersion: latest, reason: "Disposable browser matrix; this amount is synthetic test data.", effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null, rules: [{ key: "DISPOSABLE_BROWSER_ANY", sizeClass: "ANY", minDistanceKm: 0, maxDistanceKm: 50, province: "Gauteng", regionId: region.id, storeId: null, fee: "23.45", highRiskSurcharge: "0.00", minimumFee: "23.45", maximumFee: "23.45" }] });
@@ -54,9 +64,16 @@ export async function createDisposableCheckoutAuthorities() {
   await actOnDeliveryMatrix(checker.id, { version: draft.version, expectedUpdatedAt: (await row()).updatedAt.toISOString(), action: "APPROVE", reason: "Independent disposable fixture review; not production approval." });
   await actOnDeliveryMatrix(checker.id, { version: draft.version, expectedUpdatedAt: (await row()).updatedAt.toISOString(), action: "ACTIVATE", reason: "Activate only the isolated browser fixture matrix." });
 
+  const hasSystemSettingFindUnique = typeof (prisma.systemSetting as { findUnique?: unknown } | undefined)?.findUnique === "function";
+  const globalPolicyRevision = hasSystemSettingFindUnique ? await getGlobalCommercePolicyRevision() : 1;
+
   for (const slug of ["e2e-store", "e2e-other-store"]) {
+    const initialStore = await prisma.store.findUniqueOrThrow({ where: { slug } });
+    await prisma.storeSellerLegalIdentity.create({ data: { storeId: initialStore.id, publicReference: `DISPOSABLE-SELLER-${slug}`, identityVersion: "disposable-v1", legalName: "Disposable browser seller; not a production legal entity", vatRegistrationStatus: "NOT_REGISTERED", status: "APPROVED", effectiveFrom: new Date("2026-01-01") } });
+    // Activate store commission BEFORE reading store.commerceReadinessRevision and
+    // creating the checkout certificate, since activation bumps readiness revision.
+    await createSyntheticStoreCommission(initialStore.id, initialStore.slug, maker.id, checker.id, slug === "e2e-other-store");
     const store = await prisma.store.findUniqueOrThrow({ where: { slug } });
-    await prisma.storeSellerLegalIdentity.create({ data: { storeId: store.id, publicReference: `DISPOSABLE-SELLER-${slug}`, identityVersion: "disposable-v1", legalName: "Disposable browser seller; not a production legal entity", vatRegistrationStatus: "NOT_REGISTERED", status: "APPROVED", effectiveFrom: new Date("2026-01-01") } });
     // Synthetic browser stores satisfy the same public checkout/listing
     // certificate as real merchants, only inside the isolated E2E database.
     const pickup = await prisma.address.findFirstOrThrow({
@@ -72,11 +89,21 @@ export async function createDisposableCheckoutAuthorities() {
       routeEvidenceDigest: createHash("sha256").update(`${syntheticRef}:route`).digest("hex"),
       checkoutEvidenceReference: `${syntheticRef}:checkout`,
       checkoutEvidenceDigest: createHash("sha256").update(`${syntheticRef}:checkout`).digest("hex"),
+      evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
+      engineProofReference: `${syntheticRef}:engine`,
+      engineProofDigest: createHash("sha256").update(`${syntheticRef}:engine`).digest("hex"),
+      engineProofSuiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+      sourceCommerceReadinessRevision: (store as { commerceReadinessRevision?: number }).commerceReadinessRevision ?? 1,
+      globalPolicyRevision,
+      proofOfferReference: slug === "e2e-store" ? "CO-E2E64GB" : "CO-RESIDUAL-one",
+      proofPriceVersionReference: slug === "e2e-store" ? "prc_64gb" : "PRICE-RESIDUAL-one",
       preparedByUserId: maker.id, approvedByUserId: checker.id,
       status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
       reviewNote: "Synthetic isolated browser certificate only, not a real route or payment acceptance.",
     } });
-    await createSyntheticStoreCommission(store.id, store.slug, maker.id, checker.id, slug === "e2e-other-store");
+    if (typeof (prisma as { storefrontStoreDocument?: { upsert?: unknown } }).storefrontStoreDocument?.upsert === "function") {
+      await rebuildStorefrontStoreDocument(store.id);
+    }
   }
   for (const documentType of ["TERMS_OF_SERVICE", "PRIVACY_NOTICE", "REFUND_POLICY"]) {
     const document = await createLegalDocumentDraft({ actorUserId: maker.id, documentType, jurisdiction: "ZA", version: "disposable-browser-v1", content: `Disposable ${documentType} content. This fixture is not production legal approval.` });

@@ -6,6 +6,7 @@ import { assertCatalogPublicationEvidence } from "@/lib/catalog/catalog-publicat
 import { catalogPublicReference } from "@/lib/catalog/catalog-normalization";
 import { CatalogNotFoundError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
+import { getApprovedCertProof, invalidateStoreCheckoutReadinessInTx } from "@/lib/admin/store-readiness-sync";
 import { toInputJsonObject } from "@/lib/json/input-json";
 
 export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUserId: string, publish = false, transaction?: Prisma.TransactionClient) {
@@ -49,7 +50,7 @@ export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUs
     identifiers: Object.fromEntries(Object.entries({ gtin: offer.variant.gtin, mpn: offer.variant.mpn, storeSku: offer.storeSku }).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
     attributes: offer.product.attributeValues as Record<string, unknown>,
     variantOptions: Object.fromEntries(offer.variant.optionValues.map((link) => [link.optionValue.option.code, link.optionValue.label])),
-    price: { versionReference: price.publicReference, amount: price.amount.toFixed(2), currency: "ZAR", includesTax: true },
+    price: { versionReference: price.publicReference, amount: price.amount.toFixed(2), currency: "ZAR", includesTax: Boolean(price.priceIncludesTax) },
     availability: { trackingMode: offer.inventoryTrackingMode, locations: offer.inventoryItem?.levels.map((level) => ({ location: level.location.publicReference, available: level.available })) ?? [] },
     media: publishableMedia.map((media) => ({ assetReference: media.asset.publicReference, role: media.role, altText: media.altText, order: media.displayOrder })),
     compliance: offer.product.complianceValues as Record<string, unknown>,
@@ -59,6 +60,15 @@ export async function rebuildCatalogPublicationSnapshot(offerId: string, actorUs
   const versionNumber = (latest?.versionNumber ?? 0) + 1;
   return withCatalogTransaction(transaction, async (tx) => {
     const record = await tx.catalogPublicationSnapshot.create({ data: { publicReference: catalogPublicReference("CPS"), productId: offer.productId, variantId: offer.variantId, offerId, versionNumber, publicationVersion: snapshot.publicationVersion, snapshot: toInputJsonObject(snapshot), status: publish ? "PUBLISHED" : "BLOCKED", createdByUserId: actorUserId } });
+    if (publish && !transaction) {
+      const approvedCert = await getApprovedCertProof(tx, offer.storeId);
+      if (
+        approvedCert?.proofOfferReference === offer.publicReference &&
+        approvedCert.proofPriceVersionReference !== price.publicReference
+      ) {
+        await invalidateStoreCheckoutReadinessInTx(tx, offer.storeId);
+      }
+    }
     await recordCatalogEvidence(tx, { aggregateType: "SNAPSHOT", aggregateReference: record.publicReference, aggregateVersion: versionNumber, action: publish ? "PUBLISHED" : "PREVIEW_REBUILT", eventType: "SNAPSHOT_REBUILT", actorUserId, safeMetadata: { offerReference: offer.publicReference, status: record.status } });
     return record;
   });

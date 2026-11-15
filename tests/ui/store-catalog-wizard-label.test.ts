@@ -25,7 +25,7 @@ it("the real wizard connects the punctuated ZAR price label to one visible nativ
     expect(categorySelect.value).toBe("category-74");
     const offerStep = [...host.querySelectorAll("button")].find(button => button.textContent?.includes("Offer & stock") && button.closest("ol"))!;
     await act(async () => offerStep.click());
-    const label = [...host.querySelectorAll("label")].find(label => label.textContent === "VAT-inclusive price (ZAR)")!;
+    const label = [...host.querySelectorAll("label")].find(label => label.textContent === "Selling price (ZAR)")!;
     expect(label).toBeDefined();
     expect(label.control).toBeInstanceOf(HTMLInputElement);
     const input = label.control as HTMLInputElement;

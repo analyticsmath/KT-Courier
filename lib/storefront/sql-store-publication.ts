@@ -14,6 +14,57 @@ const approvedCheckoutEvidence = Prisma.sql`
   AND cert."approvedByUserId" <> cert."preparedByUserId"
   AND cert."routeEvidenceDigest" ~ '^[a-f0-9]{64}$'
   AND cert."checkoutEvidenceDigest" ~ '^[a-f0-9]{64}$'
+  AND cert."evidenceType" = 'REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF'
+  AND cert."engineProofDigest" ~ '^[a-f0-9]{64}$'
+  AND cert."proofOfferReference" IS NOT NULL
+  AND cert."proofPriceVersionReference" IS NOT NULL
+  AND cert."sourceCommerceReadinessRevision" = store."commerceReadinessRevision"
+  AND cert."globalPolicyRevision" = COALESCE(
+    (
+      SELECT (setting."value"->>'version')::int
+      FROM "SystemSetting" setting
+      WHERE setting."key" = 'platform.commerce_readiness_revision'
+    ),
+    1
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM "CommissionPlan" plan
+    WHERE plan."subjectType" = 'MARKETPLACE_STORE_ORDER'
+      AND plan."scopeKey" = 'STORE:' || store."id"
+      AND plan."currency" = 'ZAR'
+      AND plan."status" = 'ACTIVE'
+      AND plan."approvedAt" IS NOT NULL
+      AND plan."effectiveFrom" <= CURRENT_TIMESTAMP
+      AND (plan."effectiveUntil" IS NULL OR plan."effectiveUntil" > CURRENT_TIMESTAMP)
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM "StorefrontProductDocument" doc
+    INNER JOIN "StoreCatalogOffer" offer ON offer."id" = doc."offerId"
+    INNER JOIN "StoreOfferPriceVersion" price ON price."id" = offer."currentPriceVersionId"
+    LEFT JOIN "CatalogInventoryItem" inv ON inv."offerId" = offer."id"
+    WHERE doc."storeId" = store."id"
+      AND doc."status" = 'ACTIVE'
+      AND doc."searchable" = true
+      AND offer."storeId" = store."id"
+      AND offer."status" = 'ACTIVE'
+      AND offer."publicationStatus" = 'PUBLISHED'
+      AND price."status" = 'ACTIVE'
+      AND price."effectiveFrom" <= CURRENT_TIMESTAMP
+      AND (price."effectiveUntil" IS NULL OR price."effectiveUntil" > CURRENT_TIMESTAMP)
+      AND (
+        inv."trackingMode" = 'UNTRACKED'
+        OR EXISTS (
+          SELECT 1
+          FROM "CatalogInventoryLevel" lvl
+          INNER JOIN "InventoryLocation" loc ON loc."id" = lvl."locationId"
+          WHERE lvl."inventoryItemId" = inv."id"
+            AND loc."status" = 'ACTIVE'
+            AND lvl."available" >= GREATEST(1, CEIL(offer."minimumQuantity")::int)
+        )
+      )
+  )
   AND EXISTS (
     SELECT 1 FROM "Address" pickup
     WHERE pickup."id" = cert."pickupAddressId"

@@ -25,7 +25,7 @@ export function MarketplaceProductCard({ product, variant, priority = false, cla
   const canQuickBuy = Boolean(href) && (product.availability === "IN_STOCK" || product.availability === "LOW_STOCK");
   const src = product.primaryMedia ? `/api/catalog/media/${product.primaryMedia.publicReference}` : undefined;
   const meta = product.brandName || (product.storeCount > 1 ? `Available from ${product.storeCount} stores` : availabilityLabel(product.availability));
-  const availability = `${availabilityLabel(product.availability)}${product.variantCount > 1 ? ` · ${product.variantCount} options` : ""}`;
+  const availability = `${availabilityLabel(product.availability)}${product.variantCount > 1 ? ` · ${product.variantCount} options` : ""}${typeof product.price.includesTax === "boolean" ? ` · ${product.price.includesTax ? "Incl. VAT" : "No VAT added"}` : ""}`;
   const capture = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (src) captureSourceMedia(`product-${product.productReference}`, event.currentTarget, src, product.primaryMedia?.alt || product.title);
   };

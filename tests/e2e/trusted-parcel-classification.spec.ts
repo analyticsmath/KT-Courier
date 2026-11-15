@@ -1,17 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 import { login } from "./fixtures/auth";
+import { executeParcelControl } from "../../scripts/phase3-parcel-control";
 import type { TrustedPackageVersion } from "../../lib/marketplace-checkout/parcel-classification";
-const execute = promisify(execFile);
-type Fixture = { storeId: string; makerId: string; reviewerId: string; makerEmail: string; reviewerEmail: string; email: string; entries: TrustedPackageVersion["packages"]; packageStartingVersion: number };
+type Fixture = { storeId: string; makerId: string; reviewerId: string; makerEmail: string; reviewerEmail: string; email: string; entries: TrustedPackageVersion["packages"]; preservedPackages?: TrustedPackageVersion["packages"]; packageStartingVersion: number };
 type Snapshot = { classification: { status: string; sizeClass: string | null; reason: string; packageVersion: number | null; profileVersion: number | null }; checkout: { status: string; version: number }; quotes: Array<{ subtotal: string; taxAmount: string; total: string; ruleSnapshot: { ruleKey?: string; serviceKey?: string; serviceVersion?: number; parcelClassification: { sizeClass: string | null; reason: string; packageVersion: number | null } } }>; stock: Array<{ onHand: number; reserved: number; available: number }>; paymentCount: number; orderCount: number; audit: Array<{ action: string; actorUserId: string; metadata: { afterStatus?: string } }> };
 async function control<T>(action: string, tag: string, reference = ""): Promise<T> {
-  const { stdout } = await execute(process.execPath, ["node_modules/tsx/dist/cli.mjs", "scripts/phase3-parcel-control.ts", action, tag, reference], { env: process.env, timeout: 60_000, maxBuffer: 2_000_000 });
-  const line = stdout.split(/\r?\n/).find(value => value.startsWith("PARCEL_RECEIPT "));
-  if (!line) throw new Error("Named PostgreSQL parcel receipt was not produced.");
-  return JSON.parse(line.slice("PARCEL_RECEIPT ".length));
+  return executeParcelControl<T>(action, tag, reference);
 }
 async function versions(page: Page) {
   const response = await page.request.get("/api/admin/marketplace-trusted-packages"); expect(response.status(), await response.text()).toBe(200);
@@ -63,7 +58,7 @@ for (const width of [1440, 390, 320]) test(`independent measured packaging gover
     const headers = { origin: new URL(page.url()).origin };
     const self = await page.request.patch("/api/admin/marketplace-trusted-packages", { headers, data: { version: first.version, expectedUpdatedAt: first.updatedAt, action: "APPROVE", reason: "Disposable prohibited maker self review." } }); expect(self.status()).toBe(403);
     expect((await versions(page)).find(v => v.version === first.version)).toEqual(first);
-    const draft = { expectedVersion: first.version, effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null, reason: "Disposable measured complete package snapshot.", packages: f.entries };
+    const draft = { expectedVersion: first.version, effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null, reason: "Disposable measured complete package snapshot.", packages: [...(f.preservedPackages ?? []), ...f.entries] };
     const foreign = await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: { ...draft, packages: [{ ...entry, storeId: "foreign-store" }] } }); expect(foreign.status()).toBe(422);
     const valid = await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: draft }); expect(valid.status(), await valid.text()).toBe(201); const full = await valid.json() as TrustedPackageVersion;
     expect((await page.request.post("/api/admin/marketplace-trusted-packages", { headers, data: draft })).status()).toBe(409);

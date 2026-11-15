@@ -13,6 +13,7 @@ import {
 import { recordAdminActivity } from "./admin-activity.service";
 import { AdminActionType } from "@/types/db";
 import { getSystemSettingDefinition } from "@/lib/settings/catalog";
+import { bumpGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 
 // ─── List all settings ────────────────────────────────────────────────────────
 
@@ -37,15 +38,24 @@ export async function getSettingByKey(
 /** Financial and delivery-risk settings must commit their audit receipt atomically.
  * Store SHA-256 digests, never sensitive raw policy values, in the activity log.
  */
+function requiresCommercePolicyRevisionBump(key: string): boolean {
+  return key === "pricing.vat.enabled"
+    || key === "pricing.vat.rate"
+    || key === "pricing.marketplace_vat.enabled"
+    || key === "pricing.marketplace_vat.rate"
+    || key === "pricing.quote_ttl_minutes"
+    || key === "delivery.high_risk_region_ids"
+    || key === "delivery.high_risk_areas"
+    || key === "coverage.confirmation_required";
+}
+
 function requiresAtomicPolicyAudit(key: string): boolean {
   return key.startsWith("loyalty.")
     || key.startsWith("welcome.store.")
     || key === "referral.reward_zar"
     || key === "referral.reward_issuing_enabled"
-    || key === "delivery.high_risk_areas"
     || key === "notifications.admin_alert_recipients"
-    || key === "pricing.vat.enabled" || key === "pricing.vat.rate"
-    || key === "pricing.marketplace_vat.enabled" || key === "pricing.marketplace_vat.rate";
+    || requiresCommercePolicyRevisionBump(key);
 }
 
 function valueDigest(value: unknown): string {
@@ -93,6 +103,12 @@ export async function updateSettingValue(
         where: { key },
         data: { value: currentValue.value as Prisma.InputJsonValue },
       });
+      if (requiresCommercePolicyRevisionBump(key)) {
+        await bumpGlobalCommercePolicyRevision(tx, {
+          actorUserId,
+          reason: `Updated commerce policy setting ${key}`,
+        });
+      }
       await tx.adminActivityLog.create({
         data: {
           actorUserId,

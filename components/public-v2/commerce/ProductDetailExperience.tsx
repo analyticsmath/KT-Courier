@@ -510,7 +510,10 @@ export function ProductDetailExperience({
                 {offers.length > 1 && selectedOfferReference === product.offerReference ? "From " : ""}
                 {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
               </span>
-              <span className={styles.pdpVatNote}>Delivery fee confirmed at checkout</span>
+              <span className={styles.pdpVatNote}>
+                {activeOffer.price.includesTax ? "Incl. VAT · " : "No VAT added · "}
+                Delivery fee confirmed at checkout
+              </span>
             </div>
 
             {/* Seller / Offer Decision Section */}
@@ -748,7 +751,10 @@ export function ProductDetailExperience({
             <span className={styles.pdpMobileStickyPrice}>
               {formatCommercePrice(activeOffer.price.amount, activeOffer.price.currency)}
             </span>
-            <span className={styles.pdpMobileStickyVat}>Delivery fee at checkout</span>
+            <span className={styles.pdpMobileStickyVat}>
+              {activeOffer.price.includesTax ? "Incl. VAT · " : "No VAT added · "}
+              Delivery fee at checkout
+            </span>
           </div>
           <div className={styles.pdpMobileStickyBtns}>
             <button

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "../lib/db/prisma";
 import { makeDisposableParcelPickupAddress } from "./phase3-owned-pickup-fixture";
 import { assertDisposablePaystackAcceptance, assertDisposablePaystackEmail } from "../lib/testing/disposable-paystack-policy";
@@ -5,21 +6,42 @@ import { saveParcelProfile, listParcelProfileVersions } from "../lib/commercial/
 import { saveDeliveryMatrix, actOnDeliveryMatrix, listDeliveryMatrices } from "../lib/marketplace-checkout/delivery-policy-configuration";
 import { listTrustedPackageVersions, classifyPersistedCheckoutParcel, actOnTrustedPackageVersion } from "../lib/marketplace-checkout/parcel-configuration.service";
 import { createCommissionPlan, submitCommissionPlan, approveCommissionPlan, activateCommissionPlan } from "../lib/services/commission-plan.service";
+import { getGlobalCommercePolicyRevision } from "../lib/admin/commerce-readiness-revision";
+import {
+  REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
+  STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+  computeStorePolicyFingerprint,
+  pickupCertificationFingerprint,
+} from "../lib/admin/store-checkout-certification.service";
+import { rebuildStorefrontStoreDocument } from "../lib/services/storefront-store.service";
 import type { TrustedPackageVersion } from "../lib/marketplace-checkout/parcel-classification";
 import type { DeliveryPolicyVersion } from "../lib/marketplace-checkout/delivery-policy";
 
-type Fixture = { storeId: string; makerId: string; reviewerId: string; makerEmail: string; reviewerEmail: string; email: string; entries: TrustedPackageVersion["packages"]; initialTariffs: DeliveryPolicyVersion["rules"]; originalStoreIds: string[]; tariffVersions: number[]; packageStartingVersion: number };
+type Fixture = { storeId: string; makerId: string; reviewerId: string; makerEmail: string; reviewerEmail: string; email: string; entries: TrustedPackageVersion["packages"]; preservedPackages: TrustedPackageVersion["packages"]; initialTariffs: DeliveryPolicyVersion["rules"]; originalStoreIds: string[]; tariffVersions: number[]; packageStartingVersion: number };
 const fixtureKey = (tag: string) => `e2e-trusted-parcel:${tag}`;
 async function fixture(tag: string) { return (await prisma.systemSetting.findUniqueOrThrow({ where: { key: fixtureKey(tag) } })).value as unknown as Fixture; }
 async function saveFixture(tag: string, value: Fixture) { await prisma.systemSetting.update({ where: { key: fixtureKey(tag) }, data: { value: JSON.parse(JSON.stringify(value)) } }); }
 
+export async function filterValidTrustedPackages(packages: TrustedPackageVersion["packages"]): Promise<TrustedPackageVersion["packages"]> {
+  if (!packages.length) return [];
+  const offerRefs = Array.from(new Set(packages.map((p) => p.offerReference)));
+  const liveOffers = await prisma.storeCatalogOffer.findMany({
+    where: { publicReference: { in: offerRefs }, status: "ACTIVE", publicationStatus: "PUBLISHED" },
+    include: { variant: true, publicationSnapshots: { where: { status: "PUBLISHED" }, orderBy: { versionNumber: "desc" }, take: 1 } },
+  });
+  const byRef = new Map(liveOffers.map((o) => [o.publicReference, o]));
+  return packages.filter((pkg) => {
+    const liveOffer = byRef.get(pkg.offerReference);
+    return Boolean(liveOffer && String(liveOffer.version) === pkg.publicationVersion && liveOffer.storeId === pkg.storeId && liveOffer.variant.publicReference === pkg.variantReference && liveOffer.publicationSnapshots.length === 1);
+  });
+}
+
 /** Named isolated DB input facts and canonical policy commands only. No payment
  * provider, finance status, ledger or stock-consumption mutation is reachable. */
-async function main() {
+export async function executeParcelControl<T = unknown>(action: string, tag: string, reference = ""): Promise<T> {
   assertDisposablePaystackAcceptance();
   const identity = await prisma.$queryRaw<Array<{ database: string; role: string }>>`SELECT current_database() AS database, current_user AS role`;
   if (identity[0]?.database !== "kt_phase75_e2e" || identity[0]?.role !== "kt_phase75_e2e") throw new Error("Named disposable parcel database and role required.");
-  const [action, tag, reference] = process.argv.slice(2);
   if (!/^parcel-(1440|390|320)-[a-f0-9]{8}$/.test(tag ?? "")) throw new Error("Independent synthetic parcel namespace required.");
   if (action === "setup") {
     const base = await prisma.store.findUniqueOrThrow({ where: { slug: "e2e-store" }, include: { defaultPickupAddress: true } });
@@ -30,7 +52,7 @@ async function main() {
     const customer = await prisma.user.create({ data: { email, name: "Disposable packaging customer", role: "CUSTOMER", status: "ACTIVE", passwordHash: password, emailVerifiedAt: new Date() } });
     await prisma.customerProfile.create({ data: { userId: customer.id, displayName: "Disposable packaging customer" } });
     const existing = await prisma.store.findMany({ select: { id: true } });
-    const store = await prisma.store.create({ data: { slug: `e2e-${tag}`, name: "Disposable measured packaging store", ownerUserId: maker.id, status: "ACTIVE" } });
+    const store = await prisma.store.create({ data: { slug: `e2e-${tag}`, name: "Disposable measured packaging store", ownerUserId: maker.id, status: "ACTIVE", contactEmail: makerEmail, contactPhone: "+27820000000" } });
     if (!base.defaultPickupAddress) throw new Error("Disposable acceptance seed is missing its own verified pickup address.");
     const ownedPickup = await prisma.address.create({
       data: makeDisposableParcelPickupAddress(store.id, base.defaultPickupAddress),
@@ -59,11 +81,69 @@ async function main() {
       const latest = (await listParcelProfileVersions()).filter(profile => profile.stableKey === stableKey).sort((a, b) => b.versionNumber - a.versionNumber)[0];
       await saveParcelProfile(maker.id, { stableKey, displayName: `Disposable ${stableKey}`, lengthCm, widthCm, heightCm, maximumWeightKg, status: "ACTIVE", effectiveFrom: new Date().toISOString(), effectiveTo: null, expectedVersion: latest?.versionNumber ?? 0, reason: "Disposable measured limits; no production acceptance or commercial approval." });
     }
+    const latestStore = await prisma.store.findUniqueOrThrow({ where: { id: store.id } });
+    const opPolicy = await prisma.storeOrderOperationalPolicy.findFirst({ where: { status: "ACTIVE" }, orderBy: { versionNumber: "desc" } });
+    const globalPolicyRevision = await prisma.$transaction((tx) => getGlobalCommercePolicyRevision(tx));
+    const certRef = `disposable:${tag}:parcel-cert`;
+    const pickupFingerprint = pickupCertificationFingerprint(ownedPickup);
+    const coverageRegionId = "disposable-jhb";
+    const serviceSignature = createHash("sha256").update(certRef).digest("hex");
+    const proofOfferReference = `CO-${tag}-small`;
+    const proofPriceVersionReference = `PRICE-${tag}-small`;
+    const policyFingerprint = computeStorePolicyFingerprint({
+      pickupAddressId: ownedPickup.id,
+      pickupFingerprint,
+      coverageRegionId,
+      serviceSignature,
+      sellerIdentityReference: `DISPOSABLE-SELLER-${tag}`,
+      sellerIdentityVersion: "disposable-measurements-v1",
+      operationalPolicyReference: opPolicy?.publicReference ?? null,
+      commissionPlanReference: plan.publicReference,
+      sourceCommerceReadinessRevision: latestStore.commerceReadinessRevision,
+      globalPolicyRevision,
+      proofOfferReference,
+      proofPriceVersionReference,
+    })!;
+    await prisma.storeCheckoutCertification.create({
+      data: {
+        storeId: store.id,
+        pickupAddressId: ownedPickup.id,
+        pickupFingerprint,
+        coverageRegionId,
+        serviceSignature,
+        routeEvidenceReference: `${certRef}:route`,
+        routeEvidenceDigest: createHash("sha256").update(`${certRef}:route`).digest("hex"),
+        checkoutEvidenceReference: `${certRef}:checkout`,
+        checkoutEvidenceDigest: createHash("sha256").update(`${certRef}:checkout`).digest("hex"),
+        evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
+        engineProofReference: `engproof:${tag}:disposable`,
+        engineProofDigest: createHash("sha256").update(`${certRef}:engine-proof`).digest("hex"),
+        engineProofSuiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+        policyFingerprint,
+        sourceCommerceReadinessRevision: latestStore.commerceReadinessRevision,
+        globalPolicyRevision,
+        proofOfferReference,
+        proofPriceVersionReference,
+        preparedByUserId: maker.id,
+        approvedByUserId: reviewer.id,
+        status: "APPROVED",
+        approvedAt: new Date(),
+        expiresAt: new Date(Date.now() + 86_400_000),
+        reviewNote: "Disposable parcel acceptance fixture only; no production certification.",
+      },
+    });
+    await rebuildStorefrontStoreDocument(store.id);
     const tariffs = (await listDeliveryMatrices()).filter(v => v.status === "ACTIVE").sort((a, b) => b.version - a.version)[0];
     if (!tariffs) throw new Error("Existing synthetic canonical tariff authority required.");
-    const data: Fixture = { storeId: store.id, makerId: maker.id, reviewerId: reviewer.id, makerEmail, reviewerEmail, email, entries, initialTariffs: tariffs.rules, originalStoreIds: existing.map(s => s.id), tariffVersions: [], packageStartingVersion: Math.max(0, ...(await listTrustedPackageVersions()).map(p => p.version)) };
+    const existingPackageVersions = await listTrustedPackageVersions();
+    const now = new Date();
+    const activeBaselinePkg = existingPackageVersions
+      .filter((v) => v.status === "ACTIVE" && v.approvedByUserId && v.approvedByUserId !== v.createdByUserId && new Date(v.effectiveFrom) <= now && (!v.effectiveTo || new Date(v.effectiveTo) > now))
+      .sort((a, b) => b.version - a.version)[0];
+    const preservedPackages = await filterValidTrustedPackages(activeBaselinePkg?.packages ?? []);
+    const data: Fixture = { storeId: store.id, makerId: maker.id, reviewerId: reviewer.id, makerEmail, reviewerEmail, email, entries, preservedPackages, initialTariffs: tariffs.rules, originalStoreIds: existing.map(s => s.id), tariffVersions: [], packageStartingVersion: Math.max(0, ...existingPackageVersions.map(p => p.version)) };
     await prisma.systemSetting.create({ data: { key: fixtureKey(tag), label: "Disposable measured parcel fixture", type: "JSON", value: JSON.parse(JSON.stringify(data)) } });
-    console.log(`PARCEL_RECEIPT ${JSON.stringify(data)}`); return;
+    return data as T;
   }
   const f = await fixture(tag);
   if (action === "tariff-size" || action === "tariff-any") {
@@ -75,17 +155,17 @@ async function main() {
     const draft = await saveDeliveryMatrix(f.makerId, { expectedVersion: Math.max(0, ...versions.map(v => v.version)), effectiveFrom: "2026-01-01T00:00:00.000Z", effectiveTo: null, reason: `Disposable ${tag} ${action} tariff; values are synthetic.`, rules });
     const row = () => prisma.systemSetting.findUniqueOrThrow({ where: { key: `production_marketplace_delivery_matrix_v${draft.version}` } });
     for (const next of ["APPROVE", "ACTIVATE"] as const) await actOnDeliveryMatrix(f.reviewerId, { version: draft.version, expectedUpdatedAt: (await row()).updatedAt.toISOString(), action: next, reason: `Independent disposable ${tag} tariff governance.` });
-    f.tariffVersions.push(draft.version); await saveFixture(tag, f); console.log(`PARCEL_RECEIPT ${JSON.stringify({ tariffVersion: draft.version, status: "ACTIVE" })}`); return;
+    f.tariffVersions.push(draft.version); await saveFixture(tag, f); return { tariffVersion: draft.version, status: "ACTIVE" } as T;
   }
   if (action === "stale-offer") {
     const owned = f.entries.find(e => e.offerReference.endsWith("-stale"))!;
     const offer = await prisma.storeCatalogOffer.update({ where: { publicReference: owned.offerReference }, data: { version: { increment: 1 } } });
-    console.log(`PARCEL_RECEIPT ${JSON.stringify({ offerVersion: offer.version })}`); return;
+    return { offerVersion: offer.version } as T;
   }
   if (action === "cleanup") {
     for (const version of await listTrustedPackageVersions()) if (version.createdByUserId === f.makerId && version.status !== "RETIRED") await actOnTrustedPackageVersion(f.reviewerId, { version: version.version, expectedUpdatedAt: version.updatedAt, action: "RETIRE", reason: `Retire completed disposable ${tag} packaging test.` });
     for (const version of await listDeliveryMatrices()) if (f.tariffVersions.includes(version.version) && version.status !== "RETIRED") await actOnDeliveryMatrix(f.reviewerId, { version: version.version, expectedUpdatedAt: version.updatedAt, action: "RETIRE", reason: `Retire completed disposable ${tag} tariff test.` });
-    console.log(`PARCEL_RECEIPT ${JSON.stringify({ restoredTariffAuthority: true })}`); return;
+    return { restoredTariffAuthority: true } as T;
   }
   if (action !== "snapshot") throw new Error("Unsupported disposable parcel action.");
   const checkout = await prisma.marketplaceCheckout.findUniqueOrThrow({ where: { publicReference: reference }, include: { customer: true, storeGroups: { include: { lines: true } } } });
@@ -95,6 +175,12 @@ async function main() {
   const quoteRows = await prisma.pricingQuote.findMany({ where: { id: { in: quoteIds }, storeId: f.storeId }, select: { id: true, subtotal: true, taxAmount: true, total: true, ruleSnapshot: true } });
   const quotes = quoteRows.map(quote => ({ ...quote, subtotal: quote.subtotal.toFixed(2), taxAmount: quote.taxAmount.toFixed(2), total: quote.total.toFixed(2) }));
   const stock = await prisma.catalogInventoryLevel.findMany({ where: { inventoryItem: { offer: { storeId: f.storeId } } }, select: { onHand: true, reserved: true, available: true } });
-  console.log(`PARCEL_RECEIPT ${JSON.stringify({ checkout: { status: checkout.status, version: checkout.version, reviewVersion: checkout.reviewVersion }, classification: await classifyPersistedCheckoutParcel(reference, f.storeId), quotes, stock, paymentCount: await prisma.payment.count({ where: { marketplaceCheckoutId: checkout.id } }), orderCount: await prisma.marketplaceOrder.count({ where: { checkoutId: checkout.id } }), audit: await prisma.adminActivityLog.findMany({ where: { actorUserId: { in: [f.makerId, f.reviewerId] }, entityType: "MarketplaceTrustedPackaging" }, select: { action: true, actorUserId: true, metadata: true } }) })}`);
+  return { checkout: { status: checkout.status, version: checkout.version, reviewVersion: checkout.reviewVersion }, classification: await classifyPersistedCheckoutParcel(reference, f.storeId), quotes, stock, paymentCount: await prisma.payment.count({ where: { marketplaceCheckoutId: checkout.id } }), orderCount: await prisma.marketplaceOrder.count({ where: { checkoutId: checkout.id } }), audit: await prisma.adminActivityLog.findMany({ where: { actorUserId: { in: [f.makerId, f.reviewerId] }, entityType: "MarketplaceTrustedPackaging" }, select: { action: true, actorUserId: true, metadata: true } }) } as T;
 }
-main().catch(error => { console.error(error instanceof Error ? error.message : "Disposable parcel control failed."); process.exitCode = 1; }).finally(() => prisma.$disconnect());
+if ((process.argv[1] ?? "").replaceAll("\\", "/").endsWith("scripts/phase3-parcel-control.ts")) {
+  const [action, tag, reference] = process.argv.slice(2);
+  executeParcelControl(action, tag, reference)
+    .then((result) => { console.log(`PARCEL_RECEIPT ${JSON.stringify(result)}`); })
+    .catch((error) => { console.error(error instanceof Error ? (error.stack ?? error.message) : "Disposable parcel control failed."); process.exitCode = 1; })
+    .finally(() => prisma.$disconnect());
+}

@@ -12,11 +12,12 @@ import {
 } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { validateProductTypeAttributeSchema } from "@/lib/catalog/product-type-schema";
+import { getStoreVatPricingContext } from "@/lib/catalog/store-vat-context";
 
 export default async function NewStoreCatalogProductPage() {
   await requireBusinessPage("/store/catalog/products/new");
   const { user, store } = await getCurrentStoreForCatalogPage();
-  const [productTypes, categories, inventoryLocations, packageLimits] = await Promise.all([
+  const [productTypes, categories, inventoryLocations, packageLimits, vatContext, modifierGroups] = await Promise.all([
     prisma.productTypeDefinition.findMany({
       where: { status: { in: ["APPROVED", "ACTIVE"] } },
       select: {
@@ -25,6 +26,7 @@ export default async function NewStoreCatalogProductPage() {
         code: true,
         versionNumber: true,
         attributeSchema: true,
+        complianceSchema: true,
       },
       orderBy: [{ name: "asc" }, { versionNumber: "desc" }],
     }),
@@ -35,7 +37,37 @@ export default async function NewStoreCatalogProductPage() {
     }),
     prisma.inventoryLocation.findMany({ where: { storeId: store.id, status: "ACTIVE" }, select: { publicReference: true, name: true }, orderBy: { name: "asc" } }),
     publicParcelProfiles(),
+    getStoreVatPricingContext(store.id),
+    prisma.storeModifierGroup.findMany({
+      where: { storeId: store.id, status: "ACTIVE" },
+      select: {
+        name: true,
+        description: true,
+        minimumSelections: true,
+        maximumSelections: true,
+        isRequired: true,
+        options: {
+          where: { status: "ACTIVE" },
+          orderBy: { displayOrder: "asc" },
+          select: { name: true, priceDelta: true, displayOrder: true },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
+  const existingModifierGroups = modifierGroups.map((group) => ({
+    name: group.name,
+    ...(group.description ? { description: group.description } : {}),
+    minimumSelections: group.minimumSelections,
+    maximumSelections: group.maximumSelections,
+    isRequired: group.isRequired,
+    options: group.options.map((opt, idx) => ({
+      name: opt.name,
+      priceDelta: opt.priceDelta.toFixed(2),
+      currency: "ZAR" as const,
+      displayOrder: opt.displayOrder ?? idx,
+    })),
+  }));
   const authoringTypes = productTypes.filter(type => validateProductTypeAttributeSchema(type.attributeSchema).length === 0);
   return (
     <ProtectedPageFrame>
@@ -65,6 +97,8 @@ export default async function NewStoreCatalogProductPage() {
           productTypes={authoringTypes}
           categories={categories.map(category => ({ ...category, productTypeCodes: (category.productTypeMappings.some(mapping => mapping.isPrimary) ? category.productTypeMappings.filter(mapping => mapping.isPrimary) : category.productTypeMappings).map(mapping => mapping.productTypeDefinition.code) }))}
           inventoryLocations={inventoryLocations}
+          vatContext={vatContext}
+          existingModifierGroups={existingModifierGroups}
         />
       ) : (
         <ProtectedState

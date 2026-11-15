@@ -16,6 +16,8 @@ import { StorePickupAddressManager } from "@/components/store/StorePickupAddress
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-engine-proof.service";
 
 export const metadata: Metadata = { title: "Vendor account dossier" };
 
@@ -39,7 +41,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
@@ -54,9 +56,12 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
         evidenceType: true, engineProofReference: true, engineProofDigest: true,
         engineProofSuiteSha: true, policyFingerprint: true, stageResults: true,
+        sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
+        proofOfferReference: true, proofPriceVersionReference: true,
       },
     }) : Promise.resolve(null),
     canUpdate ? getStorePickupAddressForStore(id) : Promise.resolve(null),
+    canApprove ? getGlobalCommercePolicyRevision() : Promise.resolve(1),
   ]);
   const owner = store.ownerUser;
   const summary = vendorReviewChecklist({
@@ -72,7 +77,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   return <ProtectedPageFrame>
     <ProtectedPageHeader title={store.name} description={`Vendor account dossier · ${store.status.toLowerCase()} · joined ${date(store.createdAt)}`} />
     <Link href="/admin/stores" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">Back to stores</Link>
-    <OperationalPanel title="Review before account activation" description="This dossier uses actual stored details, not assumed approvals. Vendor account activation does not automatically approve seller identity, products, drivers, payments, COD or marketing campaigns.">
+    <OperationalPanel title="Review before business account approval" description="Business account approval verifies owner registration, verified email, and reachable business contact so the vendor can prepare onboarding. Public shop listing stays closed until seller identity, collection readiness, catalog moderation, and real-source checkout capability certification pass.">
       <div className="grid gap-3 sm:grid-cols-2">
         {summary.map(item => <div key={item.key} className="rounded-lg border p-4">
           <p className="text-sm font-semibold">{item.title} — {item.ready ? "Recorded" : "Needs review"}</p>
@@ -122,7 +127,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
     {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
       <OperationalPanel title="Independent checkout and route certification"
         description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
-        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "")))} />
+        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE || certification.sourceCommerceReadinessRevision !== store.commerceReadinessRevision || certification.globalPolicyRevision !== globalPolicyRevision || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") || !certification.proofOfferReference || !certification.proofPriceVersionReference))} />
       </OperationalPanel>
     ) : null}
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">

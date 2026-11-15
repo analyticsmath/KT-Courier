@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import { selectStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import {
   isStoreOperationalPolicyEffective,
@@ -13,12 +14,17 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`);
     const store = await tx.store.findUnique({
       where: { id: storeId },
-      select: { id: true, slug: true, name: true, status: true, updatedAt: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
+      select: { id: true, slug: true, name: true, status: true, commerceReadinessRevision: true, updatedAt: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
     });
     if (!store) return;
 
     const now = new Date();
-    const [documents, storeMedia, checkoutCertification, sellerIdentity, operationalPolicy] = await Promise.all([
+    const txWithOptional = tx as unknown as {
+      systemSetting?: { findUnique?: unknown };
+      commissionPlan?: Prisma.TransactionClient["commissionPlan"];
+      storeCatalogOffer?: Prisma.TransactionClient["storeCatalogOffer"];
+    };
+    const [documents, storeMedia, checkoutCertification, sellerIdentity, operationalPolicy, commissionPlan, globalPolicyRevision, sellableOfferCount] = await Promise.all([
       tx.$queryRaw<Array<{ categoryPublicReference: string; fulfilmentMode: string }>>`SELECT "categoryPublicReference", "fulfilmentMode" FROM "StorefrontProductDocument" WHERE "storeId" = ${store.id} AND "status" = 'ACTIVE'`,
       tx.catalogMediaAsset?.findMany
         ? tx.catalogMediaAsset.findMany({
@@ -36,9 +42,11 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
       tx.storeCheckoutCertification.findUnique({
         where: { storeId },
         select: {
-          status: true, pickupAddressId: true, pickupFingerprint: true,
+          status: true, evidenceType: true, pickupAddressId: true, pickupFingerprint: true,
           preparedByUserId: true, approvedByUserId: true, approvedAt: true,
           expiresAt: true, routeEvidenceDigest: true, checkoutEvidenceDigest: true,
+          engineProofDigest: true, proofOfferReference: true, proofPriceVersionReference: true,
+          sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
         },
       }),
       tx.storeSellerLegalIdentity?.findFirst
@@ -64,20 +72,72 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
             select: { status: true, effectiveFrom: true, effectiveUntil: true },
           })
         : Promise.resolve(null),
+      txWithOptional.commissionPlan?.findFirst
+        ? txWithOptional.commissionPlan.findFirst({
+            where: {
+              subjectType: "MARKETPLACE_STORE_ORDER",
+              scopeKey: `STORE:${store.id}`,
+              currency: "ZAR",
+              status: "ACTIVE",
+              approvedAt: { not: null },
+              effectiveFrom: { lte: now },
+              OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+            },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+      typeof txWithOptional.systemSetting?.findUnique === "function"
+        ? getGlobalCommercePolicyRevision(tx)
+        : Promise.resolve(0),
+      typeof txWithOptional.storeCatalogOffer?.count === "function"
+        ? txWithOptional.storeCatalogOffer.count({
+            where: {
+              storeId: store.id,
+              status: "ACTIVE",
+              publicationStatus: "PUBLISHED",
+              currentPriceVersionId: { not: null },
+              priceVersions: {
+                some: {
+                  status: "ACTIVE",
+                  effectiveFrom: { lte: now },
+                  OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+                },
+              },
+              OR: [
+                { inventoryTrackingMode: "UNTRACKED" },
+                {
+                  inventoryItem: {
+                    levels: {
+                      some: {
+                        available: { gte: 1 },
+                        location: { status: "ACTIVE" },
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          })
+        : Promise.resolve(null),
     ]);
 
     const logoAsset = storeMedia.find((m) => m.purpose === "STORE_LOGO") ?? storeMedia.find((m) => m.purpose === "BRAND_LOGO");
     const heroAsset = storeMedia.find((m) => m.purpose === "STORE_HERO");
 
     const pickup = selectStorePickupAddress(store.id, store.defaultPickupAddress, store.savedAddresses);
+    const effectiveDocumentsCount =
+      sellableOfferCount === null ? documents.length : Math.min(documents.length, sellableOfferCount);
     const active = isStorePubliclyCheckoutReady({
       status: store.status,
       name: store.name,
-      documentsCount: documents.length,
+      documentsCount: effectiveDocumentsCount,
       pickup,
       certification: checkoutCertification,
       hasApprovedSellerIdentity: isStoreSellerIdentityEffective(sellerIdentity, now),
       hasActiveOperationalPolicy: isStoreOperationalPolicyEffective(operationalPolicy, now),
+      hasActiveCommissionPlan: Boolean(commissionPlan),
+      storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 0,
+      currentGlobalPolicyRevision: globalPolicyRevision,
       now,
     });
     await tx.storefrontStoreDocument.upsert({

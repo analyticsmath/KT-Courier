@@ -30,6 +30,10 @@ type Certification = {
   engineProofDigest?: string | null;
   engineProofSuiteSha?: string | null;
   policyFingerprint?: string | null;
+  sourceCommerceReadinessRevision?: number | null;
+  globalPolicyRevision?: number | null;
+  proofOfferReference?: string | null;
+  proofPriceVersionReference?: string | null;
   stageResults?: unknown;
 } | null;
 
@@ -55,6 +59,8 @@ export function StoreCheckoutCertificationPanel({
   const [engineProofRef, setEngineProofRef] = useState(initial?.engineProofReference ?? null);
   const [engineProofDigest, setEngineProofDigest] = useState(initial?.engineProofDigest ?? null);
   const [engineProofSuiteSha, setEngineProofSuiteSha] = useState(initial?.engineProofSuiteSha ?? null);
+  const [proofOfferRef, setProofOfferRef] = useState(initial?.proofOfferReference ?? null);
+  const [proofPriceRef, setProofPriceRef] = useState(initial?.proofPriceVersionReference ?? null);
   const [stages, setStages] = useState<StageResult[]>(normalizeStages(initial?.stageResults));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -89,16 +95,20 @@ export function StoreCheckoutCertificationPanel({
       setStatus(payload.status);
       setRevision(payload.revision);
       if (payload.engineProof) {
-        setEvidenceType(payload.evidenceType ?? "DISPOSABLE_END_TO_END_CHECKOUT_PROOF");
+        setEvidenceType(payload.evidenceType ?? "REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF");
         setEngineProofRef(payload.engineProof.engineProofReference ?? null);
         setEngineProofDigest(payload.engineProof.engineProofDigest ?? null);
         setEngineProofSuiteSha(payload.engineProof.suiteSha ?? null);
+        setProofOfferRef(payload.proofOfferReference ?? payload.engineProof.proofOfferReference ?? null);
+        setProofPriceRef(payload.proofPriceVersionReference ?? payload.engineProof.proofPriceVersionReference ?? null);
         setStages(normalizeStages(payload.engineProof.stageResults));
       } else if (action === "prepare") {
         setEvidenceType("CONFIGURATION_CAPABILITY_PREFLIGHT");
         setEngineProofRef(null);
         setEngineProofDigest(null);
         setEngineProofSuiteSha(null);
+        setProofOfferRef(null);
+        setProofPriceRef(null);
         setStages([]);
       }
       setNotice(action !== "approve"
@@ -129,6 +139,7 @@ export function StoreCheckoutCertificationPanel({
             <dd className="break-all font-mono text-xs">{engineProofRef}</dd>
             {engineProofDigest ? <dd className="break-all text-xs">Digest: {engineProofDigest.slice(0, 24)}…</dd> : null}
             {engineProofSuiteSha ? <dd className="break-all text-xs">Suite SHA: {engineProofSuiteSha.slice(0, 16)}…</dd> : null}
+            {proofOfferRef ? <dd className="break-all text-xs">Proof offer: {proofOfferRef}{proofPriceRef ? ` (${proofPriceRef})` : ""}</dd> : null}
           </div>
         ) : null}
         {initial?.routeEvidenceReference ? <div><dt>Route receipt</dt><dd className="break-all">{initial.routeEvidenceReference}</dd>
@@ -185,9 +196,9 @@ export function StoreCheckoutCertificationPanel({
           </div>
           <div className="flex flex-wrap gap-3">
             <Button type="button" variant="secondary" disabled={busy} loading={busy} onClick={() => void submit("prepare_preflight")}>
-              Generate deterministic capability preflight for review
+              Run real-source checkout capability proof &amp; submit for review
             </Button>
-            <Button type="submit" disabled={busy} loading={busy}>Submit staging certification for independent review</Button>
+            <Button type="submit" disabled={busy} loading={busy}>Submit manual route &amp; checkout certification for review</Button>
           </div>
         </form>
       ) : null}

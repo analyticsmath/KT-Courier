@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import { StoreOrderError, assertStoreOrder } from "@/lib/store-orders/errors";
 import { operationalPolicyBounds } from "@/lib/store-orders/store-order.service";
 import { assertStoreOrderProductionReady } from "@/lib/store-orders/production-lock";
+import { bumpGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 
 type Delegate = { findUnique: (args: unknown) => Promise<any>; findFirst: (args: unknown) => Promise<any>; update: (args: unknown) => Promise<any>; updateMany: (args: unknown) => Promise<{ count: number }>; create: (args: unknown) => Promise<any> };
 type Db = Record<string, Delegate>;
@@ -71,6 +72,11 @@ export async function activateStoreOrderOperationalPolicy(input: Readonly<{ publ
     assertDistinctStoreOrderPolicyActivator(candidate.approvedByUserId, input.activatedByUserId);
     const active = await policies.findFirst({ where: { status: "ACTIVE" } });
     if (active) await policies.update({ where: { id: active.id }, data: { status: "RETIRED", retiredAt: new Date() } });
-    return policies.update({ where: { id: candidate.id }, data: { status: "ACTIVE", activatedAt: new Date() } });
+    const activated = await policies.update({ where: { id: candidate.id }, data: { status: "ACTIVE", activatedAt: new Date() } });
+    await bumpGlobalCommercePolicyRevision(rawTx, {
+      actorUserId: input.activatedByUserId,
+      reason: `Activated store order operational policy ${candidate.publicReference}`,
+    });
+    return activated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

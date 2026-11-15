@@ -6,6 +6,9 @@ import {
   pickupCertificationFingerprint, requireCurrentStoreCheckoutCertification,
   certificationMatchesFacts, type StoreCertificationFacts,
 } from "@/lib/admin/store-checkout-certification.service";
+import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
+import { STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA } from "@/lib/admin/store-checkout-engine-proof.service";
+import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 
 const created: { storeId?: string; userId?: string } = {};
 
@@ -67,9 +70,15 @@ describe("independent store Live certificate at a locked current pickup", () => 
     // Legacy records without persisted receipt digests cannot become Live.
     await expect(prisma.$transaction(tx => requireCurrentStoreCheckoutCertification(tx, store.id, facts)))
       .rejects.toMatchObject({ code: "CHECKOUT_CERTIFICATION_REQUIRED" });
+    const globalPolicyRevision = await prisma.$transaction(tx => getGlobalCommercePolicyRevision(tx));
     await prisma.storeCheckoutCertification.update({ where: { id: cert.id }, data: {
+      evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
       routeEvidenceDigest: "a".repeat(64),
       checkoutEvidenceDigest: "b".repeat(64),
+      engineProofDigest: "c".repeat(64),
+      engineProofSuiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+      sourceCommerceReadinessRevision: store.commerceReadinessRevision,
+      globalPolicyRevision,
     } });
     await expect(prisma.$transaction(tx => requireCurrentStoreCheckoutCertification(tx, store.id, facts)))
       .resolves.toBeUndefined();

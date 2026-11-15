@@ -65,7 +65,8 @@ function groupProductResults(documents: readonly StorefrontDocument[]): Storefro
     const sorted = [...items].sort((a, b) => safePrice(a.price.amount) - safePrice(b.price.amount) || a.publicReference.localeCompare(b.publicReference));
     const representative = sorted[0]!;
     const distinctPrices = new Set(items.map((item) => item.price.amount));
-    return { productReference: representative.productReference, productSlug: representative.productSlug, title: representative.title, ...(representative.brandName ? { brandName: representative.brandName } : {}), ...(representative.primaryMedia ? { primaryMedia: representative.primaryMedia } : {}), representativeVariantReference: representative.variantReference, price: { amount: representative.price.amount, currency: "ZAR", from: distinctPrices.size > 1 }, variantCount: new Set(items.map((item) => item.variantReference)).size, storeCount: new Set(items.map((item) => item.storeReference)).size, availability: representative.availability };
+    const distinctIncludesTax = new Set(items.map((item) => item.price.includesTax));
+    return { productReference: representative.productReference, productSlug: representative.productSlug, title: representative.title, ...(representative.brandName ? { brandName: representative.brandName } : {}), ...(representative.primaryMedia ? { primaryMedia: representative.primaryMedia } : {}), representativeVariantReference: representative.variantReference, price: { amount: representative.price.amount, currency: "ZAR", from: distinctPrices.size > 1, ...(distinctIncludesTax.size === 1 ? { includesTax: representative.price.includesTax } : {}) }, variantCount: new Set(items.map((item) => item.variantReference)).size, storeCount: new Set(items.map((item) => item.storeReference)).size, availability: representative.availability };
   });
 }
 

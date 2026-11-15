@@ -573,6 +573,7 @@ model Store {
   createdAt                      DateTime                            @default(now())
   updatedAt                      DateTime                            @updatedAt
   defaultPickupAddressId         String?
+  commerceReadinessRevision        Int                                 @default(1)
   savedAddresses                 Address[]                           @relation("StoreSavedAddresses")
   orders                         Order[]
   defaultPickupAddress           Address?                            @relation("DefaultStorePickupAddress", fields: [defaultPickupAddressId], references: [id])
@@ -646,9 +647,15 @@ model StoreCheckoutCertification {
   preparedAt                 DateTime  @default(now())
   approvedAt                 DateTime?
   expiresAt                  DateTime
-  revision                   Int       @default(0)
+  revision                        Int       @default(0)
+  sourceCommerceReadinessRevision Int?
+  globalPolicyRevision            Int?
+  proofOfferReference             String?
+  proofPriceVersionReference      String?
+  proofMetadata                   Json?
 
   @@index([status, expiresAt])
+  @@index([storeId, status, expiresAt])
   @@index([preparedByUserId])
 }
 

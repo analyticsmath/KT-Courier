@@ -25,6 +25,7 @@ export const ACCOUNT_NAV: NavItem[] = [
 
 export const STORE_NAV: NavItem[] = [
   { label: "Dashboard", href: "/store" },
+  { label: "Get Started", href: "/store/get-started" },
   { label: "Product Catalog", href: "/store/catalog" },
   { label: "Earnings", href: "/store/earnings" },
   { label: "New Delivery", href: "/store/new-delivery" },

@@ -1,5 +1,6 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import {
   toCustomerProfileDto,
   toStoreProfileDto,
@@ -115,6 +116,18 @@ export async function updateStoreProfile(
     }),
   };
 
+  const normalized = (value: string | null | undefined) =>
+    (value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-ZA");
+  const nameChanged =
+    input.storeName !== undefined && normalized(input.storeName) !== normalized(store.name);
+  const addressChanged =
+    (input.addressLine1 !== undefined && normalized(input.addressLine1) !== normalized(store.addressLine1)) ||
+    (input.addressLine2 !== undefined && normalized(input.addressLine2) !== normalized(store.addressLine2)) ||
+    (input.city !== undefined && normalized(input.city) !== normalized(store.city)) ||
+    (input.province !== undefined && normalized(input.province) !== normalized(store.province)) ||
+    (input.postalCode !== undefined && normalized(input.postalCode) !== normalized(store.postalCode)) ||
+    (input.country !== undefined && normalized(input.country) !== normalized(store.country));
+
   // Update Store address/contact fields (slug stays stable after creation)
   const storeData = {
     ...(input.storeName !== undefined && { name: input.storeName }),
@@ -139,6 +152,8 @@ export async function updateStoreProfile(
       postalCode: input.postalCode || null,
     }),
     ...(input.country !== undefined && { country: input.country }),
+    ...(addressChanged ? { featured: false } : {}),
+    ...(nameChanged || addressChanged ? { commerceReadinessRevision: { increment: 1 } } : {}),
   };
 
   await prisma.$transaction(async (tx) => {
@@ -151,7 +166,20 @@ export async function updateStoreProfile(
       },
       update: profileData,
     });
+    const client = tx as unknown as {
+      storeCheckoutCertification?: Partial<typeof prisma.storeCheckoutCertification>;
+      storefrontStoreDocument?: { updateMany?: unknown };
+    };
+    if (addressChanged && typeof client.storeCheckoutCertification?.updateMany === "function") {
+      await tx.storeCheckoutCertification.updateMany({
+        where: { storeId: store.id, status: "APPROVED" },
+        data: { status: "REVOKED", revision: { increment: 1 } },
+      });
+    }
     await tx.store.update({ where: { id: store.id }, data: storeData });
+    if ((nameChanged || addressChanged) && client.storefrontStoreDocument) {
+      await rebuildStorefrontStoreDocument(store.id, tx);
+    }
     if (access.owner && input.contactPerson !== undefined)
       await tx.user.update({
         where: { id: userId },
@@ -167,6 +195,8 @@ export async function updateStoreProfile(
         metadata: {
           fields: Object.keys(input),
           relationship: access.owner ? "OWNER" : "EMPLOYEE",
+          nameChanged,
+          addressChanged,
         },
       },
     });

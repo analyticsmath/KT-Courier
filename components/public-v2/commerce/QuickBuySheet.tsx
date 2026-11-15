@@ -192,7 +192,7 @@ export function QuickBuySheet({
             <div className={styles.quickBuyImage} data-kt-cart-flight-source="quick-buy">
               {media && <Image alt={media.alt || product.title} fill sizes="88px" src={`/api/catalog/media/${media.publicReference}`} style={{ objectFit: "cover" }} />}
             </div>
-            <div><strong>{selectedOffer ? money(selectedOffer.price.amount) : `From ${money(product.price.amount)}`}</strong><div className={styles.productTileAvailability}>{loading ? "Loading options…" : `${offerCountLabel}${selectedOffer ? ` · ${availabilityLabel(selectedOffer.availability)}` : ""}`}</div></div>
+            <div><strong>{selectedOffer ? money(selectedOffer.price.amount) : `From ${money(product.price.amount)}`}</strong><div className={styles.productTileAvailability}>{loading ? "Loading options…" : `${offerCountLabel}${selectedOffer ? ` · ${selectedOffer.price.includesTax ? "Incl. VAT" : "No VAT added"} · ${availabilityLabel(selectedOffer.availability)}` : typeof product.price.includesTax === "boolean" ? ` · ${product.price.includesTax ? "Incl. VAT" : "No VAT added"}` : ""}`}</div></div>
           </div>
 
           {loading && <p role="status" className={styles.productActionFeedback}>Loading available options…</p>}
@@ -222,7 +222,7 @@ export function QuickBuySheet({
                       </span>
                       <br />
                       <small style={{ color: "var(--kt-public-text-secondary)" }}>
-                        {money(offer.price.amount)} · {availabilityLabel(offer.availability)}
+                        {money(offer.price.amount)} · {offer.price.includesTax ? "Incl. VAT" : "No VAT added"} · {availabilityLabel(offer.availability)}
                       </small>
                     </button>
                   );

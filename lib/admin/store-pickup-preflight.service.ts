@@ -3,15 +3,36 @@ import { selectStorePickupCandidate } from "@/lib/marketplace-checkout/store-pic
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
 import { evaluateStorePickupPreflight } from "@/lib/admin/store-operational-preflight";
 import { checkDeliveryZone } from "@/lib/maps/delivery-zone.service";
+import type { DeliveryZoneCheckResult } from "@/lib/maps/google-maps.types";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
-import { resolveVerifiedStorePickupCoordinates } from "@/lib/marketplace-checkout/verified-store-pickup-coordinates";
+import {
+  resolveVerifiedStorePickupCoordinates,
+  type StorePickupCoordinateResolver,
+} from "@/lib/marketplace-checkout/verified-store-pickup-coordinates";
 import { isActiveDeliveryServiceForPickup } from "./store-service-matching";
+
+export type StorePickupPreflightOptions = Readonly<{
+  coordinateResolver?: StorePickupCoordinateResolver;
+  zoneChecker?: (lat: number, lng: number) => Promise<DeliveryZoneCheckResult>;
+  serviceCatalogLoader?: () => Promise<
+    ReadonlyArray<{
+      id: string;
+      version: number;
+      active: boolean;
+      provinces: readonly string[];
+      regionIds: readonly string[];
+    }>
+  >;
+}>;
 
 /**
  * This read-only operation does not modify store status, persist geocoding
  * results, create a quote, approve a seller, or make a customer payment.
  */
-export async function getStorePickupOperationalPreflight(storeId: string) {
+export async function getStorePickupOperationalPreflight(
+  storeId: string,
+  options?: StorePickupPreflightOptions,
+) {
   const store = await prisma.store.findUnique({
     where: { id: storeId },
     select: {
@@ -37,15 +58,20 @@ export async function getStorePickupOperationalPreflight(storeId: string) {
 
   if (pickup && evidence.checkoutPickupConfigured) {
     try {
-      const verifiedCoordinates = await resolveVerifiedStorePickupCoordinates(pickup);
+      const verifiedCoordinates = await resolveVerifiedStorePickupCoordinates(
+        pickup,
+        options?.coordinateResolver,
+      );
+      const checkZone = options?.zoneChecker ?? checkDeliveryZone;
       const decision = verifiedCoordinates
-        ? await checkDeliveryZone(verifiedCoordinates.latitude, verifiedCoordinates.longitude)
+        ? await checkZone(verifiedCoordinates.latitude, verifiedCoordinates.longitude)
         : null;
       if (decision?.matched && decision.regionId && decision.withinMaxDistance === true) {
         area = "COVERED";
         pickupRegionName = decision.regionName;
         pickupRegionId = decision.regionId ?? null;
-        const services = await deliveryCatalog();
+        const loadServices = options?.serviceCatalogLoader ?? deliveryCatalog;
+        const services = await loadServices();
         const matching = services.filter(
           service => isActiveDeliveryServiceForPickup(service, pickup.province, decision.regionId!),
         );

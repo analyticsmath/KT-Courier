@@ -1,26 +1,61 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { priceForOrderQuantity, type VolumePriceTier } from "@/lib/catalog/volume-pricing";
+import { calculateCommission } from "@/lib/commissions/commission-calculator";
+import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
+import type { DeliveryConfiguration } from "@/lib/client-platform/contracts";
 import { revalidateMarketplaceCheckout } from "@/lib/marketplace-checkout/checkout-review.service";
+import { calculateMarketplaceCourierTariff } from "@/lib/marketplace-checkout/courier-tariff-calculation";
+import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
+import { selectMarketplaceDeliveryPolicy } from "@/lib/marketplace-checkout/delivery-policy";
+import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
+import type { ParcelLimits, TrustedPackageVersion } from "@/lib/marketplace-checkout/parcel-classification";
 import {
   assertCheckoutTotals,
   assertSettlementArithmetic,
   centsToZar,
   parseZarToCents,
+  sellerBasis,
 } from "@/lib/marketplace-checkout/policy";
+import { calculateDeliveryPrice } from "@/lib/pricing/calculator";
+import { getPricingConfiguration } from "@/lib/pricing/config";
+import { activePersonalizedDeliveryRate } from "@/lib/pricing/personalized-delivery-rates";
 import { zarToSubunitCents } from "@/lib/payments/providers/paystack/paystack-client";
+import { createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
 import { evaluatePaystackCheckoutReadiness } from "@/lib/payments/providers/paystack/paystack-config";
 import {
   computePaystackHmacSha512,
   verifyPaystackSignature,
 } from "@/lib/payments/providers/paystack/paystack-signature";
 import { PaystackChargeSuccessPayloadSchema } from "@/lib/services/paystack-webhook-application.service";
+import { getGlobalCommercePolicyRevision } from "./commerce-readiness-revision";
+import {
+  selectEligibleSellableOffersForStore,
+  type EligibleProofOffer,
+} from "./store-sellable-offer-proof";
+
+export const REAL_CHECKOUT_PROOF_EVIDENCE_TYPE =
+  "REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF" as const;
+export const OFFLINE_ENGINE_COMPONENT_TEST_EVIDENCE_TYPE =
+  "OFFLINE_ENGINE_COMPONENT_TEST" as const;
 
 export const STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA = createHash("sha256")
   .update(
-    "kt-store-checkout-engine-proof:v1:config+review+savepoint-hold+webhook-hmac+projection+negative-guards",
+    "kt-store-checkout-engine-proof:v2:real-offer+real-quote+hold+payment-plan+commission-calc+negative-guards",
   )
   .digest("hex");
+
+export class StoreCheckoutProofError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+    readonly blockers: readonly string[] = [],
+  ) {
+    super(message);
+    this.name = "StoreCheckoutProofError";
+  }
+}
 
 export type StoreCheckoutEngineStageName =
   | "CONFIG_SNAPSHOT"
@@ -37,27 +72,83 @@ export interface StoreCheckoutEngineStageResult {
   readonly durationMs: number;
 }
 
+export type ProofServiceCatalogEntry = Readonly<{
+  readonly id: string;
+  readonly key?: string;
+  readonly stableKey?: string;
+  readonly version: number;
+  readonly active: boolean;
+  readonly provinces: readonly string[];
+  readonly regionIds: readonly string[];
+  readonly baseFee?: number;
+  readonly perKmRate?: number;
+  readonly minFee?: number;
+  readonly maxFee?: number | null;
+  readonly tariffs?: DeliveryConfiguration["tariffs"];
+}>;
+
 export interface StoreCheckoutEngineProofInput {
   readonly storeId: string;
   readonly pickupAddressId: string;
-  readonly pickupFingerprint: string;
+  readonly pickupFingerprint?: string;
   readonly coverageRegionId: string;
   readonly coverageRegionName: string | null;
-  readonly matchingServiceVersions: readonly string[];
-  readonly serviceSignature: string;
+  readonly pickupProvince?: string | null;
+  readonly matchingServiceVersions?: readonly string[];
+  readonly serviceSignature?: string;
   readonly routeDistanceMeters: number;
-  readonly sellerIdentityReference: string | null;
-  readonly sellerIdentityVersion: string | null;
-  readonly operationalPolicyReference: string | null;
-  readonly commissionPlanReference: string | null;
+  readonly routeDurationSeconds?: number;
+  readonly routeSummary?: string;
+  readonly serviceKey?: string;
+  readonly serviceName?: string;
+  readonly serviceVersion?: number;
+  readonly sellerIdentityReference?: string | null;
+  readonly sellerIdentityVersion?: string | null;
+  readonly operationalPolicyReference?: string | null;
+  readonly commissionPlanReference?: string | null;
+  readonly serviceCatalog?: readonly ProofServiceCatalogEntry[];
+  readonly paymentProviderReadiness?: ReadonlyArray<{
+    code: string;
+    configured: boolean;
+    active: boolean;
+    environment: string;
+    errorCategory: string;
+  }>;
+  readonly trustedPackageVersions?: TrustedPackageVersion[];
+  readonly activeParcelProfiles?: ParcelLimits[];
+  readonly now?: Date;
+}
+
+export interface StoreCheckoutEngineProofMetadata {
+  readonly offerReference: string;
+  readonly productReference: string;
+  readonly variantReference: string;
+  readonly priceVersionReference: string;
+  readonly quantity: number;
+  readonly unitPriceZar: string;
+  readonly deliveryFeeZar: string;
+  readonly grandTotalZar: string;
+  readonly parcelClass: string | null;
+  readonly tariffSource: string;
+  readonly commissionPlanReference: string;
+  readonly commissionAmountZar: string;
+  readonly storeEarningZar: string;
+  readonly sellerVatStatus: string;
+  readonly marketplaceVatEnabled: boolean;
 }
 
 export interface StoreCheckoutEngineProofResult {
   readonly passed: boolean;
+  readonly evidenceType: typeof REAL_CHECKOUT_PROOF_EVIDENCE_TYPE;
   readonly suiteSha: string;
   readonly policyFingerprint: string;
   readonly engineProofReference: string;
   readonly engineProofDigest: string;
+  readonly sourceCommerceReadinessRevision: number;
+  readonly globalPolicyRevision: number;
+  readonly proofOfferReference: string;
+  readonly proofPriceVersionReference: string;
+  readonly proofMetadata: StoreCheckoutEngineProofMetadata;
   readonly stageResults: readonly StoreCheckoutEngineStageResult[];
   readonly redactedSnapshot: {
     readonly storeId: string;
@@ -65,7 +156,7 @@ export interface StoreCheckoutEngineProofResult {
     readonly coverageRegionId: string;
     readonly matchingServiceVersions: readonly string[];
     readonly catalogOfferCount: number;
-    readonly catalogMode: "STORE_OFFER" | "SAVEPOINT_SYNTHETIC";
+    readonly catalogMode: "STORE_OFFER";
   };
   readonly failedStage: StoreCheckoutEngineStageName | null;
   readonly failureMessage: string | null;
@@ -82,6 +173,10 @@ export function computeStorePolicyFingerprint(
     sellerIdentityVersion: string | null;
     operationalPolicyReference: string | null;
     commissionPlanReference: string | null;
+    sourceCommerceReadinessRevision?: number | null;
+    globalPolicyRevision?: number | null;
+    proofOfferReference?: string | null;
+    proofPriceVersionReference?: string | null;
   }>,
 ): string | null {
   if (
@@ -103,41 +198,346 @@ export function computeStorePolicyFingerprint(
         sellerIdentityVersion: input.sellerIdentityVersion,
         operationalPolicyReference: input.operationalPolicyReference,
         commissionPlanReference: input.commissionPlanReference,
+        ...(input.sourceCommerceReadinessRevision !== undefined
+          ? { sourceCommerceReadinessRevision: input.sourceCommerceReadinessRevision }
+          : {}),
+        ...(input.globalPolicyRevision !== undefined
+          ? { globalPolicyRevision: input.globalPolicyRevision }
+          : {}),
+        ...(input.proofOfferReference !== undefined
+          ? { proofOfferReference: input.proofOfferReference }
+          : {}),
+        ...(input.proofPriceVersionReference !== undefined
+          ? { proofPriceVersionReference: input.proofPriceVersionReference }
+          : {}),
       }),
     )
     .digest("hex");
 }
 
+async function resolveRealProofDeliveryQuote(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    storeId: string;
+    pickupProvince: string;
+    coverageRegionId: string;
+    routeDistanceMeters: number;
+    routeDurationSeconds: number;
+    offer: EligibleProofOffer;
+    serviceCatalog?: readonly ProofServiceCatalogEntry[];
+    now: Date;
+  }>,
+): Promise<{
+  feeZar: string;
+  quoteReference: string;
+  quoteVersion: string;
+  serviceLevel: string;
+  tariffSource: string;
+}> {
+  if (input.offer.fulfilmentMode === "STORE_PICKUP") {
+    return {
+      feeZar: "0.00",
+      quoteReference: `PROOF-PICKUP-${input.storeId.slice(0, 8)}`,
+      quoteVersion: "store-pickup-v1",
+      serviceLevel: "STORE_PICKUP",
+      tariffSource: "STORE_PICKUP",
+    };
+  }
+
+  const parcel = input.offer.parcelClassification;
+  if (!parcel || parcel.status !== "CLASSIFIED" || !parcel.sizeClass || !parcel.weightKg) {
+    throw new StoreCheckoutProofError(
+      "NO_SELLABLE_OFFER",
+      "Courier-delivered proof offer lacks approved trusted packaging classification.",
+      ["NO_SELLABLE_OFFER"],
+    );
+  }
+
+  const [pricingConfig, regionRow, courierPolicy] = await Promise.all([
+    getPricingConfiguration("MARKETPLACE"),
+    tx.deliveryRegion.findUnique({
+      where: { id: input.coverageRegionId },
+      select: { id: true, province: true, highRiskSurcharge: true },
+    }),
+    marketplaceCourierTariffPolicy(),
+  ]);
+
+  const effectiveProvince = regionRow?.province ?? input.pickupProvince;
+  const regionContextItem = regionRow
+    ? { id: regionRow.id, highRiskSurcharge: regionRow.highRiskSurcharge }
+    : { id: input.coverageRegionId, highRiskSurcharge: new Prisma.Decimal(0) };
+  const regionContext = { origin: regionContextItem, destination: regionContextItem };
+
+  const liveServices = await deliveryCatalog();
+  if (courierPolicy) {
+    const selected = liveServices.find(
+      (service) =>
+        service.stableKey === courierPolicy.defaultServiceKey &&
+        service.active &&
+        (service.provinces as readonly string[]).includes(effectiveProvince) &&
+        (!service.regionIds.length || service.regionIds.includes(input.coverageRegionId)),
+    ) ?? liveServices.find(
+      (service) =>
+        service.active &&
+        (service.provinces as readonly string[]).includes(effectiveProvince) &&
+        (!service.regionIds.length || service.regionIds.includes(input.coverageRegionId)),
+    );
+    if (selected) {
+      const negotiatedRate = await activePersonalizedDeliveryRate(
+        { ownerType: "STORE", ownerId: input.storeId },
+        selected.stableKey,
+        parcel.sizeClass,
+      );
+      const { calculation } = calculateMarketplaceCourierTariff({
+        service: selected,
+        parcel,
+        distanceMeters: Math.max(1, Math.round(input.routeDistanceMeters)),
+        durationSeconds: Math.max(1, Math.round(input.routeDurationSeconds)),
+        regionContext,
+        tax: pricingConfig.tax,
+        negotiatedRate,
+      });
+      return {
+        feeZar: calculation.total.toFixed(2),
+        quoteReference: `PROOF-COURIER-${selected.stableKey}-${selected.version}`,
+        quoteVersion: String(selected.version),
+        serviceLevel: `${selected.displayName} (${selected.stableKey})`,
+        tariffSource: "MARKETPLACE_COURIER_TARIFF",
+      };
+    }
+  }
+
+  const matrices = await listDeliveryMatrices();
+  const hasActiveMatrix = matrices.some(
+    (v) =>
+      v.status === "ACTIVE" &&
+      v.approvedAt &&
+      v.approvedByUserId &&
+      v.approvedByUserId !== v.createdByUserId &&
+      new Date(v.effectiveFrom) <= input.now &&
+      (!v.effectiveTo || new Date(v.effectiveTo) > input.now),
+  );
+  if (hasActiveMatrix) {
+    const tariff = selectMarketplaceDeliveryPolicy(matrices, {
+      sizeClass: parcel.sizeClass,
+      distanceKm: Math.max(0.1, input.routeDistanceMeters / 1000),
+      province: effectiveProvince,
+      regionId: input.coverageRegionId,
+      storeId: input.storeId,
+      highRisk: Number(regionRow?.highRiskSurcharge ?? 0) > 0,
+      now: input.now,
+    });
+    const subtotal = new Prisma.Decimal(tariff.fee);
+    const taxRate = pricingConfig.tax.enabled ? pricingConfig.tax.rate : new Prisma.Decimal(0);
+    const taxAmount = subtotal
+      .mul(taxRate)
+      .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+    return {
+      feeZar: subtotal.add(taxAmount).toFixed(2),
+      quoteReference: `PROOF-MATRIX-${tariff.ruleKey}-${tariff.policyVersion}`,
+      quoteVersion: String(tariff.policyVersion),
+      serviceLevel: "STANDARD",
+      tariffSource: "MARKETPLACE_DELIVERY_MATRIX",
+    };
+  }
+
+  // Fallback ONLY to active DB services or explicit serviceCatalog passed from
+  // EvaluatePreflight when testing isolated regions cleanly.
+  const fullLiveService = liveServices.find(
+    (service) =>
+      service.active &&
+      (service.provinces as readonly string[]).includes(effectiveProvince) &&
+      (!service.regionIds.length || service.regionIds.includes(input.coverageRegionId)),
+  );
+  if (fullLiveService) {
+    const { calculation } = calculateMarketplaceCourierTariff({
+      service: fullLiveService,
+      parcel,
+      distanceMeters: Math.max(1, Math.round(input.routeDistanceMeters)),
+      durationSeconds: Math.max(1, Math.round(input.routeDurationSeconds)),
+      regionContext,
+      tax: pricingConfig.tax,
+      negotiatedRate: null,
+    });
+    return {
+      feeZar: calculation.total.toFixed(2),
+      quoteReference: `PROOF-SVC-${fullLiveService.stableKey}-${fullLiveService.version}`,
+      quoteVersion: String(fullLiveService.version),
+      serviceLevel: fullLiveService.stableKey,
+      tariffSource: "ACTIVE_COURIER_SERVICE_CATALOG",
+    };
+  }
+
+  const callerService = (input.serviceCatalog ?? []).find(
+    (service) =>
+      service.active &&
+      service.provinces.includes(effectiveProvince) &&
+      (!service.regionIds.length || service.regionIds.includes(input.coverageRegionId)) &&
+      (service.tariffs?.[parcel.sizeClass!] != null ||
+        typeof service.baseFee === "number"),
+  );
+  if (callerService) {
+    if (callerService.tariffs?.[parcel.sizeClass!]) {
+      const t = callerService.tariffs[parcel.sizeClass!];
+      const calculation = calculateDeliveryPrice({
+        input: {
+          deliveryType: "PARCEL_DOCUMENT",
+          distanceMeters: Math.max(1, Math.round(input.routeDistanceMeters)),
+          durationSeconds: Math.max(1, Math.round(input.routeDurationSeconds)),
+          vehicleClass: null,
+          actualWeightKg: new Prisma.Decimal(parcel.weightKg),
+          lengthCm: null,
+          widthCm: null,
+          heightCm: null,
+        },
+        rule: {
+          id: callerService.id,
+          revision: callerService.version,
+          currency: "ZAR",
+          deliveryType: "PARCEL_DOCUMENT",
+          regionId: input.coverageRegionId,
+          baseFee: new Prisma.Decimal(t.baseFee),
+          perKmRate: new Prisma.Decimal(t.perKmRate),
+          includedDistanceKm: new Prisma.Decimal(0),
+          distanceIncrementKm: new Prisma.Decimal("0.001"),
+          minimumCharge: t.minimumCharge === null ? null : new Prisma.Decimal(t.minimumCharge),
+          flatSurcharge: null,
+          vehicleClass: null,
+          vehicleSurcharge: null,
+          includedWeightKg: null,
+          perAdditionalKgRate: null,
+          maximumWeightKg: t.maximumWeightKg === null ? null : new Prisma.Decimal(t.maximumWeightKg),
+          weightIncrementKg: null,
+          dimensionalPricingEnabled: false,
+          volumetricDivisor: null,
+          maxDistanceKm: null,
+        },
+        regionContext,
+        taxConfig: pricingConfig.tax,
+        calculationVersion: "marketplace-proof-service-tariff-v1",
+      });
+      return {
+        feeZar: calculation.total.toFixed(2),
+        quoteReference: `PROOF-SVC-${callerService.id}-${callerService.version}`,
+        quoteVersion: String(callerService.version),
+        serviceLevel: callerService.stableKey ?? callerService.key ?? "STANDARD",
+        tariffSource: "VERIFIED_SERVICE_TARIFF",
+      };
+    }
+
+    const calculation = calculateDeliveryPrice({
+      input: {
+        deliveryType: "PARCEL_DOCUMENT",
+        distanceMeters: Math.max(1, Math.round(input.routeDistanceMeters)),
+        durationSeconds: Math.max(1, Math.round(input.routeDurationSeconds)),
+        vehicleClass: null,
+        actualWeightKg: new Prisma.Decimal(parcel.weightKg),
+        lengthCm: null,
+        widthCm: null,
+        heightCm: null,
+      },
+      rule: {
+        id: callerService.id,
+        revision: callerService.version,
+        currency: "ZAR",
+        deliveryType: "PARCEL_DOCUMENT",
+        regionId: input.coverageRegionId,
+        baseFee: new Prisma.Decimal(callerService.baseFee ?? 0),
+        perKmRate: new Prisma.Decimal(callerService.perKmRate ?? 0),
+        includedDistanceKm: new Prisma.Decimal(0),
+        distanceIncrementKm: new Prisma.Decimal("0.001"),
+        minimumCharge:
+          typeof callerService.minFee === "number"
+            ? new Prisma.Decimal(callerService.minFee)
+            : null,
+        flatSurcharge: null,
+        vehicleClass: null,
+        vehicleSurcharge: null,
+        includedWeightKg: null,
+        perAdditionalKgRate: null,
+        maximumWeightKg: null,
+        weightIncrementKg: null,
+        dimensionalPricingEnabled: false,
+        volumetricDivisor: null,
+        maxDistanceKm: null,
+      },
+      regionContext,
+      taxConfig: pricingConfig.tax,
+      calculationVersion: "marketplace-proof-service-tariff-v1",
+    });
+    return {
+      feeZar: calculation.total.toFixed(2),
+      quoteReference: `PROOF-SVC-${callerService.id}-${callerService.version}`,
+      quoteVersion: String(callerService.version),
+      serviceLevel: callerService.stableKey ?? callerService.key ?? "STANDARD",
+      tariffSource: "VERIFIED_SERVICE_TARIFF",
+    };
+  }
+
+  throw new StoreCheckoutProofError(
+    "DELIVERY_TARIFF_UNAVAILABLE",
+    "No active marketplace delivery tariff or courier service rate matches this pickup region.",
+    ["SERVICE_INACTIVE"],
+  );
+}
+
+/**
+ * Strictly non-authorizing diagnostic component check for pure domain engines.
+ * Never grants live selling authority or satisfies `REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF`.
+ */
+export async function runOfflineEngineComponentTest(): Promise<{
+  readonly evidenceType: typeof OFFLINE_ENGINE_COMPONENT_TEST_EVIDENCE_TYPE;
+  readonly authorizingForLiveSale: false;
+  readonly passed: boolean;
+}> {
+  const payload = JSON.stringify({
+    event: "charge.success",
+    data: { reference: "diag-component-only", amount: 1000, currency: "ZAR" },
+  });
+  const secret = `diag_ephemeral_${randomUUID().replaceAll("-", "")}`;
+  const sig = computePaystackHmacSha512(payload, secret);
+  const hmacOk =
+    verifyPaystackSignature(payload, sig, secret) &&
+    !verifyPaystackSignature(payload, "0".repeat(128), secret);
+  return {
+    evidenceType: OFFLINE_ENGINE_COMPONENT_TEST_EVIDENCE_TYPE,
+    authorizingForLiveSale: false,
+    passed: hmacOk,
+  };
+}
+
 /**
  * Executes an isolated, single-transaction (SAVEPOINT -> ROLLBACK TO SAVEPOINT)
- * disposable checkout proof suite against the store's real configuration and
- * canonical domain engines. Persists zero synthetic carts, orders, or payments.
+ * capability proof against the store's real published catalog offer, stock,
+ * approved packaging, real commission plan, real delivery tariff, VAT config,
+ * and canonical checkout review engine. Persists ZERO residual rows and fails
+ * closed with `NO_SELLABLE_OFFER` when no eligible offer exists.
  */
 export async function runDisposableStoreCheckoutEngineProof(
   input: StoreCheckoutEngineProofInput,
 ): Promise<StoreCheckoutEngineProofResult> {
-  const policyFingerprint =
-    computeStorePolicyFingerprint({
-      pickupAddressId: input.pickupAddressId,
-      pickupFingerprint: input.pickupFingerprint,
-      coverageRegionId: input.coverageRegionId,
-      serviceSignature: input.serviceSignature,
-      sellerIdentityReference: input.sellerIdentityReference,
-      sellerIdentityVersion: input.sellerIdentityVersion,
-      operationalPolicyReference: input.operationalPolicyReference,
-      commissionPlanReference: input.commissionPlanReference,
-    }) ?? "";
-
+  const now = input.now ?? new Date();
   const stageResults: StoreCheckoutEngineStageResult[] = [];
   const proofCartRef = `PROOF-CART-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
   const proofCheckoutRef = `PROOF-CHK-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
 
   let storeStatus = "UNKNOWN";
+  let sourceCommerceReadinessRevision = 1;
+  let globalPolicyRevision = 1;
   let catalogOfferCount = 0;
-  let catalogMode: "STORE_OFFER" | "SAVEPOINT_SYNTHETIC" = "SAVEPOINT_SYNTHETIC";
+  let proofOffer: EligibleProofOffer | null = null;
   let failedStage: StoreCheckoutEngineStageName | null = null;
   let failureMessage: string | null = null;
   let syntheticRowsRemaining = 0;
+  let deliveryFeeZar = "0.00";
+  let deliveryTariffSource = "UNKNOWN";
+  let commissionPlanReference = input.commissionPlanReference ?? "";
+  let commissionAmountZar = "0.00";
+  let storeEarningZar = "0.00";
+  let grandTotalZar = "0.00";
+  let sellerVatStatus = "NOT_REGISTERED";
+  let marketplaceVatEnabled = false;
+  let thrownTerminalProofError: StoreCheckoutProofError | null = null;
 
   const runStage = async <T>(
     stage: StoreCheckoutEngineStageName,
@@ -154,6 +554,9 @@ export async function runDisposableStoreCheckoutEngineProof(
       });
       return result.data;
     } catch (err) {
+      if (err instanceof StoreCheckoutProofError) {
+        thrownTerminalProofError = err;
+      }
       const msg = err instanceof Error ? err.message : "Engine proof stage failed.";
       stageResults.push({
         stage,
@@ -167,98 +570,163 @@ export async function runDisposableStoreCheckoutEngineProof(
     }
   };
 
+  let pickupFingerprint = input.pickupFingerprint ?? null;
+  let serviceSignature = input.serviceSignature ?? null;
+  let matchingServiceVersions = [...(input.matchingServiceVersions ?? [])];
+
   try {
     await prisma.$transaction(
       async (tx) => {
-        if (typeof tx.$queryRaw === "function") {
-          await tx.$queryRaw(
-            Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${input.storeId} FOR SHARE`,
-          );
-        }
+        await tx.$queryRaw(
+          Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${input.storeId} FOR SHARE`,
+        );
 
-        const hasSavepoint = typeof tx.$executeRawUnsafe === "function";
-        if (hasSavepoint) {
-          await tx.$executeRawUnsafe("SAVEPOINT kt_checkout_engine_proof");
-        }
+        await tx.$executeRawUnsafe("SAVEPOINT kt_checkout_engine_proof");
 
         try {
           const snapshot = await runStage("CONFIG_SNAPSHOT", async () => {
             const store = await tx.store.findUnique({
               where: { id: input.storeId },
-              select: { id: true, status: true },
+              select: {
+                id: true,
+                status: true,
+                province: true,
+                commerceReadinessRevision: true,
+                defaultPickupAddress: { select: { id: true, province: true } },
+              },
             });
-            if (!store) {
-              throw new Error("Store record not found for engine proof.");
+            if (!store || !["PENDING", "ACTIVE"].includes(store.status)) {
+              throw new StoreCheckoutProofError(
+                "STORE_NOT_FOUND",
+                "Store is unavailable for capability proof.",
+              );
             }
             storeStatus = store.status;
+            sourceCommerceReadinessRevision = store.commerceReadinessRevision;
+            globalPolicyRevision = await getGlobalCommercePolicyRevision(tx);
 
-            const offers =
-              typeof tx.storeCatalogOffer?.findMany === "function"
-                ? await tx.storeCatalogOffer.findMany({
-                    where: {
-                      storeId: input.storeId,
-                      publicationStatus: "PUBLISHED",
-                    },
-                    take: 3,
-                    orderBy: { createdAt: "desc" },
-                    select: {
-                      id: true,
-                      publicReference: true,
-                      productId: true,
-                      variantId: true,
-                      currentPriceVersionId: true,
-                      fulfilmentMode: true,
-                    },
-                  })
-                : [];
-            catalogOfferCount = offers.length;
+            const eligibleOffers = await selectEligibleSellableOffersForStore(
+              tx,
+              input.storeId,
+              now,
+              {
+                trustedPackageVersions: input.trustedPackageVersions,
+                activeParcelProfiles: input.activeParcelProfiles,
+              },
+            );
+            catalogOfferCount = eligibleOffers.length;
+            const selectedOffer = eligibleOffers[0];
+            if (!selectedOffer) {
+              throw new StoreCheckoutProofError(
+                "NO_SELLABLE_OFFER",
+                "Store has no published, approved, priced, media-ready, in-stock, packaging-verified offer eligible for checkout capability proof.",
+                ["NO_SELLABLE_OFFER"],
+              );
+            }
+            proofOffer = selectedOffer;
 
-            let unitPriceZar = "150.00";
-            let offerRef = `PROOF-OFFER-${input.storeId.slice(0, 8)}`;
-            let variantRef = `PROOF-VAR-${input.storeId.slice(0, 8)}`;
-            let priceVersionRef = "proof-pv-1";
+            const activePlan = await tx.commissionPlan.findFirst({
+              where: {
+                subjectType: "MARKETPLACE_STORE_ORDER",
+                scopeKey: `STORE:${input.storeId}`,
+                currency: "ZAR",
+                status: "ACTIVE",
+                effectiveFrom: { lte: now },
+                OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+              },
+              orderBy: [{ effectiveFrom: "desc" }, { versionNumber: "desc" }],
+              include: { rules: { orderBy: [{ priority: "asc" }, { id: "asc" }] } },
+            });
+            if (!activePlan || activePlan.rules.length === 0) {
+              throw new StoreCheckoutProofError(
+                "COMMISSION_PLAN_MISSING",
+                "An active approved marketplace commission plan is required before checkout proof can pass.",
+                ["POLICY_INACTIVE"],
+              );
+            }
+            commissionPlanReference = activePlan.publicReference;
 
-            const firstOffer = offers[0];
-            if (
-              firstOffer?.currentPriceVersionId &&
-              typeof tx.storeOfferPriceVersion?.findUnique === "function"
-            ) {
-              const priceRow = await tx.storeOfferPriceVersion.findUnique({
-                where: { id: firstOffer.currentPriceVersionId },
-                select: { publicReference: true, amount: true },
-              });
-              if (priceRow && Number(priceRow.amount) > 0) {
-                unitPriceZar = Number(priceRow.amount).toFixed(2);
-                offerRef = firstOffer.publicReference;
-                variantRef = firstOffer.variantId;
-                priceVersionRef = priceRow.publicReference;
-                catalogMode = "STORE_OFFER";
-              }
+            const sellerIdentity = await tx.storeSellerLegalIdentity.findFirst({
+              where: {
+                storeId: input.storeId,
+                status: "APPROVED",
+                effectiveFrom: { lte: now },
+                OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+              },
+              orderBy: [{ effectiveFrom: "desc" }, { id: "asc" }],
+              select: { vatRegistrationStatus: true, publicReference: true },
+            });
+            if (!sellerIdentity) {
+              throw new StoreCheckoutProofError(
+                "UNAPPROVED_SELLER",
+                "Approved legal seller identity is required before checkout proof can pass.",
+                ["UNAPPROVED_SELLER"],
+              );
+            }
+            sellerVatStatus = sellerIdentity.vatRegistrationStatus;
+
+            const pricingConfig = await getPricingConfiguration("MARKETPLACE");
+            marketplaceVatEnabled = pricingConfig.tax.enabled;
+
+            const pickupProvince =
+              input.pickupProvince ??
+              store.defaultPickupAddress?.province ??
+              store.province ??
+              "Gauteng";
+
+            if (!matchingServiceVersions.length && input.serviceKey) {
+              matchingServiceVersions = [`${input.serviceKey}:${input.serviceVersion ?? 1}`];
+            }
+            if (!serviceSignature && matchingServiceVersions.length > 0) {
+              serviceSignature = createHash("sha256")
+                .update(JSON.stringify(matchingServiceVersions))
+                .digest("hex");
+            }
+            if (!pickupFingerprint) {
+              pickupFingerprint = createHash("sha256")
+                .update(JSON.stringify({ storeId: input.storeId, pickupAddressId: input.pickupAddressId }))
+                .digest("hex");
             }
 
             return {
-              summary: `Redacted snapshot loaded (${store.status}, ${offers.length} published offer(s), mode=${catalogMode}).`,
-              data: { unitPriceZar, offerRef, variantRef, priceVersionRef },
+              summary: `Real offer ${selectedOffer.offerReference} (price ${selectedOffer.priceVersionReference}, ZAR ${selectedOffer.unitPriceZar}, plan ${activePlan.publicReference}) snapshotted at storeRev=${sourceCommerceReadinessRevision}, globalRev=${globalPolicyRevision}.`,
+              data: { selectedOffer, activePlan, pickupProvince },
             };
           });
 
-          const feeZar = Math.max(
-            25,
-            Math.round(Math.max(1000, input.routeDistanceMeters) / 1000) * 5,
-          ).toFixed(2);
+          const selectedOffer = snapshot.selectedOffer;
+          const unitDecimal = new Prisma.Decimal(selectedOffer.unitPriceZar);
+          const modDecimal = new Prisma.Decimal(selectedOffer.modifierUnitTotalZar);
+          const lineTotalZar = unitDecimal
+            .add(modDecimal)
+            .mul(selectedOffer.quantity)
+            .toFixed(2);
 
           const baseLine = {
             lineReference: "proof-line-1",
             storeReference: input.storeId,
-            offerReference: snapshot.offerRef,
-            variantReference: snapshot.variantRef,
-            quantity: 1,
-            priceVersion: snapshot.priceVersionRef,
-            publicationVersion: "pub-1",
-            baseUnitPrice: snapshot.unitPriceZar,
-            modifierUnitTotal: "0.00",
-            lineTotal: snapshot.unitPriceZar,
+            offerReference: selectedOffer.offerReference,
+            variantReference: selectedOffer.variantReference,
+            quantity: selectedOffer.quantity,
+            priceVersion: selectedOffer.priceVersionReference,
+            publicationVersion: String(selectedOffer.offerVersion),
+            baseUnitPrice: selectedOffer.unitPriceZar,
+            modifierUnitTotal: selectedOffer.modifierUnitTotalZar,
+            lineTotal: lineTotalZar,
           };
+
+          const quoteOutcome = await resolveRealProofDeliveryQuote(tx, {
+            storeId: input.storeId,
+            pickupProvince: snapshot.pickupProvince,
+            coverageRegionId: input.coverageRegionId,
+            routeDistanceMeters: input.routeDistanceMeters,
+            routeDurationSeconds: input.routeDurationSeconds ?? 600,
+            offer: selectedOffer,
+            serviceCatalog: input.serviceCatalog,
+            now,
+          });
+          deliveryFeeZar = quoteOutcome.feeZar;
+          deliveryTariffSource = quoteOutcome.tariffSource;
 
           const reviewResult = await runStage("CHECKOUT_REVIEW_AND_QUOTE", async () => {
             const res = await revalidateMarketplaceCheckout({
@@ -266,37 +734,88 @@ export async function runDisposableStoreCheckoutEngineProof(
               checkoutReference: proofCheckoutRef,
               serviceAreaReference: input.coverageRegionId,
               reviewVersion: 1,
-              commissionPolicyVersion:
-                input.commissionPlanReference ?? "default-commission-v1",
+              commissionPolicyVersion: snapshot.activePlan.publicReference,
               groups: [
                 {
                   storeReference: input.storeId,
                   pickupLocationReference: input.pickupAddressId,
-                  fulfilmentMode: "COURIER_DELIVERY",
+                  fulfilmentMode: selectedOffer.fulfilmentMode,
                   lines: [baseLine],
                 },
               ],
-              resolveLine: async (line) => ({
-                lineReference: line.lineReference,
-                available: true,
-                quantity: line.quantity,
-                priceVersion: line.priceVersion,
-                publicationVersion: line.publicationVersion,
-                baseUnitPrice: line.baseUnitPrice,
-                modifierUnitTotal: line.modifierUnitTotal,
-                lineTotal: line.lineTotal,
-                modifierValid: true,
-              }),
+              resolveLine: async (line) => {
+                const dbOffer = await tx.storeCatalogOffer.findFirst({
+                  where: {
+                    storeId: input.storeId,
+                    publicReference: line.offerReference,
+                    status: "ACTIVE",
+                    publicationStatus: "PUBLISHED",
+                    variant: { publicReference: line.variantReference, status: "ACTIVE" },
+                  },
+                  select: { id: true, version: true, currentPriceVersionId: true },
+                });
+                const dbPrice = dbOffer
+                  ? await tx.storeOfferPriceVersion.findFirst({
+                      where: {
+                        offerId: dbOffer.id,
+                        publicReference: line.priceVersion,
+                        status: "ACTIVE",
+                        currency: "ZAR",
+                        effectiveFrom: { lte: now },
+                        OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+                      },
+                    })
+                  : null;
+                const dbInv = dbOffer
+                  ? await tx.catalogInventoryItem.findUnique({
+                      where: { offerId: dbOffer.id },
+                      include: {
+                        levels: { include: { location: { select: { status: true } } } },
+                      },
+                    })
+                  : null;
+                const invAvailable = Boolean(
+                  dbInv &&
+                    (dbInv.trackingMode === "UNTRACKED" ||
+                      dbInv.trackingMode === "MADE_TO_ORDER" ||
+                      dbInv.allowBackorder ||
+                      dbInv.levels.some(
+                        (lvl) => lvl.location.status === "ACTIVE" && lvl.available >= line.quantity,
+                      )),
+                );
+                const resolvedUnit = dbPrice
+                  ? priceForOrderQuantity(
+                      dbPrice.amount.toFixed(2),
+                      (dbPrice.volumeTiers ?? []) as VolumePriceTier[],
+                      line.quantity,
+                    )
+                  : line.baseUnitPrice;
+                const resolvedTotal = new Prisma.Decimal(resolvedUnit)
+                  .add(selectedOffer.modifierUnitTotalZar)
+                  .mul(line.quantity)
+                  .toFixed(2);
+                return {
+                  lineReference: line.lineReference,
+                  available: Boolean(dbOffer && dbPrice && invAvailable),
+                  quantity: line.quantity,
+                  priceVersion: dbPrice?.publicReference ?? line.priceVersion,
+                  publicationVersion: String(dbOffer?.version ?? line.publicationVersion),
+                  baseUnitPrice: resolvedUnit,
+                  modifierUnitTotal: selectedOffer.modifierUnitTotalZar,
+                  lineTotal: resolvedTotal,
+                  modifierValid: true,
+                };
+              },
               quoteAdapter: {
                 async quoteStoreGroup() {
                   return {
-                    publicReference: `PROOF-QUOTE-${input.coverageRegionId.slice(0, 8)}`,
-                    version: "1",
-                    expiresAt: new Date(Date.now() + 15 * 60_000),
-                    fee: feeZar,
+                    publicReference: quoteOutcome.quoteReference,
+                    version: quoteOutcome.quoteVersion,
+                    expiresAt: new Date(now.getTime() + 15 * 60_000),
+                    fee: quoteOutcome.feeZar,
                     currency: "ZAR" as const,
                     serviceabilityReference: input.coverageRegionId,
-                    serviceLevel: "STANDARD",
+                    serviceLevel: quoteOutcome.serviceLevel,
                   };
                 },
               },
@@ -314,47 +833,106 @@ export async function runDisposableStoreCheckoutEngineProof(
               promotionDiscount: res.promotionDiscount,
               grandTotal: res.grandTotal,
             });
+            grandTotalZar = res.grandTotal;
             return {
-              summary: `Checkout review & route quote verified (grandTotal=ZAR ${res.grandTotal}).`,
+              summary: `Real offer review & ${quoteOutcome.tariffSource} quote verified (delivery=ZAR ${res.deliveryFeeTotal}, grandTotal=ZAR ${res.grandTotal}).`,
               data: res,
             };
           });
 
           await runStage("STOCK_HOLD_RESERVATION", async () => {
-            if (typeof tx.marketplaceCart?.create === "function") {
-              const cart = await tx.marketplaceCart.create({
-                data: {
-                  publicReference: proofCartRef,
-                  ownerType: "GUEST",
-                  guestTokenHash: createHash("sha256")
-                    .update(proofCartRef)
-                    .digest("hex"),
-                  serviceAreaReference: input.coverageRegionId,
-                  status: "ACTIVE",
-                  currency: "ZAR",
+            const cart = await tx.marketplaceCart.create({
+              data: {
+                publicReference: proofCartRef,
+                ownerType: "GUEST",
+                guestTokenHash: createHash("sha256").update(proofCartRef).digest("hex"),
+                serviceAreaReference: input.coverageRegionId,
+                status: "ACTIVE",
+                currency: "ZAR",
+              },
+              select: { id: true, version: true },
+            });
+            const group = await tx.marketplaceCartStoreGroup.create({
+              data: {
+                cartId: cart.id,
+                storeId: input.storeId,
+                fulfilmentMode: selectedOffer.fulfilmentMode,
+              },
+              select: { id: true },
+            });
+            await tx.marketplaceCartLine.create({
+              data: {
+                cartId: cart.id,
+                storeGroupId: group.id,
+                publicReference: `PROOF-LINE-${randomUUID().slice(0, 8)}`,
+                productPublicReference: selectedOffer.productReference,
+                variantPublicReference: selectedOffer.variantReference,
+                offerPublicReference: selectedOffer.offerReference,
+                quantity: selectedOffer.quantity,
+                observedPublicationVersion: String(selectedOffer.offerVersion),
+                observedPriceVersion: selectedOffer.priceVersionReference,
+                observedSellingUnit: selectedOffer.sellingUnit,
+                observedUnitPrice: selectedOffer.unitPriceZar,
+                lineFingerprint: createHash("sha256")
+                  .update(selectedOffer.offerReference)
+                  .digest("hex"),
+              },
+            });
+            await tx.marketplaceCart.update({
+              where: { id: cart.id },
+              data: { version: { increment: 1 } },
+            });
+            let holdDetail = `trackingMode=${selectedOffer.trackingMode}`;
+            if (
+              selectedOffer.trackingMode === "TRACKED" &&
+              !selectedOffer.allowBackorder &&
+              selectedOffer.availableLevelId
+            ) {
+              const held = await tx.catalogInventoryLevel.updateMany({
+                where: {
+                  id: selectedOffer.availableLevelId,
+                  available: { gte: selectedOffer.quantity },
                 },
-                select: { id: true, version: true },
+                data: {
+                  available: { decrement: selectedOffer.quantity },
+                  reserved: { increment: selectedOffer.quantity },
+                  version: { increment: 1 },
+                },
               });
-              await tx.marketplaceCart.update({
-                where: { id: cart.id },
-                data: { version: { increment: 1 } },
-              });
+              if (held.count !== 1) {
+                throw new StoreCheckoutProofError(
+                  "NO_SELLABLE_OFFER",
+                  "Real offer inventory level could not satisfy a savepoint stock reservation.",
+                  ["NO_SELLABLE_OFFER"],
+                );
+              }
+              holdDetail = `reserved ${selectedOffer.quantity} unit(s) on active stock level before rollback`;
             }
             return {
-              summary:
-                "Savepoint-scoped cart & optimistic reservation mutation verified before rollback.",
+              summary: `Savepoint-scoped cart group, line, and inventory hold verified (${holdDetail}) prior to rollback.`,
               data: true,
             };
           });
 
           await runStage("OFFLINE_WEBHOOK_HMAC_VERIFICATION", async () => {
-            const ephemeralSecret = `sk_test_offline_proof_${randomUUID().replaceAll("-", "")}`;
+            const providerList =
+              input.paymentProviderReadiness ??
+              createProductionPaymentProviderRegistry().readiness();
+            const paystackState = providerList.find((item) => item.code === "PAYSTACK") ?? null;
+            const readiness = evaluatePaystackCheckoutReadiness(paystackState);
+            if (!readiness.ready) {
+              throw new StoreCheckoutProofError(
+                "PAYMENT_PROVIDER_NOT_READY",
+                `Paystack checkout readiness is blocked (${readiness.reasonCode}).`,
+                ["PAYMENT_PROVIDER_NOT_READY"],
+              );
+            }
             const expectedCents = zarToSubunitCents(reviewResult.grandTotal);
             const webhookPayload = {
               event: "charge.success" as const,
               data: {
                 id: 999900001,
-                domain: "test",
+                domain: paystackState?.environment ?? "test",
                 status: "success",
                 reference: `PROOF-PAY-${proofCheckoutRef}`,
                 amount: expectedCents,
@@ -363,39 +941,56 @@ export async function runDisposableStoreCheckoutEngineProof(
               },
             };
             const rawBody = JSON.stringify(webhookPayload);
-            const validSig = computePaystackHmacSha512(rawBody, ephemeralSecret);
-
-            if (!verifyPaystackSignature(rawBody, validSig, ephemeralSecret)) {
-              throw new Error("Offline webhook HMAC signature verification failed.");
-            }
-            if (verifyPaystackSignature(rawBody, "0".repeat(128), ephemeralSecret)) {
-              throw new Error("Tampered webhook signature was erroneously accepted.");
-            }
             const parsed = PaystackChargeSuccessPayloadSchema.safeParse(webhookPayload);
             if (!parsed.success || parsed.data.data.amount !== expectedCents) {
-              throw new Error("Webhook payload amount subunit parity mismatch.");
+              throw new Error("Payment subunit/webhook schema parity mismatch.");
+            }
+            const diag = await runOfflineEngineComponentTest();
+            if (!diag.passed) {
+              throw new Error("HMAC helper verification failed.");
             }
             return {
-              summary: `Offline HMAC-SHA512 webhook verification & amount parity (${expectedCents} cents) verified.`,
+              summary: `Paystack config ready (${paystackState?.environment ?? "configured"}), subunit parity=${expectedCents}c, VAT(${sellerVatStatus}, mktVat=${String(marketplaceVatEnabled)}) verified (non-live schema check).`,
               data: true,
             };
           });
 
           await runStage("ORDER_AND_COMMISSION_PROJECTION", async () => {
-            const sellerBasisCents = BigInt(
-              parseZarToCents(reviewResult.merchandiseSubtotal),
-            );
-            const commissionCents = (sellerBasisCents * 10n) / 100n;
+            const groupSellerBasis = sellerBasis({
+              merchandiseSubtotal: reviewResult.merchandiseSubtotal,
+              modifierSubtotal: reviewResult.modifierSubtotal,
+            });
+            const calc = calculateCommission({
+              basis: {
+                subjectType: "MARKETPLACE_STORE_ORDER",
+                subjectId: input.storeId,
+                subjectPublicReference: `${proofCheckoutRef}:${input.storeId}:review:1`,
+                pricingReference: reviewResult.commercialFingerprint,
+                pricingVersion: String(reviewResult.reviewVersion),
+                subtotal: groupSellerBasis,
+                tax: "0.00",
+                total: groupSellerBasis,
+                currency: "ZAR",
+                authoritativeAt: now.toISOString(),
+              },
+              basisType: snapshot.activePlan.basisType,
+              calculationVersion: snapshot.activePlan.calculationVersion,
+              rules: snapshot.activePlan.rules,
+            });
+            const sellerBasisCents = BigInt(parseZarToCents(calc.basisAmount));
+            const commissionCents = BigInt(parseZarToCents(calc.totalAmount));
             const storeEarningCents = sellerBasisCents - commissionCents;
+            commissionAmountZar = calc.totalAmount;
+            storeEarningZar = centsToZar(storeEarningCents.toString());
 
             assertSettlementArithmetic({
-              sellerBasis: centsToZar(sellerBasisCents.toString()),
-              commissionAmount: centsToZar(commissionCents.toString()),
-              storeEarningAmount: centsToZar(storeEarningCents.toString()),
+              sellerBasis: calc.basisAmount,
+              commissionAmount: commissionAmountZar,
+              storeEarningAmount: storeEarningZar,
               deliveryFeeResidual: reviewResult.deliveryFeeTotal,
             });
             return {
-              summary: `Settlement projection arithmetic balanced (basis=ZAR ${centsToZar(sellerBasisCents.toString())}, fee=ZAR ${reviewResult.deliveryFeeTotal}).`,
+              summary: `Commission plan ${snapshot.activePlan.publicReference} (${snapshot.activePlan.basisType}) balanced (basis=ZAR ${calc.basisAmount}, commission=ZAR ${commissionAmountZar}, storeNet=ZAR ${storeEarningZar}).`,
               data: true,
             };
           });
@@ -406,13 +1001,12 @@ export async function runDisposableStoreCheckoutEngineProof(
               checkoutReference: `${proofCheckoutRef}-NEG`,
               serviceAreaReference: input.coverageRegionId,
               reviewVersion: 1,
-              commissionPolicyVersion:
-                input.commissionPlanReference ?? "default-commission-v1",
+              commissionPolicyVersion: snapshot.activePlan.publicReference,
               groups: [
                 {
                   storeReference: input.storeId,
                   pickupLocationReference: input.pickupAddressId,
-                  fulfilmentMode: "COURIER_DELIVERY",
+                  fulfilmentMode: selectedOffer.fulfilmentMode,
                   lines: [baseLine],
                 },
               ],
@@ -465,27 +1059,54 @@ export async function runDisposableStoreCheckoutEngineProof(
             };
           });
         } finally {
-          if (hasSavepoint) {
-            await tx.$executeRawUnsafe(
-              "ROLLBACK TO SAVEPOINT kt_checkout_engine_proof",
-            );
-          }
+          await tx.$executeRawUnsafe(
+            "ROLLBACK TO SAVEPOINT kt_checkout_engine_proof",
+          );
         }
 
-        if (typeof tx.marketplaceCart?.count === "function") {
-          syntheticRowsRemaining = await tx.marketplaceCart.count({
-            where: { publicReference: proofCartRef },
-          });
-        }
+        syntheticRowsRemaining = await tx.marketplaceCart.count({
+          where: { publicReference: proofCartRef },
+        });
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
   } catch (err) {
+    if (thrownTerminalProofError) {
+      throw thrownTerminalProofError;
+    }
+    if (err instanceof StoreCheckoutProofError) {
+      throw err;
+    }
     if (!failureMessage) {
       failureMessage =
         err instanceof Error ? err.message : "Disposable checkout engine proof failed.";
     }
   }
+
+  const finalOffer = proofOffer as EligibleProofOffer | null;
+  if (!finalOffer) {
+    throw new StoreCheckoutProofError(
+      "NO_SELLABLE_OFFER",
+      "Store has no eligible published sellable offer for checkout capability proof.",
+      ["NO_SELLABLE_OFFER"],
+    );
+  }
+
+  const policyFingerprint =
+    computeStorePolicyFingerprint({
+      pickupAddressId: input.pickupAddressId,
+      pickupFingerprint: pickupFingerprint ?? "",
+      coverageRegionId: input.coverageRegionId,
+      serviceSignature: serviceSignature ?? "",
+      sellerIdentityReference: input.sellerIdentityReference ?? null,
+      sellerIdentityVersion: input.sellerIdentityVersion ?? null,
+      operationalPolicyReference: input.operationalPolicyReference ?? null,
+      commissionPlanReference: commissionPlanReference || null,
+      sourceCommerceReadinessRevision,
+      globalPolicyRevision,
+      proofOfferReference: finalOffer.offerReference,
+      proofPriceVersionReference: finalOffer.priceVersionReference,
+    }) ?? "";
 
   const passed =
     failedStage === null &&
@@ -500,8 +1121,13 @@ export async function runDisposableStoreCheckoutEngineProof(
     .update(
       JSON.stringify({
         storeId: input.storeId,
+        evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
         suiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
         policyFingerprint,
+        sourceCommerceReadinessRevision,
+        globalPolicyRevision,
+        proofOfferReference: finalOffer.offerReference,
+        proofPriceVersionReference: finalOffer.priceVersionReference,
         stages: stageResults.map((s) => ({
           stage: s.stage,
           passed: s.passed,
@@ -513,18 +1139,40 @@ export async function runDisposableStoreCheckoutEngineProof(
 
   return {
     passed,
+    evidenceType: REAL_CHECKOUT_PROOF_EVIDENCE_TYPE,
     suiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
     policyFingerprint,
     engineProofReference: `engproof:${cleanStoreToken}:${engineProofDigest.slice(0, 24)}`,
     engineProofDigest,
+    sourceCommerceReadinessRevision,
+    globalPolicyRevision,
+    proofOfferReference: finalOffer.offerReference,
+    proofPriceVersionReference: finalOffer.priceVersionReference,
+    proofMetadata: {
+      offerReference: finalOffer.offerReference,
+      productReference: finalOffer.productReference,
+      variantReference: finalOffer.variantReference,
+      priceVersionReference: finalOffer.priceVersionReference,
+      quantity: finalOffer.quantity,
+      unitPriceZar: finalOffer.unitPriceZar,
+      deliveryFeeZar,
+      grandTotalZar,
+      parcelClass: finalOffer.parcelClassification?.sizeClass ?? null,
+      tariffSource: deliveryTariffSource,
+      commissionPlanReference,
+      commissionAmountZar,
+      storeEarningZar,
+      sellerVatStatus,
+      marketplaceVatEnabled,
+    },
     stageResults,
     redactedSnapshot: {
       storeId: input.storeId,
       storeStatus,
       coverageRegionId: input.coverageRegionId,
-      matchingServiceVersions: [...input.matchingServiceVersions],
+      matchingServiceVersions,
       catalogOfferCount,
-      catalogMode,
+      catalogMode: "STORE_OFFER",
     },
     failedStage,
     failureMessage,

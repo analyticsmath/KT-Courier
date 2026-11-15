@@ -8,6 +8,8 @@ import { rebuildCatalogPublicationSnapshot } from "./catalog-publication.service
 import { StorefrontProjectionService } from "./storefront-projection.service";
 import { rebuildStorefrontStoreDocument } from "./storefront-store.service";
 import { rebuildStorefrontCategoryDocument } from "./storefront-category.service";
+import { bumpStoreCommerceReadinessRevision } from "@/lib/admin/commerce-readiness-revision";
+import { getApprovedCertProof } from "@/lib/admin/store-readiness-sync";
 
 /** Publishes independently reviewed vendor goods; never activates delivery or financial policy. */
 export async function publishApprovedCatalogListing(offerId: string, actorUserId: string, raw: CatalogListingPublishInput) {
@@ -54,6 +56,13 @@ export async function publishApprovedCatalogListing(offerId: string, actorUserId
     const published = await tx.storeCatalogOffer.update({ where: { id: offer.id }, data: { status: "ACTIVE", publicationStatus: "PUBLISHED", currentPriceVersionId: price.id, version: { increment: 1 } }, select: { status: true, publicationStatus: true, version: true } });
     const snapshot = await rebuildCatalogPublicationSnapshot(offerId, actorUserId, true, tx);
     await new StorefrontProjectionService(tx).buildPublishedSnapshot(snapshot.publicReference);
+    const approvedCert = await getApprovedCertProof(tx, offer.storeId);
+    if (
+      approvedCert?.proofOfferReference === offer.publicReference &&
+      (republishing || approvedCert.proofPriceVersionReference !== price.publicReference)
+    ) {
+      await bumpStoreCommerceReadinessRevision(tx, offer.storeId);
+    }
     await rebuildStorefrontStoreDocument(offer.storeId, tx);
     await rebuildStorefrontCategoryDocument(offer.product.primaryCategoryId, tx);
     if (!republishing) await recordCatalogEvidence(tx, { aggregateType: "PRICE", aggregateReference: price.publicReference, aggregateVersion: price.versionNumber, action: "ACTIVATED", eventType: "PRICE_ACTIVATED", actorUserId, reasonCode: input.reasonCode });

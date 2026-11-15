@@ -13,6 +13,7 @@ import { digitalMarketplacePaymentPlan, resolveMarketplacePaymentPlan } from "./
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { assertMarketplaceLegalEvidence, resolveMarketplaceLegalEvidence } from "./legal-evidence";
 import { checkFirstStoreWelcomeEligibility } from "@/lib/promotions/first-store-welcome.service";
+import { assertStoreCurrentlySellingLive } from "@/lib/storefront/store-live-authority";
 
 const money = (value: any) => typeof value === "string" ? value : value?.toFixed?.(2) ?? "0.00";
 const ownerWhere = (owner: CartOwner) => owner.type === "CUSTOMER" ? { customerUserId: owner.userId } : { guestAccessTokenHash: owner.guestTokenHash };
@@ -103,6 +104,13 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         if (!stored) throw new MarketplaceCheckoutError("SELLER_SETTLEMENT_EVIDENCE_INCOMPLETE", "A reviewed store group no longer has canonical identity.");
         const store = await db.store.findUnique({ where: { id: stored.storeId }, select: { id: true, slug: true, status: true } });
         if (!store || store.status !== "ACTIVE") throw new MarketplaceCheckoutError("SELLER_IDENTITY_INCOMPLETE", "The reviewed store is not an active seller authority.");
+        if (
+          !isLocalFullFlowAllowed() &&
+          typeof db.storeCatalogOffer?.count === "function" &&
+          typeof db.storeOrderOperationalPolicy?.findFirst === "function"
+        ) {
+          await assertStoreCurrentlySellingLive(db, store.id, authoritativeAt, "CHECKOUT_REVIEW_REQUIRED");
+        }
         let identity = await db.storeSellerLegalIdentity.findFirst({ where: { storeId: store.id, status: "APPROVED", effectiveFrom: { lte: authoritativeAt }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: authoritativeAt } }] }, orderBy: [{ effectiveFrom: "desc" }, { id: "asc" }] });
         if (!identity && isLocalFullFlowAllowed()) {
           identity = await db.storeSellerLegalIdentity.create({

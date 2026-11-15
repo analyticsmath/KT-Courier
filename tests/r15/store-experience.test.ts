@@ -12,6 +12,7 @@ const root = process.cwd();
 const source = (file: string) => readFileSync(path.join(root, file), "utf8");
 const storeRoutes = [
   "page.tsx",
+  "get-started/page.tsx",
   "advertising/page.tsx",
   "catalog/page.tsx",
   "catalog/imports/page.tsx",

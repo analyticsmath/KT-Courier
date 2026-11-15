@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { publicParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { classifyTrustedMarketplaceParcel, TrustedPackageVersionSchema, type TrustedPackageVersion } from "./parcel-classification";
+import { bumpStoreCommerceReadinessRevision } from "@/lib/admin/commerce-readiness-revision";
 
 import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 
@@ -50,6 +51,47 @@ export async function saveTrustedPackageVersion(actorId: string, input: z.infer<
   });
 }
 
+function pickEffectiveActivePackageVersion(
+  versions: readonly TrustedPackageVersion[],
+  now: Date,
+): TrustedPackageVersion | null {
+  const active = versions
+    .filter(
+      (version) =>
+        version.status === "ACTIVE" &&
+        version.approvedByUserId &&
+        version.approvedByUserId !== version.createdByUserId &&
+        version.approvedAt &&
+        new Date(version.effectiveFrom) <= now &&
+        (!version.effectiveTo || new Date(version.effectiveTo) > now),
+    )
+    .sort((left, right) => right.version - left.version);
+  return active[0] ?? null;
+}
+
+function proofOfferPackageSignature(
+  version: TrustedPackageVersion | null,
+  storeId: string,
+  offerReference: string,
+): string | null {
+  if (!version) return null;
+  const entries = version.packages
+    .filter((entry) => entry.storeId === storeId && entry.offerReference === offerReference)
+    .map((entry) => ({
+      variantReference: entry.variantReference,
+      publicationVersion: entry.publicationVersion,
+      modifiers: [...entry.modifiers].sort((a, b) => a.optionReference.localeCompare(b.optionReference)),
+      packingRule: entry.packingRule,
+      lengthCm: entry.lengthCm,
+      widthCm: entry.widthCm,
+      heightCm: entry.heightCm,
+      weightKg: entry.weightKg,
+      authorityReference: entry.authorityReference,
+    }))
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return entries.length ? JSON.stringify(entries) : null;
+}
+
 export async function actOnTrustedPackageVersion(actorId: string, input: z.infer<typeof TrustedPackageActionSchema>) {
   const data = TrustedPackageActionSchema.parse(input);
   return prisma.$transaction(async (tx) => {
@@ -64,8 +106,54 @@ export async function actOnTrustedPackageVersion(actorId: string, input: z.infer
       if (prior.status !== "APPROVED" || !prior.approvedAt || !prior.approvedByUserId || prior.approvedByUserId === prior.createdByUserId) throw new PlatformError("APPROVAL_REQUIRED", "Independent packaging approval is required before activation.", 409);
       next.status = "ACTIVE";
     } else next.status = "RETIRED";
+    const beforeRows =
+      data.action === "ACTIVATE" || data.action === "RETIRE"
+        ? await tx.systemSetting.findMany({ where: { key: { startsWith: prefix } } })
+        : [];
     await tx.systemSetting.update({ where: { id: row.id, updatedAt: row.updatedAt }, data: { value: next as unknown as Prisma.InputJsonValue } });
     await tx.adminActivityLog.create({ data: { actorUserId: actorId, action: "UPDATE", entityType: "MarketplaceTrustedPackaging", entityId: row.id, message: data.reason, metadata: { version: next.version, beforeStatus: prior.status, afterStatus: next.status } } });
+    if (data.action === "ACTIVATE" || data.action === "RETIRE") {
+      // Only invalidate stores whose certified proof offer packaging actually changed or was removed;
+      // activating a new version to add packaging for another product must not delist live stores.
+      const now = new Date();
+      const beforeVersions = beforeRows.map((entry) => TrustedPackageVersionSchema.parse(entry.value));
+      const afterVersions = beforeVersions.map((version) => (version.version === next.version ? next : version));
+      const beforeActive = pickEffectiveActivePackageVersion(beforeVersions, now);
+      const afterActive = pickEffectiveActivePackageVersion(afterVersions, now);
+      const certs = await tx.storeCheckoutCertification.findMany({
+        where: { status: "APPROVED", expiresAt: { gt: now } },
+        select: { storeId: true, proofOfferReference: true },
+      });
+      const affectedStoreIds = Array.from(
+        new Set(
+          certs
+            .filter((cert) => {
+              if (!cert.proofOfferReference) {
+                return beforeActive?.version !== afterActive?.version;
+              }
+              const beforeSig = proofOfferPackageSignature(
+                beforeActive,
+                cert.storeId,
+                cert.proofOfferReference,
+              );
+              const afterSig = proofOfferPackageSignature(
+                afterActive,
+                cert.storeId,
+                cert.proofOfferReference,
+              );
+              return beforeSig !== null && beforeSig !== afterSig;
+            })
+            .map((cert) => cert.storeId),
+        ),
+      ).sort();
+      if (affectedStoreIds.length > 0) {
+        const { rebuildStorefrontStoreDocument } = await import("@/lib/services/storefront-store.service");
+        for (const affectedStoreId of affectedStoreIds) {
+          await bumpStoreCommerceReadinessRevision(tx, affectedStoreId);
+          await rebuildStorefrontStoreDocument(affectedStoreId, tx);
+        }
+      }
+    }
     return next;
   });
 }

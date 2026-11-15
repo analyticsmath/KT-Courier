@@ -4,6 +4,8 @@ import { applyInventoryDelta, inventoryProjection } from "@/lib/catalog/catalog-
 import { catalogPublicReference, catalogRequestHash } from "@/lib/catalog/catalog-normalization";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
+import { isApprovedCertProofOffer, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 
 export async function listStoreInventory(storeId: string) {
   return prisma.catalogInventoryItem.findMany({
@@ -49,6 +51,28 @@ export async function postCatalogInventoryMovement(storeId: string, actorUserId:
     const updatedItem = await tx.catalogInventoryItem.updateMany({ where: { id: item.id, version: input.version }, data: { version: { increment: 1 } } });
     if (updatedItem.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Inventory changed; reload before posting a movement.");
     await tx.catalogInventoryLevel.update({ where: { id: level.id }, data: { ...projected, version: { increment: 1 } } });
+    const offerActiveOrPublished =
+      item.offer.status === "ACTIVE" || item.offer.publicationStatus === "PUBLISHED";
+    const isProofOffer = await isApprovedCertProofOffer(tx, storeId, item.offer.publicReference);
+    if (offerActiveOrPublished || isProofOffer) {
+      const activeLevels = await tx.catalogInventoryLevel.findMany({
+        where: { inventoryItemId: item.id, location: { status: "ACTIVE" } },
+        select: { available: true },
+      });
+      const totalAvailable = activeLevels.reduce((sum, entry) => sum + entry.available, 0);
+      const requiredMin = Math.max(1, Math.ceil(Number(item.offer.minimumQuantity)));
+      if (totalAvailable < requiredMin) {
+        await syncStoreReadinessAfterCatalogOfferChange(tx, storeId, [item.offer.publicReference]);
+      } else {
+        const client = tx as unknown as {
+          storefrontStoreDocument?: { updateMany?: unknown };
+          store?: { findUnique?: unknown };
+        };
+        if (client.storefrontStoreDocument && typeof client.store?.findUnique === "function") {
+          await rebuildStorefrontStoreDocument(storeId, tx);
+        }
+      }
+    }
     const movement = await tx.catalogInventoryMovement.create({ data: { publicReference: catalogPublicReference("CIM"), inventoryItemId: item.id, locationId: location.id, type: input.type, quantityDelta: input.quantityDelta, operationId: input.operationId, requestHash, reasonCode: input.reasonCode, safeNote: input.safeNote, actorUserId, resultingOnHand: projected.onHand } });
     await recordCatalogEvidence(tx, { aggregateType: "INVENTORY", aggregateReference: item.publicReference, aggregateVersion: item.version + 1, action: input.type, eventType: "INVENTORY_CHANGED", actorUserId, reasonCode: input.reasonCode, safeMetadata: { locationReference: location.publicReference, resultingOnHand: projected.onHand } });
     return movement;

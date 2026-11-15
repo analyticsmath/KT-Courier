@@ -7,6 +7,8 @@ import { normalizeStoreSku } from "@/lib/catalog/product-identifiers";
 import { CatalogConflictError, CatalogNotFoundError, CatalogOwnershipError, CatalogPolicyError } from "@/lib/catalog/errors";
 import { recordCatalogEvidence, withCatalogTransaction } from "@/lib/services/catalog-service-support";
 import { StorefrontProjectionService } from "@/lib/services/storefront-projection.service";
+import { isApprovedCertProofOffer, syncStoreReadinessAfterCatalogOfferChange } from "@/lib/admin/store-readiness-sync";
+import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 
 export async function listStoreCatalogOffers(storeId: string, filters: { page: number; pageSize: number; search?: string; status?: string }) {
   return prisma.storeCatalogOffer.findMany({
@@ -112,6 +114,12 @@ export async function updateStoreCatalogOffer(storeId: string, publicReference: 
   return prisma.$transaction(async (tx) => {
     const result = await tx.storeCatalogOffer.updateMany({ where: { id: current.id, storeId, version }, data: { ...offerData, version: { increment: 1 } } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before saving.");
+    if (
+      current.publicationStatus === "PUBLISHED" ||
+      (await isApprovedCertProofOffer(tx, storeId, publicReference))
+    ) {
+      await syncStoreReadinessAfterCatalogOfferChange(tx, storeId, [publicReference]);
+    }
     await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: "DRAFT_UPDATED", eventType: "OFFER_UPDATED", actorUserId, operation: { operationId, storeId, request: input } });
     return tx.storeCatalogOffer.findUniqueOrThrow({ where: { id: current.id } });
   });
@@ -140,11 +148,21 @@ export async function transitionStoreCatalogOffer(storeId: string, publicReferen
     if (toStatus === "SUBMITTED" && !current.priceVersions.some(price => ["DRAFT", "SCHEDULED", "ACTIVE"].includes(price.status))) throw new CatalogPolicyError("OFFER_PRICE_REQUIRED", "Offer submission requires a valid price version.");
     const result = await tx.storeCatalogOffer.updateMany({ where: { id: current.id, storeId, version: input.version, status: current.status }, data: { status: toStatus, publicationStatus: toStatus === "ARCHIVED" ? "WITHDRAWN" : current.publicationStatus, submittedByUserId: toStatus === "SUBMITTED" ? actorUserId : undefined, version: { increment: 1 } } });
     if (result.count !== 1) throw new CatalogConflictError("CATALOG_VERSION_CONFLICT", "Offer changed; reload before continuing.");
-    if (toStatus === "PAUSED" || toStatus === "ARCHIVED") await new StorefrontProjectionService(tx).withdrawOffer(publicReference);
+    if (toStatus === "PAUSED" || toStatus === "ARCHIVED") {
+      await new StorefrontProjectionService(tx).withdrawOffer(publicReference);
+      if (
+        current.status === "ACTIVE" ||
+        current.publicationStatus === "PUBLISHED" ||
+        (await isApprovedCertProofOffer(tx, storeId, publicReference))
+      ) {
+        await syncStoreReadinessAfterCatalogOfferChange(tx, storeId, [publicReference]);
+      }
+    }
     if (toStatus === "ACTIVE" && current.publicationStatus === "PUBLISHED") {
       const snapshot = await tx.catalogPublicationSnapshot.findFirst({ where: { offerId: current.id, status: "PUBLISHED", supersededAt: null }, orderBy: { versionNumber: "desc" }, select: { publicReference: true } });
       if (!snapshot) throw new CatalogPolicyError("OFFER_PUBLICATION_EVIDENCE_MISSING", "The listing cannot resume without its approved publication evidence. Contact catalog support.");
       await new StorefrontProjectionService(tx).buildPublishedSnapshot(snapshot.publicReference);
+      await rebuildStorefrontStoreDocument(storeId, tx);
     }
     if (toStatus === "SUBMITTED") await tx.catalogModerationCase.create({ data: { publicReference: catalogPublicReference("CMC"), offerId: current.id, type: "OFFER", reasonCode: "OFFER_SUBMISSION", safeSummary: "Store offer submitted for catalog review.", submittedByUserId: actorUserId } });
     await recordCatalogEvidence(tx, { aggregateType: "OFFER", aggregateReference: publicReference, aggregateVersion: current.version + 1, action: toStatus, eventType: "OFFER_UPDATED", actorUserId, operation: { operationId: input.operationId, storeId, request } });

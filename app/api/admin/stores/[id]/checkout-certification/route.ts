@@ -57,6 +57,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         preparedByUserId: true, approvedByUserId: true,
         evidenceType: true, engineProofReference: true, engineProofDigest: true,
         engineProofSuiteSha: true, policyFingerprint: true, stageResults: true,
+        sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
+        proofOfferReference: true, proofPriceVersionReference: true, proofMetadata: true,
       },
     }),
     evaluateStoreCheckoutCapabilityPreflight(id),

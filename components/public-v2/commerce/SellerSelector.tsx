@@ -126,6 +126,10 @@ export function SellerSelector({
                   <span className={styles.pdpSellerOptionAvailability}>{availability.label}</span>
                   <span className={styles.pdpAdvisoryDivider}>·</span>
                   <span className={styles.pdpSellerOptionFulfilment}>{fulfilment}</span>
+                  <span className={styles.pdpAdvisoryDivider}>·</span>
+                  <span className={styles.pdpSellerOptionFulfilment}>
+                    {offer.price.includesTax ? "Incl. VAT" : "No VAT added"}
+                  </span>
                   {isLowestPrice && (
                     <span className={styles.pdpBestPriceBadge}>Best price</span>
                   )}

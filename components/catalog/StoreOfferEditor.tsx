@@ -14,9 +14,10 @@ type Offer = {
   fulfilmentMode: string; primaryInventoryLocationId: string | null;
 };
 
-export function StoreOfferEditor({ offer, locations, canManage, canPrice, initialPrice, initialEffectiveFrom }: {
+export function StoreOfferEditor({ offer, locations, canManage, canPrice, initialPrice, initialEffectiveFrom, vatContext }: {
   offer: Offer; locations: { id: string; name: string }[];
   canManage: boolean; canPrice: boolean; initialPrice: string; initialEffectiveFrom: string;
+  vatContext?: { defaultPriceIncludesTax: boolean; vatNote?: string };
 }) {
   const router = useRouter();
   const inFlight = useRef(false);
@@ -43,7 +44,7 @@ export function StoreOfferEditor({ offer, locations, canManage, canPrice, initia
       ...(location !== (offer.primaryInventoryLocationId ?? "") ? { primaryInventoryLocationId: location || null } : {}),
     } : {
       offerPublicReference: offer.publicReference, offerVersion: offer.version,
-      amount: String(values.get("amount") ?? "").trim(), currency: "ZAR", priceIncludesTax: true,
+      amount: String(values.get("amount") ?? "").trim(), currency: "ZAR", priceIncludesTax: vatContext?.defaultPriceIncludesTax ?? false,
       effectiveFrom: from ? `${from}:00.000Z` : "",
       ...(until ? { effectiveUntil: `${until}:00.000Z` } : {}),
       reasonCode: "STORE_PRICE_CORRECTION",
@@ -88,8 +89,8 @@ export function StoreOfferEditor({ offer, locations, canManage, canPrice, initia
       <Button type="submit" disabled={disabled} loading={busy === "offer"}>Save offer changes</Button>
     </form> : null}
     {canPrice && priceEditable ? <form aria-label="Correct draft price" className="space-y-4 border-t border-[var(--eo-line-soft)] pt-5" onSubmit={event => submit("price", event)}>
-      <h3 className="font-semibold">Draft price correction</h3><p className="text-sm text-[var(--eo-text-secondary)]">Save a new VAT-inclusive ZAR price version, then submit the offer for independent review.</p>
-      <div><Label htmlFor="offer-price-amount">Price including VAT (ZAR)</Label><Input id="offer-price-amount" name="amount" inputMode="decimal" pattern="(?:0|[1-9][0-9]{0,15})\.[0-9]{2}" required defaultValue={initialPrice} disabled={disabled} /></div>
+      <h3 className="font-semibold">Draft price correction</h3><p className="text-sm text-[var(--eo-text-secondary)]">{vatContext?.vatNote ?? "Save a new ZAR selling price version (no VAT added unless marketplace VAT is enabled and seller is VAT-registered), then submit the offer for independent review."}</p>
+      <div><Label htmlFor="offer-price-amount">Selling price (ZAR)</Label><Input id="offer-price-amount" name="amount" inputMode="decimal" pattern="(?:0|[1-9][0-9]{0,15})\.[0-9]{2}" required defaultValue={initialPrice} disabled={disabled} /></div>
       <div><Label htmlFor="offer-price-from">Effective from (UTC)</Label><Input id="offer-price-from" name="effectiveFrom" type="datetime-local" required defaultValue={initialEffectiveFrom.slice(0, 16)} disabled={disabled} /></div>
       <div><Label htmlFor="offer-price-until">Effective until (UTC, optional)</Label><Input id="offer-price-until" name="effectiveUntil" type="datetime-local" disabled={disabled} /></div>
       <Button type="submit" disabled={disabled} loading={busy === "price"}>Create reviewed-price draft</Button>

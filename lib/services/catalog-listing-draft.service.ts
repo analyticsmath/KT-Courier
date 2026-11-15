@@ -8,7 +8,7 @@ import { createCatalogVariant } from "./catalog-variant.service";
 import { createStoreCatalogOffer } from "./store-offer.service";
 import { createStoreOfferPriceVersion } from "./store-price.service";
 import { postCatalogInventoryMovement } from "./catalog-inventory.service";
-import { createStoreModifierGroup, attachModifierGroup } from "./catalog-modifier.service";
+import { resolveStoreModifierGroupForListing, attachModifierGroup } from "./catalog-modifier.service";
 import { attachStoreCatalogMedia } from "./catalog-media-attachment.service";
 import { recordCatalogEvidence } from "./catalog-service-support";
 
@@ -88,8 +88,14 @@ export async function createStoreCatalogListingDraft(storeId: string, actorUserI
         version: offer.inventoryItem.version, reasonCode: "OWNER_OPENING_STOCK", operationId: `${operationPrefix}:stock`,
       }, tx);
     }
+    const seenModifierNames = new Set<string>();
     for (const [index, modifier] of input.modifiers.entries()) {
-      const group = await createStoreModifierGroup(storeId, actorUserId, { ...modifier, operationId: `${input.operationId}:modifier:${index}` }, tx);
+      const normalizedName = modifier.name.normalize("NFKC").trim().toLocaleLowerCase("en-ZA");
+      if (seenModifierNames.has(normalizedName)) {
+        throw new CatalogPolicyError("MODIFIER_GROUP_DUPLICATE", `Modifier group "${modifier.name}" appears more than once on this listing.`);
+      }
+      seenModifierNames.add(normalizedName);
+      const group = await resolveStoreModifierGroupForListing(storeId, actorUserId, { ...modifier, operationId: `${input.operationId}:modifier:${index}` }, tx);
       for (const offer of offers) await attachModifierGroup(storeId, offer.id, group.id, index, tx);
     }
     let productVersion = product.version;
