@@ -95,6 +95,7 @@ export const LoginSchema = z.object({
       (val) => Buffer.byteLength(val, "utf8") <= BCRYPT_MAX_BYTES,
       `Password cannot exceed ${BCRYPT_MAX_BYTES} bytes`
     ),
+  preserveGuestCart: z.boolean().optional(),
 });
 
 // ─── OTP ──────────────────────────────────────────────────────────────────────

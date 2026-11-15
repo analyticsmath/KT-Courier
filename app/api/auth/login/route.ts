@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, password } = parsed.data;
+  const { email, password, preserveGuestCart } = parsed.data;
 
   const rl = await checkAuthRateLimit(req, "login", email, RATE_LIMITS.LOGIN);
   if (!rl.ok) {
@@ -159,7 +159,9 @@ export async function POST(req: NextRequest) {
     // Set HTTP-only cookie
     const cookieStore = await cookies();
     setSessionCookie(cookieStore, rawToken);
-    await claimGuestCartIfPresentOnCustomerAuth(cookieStore, { id: user.id, role: user.role });
+    if (!preserveGuestCart) {
+      await claimGuestCartIfPresentOnCustomerAuth(cookieStore, { id: user.id, role: user.role });
+    }
 
     await recordLoginAttempt({
       userId: user.id,

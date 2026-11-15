@@ -7,15 +7,19 @@ export async function login(page: Page, email: string, options?: { preserveGuest
   await page.context().clearCookies();
   if (guestCookies.length) await page.context().addCookies(guestCookies);
   await page.goto("/login");
-  const res = await page.evaluate(async ({ email, password }) => {
+  const res = await page.evaluate(async ({ email, password, preserveGuestCart }) => {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({
+        email,
+        password,
+        ...(preserveGuestCart ? { preserveGuestCart: true } : {}),
+      }),
     });
     const data = await response.json();
     return { status: response.status, data };
-  }, { email, password: demoPassword });
+  }, { email, password: demoPassword, preserveGuestCart: Boolean(options?.preserveGuestCart) });
 
   expect(res.status, `API Login failed for ${email}: ${JSON.stringify(res.data)}`).toBe(200);
   await page.goto(res.data.redirect ?? "/account");
