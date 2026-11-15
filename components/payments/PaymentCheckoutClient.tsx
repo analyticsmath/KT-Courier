@@ -7,6 +7,7 @@ import { getCustomerPaymentStatusPresentation } from "@/lib/payment-presentation
 
 type ProviderState = Readonly<{
   active: boolean;
+  eftActive?: boolean;
   environment: string;
   blockReason: string | null;
 }>;
@@ -24,6 +25,7 @@ export function PaymentCheckoutClient({
 }) {
   const operations = useRef(createPaymentOperationIdStore());
   const [payment, setPayment] = useState(initialPayment);
+  const [channel, setChannel] = useState<"CARD" | "EFT">("CARD");
   const [busy, setBusy] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,11 +100,11 @@ export function PaymentCheckoutClient({
         setPayment(prepared);
         operations.current.clear("prepare");
       }
-      const operationId = operations.current.get("checkout", current.publicReference);
+      const operationId = operations.current.get("checkout", `${current.publicReference}:${channel}`);
       const response = await fetch(`/api/payments/${encodeURIComponent(current.publicReference)}/checkout-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operationId }),
+        body: JSON.stringify({ operationId, channel }),
       });
       const payload = await readJson(response);
       if (!response.ok) throw new Error(safeCheckoutError(response.status, "Payment checkout is unavailable."));
@@ -150,6 +152,44 @@ export function PaymentCheckoutClient({
           Your payment is being verified with Paystack. Do not submit another charge.
           Check the latest status below.
         </p>
+      )}
+      {provider.active && !terminal && (
+        <fieldset className="space-y-2 rounded-xl border border-[var(--kt-border-strong)] bg-white p-4">
+          <legend className="px-1 text-xs font-bold uppercase tracking-wide text-[var(--kt-text-muted)]">
+            Paystack payment channel
+          </legend>
+          <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-[var(--kt-brand-navy)]">
+            <input
+              type="radio"
+              name="paystack-channel"
+              value="CARD"
+              checked={channel === "CARD"}
+              onChange={() => setChannel("CARD")}
+              disabled={busy}
+            />
+            <span>Card (Visa / Mastercard via Paystack)</span>
+          </label>
+          <label
+            className={`flex items-center gap-3 text-sm ${
+              provider.eftActive
+                ? "cursor-pointer font-medium text-[var(--kt-brand-navy)]"
+                : "cursor-not-allowed text-[var(--kt-text-muted)]"
+            }`}
+          >
+            <input
+              type="radio"
+              name="paystack-channel"
+              value="EFT"
+              checked={channel === "EFT"}
+              onChange={() => provider.eftActive && setChannel("EFT")}
+              disabled={busy || !provider.eftActive}
+            />
+            <span>
+              Instant EFT via Paystack
+              {!provider.eftActive ? " (Unavailable until Paystack EFT channel is approved)" : ""}
+            </span>
+          </label>
+        </fieldset>
       )}
       <button
         type="button"

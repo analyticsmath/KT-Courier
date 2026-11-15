@@ -6,6 +6,11 @@ import { reconcileCashCollection } from "@/lib/services/cash-on-delivery.service
 import { PlatformError } from "./contracts";
 import type { AuthenticatedUser } from "@/types/domain";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 export const DepositSchema = z
   .object({
     orderId: z.string().cuid(),
@@ -305,8 +310,10 @@ export async function submitDriverDeposit(
     throw new PlatformError("BANK_INSTRUCTIONS_MISSING", "Remittance instructions have not been configured. Contact KT support.", 409);
   if (method === "IN_PERSON" && bank.handoverEnabled !== true)
     throw new PlatformError("CASH_HANDOVER_NOT_ENABLED", "Direct cash handover is not authorized for drivers.", 409);
-  return withLedgerRetry(() => prisma.$transaction(
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const submitted = await withLedgerRetry(() => prisma.$transaction(
     async (tx) => {
+      pendingAlert = null;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deposit:${input.operationId}`}))`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`deposit-order:${input.orderId}`}))`;
       const prior = await tx.driverCashDeposit.findUnique({
@@ -397,10 +404,28 @@ export async function submitDriverDeposit(
           },
         },
       });
+      pendingAlert = {
+        eventType: "DRIVER_CASH_DEPOSIT_SUBMITTED",
+        aggregateReference: `cash-deposit:${row.id}`,
+        title: `Driver cash deposit R${amount.toFixed(2)}`,
+        summary: `Driver ${driver.id} submitted ${method} cash deposit for order ${input.orderId}.`,
+        adminPath: "/admin/cash-deposits",
+        relatedOrderId: input.orderId,
+        metadata: {
+          depositId: row.id,
+          remittanceMethod: method,
+          amountZar: amount.toFixed(2),
+        },
+      };
+      await recordAdminAlertIntentInTx(tx, pendingAlert);
       return { ...row, replayed: false };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   ));
+  if (!submitted.replayed && pendingAlert) {
+    await emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return submitted;
 }
 async function matchingReceipt(row: {
   id: string;

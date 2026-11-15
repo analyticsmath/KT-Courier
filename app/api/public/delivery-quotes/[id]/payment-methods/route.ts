@@ -2,12 +2,17 @@ import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { readPublicQuote } from "@/lib/client-platform/delivery.service";
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import {
   resolvePaymentBreakdown,
   PaymentPolicyError,
 } from "@/lib/payments/payment-policy.service";
 import { json, failure } from "@/lib/client-platform/api";
-import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
+import {
+  evaluatePaystackCheckoutReadiness,
+  evaluatePaystackEftReadiness,
+  resolvePaystackConfiguration,
+} from "@/lib/payments/providers/paystack/paystack-config";
 export async function GET(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -32,7 +37,9 @@ export async function GET(
     };
     if (["CUSTOMER", "STORE"].includes(u.role)) {
       const business = u.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
-      const store = business ? (await storeAccess(u.id, "deliveries")).store : null;
+      const store = business
+        ? (await storeAccess(u.id, "deliveries", resolveExplicitStoreContextId(req))).store
+        : null;
       const rule = q.ruleSnapshot as {
           serviceKey?: string;
           configurationId?: string;
@@ -98,12 +105,27 @@ export async function GET(
     }
     // A payable quote does not prove an initialized payment gateway.
     // Do not advertise card checkout while the configured provider is inactive.
-    const cardConfigured = resolvePaystackConfiguration().state.active;
+    const paystackResolution = resolvePaystackConfiguration();
+    const paystackReadiness = evaluatePaystackCheckoutReadiness(paystackResolution.state, {
+      adapterPresent: Boolean(paystackResolution.runtime),
+      requireAdapterPresent: true,
+      requiredChannel: "card",
+    });
+    const eftReadiness = evaluatePaystackEftReadiness();
+    const cardConfigured = paystackReadiness.ready;
     const card = {
       eligible: cardConfigured,
+      reasonCode: paystackReadiness.reasonCode,
       message: cardConfigured ? undefined : "Card checkout is temporarily unavailable. No payment has been started.",
     };
-    return json({ methods, cod, card });
+    const eft = {
+      eligible: eftReadiness.ready,
+      reasonCode: eftReadiness.reasonCode,
+      message: eftReadiness.ready
+        ? undefined
+        : "Instant EFT is unavailable until the Paystack EFT channel is enabled on this merchant account.",
+    };
+    return json({ methods, cod, card, eft });
   } catch (e) {
     return failure(e);
   }

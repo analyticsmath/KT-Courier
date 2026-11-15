@@ -18,7 +18,7 @@ export default async function ProductionReadinessPage() {
   return <ProtectedPageFrame>
     <ProtectedPageHeader title="Production readiness" description="Live operational checks, required approvals and exact-release acceptance evidence." />
     <OperationalPanel title={`Release status: ${matrix.status}`} description={`Evidence inspected ${new Date(matrix.generatedAt).toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg", dateStyle: "medium", timeStyle: "short" })} SAST. Infrastructure health: /api/ready.`}>
-      <ProductionReadinessBoard capabilities={matrix.capabilities} />
+      <ProductionReadinessBoard capabilities={matrix.capabilities} capabilityMatrix={matrix.capabilityMatrix} />
       <div className="mt-10 border-t border-[var(--kt-border)] pt-8">
         <ProductionAcceptanceEvidence records={records} canManage={canManage} />
       </div>

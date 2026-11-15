@@ -83,7 +83,8 @@ export default async function OrderPaymentPage({
             orderReference={page.orderReference}
             initialPayment={page.payment}
             provider={{
-              active: providerConfig.active,
+              active: providerConfig.checkoutReadiness.ready,
+              eftActive: providerConfig.eftReadiness.ready,
               environment: providerConfig.environment,
               blockReason: providerConfig.blockReason,
             }}

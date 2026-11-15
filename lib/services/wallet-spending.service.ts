@@ -13,6 +13,7 @@ import {
   ensureWalletForOwnerInTx,
 } from "./wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import { resolveOrderPaymentSubject, type ResolvedOrderPaymentSubject } from "./payment-subject.service";
 import { activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { transitionOrderStatusInTx } from "./order-status.service";
@@ -22,6 +23,8 @@ export type CanonicalOrderPaymentPreparationIntent = Readonly<{
   subjectType: "ORDER";
   orderId: string;
   payerId: string;
+  walletOwnerType: "CUSTOMER" | "STORE";
+  walletOwnerId: string;
   currency: "ZAR";
   policyVersion: string;
   authoritativeDigitalPayableAmount: string;
@@ -46,6 +49,9 @@ function zarDecimalToMinorUnits(amountFixed2: string): string {
 export function buildCanonicalOrderPaymentPreparationIntent(
   subject: Pick<ResolvedOrderPaymentSubject, "subjectType" | "subjectId" | "payerUserId" | "currency"> & {
     readonly amount: LedgerMoney | string;
+    readonly storeId?: string | null;
+    readonly walletOwnerType?: "CUSTOMER" | "STORE";
+    readonly walletOwnerId?: string;
   },
   rawWalletAmount?: string | null,
 ): CanonicalOrderPaymentPreparationIntent {
@@ -96,6 +102,12 @@ export function buildCanonicalOrderPaymentPreparationIntent(
     providerRemainderMinorUnits = "0";
   }
 
+  const isStoreOwner = subject.walletOwnerType === "STORE" || Boolean(subject.storeId);
+  const walletOwnerType: "CUSTOMER" | "STORE" = isStoreOwner ? "STORE" : "CUSTOMER";
+  const walletOwnerId = isStoreOwner
+    ? (subject.walletOwnerId ?? subject.storeId ?? subject.payerUserId)
+    : subject.payerUserId;
+
   const requestHash = canonicalPaymentHash({
     subjectType: subject.subjectType,
     orderId: subject.subjectId,
@@ -110,6 +122,7 @@ export function buildCanonicalOrderPaymentPreparationIntent(
     providerRemainderMinorUnits,
     fundingMode,
     fundingSource,
+    ...(walletOwnerType === "STORE" ? { walletOwnerType, walletOwnerId } : {}),
   });
 
   const legacyCoordinatorHash = canonicalPaymentHash({
@@ -141,6 +154,8 @@ export function buildCanonicalOrderPaymentPreparationIntent(
     subjectType: subject.subjectType,
     orderId: subject.subjectId,
     payerId: subject.payerUserId,
+    walletOwnerType,
+    walletOwnerId,
     currency: subject.currency,
     policyVersion: PAYMENT_POLICY_VERSION,
     authoritativeDigitalPayableAmount,
@@ -255,6 +270,15 @@ export function matchesOrderPaymentPreparationReplay(
     return false;
   }
   if (existing.creationRequestHash === intent.requestHash) {
+    if (intent.walletOwnerType === "STORE") {
+      const meta =
+        existing.metadata && typeof existing.metadata === "object" && !Array.isArray(existing.metadata)
+          ? (existing.metadata as Record<string, unknown>)
+          : null;
+      if (meta?.walletOwnerType !== "STORE" || meta?.walletOwnerId !== intent.walletOwnerId) {
+        return false;
+      }
+    }
     const expectedAmount =
       intent.fundingMode === "SPLIT_PAYSTACK"
         ? intent.providerRemainderAmount
@@ -378,6 +402,30 @@ export async function ensureWalletAvailableAccountInTx(
     currency: "ZAR",
   });
 
+  const purpose = owner.ownerType === "CUSTOMER"
+    ? "CUSTOMER_WALLET_AVAILABLE"
+    : "STORE_REFERRAL_WALLET_AVAILABLE";
+
+  const existingByPurpose = await tx.ledgerAccount.findUnique({
+    where: {
+      walletId_purpose_currency: {
+        walletId: wallet.id,
+        purpose,
+        currency: "ZAR",
+      },
+    },
+  });
+  if (existingByPurpose) {
+    if (
+      existingByPurpose.category !== "LIABILITY" ||
+      existingByPurpose.status !== "ACTIVE" ||
+      existingByPurpose.allowNegative
+    ) {
+      throw new LedgerError("LEDGER_OWNER_INVALID", "Existing wallet account is not valid for spending.");
+    }
+    return existingByPurpose;
+  }
+
   const prefix = owner.ownerType === "CUSTOMER"
     ? customerAccountPrefix(owner.ownerId)
     : storeAccountPrefix(owner.ownerId);
@@ -385,10 +433,6 @@ export async function ensureWalletAvailableAccountInTx(
   const code = owner.ownerType === "CUSTOMER"
     ? `${prefix}-WALLET-ZAR`
     : `${prefix}-REFERRAL-ZAR`;
-
-  const purpose = owner.ownerType === "CUSTOMER"
-    ? "CUSTOMER_WALLET_AVAILABLE"
-    : "STORE_REFERRAL_WALLET_AVAILABLE";
 
   return ensureLedgerAccountInTx(tx, {
     walletId: wallet.id,
@@ -727,6 +771,139 @@ export async function recordWalletCourierConfirmationInTx(
   });
 }
 
+export type ParcelWalletFundingAuthority = Readonly<{
+  orderId: string;
+  orderNumber: string;
+  actorUserId: string;
+  owner: WalletOwner;
+  actorRoleInOrder: "CUSTOMER" | "STORE_OWNER" | "STORE_FINANCE_EMPLOYEE";
+  storeId: string | null;
+  storeOwnerUserId: string | null;
+}>;
+
+/**
+ * Authoritative transactional wallet-funding resolver for parcel orders.
+ * Acquires the canonical Order FOR UPDATE lock before reading store ownership,
+ * active employee memberships, and funding owner identity.
+ */
+export async function resolveParcelWalletFundingAuthorityInTx(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    orderId: string;
+    actorUserId: string;
+    explicitStoreId?: string | null;
+    requestedWalletAmount?: string | null;
+  }>,
+): Promise<ParcelWalletFundingAuthority> {
+  if (typeof tx.$queryRaw === "function") {
+    await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
+  }
+
+  const explicitStoreId = input.explicitStoreId?.trim() || null;
+
+  if (typeof tx.user?.findUnique === "function") {
+    const actor = await tx.user.findUnique({
+      where: { id: input.actorUserId },
+      select: { id: true, status: true, role: true },
+    });
+    if (!actor || actor.status !== "ACTIVE" || !["CUSTOMER", "STORE"].includes(actor.role)) {
+      throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Account is not active for parcel payments.");
+    }
+  }
+
+  const order = await tx.order.findUnique({
+    where: { id: input.orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      customerId: true,
+      storeId: true,
+      store: { select: { id: true, ownerUserId: true, status: true } },
+    },
+  });
+  if (!order) {
+    throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Order is not available for payment.");
+  }
+
+  if (order.storeId) {
+    if (explicitStoreId && explicitStoreId !== order.storeId) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Order does not belong to the selected store workspace.",
+      );
+    }
+    if (!order.store || order.store.status === "SUSPENDED" || order.store.status === "DISABLED") {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Store account is suspended or unavailable.",
+      );
+    }
+
+    const [ownedStores, activeMemberships] = await Promise.all([
+      tx.store.findMany({
+        where: { ownerUserId: input.actorUserId, status: { notIn: ["SUSPENDED", "DISABLED"] } },
+        select: { id: true },
+      }),
+      tx.storeEmployeeMembership.findMany({
+        where: { userId: input.actorUserId, status: "ACTIVE", store: { status: "ACTIVE" } },
+        select: { storeId: true, permissions: true },
+      }),
+    ]);
+
+    const ownsTarget = ownedStores.some((s) => s.id === order.storeId);
+    const hasFinanceMembership = activeMemberships.some(
+      (m) => m.storeId === order.storeId && membershipAllows(m.permissions, "finance"),
+    );
+    if (!ownsTarget && !hasFinanceMembership) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Order is not available for this payer.",
+      );
+    }
+
+    const allActorStoreIds = new Set<string>([
+      ...ownedStores.map((s) => s.id),
+      ...activeMemberships.map((m) => m.storeId),
+    ]);
+    if (!explicitStoreId && allActorStoreIds.size > 1) {
+      throw new PaymentError(
+        "STORE_CONTEXT_AMBIGUOUS",
+        "Multiple store workspaces exist; explicitly select the store before paying.",
+      );
+    }
+
+    return Object.freeze({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      actorUserId: input.actorUserId,
+      owner: Object.freeze({ ownerType: "STORE", ownerId: order.storeId }),
+      actorRoleInOrder: ownsTarget ? "STORE_OWNER" : "STORE_FINANCE_EMPLOYEE",
+      storeId: order.storeId,
+      storeOwnerUserId: order.store.ownerUserId,
+    });
+  }
+
+  if (explicitStoreId) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Customer parcel order does not belong to a store workspace.",
+    );
+  }
+  if (order.customerId !== input.actorUserId) {
+    throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Order is not available for this payer.");
+  }
+
+  return Object.freeze({
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    actorUserId: input.actorUserId,
+    owner: Object.freeze({ ownerType: "CUSTOMER", ownerId: input.actorUserId }),
+    actorRoleInOrder: "CUSTOMER",
+    storeId: null,
+    storeOwnerUserId: null,
+  });
+}
+
 export async function spendWalletForParcelOrderWithinTransaction(
   tx: Prisma.TransactionClient,
   input: {
@@ -734,6 +911,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
     orderId: string;
     idempotencyKey: string;
     walletAmount?: string | null;
+    explicitStoreId?: string | null;
     preparationIntent?: CanonicalOrderPaymentPreparationIntent;
   },
 ): Promise<PaymentSummaryDto | null> {
@@ -742,7 +920,12 @@ export async function spendWalletForParcelOrderWithinTransaction(
     user: { select: { id: true, name: true } },
   } as const;
 
-  await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
+  const authority = await resolveParcelWalletFundingAuthorityInTx(tx, {
+    orderId: input.orderId,
+    actorUserId: input.payer.id,
+    explicitStoreId: input.explicitStoreId,
+    requestedWalletAmount: input.walletAmount,
+  });
 
   const existingForOrder = await tx.payment.findUnique({
     where: { orderId: input.orderId },
@@ -752,7 +935,9 @@ export async function spendWalletForParcelOrderWithinTransaction(
     const checkIntent =
       input.preparationIntent ??
       buildCanonicalOrderPaymentPreparationIntent(
-        await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx),
+        await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx, {
+          explicitStoreId: input.explicitStoreId,
+        }),
         input.walletAmount,
       );
     if (
@@ -764,7 +949,9 @@ export async function spendWalletForParcelOrderWithinTransaction(
     return toPaymentSummaryDto(existingForOrder);
   }
 
-  const subject = await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx);
+  const subject = await resolveOrderPaymentSubject(input.orderId, input.payer.id, tx, {
+    explicitStoreId: input.explicitStoreId,
+  });
   const payable = subject.amount.toString();
   const intent =
     input.preparationIntent ??
@@ -772,20 +959,19 @@ export async function spendWalletForParcelOrderWithinTransaction(
 
   if (
     intent.authoritativeDigitalPayableAmount !== payable ||
-    intent.currency !== subject.currency
+    intent.currency !== subject.currency ||
+    intent.walletOwnerType !== authority.owner.ownerType ||
+    intent.walletOwnerId !== authority.owner.ownerId
   ) {
     throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
   }
 
   const order = await tx.order.findUniqueOrThrow({
     where: { id: input.orderId },
-    include: { store: { select: { id: true, ownerUserId: true } }, cashOnDelivery: true },
+    include: { cashOnDelivery: true },
   });
 
-  const isStoreOrder = Boolean(order.store && order.store.ownerUserId === input.payer.id);
-  const owner: WalletOwner = isStoreOrder
-    ? { ownerType: "STORE", ownerId: order.store!.id }
-    : { ownerType: "CUSTOMER", ownerId: input.payer.id };
+  const owner = authority.owner;
 
   const walletBalance = await getWalletSpendableBalance(tx, owner);
   const breakdown = resolveWalletSpendBreakdown({
@@ -845,6 +1031,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
           walletJournalId: consume.journalId,
           walletOwnerType: owner.ownerType,
           walletOwnerId: owner.ownerId,
+          actingActorUserId: input.payer.id,
         },
       },
       include: PAYMENT_SUMMARY_INCLUDE,
@@ -926,6 +1113,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
         totalPayableAmount: payable,
         walletOwnerType: owner.ownerType,
         walletOwnerId: owner.ownerId,
+        actingActorUserId: input.payer.id,
       },
     },
     include: PAYMENT_SUMMARY_INCLUDE,
@@ -967,11 +1155,11 @@ export async function releaseParcelOrderWalletReservationWithinTransaction(
   },
 ): Promise<{ released: boolean; journalId: string | null; amount: string | null; replayed: boolean }> {
   await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`;
-  const order = await tx.order.findUnique({
+  const orderWithStore = await tx.order.findUnique({
     where: { id: input.orderId },
-    select: { id: true, orderNumber: true },
+    select: { id: true, orderNumber: true, storeId: true },
   });
-  if (!order) {
+  if (!orderWithStore) {
     throw new PaymentError("PAYMENT_ORDER_NOT_FOUND", "Order was not found for wallet reservation release.");
   }
 
@@ -1023,20 +1211,23 @@ export async function releaseParcelOrderWalletReservationWithinTransaction(
     );
   }
 
-  const ownerType = (meta.walletOwnerType as "CUSTOMER" | "STORE") || "CUSTOMER";
-  const ownerId = (meta.walletOwnerId as string) || (freshPayment.userId ?? "");
+  const resolvedOwnerType: "CUSTOMER" | "STORE" =
+    meta.walletOwnerType === "STORE" || Boolean(orderWithStore.storeId) ? "STORE" : "CUSTOMER";
+  const resolvedOwnerId =
+    (typeof meta.walletOwnerId === "string" && meta.walletOwnerId) ||
+    (resolvedOwnerType === "STORE" ? (orderWithStore.storeId ?? "") : (freshPayment.userId ?? ""));
   const reserveOperationId =
     (typeof meta.walletReserveOperationId === "string" && meta.walletReserveOperationId) ||
     freshPayment.creationIdempotencyKey;
 
   const released = await releaseWalletSpendWithinTransaction(tx, {
-    owner: { ownerType, ownerId },
+    owner: { ownerType: resolvedOwnerType, ownerId: resolvedOwnerId },
     amount: meta.walletAmount,
     operationId: reserveOperationId,
     subject: {
       subjectType: "COURIER_ORDER",
-      subjectId: order.id,
-      subjectReference: order.orderNumber,
+      subjectId: orderWithStore.id,
+      subjectReference: orderWithStore.orderNumber,
     },
     reason: input.reason,
     actorUserId: input.actorUserId,
@@ -1092,4 +1283,96 @@ export async function releaseParcelOrderWalletReservation(input: {
     (tx) => releaseParcelOrderWalletReservationWithinTransaction(tx, input),
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+}
+
+/**
+ * Restores the consumed wallet portion of a split-wallet parcel payment to the
+ * authoritative funding owner (`CUSTOMER` or `STORE`) when an order is
+ * cancelled before custody after payment success. Idempotent per paymentId.
+ */
+export async function restoreConsumedParcelWalletWithinTransaction(
+  tx: Prisma.TransactionClient,
+  input: Readonly<{
+    paymentId: string;
+    orderId: string;
+    orderNumber: string;
+    owner: WalletOwner;
+    amount: string;
+    reason: string;
+    actorUserId?: string;
+  }>,
+): Promise<{ journalId: string; journalReference: string; amount: string; replayed: boolean }> {
+  const amountDec = new Prisma.Decimal(input.amount);
+  if (amountDec.lessThanOrEqualTo(0)) {
+    throw new LedgerError("LEDGER_INVALID_AMOUNT", "Restored wallet amount must be positive.");
+  }
+
+  const idempotencyKey = `wallet-cancel-restore:${input.paymentId}`;
+  const existing = await tx.ledgerJournal.findUnique({
+    where: { idempotencyKey },
+    select: { id: true, reference: true },
+  });
+  if (existing) {
+    return {
+      journalId: existing.id,
+      journalReference: existing.reference,
+      amount: input.amount,
+      replayed: true,
+    };
+  }
+
+  const platformHeld = await ensurePlatformCustomerFundsHeldAccountInTx(tx);
+  const available = await ensureWalletAvailableAccountInTx(tx, input.owner);
+
+  const lockIds = [platformHeld.id, available.id].sort();
+  await tx.$queryRaw<Array<{ id: string }>>(
+    Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(lockIds)}) ORDER BY "id" ASC FOR UPDATE`,
+  );
+
+  const freshHeld = await tx.ledgerAccount.findUnique({ where: { id: platformHeld.id } });
+  if (!freshHeld || freshHeld.currentBalance.lessThan(amountDec)) {
+    throw new LedgerError("LEDGER_INSUFFICIENT_BALANCE", "Platform held funds do not cover consumed wallet restoration.");
+  }
+
+  const journal = await postLedgerJournalWithinTransaction(tx, {
+    idempotencyKey,
+    type: "REFUND_WALLET_CREDIT",
+    currency: "ZAR",
+    sourceReference: `WALLET_CANCEL_RESTORE:${input.orderNumber}`,
+    correlationId: input.orderNumber,
+    memo: `Restore consumed split-wallet funds for cancelled parcel ${input.orderNumber}`,
+    actor: input.actorUserId
+      ? { kind: "USER", userId: input.actorUserId }
+      : { kind: "SYSTEM" },
+    metadata: {
+      category: "PARCEL_CANCELLATION_SPLIT_WALLET_RESTORE",
+      paymentId: input.paymentId,
+      orderId: input.orderId,
+      ownerType: input.owner.ownerType,
+      ownerId: input.owner.ownerId,
+      amount: input.amount,
+      reason: input.reason,
+    },
+    entries: [
+      {
+        accountId: platformHeld.id,
+        direction: "DEBIT",
+        amount: input.amount,
+        lineCode: "PLATFORM_HELD_SPLIT_WALLET_RESTORE",
+      },
+      {
+        accountId: available.id,
+        direction: "CREDIT",
+        amount: input.amount,
+        lineCode: "OWNER_WALLET_AVAILABLE_RESTORE",
+      },
+    ],
+  });
+
+  return {
+    journalId: journal.id,
+    journalReference: journal.reference,
+    amount: input.amount,
+    replayed: false,
+  };
 }

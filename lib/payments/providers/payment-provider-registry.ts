@@ -2,7 +2,12 @@ import { PaymentError } from "../errors";
 import type { PaymentProviderCode } from "../types";
 import type { PaymentProviderAdapter, PaymentProviderCapabilities } from "./payment-provider-adapter";
 import { PaystackAdapter, PAYSTACK_CAPABILITIES } from "./paystack/paystack-adapter";
-import { resolvePaystackConfiguration } from "./paystack/paystack-config";
+import {
+  evaluatePaystackCheckoutReadiness,
+  isPaystackEftChannelApproved,
+  resolvePaystackConfiguration,
+  type PaystackCheckoutReadinessResult,
+} from "./paystack/paystack-config";
 import {
   injectedTestProviderState,
   type SafeProviderConfigurationState,
@@ -22,6 +27,8 @@ export type PaymentProviderReadinessDto = Readonly<{
   sourceAddressTrustConfigured: boolean;
   itnVerificationImplemented: boolean;
   productionValidationApproved: boolean;
+  checkoutReadiness: PaystackCheckoutReadinessResult;
+  eftReadiness: PaystackCheckoutReadinessResult;
   capabilities: PaymentProviderCapabilities;
 }>;
 
@@ -52,13 +59,20 @@ export class PaymentProviderRegistry {
     }
     const adapter = this.#adapters.get(code);
     const state = this.#configuration.get(code);
-    if (state?.blockReason === "CONSOLIDATED_VALIDATION_NOT_APPROVED") {
+    const checkoutReadiness = evaluatePaystackCheckoutReadiness(state, {
+      adapterPresent: Boolean(adapter),
+      requireAdapterPresent: true,
+    });
+    if (checkoutReadiness.reasonCode === "LIVE_CHECKOUT_NOT_AUTHORIZED") {
       throw new PaymentError("PAYMENT_PROVIDER_PRODUCTION_NOT_READY", `${code} production checkout is unavailable until validation is approved.`);
     }
-    if (state?.errorCategory === "CONFIGURATION") {
+    if (
+      checkoutReadiness.reasonCode === "PROVIDER_CONFIG_INVALID" ||
+      checkoutReadiness.reasonCode === "TEMP_SANDBOX_EXPIRED"
+    ) {
       throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", `${code} provider configuration is invalid.`);
     }
-    if (!adapter || !state?.configured || !state.active) {
+    if (!adapter || !checkoutReadiness.ready) {
       throw new PaymentError("PAYMENT_PROVIDER_NOT_CONFIGURED", `${code} provider is not configured.`);
     }
     return adapter;
@@ -68,6 +82,14 @@ export class PaymentProviderRegistry {
     return KNOWN_PAYMENT_PROVIDER_CODES.map((code) => {
       const adapter = this.#adapters.get(code);
       const configuration = this.#configuration.get(code) ?? unconfiguredProviderState(code);
+      const checkoutReadiness = evaluatePaystackCheckoutReadiness(configuration, {
+        adapterPresent: Boolean(adapter),
+      });
+      const eftReadiness = evaluatePaystackCheckoutReadiness(configuration, {
+        adapterPresent: Boolean(adapter),
+        requiredChannel: "eft",
+        eftChannelApproved: isPaystackEftChannelApproved(),
+      });
       return Object.freeze({
         code,
         configured: configuration.configured,
@@ -79,6 +101,8 @@ export class PaymentProviderRegistry {
         sourceAddressTrustConfigured: configuration.sourceAddressTrustConfigured,
         itnVerificationImplemented: configuration.itnVerificationImplemented,
         productionValidationApproved: configuration.productionValidationApproved,
+        checkoutReadiness,
+        eftReadiness,
         capabilities: adapter?.capabilities ?? PAYSTACK_CAPABILITIES,
       });
     });

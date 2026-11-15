@@ -13,6 +13,8 @@ import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
 import { evaluateProcessorEvidence } from "./processor-evidence";
+import { buildCapabilityMatrix } from "./capability-matrix.service";
+import type { AcceptanceRecord } from "./evidence";
 
 const processorJobs = ["apply-paystack-webhook-events", "consume-verified-payment-events"] as const;
 
@@ -204,8 +206,10 @@ export async function getProductionReadiness() {
     return capability("marketplace_delivery_fee_matrix", current ? "READY" : "BLOCKED_EXTERNAL_INPUT", current ? "APPROVED_MARKETPLACE_MATRIX" : "APPROVED_MARKETPLACE_MATRIX_REQUIRED", "Marketplace delivery uses explicit approved tariff bands. Missing parcel classification permits only an explicitly authored ANY-size rule.", "CLIENT", { activeVersion: current?.version ?? null });
   });
   const releaseSha = process.env.RAILWAY_GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA;
+  let acceptanceRecords: readonly AcceptanceRecord[] = [];
   await probe("acceptance_evidence", async () => {
     const records = await listAcceptanceEvidence();
+    acceptanceRecords = records;
     for (const key of acceptanceKeys) {
       const record = records.find((r) => r.evidence.key === key); const current = evidenceIsCurrent(record, releaseSha, now);
       const engineering = ["current_ci_certification", "production_deployment_sha_parity"].includes(key);
@@ -216,5 +220,27 @@ export async function getProductionReadiness() {
   for (const key of [...acceptanceKeys, "notification_templates", "notification_recipient_policy", "notification_routes"]) {
     if (!entries.some((e) => e.key === key)) entries.push(capability(key, "BLOCKED_CONFIGURATION", "READINESS_PROBE_FAILED", "Required evidence could not be read; investigate schema and configuration availability.", "ENGINEERING"));
   }
-  return { generatedAt: now.toISOString(), status: entries.every((e) => e.status === "READY" || e.status === "DISABLED_BY_POLICY") ? "READY" : "BLOCKED", capabilities: entries };
+  const [heartbeatRow, referralSettingRow, storeOrderPolicyRow, activePrivacyPolicyCount] = await Promise.all([
+    prisma.systemSetting?.findUnique?.({ where: { key: "production_processor_heartbeat" }, select: { value: true } }).catch(() => null) ?? null,
+    prisma.systemSetting?.findUnique?.({ where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true } }).catch(() => null) ?? null,
+    (prisma as unknown as { storeOrderOperationalPolicy?: { findFirst?: (args: unknown) => Promise<{ id: string } | null> } }).storeOrderOperationalPolicy?.findFirst?.({
+      where: { status: "ACTIVE", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] },
+      select: { id: true },
+    }).catch(() => null) ?? null,
+    (prisma as unknown as { privacyRetentionPolicyVersion?: { count?: (args: unknown) => Promise<number> } }).privacyRetentionPolicyVersion?.count?.({
+      where: { dataClass: "PRIVATE_MEDIA", status: "ACTIVE" },
+    }).catch(() => 0) ?? 0,
+  ]);
+  const capabilityMatrix = buildCapabilityMatrix({
+    now,
+    releaseSha: releaseSha ?? null,
+    capabilities: entries,
+    paystack,
+    acceptanceRecords,
+    heartbeat: (heartbeatRow?.value as Parameters<typeof buildCapabilityMatrix>[0]["heartbeat"]) ?? null,
+    storeOrderPolicyActive: Boolean(storeOrderPolicyRow),
+    activePrivacyPolicyCount: typeof activePrivacyPolicyCount === "number" ? activePrivacyPolicyCount : 0,
+    referralRewardIssuingEnabled: referralSettingRow?.type === "BOOLEAN" && referralSettingRow.value === true,
+  });
+  return { generatedAt: now.toISOString(), status: entries.every((e) => e.status === "READY" || e.status === "DISABLED_BY_POLICY") ? "READY" : "BLOCKED", capabilities: entries, capabilityMatrix };
 }

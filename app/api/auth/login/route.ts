@@ -14,6 +14,7 @@ import {
   SECURITY_EVENT_TYPES,
 } from "@/lib/services/security-events.service";
 import { getPostAuthRedirect } from "@/lib/auth/role-redirects";
+import { claimGuestCartIfPresentOnCustomerAuth } from "@/lib/marketplace-checkout/claim-guest-cart-on-login";
 
 const GENERIC_ERROR = "Invalid email or password.";
 
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
     // Set HTTP-only cookie
     const cookieStore = await cookies();
     setSessionCookie(cookieStore, rawToken);
+    await claimGuestCartIfPresentOnCustomerAuth(cookieStore, { id: user.id, role: user.role });
 
     await recordLoginAttempt({
       userId: user.id,

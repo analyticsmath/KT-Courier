@@ -5,6 +5,7 @@ import { assertPaymentSubjectIntegrity } from "@/lib/payments/payment-subject-po
 import { prisma } from "@/lib/db/prisma";
 import { createPrismaMarketplaceFinalizationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-finalization.repository";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
+import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
 
 export type MarketplacePaymentSuccessHookRepository = Readonly<{
   getPaymentSubject(paymentId: string): Promise<{
@@ -69,6 +70,14 @@ export function createPrismaMarketplacePaymentSuccessHookRepository(database: an
         if (completed?.paymentId === input.paymentId) return;
         await tx.marketplaceCheckout.update({ where: { id: input.checkoutId }, data: { status: "RECONCILIATION_REQUIRED" } });
         await tx.marketplaceCheckoutReconciliationCase.upsert({ where: { checkoutId_reason_operationId: { checkoutId: input.checkoutId, reason: "ORDER_CREATION_FAILURE", operationId: input.operationId } }, create: { publicReference: `mrec_${input.operationId}`, checkoutId: input.checkoutId, paymentId: input.paymentId, reason: "ORDER_CREATION_FAILURE", priority: "CRITICAL", safeSummary: input.safeReason, operationId: input.operationId }, update: { observationCount: { increment: 1 }, safeSummary: input.safeReason } });
+        await recordAdminAlertIntentInTx(tx, {
+          eventType: "STORE_READINESS_BLOCKER",
+          aggregateReference: `checkout:${input.checkoutId}`,
+          title: `Marketplace order finalization blocked (${input.safeReason})`,
+          summary: `Paid checkout ${input.checkoutId} entered reconciliation (${input.safeReason}).`,
+          adminPath: "/admin/stores",
+          metadata: { checkoutId: input.checkoutId, paymentId: input.paymentId, safeReason: input.safeReason },
+        });
       });
     },
   });

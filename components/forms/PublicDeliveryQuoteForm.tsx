@@ -40,6 +40,7 @@ type Quote = {
 export function PublicDeliveryQuoteForm({
   signedIn = false,
   business = false,
+  storeContextId = null,
   bookingOnly = false,
   reference,
   senderDefaults,
@@ -49,6 +50,7 @@ export function PublicDeliveryQuoteForm({
 }: {
   signedIn?: boolean;
   business?: boolean;
+  storeContextId?: string | null;
   bookingOnly?: boolean;
   reference?: string;
   senderDefaults?: { name?: string | null; email?: string | null; phone?: string | null };
@@ -87,11 +89,15 @@ export function PublicDeliveryQuoteForm({
     setMethods(null);
     setMethodError("");
   };
+  const storeWorkspaceHeaders: Record<string, string> = {
+    ...(business ? { "X-KT-Workspace": "STORE" } : {}),
+    ...(storeContextId ? { "X-KT-Store-Id": storeContextId } : {}),
+  };
   useEffect(() => {
     if (!quote || !signedIn) return;
     const controller = new AbortController();
     fetch(`/api/public/delivery-quotes/${quote.id}/payment-methods`, {
-      headers: business ? { "X-KT-Workspace": "STORE" } : {},
+      headers: storeWorkspaceHeaders,
       cache: "no-store",
       signal: controller.signal,
     })
@@ -195,7 +201,7 @@ export function PublicDeliveryQuoteForm({
     try {
       const r = await fetch("/api/public/delivery-quotes", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(business ? { "X-KT-Workspace": "STORE" } : {}) },
+        headers: { "Content-Type": "application/json", ...storeWorkspaceHeaders },
         body: JSON.stringify({
           serviceKey: f.get("service"),
           parcelSize: f.get("size"),
@@ -476,7 +482,7 @@ export function PublicDeliveryQuoteForm({
                       method: "POST",
                       headers: {
                         "Content-Type": "application/json",
-                        ...(business ? { "X-KT-Workspace": "STORE" } : {}),
+                        ...storeWorkspaceHeaders,
                       },
                       body: JSON.stringify({
                         pickupContactName: f.get("pickupContactName"),

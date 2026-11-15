@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest } from "@/lib/payments/customer-api-policy";
+import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest, resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
@@ -27,12 +27,14 @@ export async function POST(
   const parsed = PaymentOperationSchema.safeParse(validated.body);
   if (!parsed.success) return noStoreJson({ error: "A valid operationId is required." }, 422);
   try {
+    const storeContextId = resolveExplicitStoreContextId(request, parsed.data.storeContextId);
     const payment = await prepareOrderPayment(
       { id: user.id, email: user.email },
       {
         orderId: parsedParams.data.orderId,
         idempotencyKey: parsed.data.operationId,
         walletAmount: parsed.data.walletAmount,
+        ...(storeContextId ? { storeContextId } : {}),
       },
     );
     return noStoreJson({

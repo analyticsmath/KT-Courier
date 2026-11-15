@@ -7,6 +7,7 @@ import {
 import { mutation, json, failure } from "@/lib/client-platform/api";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 export async function GET() {
   try {
     return json(await deliveryCatalog());
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     const user=await getCurrentUser();
     let scope:{ownerType:"CUSTOMER"|"STORE";ownerId:string}|null=null;
     if(user?.status==="ACTIVE" && req.headers.get("X-KT-Workspace")==="STORE") {
-      const store=await storeAccess(user.id,"deliveries");
+      const store=await storeAccess(user.id,"deliveries",resolveExplicitStoreContextId(req));
       scope={ownerType:"STORE",ownerId:store.store.id};
     } else if(user?.status==="ACTIVE" && user.role==="CUSTOMER") {
       scope={ownerType:"CUSTOMER",ownerId:user.id};

@@ -18,6 +18,17 @@ export function publicAccountRoute(role: unknown): string {
   }
 }
 
+export function accountLabelForRoute(href: string): string {
+  switch (href) {
+    case "/account": return "My account";
+    case "/store": return "Store workspace";
+    case "/driver": return "Driver portal";
+    case "/admin": return "Admin console";
+    case "/promoter": return "Promoter portal";
+    default: return "Sign in";
+  }
+}
+
 export function usePublicAccountRoute(): string {
   const [href, setHref] = useState("/login");
 

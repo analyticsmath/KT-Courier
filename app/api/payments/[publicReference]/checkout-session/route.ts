@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest } from "@/lib/payments/customer-api-policy";
+import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest, resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import { createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+import { isPaystackEftChannelApproved } from "@/lib/payments/providers/paystack/paystack-config";
 import { validatePaystackAuthorizationUrl } from "@/lib/payments/providers/paystack/paystack-client";
+import { PaymentError } from "@/lib/payments/errors";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { getOwnedPaymentIdentity } from "@/lib/services/payment-customer-query.service";
@@ -29,10 +31,15 @@ export async function POST(
   const parsed = PaymentOperationSchema.safeParse(validated.body);
   if (!parsed.success) return noStoreJson({ error: "A valid operationId is required." }, 422);
   try {
-    const payment = await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference);
+    const storeContextId = resolveExplicitStoreContextId(request, parsed.data.storeContextId);
+    const payment = await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference, storeContextId);
     if (!payment) return noStoreJson({ error: "Payment not found." }, 404);
     const registry = createProductionPaymentProviderRegistry();
     registry.getAdapter("PAYSTACK");
+    const channel = parsed.data.channel ?? "CARD";
+    if (channel === "EFT" && !isPaystackEftChannelApproved()) {
+      throw new PaymentError("EFT_UNAVAILABLE", "Paystack EFT channel is not enabled on this merchant account.");
+    }
     if (payment.status === "REQUIRES_ACTION" && payment.currentAttemptReference) {
       if (payment.currentActionType === "REDIRECT_GET" && payment.currentRedirectUrl) {
         // A persisted attempt is not a trusted browser redirect: verify it again
@@ -42,7 +49,13 @@ export async function POST(
     }
     const session = await createProviderCheckoutSession(
       { id: user.id },
-      { paymentId: payment.id, provider: "PAYSTACK", idempotencyKey: parsed.data.operationId },
+      {
+        paymentId: payment.id,
+        provider: "PAYSTACK",
+        idempotencyKey: parsed.data.operationId,
+        channel,
+        ...(storeContextId ? { storeContextId } : {}),
+      },
       { registry },
     );
     if (!session.attempt.publicReference) {

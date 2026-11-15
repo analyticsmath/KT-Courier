@@ -28,11 +28,25 @@ import {
 } from "@/lib/services/paystack-transfer-execution.service";
 import { finalizeProviderRefundAttempt } from "@/lib/services/refund-provider-execution.service";
 import { consumeWalletSpendWithinTransaction } from "@/lib/services/wallet-spending.service";
+import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
+import { isTerminalOrderStatus } from "@/lib/orders/order-state-machine";
+import {
+  cancelUncollectedCodObligationInTx,
+  cancellationRequestHash,
+  revokePendingDispatchOffersInTx,
+  settlePaidOrderCancellationInTx,
+  upsertParcelCancellationResolutionInTx,
+} from "@/lib/orders/parcel-cancellation-coordinator.service";
 import type {
   PaymentProviderEnvironment,
   PaymentReconciliationReasonCode,
 } from "@/lib/payments/types";
 import { consumeVerifiedPaymentEvents, reportVerifiedPaymentDispatchFailure } from "@/lib/payments/verified-payment-event-processor.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
 export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
@@ -645,7 +659,10 @@ export async function applyPaystackWebhookEvent(
         return Object.freeze({ outcome: "DUPLICATE" as const, eventPublicReference: freshEvent.publicReference, ledgerJournalReference: journal?.reference ?? null });
       }
 
-      // Consistent lock order: Payment -> PaymentAttempt -> LedgerAccounts
+      // Consistent lock order: Order -> Payment -> PaymentAttempt -> LedgerAccounts
+      if (payment.orderId) {
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.orderId} FOR UPDATE`);
+      }
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${payment.id} FOR UPDATE`);
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PaymentAttempt" WHERE "id" = ${attempt.id} FOR UPDATE`);
 
@@ -709,10 +726,17 @@ export async function applyPaystackWebhookEvent(
         },
       });
 
-      // Update webhook event evidence
+      // Update webhook event evidence and mark APPLIED inside the atomic
+      // transaction so any downstream cancellation refund checks see coherent
+      // verified-webhook evidence before committing or rolling back together.
       await tx.paymentWebhookEvent.update({
         where: { id: resolvedEvent.id },
         data: {
+          processingStatus: "APPLIED",
+          normalizedStatus: "COMPLETE",
+          appliedAt: now,
+          leaseToken: null,
+          leaseExpiresAt: null,
           paymentId: freshPayment.id,
           attemptId: freshAttempt.id,
           ledgerJournalId: journal.id,
@@ -782,22 +806,162 @@ export async function applyPaystackWebhookEvent(
         },
       });
 
-      // Activate cash-on-delivery deposit if applicable
-      await activateDepositCashOnDeliveryWithinTransaction(tx, {
-        paymentId: freshPayment.id,
-        orderId: freshPayment.orderId,
-        amount: freshPayment.amount,
-        verifiedEventReference: resolvedEvent.publicReference,
-        walletReceipt: walletReceipt ?? undefined,
-      });
-      await confirmVerifiedCourierOrderWithinTransaction(tx, {
-        subjectType: freshPayment.subjectType,
-        orderId: freshPayment.orderId,
-        publicReference: freshPayment.publicReference,
-      });
+      const lateOrderState = freshPayment.orderId
+        ? await tx.order.findUnique({
+            where: { id: freshPayment.orderId },
+            select: {
+              id: true,
+              orderNumber: true,
+              status: true,
+              storeId: true,
+              customerId: true,
+              parcelCancellationResolution: true,
+            },
+          })
+        : null;
 
-      // Resolve open reconciliation cases if any
-      await resolvePaymentReconciliationCasesWithinTransaction(tx, freshPayment.id, freshAttempt.id, "VERIFIED_COMPLETE");
+      const hasPendingOrCompletedCancel = Boolean(
+        lateOrderState &&
+          (lateOrderState.status === "CANCELLED" ||
+            lateOrderState.parcelCancellationResolution?.status ===
+              "PENDING_PAYMENT_RESOLUTION" ||
+            lateOrderState.parcelCancellationResolution?.status?.startsWith(
+              "COMPLETED",
+            )),
+      );
+
+      if (hasPendingOrCompletedCancel && lateOrderState) {
+        const cancelReason =
+          lateOrderState.parcelCancellationResolution?.reason ??
+          "Late payment settled after order cancellation request";
+
+        await revokePendingDispatchOffersInTx(tx, {
+          orderId: lateOrderState.id,
+          actorSystemIdentity: "SYSTEM:PAYSTACK_LATE_WEBHOOK_CANCELLATION",
+          actorRole: "SYSTEM",
+          note: cancelReason,
+        });
+
+        await cancelUncollectedCodObligationInTx(tx, {
+          orderId: lateOrderState.id,
+          actorUserId:
+            lateOrderState.parcelCancellationResolution?.requestedByUserId ??
+            freshPayment.userId ??
+            null,
+          reason: cancelReason,
+        });
+
+        if (
+          lateOrderState.status !== "CANCELLED" &&
+          !isTerminalOrderStatus(lateOrderState.status)
+        ) {
+          await transitionOrderStatusInTx(tx, {
+            orderId: lateOrderState.id,
+            fromStatus: lateOrderState.status,
+            toStatus: "CANCELLED",
+            actorRole: "SYSTEM",
+            reason: cancelReason,
+            note: "Order cancelled automatically after late payment confirmation",
+            source: "late_webhook_cancellation_resolution",
+          });
+        }
+
+        const settlement = await settlePaidOrderCancellationInTx(tx, {
+          orderId: lateOrderState.id,
+          orderNumber: lateOrderState.orderNumber,
+          storeId: lateOrderState.storeId,
+          customerId: lateOrderState.customerId,
+          payment: {
+            id: freshPayment.id,
+            publicReference: freshPayment.publicReference,
+            userId: freshPayment.userId,
+            provider: freshPayment.provider,
+            status: "SUCCEEDED",
+            amount: freshPayment.amount,
+            totalRefundedAmount: freshPayment.totalRefundedAmount,
+            totalRefundReservedAmount: freshPayment.totalRefundReservedAmount,
+            version: freshPayment.version + 1,
+            metadata: freshPayment.metadata,
+            attempts: [],
+          },
+          reason: cancelReason,
+          preferredActorUserId:
+            lateOrderState.parcelCancellationResolution?.requestedByUserId ??
+            freshPayment.userId,
+          cancellationActorType: "SYSTEM",
+          operationKeyPrefix: "late-webhook-cancel",
+        });
+
+        await upsertParcelCancellationResolutionInTx(tx, {
+          orderId: lateOrderState.id,
+          paymentId: freshPayment.id,
+          status: "COMPLETED_LATE_PAYMENT_REFUND_INITIATED",
+          operationId:
+            lateOrderState.parcelCancellationResolution?.operationId ??
+            `late-cancel:${lateOrderState.id}:${freshPayment.id}`,
+          requestHash:
+            lateOrderState.parcelCancellationResolution?.requestHash ??
+            cancellationRequestHash({
+              orderId: lateOrderState.id,
+              requestedByUserId:
+                lateOrderState.parcelCancellationResolution?.requestedByUserId ??
+                freshPayment.userId ??
+                "SYSTEM",
+              actorRole: "SYSTEM",
+              reason: cancelReason,
+            }),
+          requestedByUserId:
+            lateOrderState.parcelCancellationResolution?.requestedByUserId ??
+            freshPayment.userId ??
+            lateOrderState.customerId ??
+            "SYSTEM",
+          actorRole:
+            lateOrderState.parcelCancellationResolution?.actorRole ?? "SYSTEM",
+          reason: cancelReason,
+          walletOwnerType: settlement.walletOwnerType,
+          walletOwnerId: settlement.walletOwnerId,
+          walletRefundJournalId: settlement.walletRefundJournalId,
+          paymentRefundId: settlement.paymentRefundId,
+          decisionEvidence: {
+            latePaymentSettled: true,
+            webhookEventReference: resolvedEvent.publicReference,
+            paymentRefundId: settlement.paymentRefundId,
+            walletRefundJournalId: settlement.walletRefundJournalId,
+          },
+          resolved: true,
+        });
+
+        await openPaymentReconciliationCaseWithinTransaction(tx, {
+          paymentId: freshPayment.id,
+          attemptId: freshAttempt.id,
+          webhookEventId: resolvedEvent.id,
+          reason: "OUT_OF_ORDER_EVENT",
+          provider: "PAYSTACK",
+          safeEvidence: {
+            latePaymentAfterCancelRequest: true,
+            orderId: lateOrderState.id,
+            paymentRefundId: settlement.paymentRefundId,
+            walletRefundJournalId: settlement.walletRefundJournalId,
+          },
+        });
+      } else {
+        // Activate cash-on-delivery deposit if applicable
+        await activateDepositCashOnDeliveryWithinTransaction(tx, {
+          paymentId: freshPayment.id,
+          orderId: freshPayment.orderId,
+          amount: freshPayment.amount,
+          verifiedEventReference: resolvedEvent.publicReference,
+          walletReceipt: walletReceipt ?? undefined,
+        });
+        await confirmVerifiedCourierOrderWithinTransaction(tx, {
+          subjectType: freshPayment.subjectType,
+          orderId: freshPayment.orderId,
+          publicReference: freshPayment.publicReference,
+        });
+
+        // Resolve open reconciliation cases if any
+        await resolvePaymentReconciliationCasesWithinTransaction(tx, freshPayment.id, freshAttempt.id, "VERIFIED_COMPLETE");
+      }
 
       // Update webhook event
       await tx.paymentWebhookEvent.update({
@@ -840,18 +1004,56 @@ export async function applyPaystackWebhookEvent(
         verifiedAt: now,
       });
 
+      let postCommitAdminAlert: AdminAlertEventInput | null = null;
+      if (
+        !hasPendingOrCompletedCancel &&
+        (freshPayment.subjectType === "COURIER_ORDER" ||
+          freshPayment.subjectType === "MARKETPLACE_CHECKOUT")
+      ) {
+        const isCourier = freshPayment.subjectType === "COURIER_ORDER";
+        const refId = isCourier
+          ? (freshPayment.orderId ?? freshPayment.publicReference)
+          : (freshPayment.marketplaceCheckoutId ?? freshPayment.publicReference);
+        postCommitAdminAlert = {
+          eventType: isCourier ? "PARCEL_ORDER_PAID" : "MARKETPLACE_ORDER_PAID",
+          aggregateReference: `${isCourier ? "parcel" : "marketplace"}:${refId}`,
+          title: isCourier
+            ? `Parcel order paid (${freshPayment.publicReference})`
+            : `Store marketplace order paid (${freshPayment.publicReference})`,
+          summary: `Paystack verified payment of R${freshPayment.amount.toFixed(2)}.`,
+          adminPath: isCourier && freshPayment.orderId
+            ? `/admin/orders/${freshPayment.orderId}`
+            : "/admin/orders",
+          relatedOrderId: freshPayment.orderId ?? undefined,
+          metadata: {
+            paymentReference: freshPayment.publicReference,
+            subjectType: freshPayment.subjectType,
+            amountZar: freshPayment.amount.toFixed(2),
+          },
+        };
+        await recordAdminAlertIntentInTx(tx, postCommitAdminAlert);
+      }
+
       return Object.freeze({
         outcome: "APPLIED" as const,
         eventPublicReference: resolvedEvent.publicReference,
         ledgerJournalReference: journal.reference,
+        postCommitAdminAlert,
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   });
 
   // Drain outbox asynchronously for immediate downstream effects
   consumeVerifiedPaymentEvents({ limit: 10 }).catch(reportVerifiedPaymentDispatchFailure);
+  if (applyResult.outcome === "APPLIED" && applyResult.postCommitAdminAlert) {
+    void emitAdminAlertNonBlocking(applyResult.postCommitAdminAlert);
+  }
 
-  return applyResult;
+  return Object.freeze({
+    outcome: applyResult.outcome,
+    eventPublicReference: applyResult.eventPublicReference,
+    ledgerJournalReference: applyResult.ledgerJournalReference,
+  });
 }
 
 export async function processPaystackWebhook(

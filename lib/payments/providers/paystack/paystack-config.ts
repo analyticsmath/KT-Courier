@@ -17,7 +17,14 @@ export type PaystackRuntimeConfiguration = Readonly<{
   credentialVersion: string;
   checkoutAuditVersion: "paystack-redirect-v1";
   configurationFingerprint: "paystack-v1:sandbox" | "paystack-v1:production";
+  eftChannelEnabled: boolean;
 }>;
+
+export function isPaystackEftChannelApproved(
+  source: EnvironmentSource = process.env,
+): boolean {
+  return source.PAYSTACK_EFT_CHANNEL_ENABLED?.trim().toLowerCase() === "true";
+}
 
 export type PaystackConfigurationResolution = Readonly<{
   state: SafeProviderConfigurationState;
@@ -84,9 +91,13 @@ export function resolvePaystackConfiguration(
   const temporaryUntil = source.PAYSTACK_TEMPORARY_SANDBOX_UNTIL ?? "";
   const temporaryUntilMs = Date.parse(temporaryUntil);
   const nowMs = Date.now();
+  const temporarySandboxTimeValid =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(temporaryUntil) &&
+    Number.isFinite(temporaryUntilMs);
+  const temporarySandboxExpired =
+    temporarySandboxRequested && temporarySandboxTimeValid && temporaryUntilMs <= nowMs;
   if (temporarySandboxRequested && (
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(temporaryUntil) ||
-    !Number.isFinite(temporaryUntilMs) ||
+    !temporarySandboxTimeValid ||
     temporaryUntilMs <= nowMs ||
     temporaryUntilMs - nowMs > 6 * 60 * 60 * 1000 ||
     !source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY?.startsWith("sk_test_") ||
@@ -94,7 +105,13 @@ export function resolvePaystackConfiguration(
     !hasUsableValue(source.PAYSTACK_TEMPORARY_SANDBOX_SECRET_KEY) ||
     !hasUsableValue(source.PAYSTACK_TEMPORARY_SANDBOX_PUBLIC_KEY)
   )) {
-    return Object.freeze({ state: invalidState("sandbox", "CONFIGURATION_INVALID"), runtime: null });
+    return Object.freeze({
+      state: Object.freeze({
+        ...invalidState("sandbox", "CONFIGURATION_INVALID"),
+        ...(temporarySandboxExpired ? { temporarySandboxExpired: true } : {}),
+      }),
+      runtime: null,
+    });
   }
   const rawMode = (temporarySandboxRequested ? "test" : (source.PAYSTACK_MODE?.trim().toLowerCase() || "disabled")) as PaystackMode;
   if (rawMode === "disabled") {
@@ -194,6 +211,7 @@ export function resolvePaystackConfiguration(
     credentialVersion,
     checkoutAuditVersion: "paystack-redirect-v1",
     configurationFingerprint: environment === "sandbox" ? "paystack-v1:sandbox" : "paystack-v1:production",
+    eftChannelEnabled: isPaystackEftChannelApproved(source),
   });
 
   return Object.freeze({
@@ -244,17 +262,186 @@ export function resolvePaystackStoredEventSecretKey(
 export function requireActivePaystackConfiguration(
   resolution: PaystackConfigurationResolution = resolvePaystackConfiguration(),
 ): PaystackRuntimeConfiguration {
-  if (resolution.state.blockReason === "CONSOLIDATED_VALIDATION_NOT_APPROVED") {
+  const readiness = evaluatePaystackCheckoutReadiness(resolution.state, {
+    adapterPresent: Boolean(resolution.runtime),
+    requireAdapterPresent: true,
+  });
+  if (readiness.reasonCode === "LIVE_CHECKOUT_NOT_AUTHORIZED") {
     throw new PaymentError(
       "PAYMENT_PROVIDER_PRODUCTION_NOT_READY",
       "Paystack production checkout is unavailable until CHECKOUT_PUBLIC_ENABLED is approved.",
     );
   }
-  if (resolution.state.errorCategory === "CONFIGURATION") {
+  if (readiness.reasonCode === "TEMP_SANDBOX_EXPIRED" || readiness.reasonCode === "PROVIDER_CONFIG_INVALID") {
     throw new PaymentError("PAYMENT_PROVIDER_CONFIGURATION_INVALID", "Paystack configuration is invalid.");
   }
-  if (!resolution.runtime || !resolution.state.active) {
+  if (!resolution.runtime || !readiness.ready) {
     throw new PaymentError("PAYMENT_PROVIDER_NOT_CONFIGURED", "Paystack checkout is not configured.");
   }
   return resolution.runtime;
+}
+
+export type PaystackCheckoutReadinessReasonCode =
+  | "READY"
+  | "PROVIDER_DISABLED"
+  | "PROVIDER_CONFIG_INVALID"
+  | "LIVE_CHECKOUT_NOT_AUTHORIZED"
+  | "TEMP_SANDBOX_EXPIRED"
+  | "PROVIDER_CHANNEL_NOT_ENABLED";
+
+export type PaystackCheckoutReadinessResult = Readonly<{
+  ready: boolean;
+  reasonCode: PaystackCheckoutReadinessReasonCode;
+  configured: boolean;
+  active: boolean;
+  environment: SafeProviderConfigurationState["environment"];
+  channelRequested: "card" | "eft" | null;
+}>;
+
+export type PaystackCheckoutReadinessStateInput = Readonly<{
+  code?: string;
+  configured: boolean;
+  active: boolean;
+  environment: SafeProviderConfigurationState["environment"] | string;
+  errorCategory: SafeProviderConfigurationState["errorCategory"] | string;
+  blockReason?: SafeProviderConfigurationState["blockReason"] | string | null;
+  credentialVersionConfigured?: boolean;
+  sourceAddressTrustConfigured?: boolean;
+  itnVerificationImplemented?: boolean;
+  productionValidationApproved?: boolean;
+  temporarySandboxExpired?: boolean;
+}>;
+
+function normalizePaystackReadinessEnvironment(
+  raw: string,
+): SafeProviderConfigurationState["environment"] {
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === "production" || normalized === "live") {
+    return "production";
+  }
+  if (normalized === "sandbox") {
+    return "sandbox";
+  }
+  if (normalized === "test-injected") {
+    return "test-injected";
+  }
+  return "not-configured";
+}
+
+/**
+ * Authoritative predicate for whether Paystack customer checkout is truly
+ * executable (not merely holding API credentials). Does not read or expose
+ * any secrets. Used by preflight, quote payment-methods, provider registry,
+ * checkout UI, and payment initiation.
+ */
+export function evaluatePaystackCheckoutReadiness(
+  providerState: PaystackCheckoutReadinessStateInput | null | undefined,
+  options?: Readonly<{
+    adapterPresent?: boolean;
+    requireAdapterPresent?: boolean;
+    requiredChannel?: "card" | "eft";
+    eftChannelApproved?: boolean;
+  }>,
+): PaystackCheckoutReadinessResult {
+  const channelRequested = options?.requiredChannel ?? null;
+  if (!providerState) {
+    return Object.freeze({
+      ready: false,
+      reasonCode: "PROVIDER_DISABLED",
+      configured: false,
+      active: false,
+      environment: "not-configured",
+      channelRequested,
+    });
+  }
+
+  const normalizedEnvironment = normalizePaystackReadinessEnvironment(
+    providerState.environment,
+  );
+
+  const fail = (reasonCode: Exclude<PaystackCheckoutReadinessReasonCode, "READY">): PaystackCheckoutReadinessResult =>
+    Object.freeze({
+      ready: false,
+      reasonCode,
+      configured: Boolean(providerState.configured),
+      active: Boolean(providerState.active),
+      environment: normalizedEnvironment,
+      channelRequested,
+    });
+
+  if (
+    providerState.temporarySandboxExpired === true ||
+    providerState.blockReason === "TEMP_SANDBOX_EXPIRED"
+  ) {
+    return fail("TEMP_SANDBOX_EXPIRED");
+  }
+
+  if (providerState.blockReason === "CONSOLIDATED_VALIDATION_NOT_APPROVED") {
+    return fail("LIVE_CHECKOUT_NOT_AUTHORIZED");
+  }
+
+  if (
+    providerState.errorCategory === "CONFIGURATION" ||
+    providerState.blockReason === "CONFIGURATION_INVALID" ||
+    providerState.credentialVersionConfigured === false ||
+    providerState.sourceAddressTrustConfigured === false ||
+    providerState.itnVerificationImplemented === false
+  ) {
+    return fail("PROVIDER_CONFIG_INVALID");
+  }
+
+  if (
+    providerState.errorCategory === "NOT_CONFIGURED" ||
+    providerState.blockReason === "PAYSTACK_DISABLED" ||
+    providerState.blockReason === "PROVIDER_DISABLED" ||
+    !providerState.configured
+  ) {
+    return fail("PROVIDER_DISABLED");
+  }
+
+  if (options?.requireAdapterPresent && !options.adapterPresent) {
+    return fail("PROVIDER_DISABLED");
+  }
+
+  if (!providerState.active) {
+    if (
+      normalizedEnvironment === "production" ||
+      providerState.productionValidationApproved === false
+    ) {
+      return fail("LIVE_CHECKOUT_NOT_AUTHORIZED");
+    }
+    return fail("PROVIDER_DISABLED");
+  }
+
+  if (
+    normalizedEnvironment === "production" &&
+    providerState.productionValidationApproved !== true
+  ) {
+    return fail("LIVE_CHECKOUT_NOT_AUTHORIZED");
+  }
+
+  if (channelRequested === "eft" && options?.eftChannelApproved !== true) {
+    return fail("PROVIDER_CHANNEL_NOT_ENABLED");
+  }
+
+  return Object.freeze({
+    ready: true,
+    reasonCode: "READY",
+    configured: true,
+    active: true,
+    environment: normalizedEnvironment,
+    channelRequested,
+  });
+}
+
+export function evaluatePaystackEftReadiness(
+  source: EnvironmentSource = process.env,
+): PaystackCheckoutReadinessResult {
+  const resolution = resolvePaystackConfiguration(source);
+  return evaluatePaystackCheckoutReadiness(resolution.state, {
+    adapterPresent: Boolean(resolution.runtime),
+    requireAdapterPresent: true,
+    requiredChannel: "eft",
+    eftChannelApproved: isPaystackEftChannelApproved(source),
+  });
 }

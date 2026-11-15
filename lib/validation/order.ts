@@ -140,6 +140,7 @@ export type AdminOrderStatusUpdateInput = z.infer<typeof AdminOrderStatusUpdateS
 
 export const CustomerCancelOrderSchema = z.object({
   reason: z.string().trim().max(500).optional(),
+  storeContextId: z.string().trim().min(1).max(64).optional(),
 });
 
 export type CustomerCancelOrderInput = z.infer<typeof CustomerCancelOrderSchema>;

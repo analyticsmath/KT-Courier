@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { PaymentReconciliationReasonCode } from "@/lib/payments/types";
 import { reconciliationPriority, reconciliationSummary } from "@/lib/payments/providers/payfast/payfast-reconciliation-policy";
+import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
 
 export type OpenReconciliationInput = Readonly<{
   paymentId: string;
@@ -69,6 +70,18 @@ export async function openPaymentReconciliationCaseWithinTransaction(
       },
     });
     if (wasResolved) await writeReconciliationHistory(tx, input, updated, `${provider}_RECONCILIATION_REOPENED`);
+    await recordAdminAlertIntentInTx(tx, {
+      eventType: "PAYMENT_RECONCILIATION_ALERT",
+      aggregateReference: updated.publicReference,
+      title: `Payment reconciliation required (${input.reason})`,
+      summary: reconciliationSummary(input.reason),
+      adminPath: "/admin/payment-reconciliation",
+      metadata: {
+        provider,
+        reason: input.reason,
+        paymentId: input.paymentId,
+      },
+    });
     return updated;
   }
   const created = await tx.paymentReconciliationCase.create({
@@ -89,6 +102,18 @@ export async function openPaymentReconciliationCaseWithinTransaction(
     },
   });
   await writeReconciliationHistory(tx, input, created, `${provider}_RECONCILIATION_OPENED`);
+  await recordAdminAlertIntentInTx(tx, {
+    eventType: "PAYMENT_RECONCILIATION_ALERT",
+    aggregateReference: created.publicReference,
+    title: `Payment reconciliation opened (${input.reason})`,
+    summary: reconciliationSummary(input.reason),
+    adminPath: "/admin/payment-reconciliation",
+    metadata: {
+      provider,
+      reason: input.reason,
+      paymentId: input.paymentId,
+    },
+  });
   return created;
 }
 

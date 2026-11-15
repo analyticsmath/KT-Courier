@@ -59,7 +59,32 @@ export default async function StorePickupPreflightPage({ params }: { params: Pro
           <div><dt className="text-sm">Independent reviewer status</dt><dd className="font-semibold">{capabilityPreflight.independentReviewerStatus}</dd></div>
           <div><dt className="text-sm">Route feasibility</dt><dd className="font-semibold">{capabilityPreflight.routeFeasibility.verified ? `Verified (${capabilityPreflight.routeFeasibility.provider ?? "route"})` : "Unverified"}</dd></div>
           <div><dt className="text-sm">Payment provider readiness</dt><dd className="font-semibold">{capabilityPreflight.policySummary.paymentProviderReady ? `Ready (${capabilityPreflight.policySummary.paymentProviderEnvironment ?? "configured"})` : "Not ready"}</dd></div>
+          <div><dt className="text-sm">Engine proof suite SHA</dt><dd className="font-mono text-xs">{capabilityPreflight.engineProofSuiteSha.slice(0, 16)}…</dd></div>
+          {capabilityPreflight.certificationProvenance ? (
+            <div>
+              <dt className="text-sm">Certification provenance</dt>
+              <dd className="font-semibold">{capabilityPreflight.certificationProvenance.evidenceType.replaceAll("_", " ")}</dd>
+              {capabilityPreflight.certificationProvenance.engineProofReference ? (
+                <dd className="font-mono text-xs">{capabilityPreflight.certificationProvenance.engineProofReference}</dd>
+              ) : null}
+            </div>
+          ) : null}
         </dl>
+        {capabilityPreflight.certificationProvenance?.stageResults?.length ? (
+          <section className="mt-5">
+            <h2 className="font-semibold">Recorded engine proof stages</h2>
+            <ul className="mt-2 space-y-1 text-sm">
+              {capabilityPreflight.certificationProvenance.stageResults.map((stage) => (
+                <li key={stage.stage}>
+                  <span className={stage.passed ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                    {stage.passed ? "PASS" : "FAIL"}
+                  </span>{" "}
+                  <span className="font-mono text-xs">{stage.stage}</span>: {stage.summary}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {capabilityPreflight.blockers.length > 0 ? (
           <section className="mt-5">
             <h2 className="font-semibold">Capability and certification blockers</h2>
@@ -71,6 +96,10 @@ export default async function StorePickupPreflightPage({ params }: { params: Pro
                 </li>
               ))}
             </ul>
+            <div className="mt-3 flex flex-wrap gap-4 text-sm font-semibold underline underline-offset-4">
+              <Link href={`/admin/stores/${encodeURIComponent(id)}`}>Review store dossier & certification</Link>
+              <Link href="/admin/settings">Review policies & payment settings</Link>
+            </div>
           </section>
         ) : null}
       </OperationalPanel>

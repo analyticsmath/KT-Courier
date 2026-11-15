@@ -175,6 +175,17 @@ export async function offerAssignment(authority: DispatchOfferAuthority, orderId
     const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, deliveryRegionId: true, deliveryType: true } });
     assertAssignable(order);
     await assertParcelDispatchFundingInTx(tx, order!);
+    if (typeof tx.parcelCancellationResolution?.findUnique === "function") {
+      const cancellationResolution = await tx.parcelCancellationResolution.findUnique({
+        where: { orderId },
+        select: { status: true },
+      });
+      if (cancellationResolution) {
+        throw dispatchError.orderNotAssignable(
+          "Order has an active or completed cancellation resolution and cannot be dispatched.",
+        );
+      }
+    }
 
     if (tx.marketplaceStoreOrderDeliveryBridge?.findFirst) {
       const bridge = await tx.marketplaceStoreOrderDeliveryBridge.findFirst({
@@ -320,6 +331,17 @@ export async function acceptDispatchAssignment(driverProfileId: string, assignme
     if (assignment.expiresAt && assignment.expiresAt <= new Date()) { await reconcileExpired(tx, assignment.orderId, assignment.driverProfile.userId); throw dispatchError.expired(); }
     assertAssignable(assignment.order);
     await assertParcelDispatchFundingInTx(tx, assignment.order);
+    if (typeof tx.parcelCancellationResolution?.findUnique === "function") {
+      const cancellationResolution = await tx.parcelCancellationResolution.findUnique({
+        where: { orderId: assignment.orderId },
+        select: { status: true },
+      });
+      if (cancellationResolution) {
+        throw dispatchError.orderNotAssignable(
+          "Order has an active or completed cancellation resolution and cannot be accepted for dispatch.",
+        );
+      }
+    }
     await validateDriver(tx, driverProfileId, assignment.order, assignmentId);
     // Recheck at acceptance: custody may have changed since the offer was created.
     await assertDriverCashCapacityForAssignment(tx, driverProfileId, assignment.orderId);

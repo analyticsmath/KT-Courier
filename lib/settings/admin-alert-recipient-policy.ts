@@ -3,6 +3,12 @@ export const ADMIN_ALERT_EVENT_TYPES = [
   "MARKETPLACE_ORDER_PAID",
   "STORE_READINESS_BLOCKER",
   "PAYMENT_RECONCILIATION_ALERT",
+  "NEW_CUSTOMER_REGISTERED",
+  "NEW_STORE_APPLICATION",
+  "NEW_DRIVER_APPLICATION",
+  "LOW_RATED_REVIEW",
+  "DRIVER_CASH_DEPOSIT_SUBMITTED",
+  "WITHDRAWAL_REQUESTED",
 ] as const;
 
 export type AdminAlertEventType = (typeof ADMIN_ALERT_EVENT_TYPES)[number];
@@ -104,4 +110,38 @@ export function activeRecipientsForAdminAlertEvent(
       isValidConfiguredNotificationEmail(recipient.email) &&
       recipient.events.includes(eventType),
   );
+}
+
+export const ADMIN_ALERT_EVENT_ADMIN_LINKS: Readonly<Record<AdminAlertEventType, string>> = {
+  PARCEL_ORDER_PAID: "/admin/orders",
+  MARKETPLACE_ORDER_PAID: "/admin/orders",
+  STORE_READINESS_BLOCKER: "/admin/stores",
+  PAYMENT_RECONCILIATION_ALERT: "/admin/payment-reconciliation",
+  NEW_CUSTOMER_REGISTERED: "/admin/users",
+  NEW_STORE_APPLICATION: "/admin/stores",
+  NEW_DRIVER_APPLICATION: "/admin/drivers",
+  LOW_RATED_REVIEW: "/admin/driver-reviews",
+  DRIVER_CASH_DEPOSIT_SUBMITTED: "/admin/cash-deposits",
+  WITHDRAWAL_REQUESTED: "/admin/withdrawals",
+};
+
+export const ADMIN_ALERT_EVENT_LABELS: Readonly<Record<AdminAlertEventType, string>> = {
+  PARCEL_ORDER_PAID: "Parcel order paid",
+  MARKETPLACE_ORDER_PAID: "Store marketplace order paid",
+  STORE_READINESS_BLOCKER: "Store readiness blocker",
+  PAYMENT_RECONCILIATION_ALERT: "Payment reconciliation alert",
+  NEW_CUSTOMER_REGISTERED: "New customer account",
+  NEW_STORE_APPLICATION: "New store application",
+  NEW_DRIVER_APPLICATION: "New driver application",
+  LOW_RATED_REVIEW: "Low-rated delivery or driver review",
+  DRIVER_CASH_DEPOSIT_SUBMITTED: "Driver cash deposit submitted",
+  WITHDRAWAL_REQUESTED: "Withdrawal requested",
+};
+
+export function getAdminAlertAdminPath(eventType: AdminAlertEventType): string {
+  return ADMIN_ALERT_EVENT_ADMIN_LINKS[eventType];
+}
+
+export function getAdminAlertEventLabel(eventType: AdminAlertEventType): string {
+  return ADMIN_ALERT_EVENT_LABELS[eventType];
 }

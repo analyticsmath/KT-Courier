@@ -6,6 +6,9 @@ import { logApplicationEvent } from "@/lib/observability/logger";
 import { isActualProductionInstance, promotionsProductionReady } from "@/lib/promotions/production-lock";
 import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/reporting/production-readiness";
 import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "@/lib/developer-api/production-readiness";
+import { subscriptionsProductionReady } from "@/lib/subscriptions/production-lock";
+import { promotersProductionReady } from "@/lib/promoters/production-readiness";
+import { advertisingProductionReady } from "@/lib/advertising/production-lock";
 
 const SCHEDULER_ID = `scheduler:${os.hostname()}:${process.pid}`;
 
@@ -33,7 +36,13 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   ...(process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true" && (!(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED) ? [{ name: "expire-report-artifacts" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true" && (!(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED) ? [{ name: "generate-report-jobs" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true" && DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? [{ name: "expire-developer-api-credentials" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_SUBSCRIPTION_RENEWAL_WORKER_ENABLED !== "false" && subscriptionsProductionReady() ? [{ name: "process-subscription-renewals" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_PROMOTER_QUALIFICATION_WORKER_ENABLED !== "false" && promotersProductionReady() ? [{ name: "process-promoter-qualifications" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_ADVERTISING_CLICK_WORKER_ENABLED !== "false" && advertisingProductionReady() ? [{ name: "process-valid-click-charges" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false" && DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? [{ name: "deliver-developer-webhooks" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
+  { name: "process-privacy-requests", intervalMs: 300_000, lastRunAt: 0 },
+  ...(process.env.KT_LOYALTY_RECONCILE_WORKER_DISABLED !== "true" ? [{ name: "reconcile-customer-parcel-loyalty" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
 
   // Periodic reconciliation & accounting (every 15 to 30 minutes)
   { name: "scan-payment-reconciliation", intervalMs: 900_000, lastRunAt: 0 },

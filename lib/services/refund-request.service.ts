@@ -16,8 +16,9 @@ import { assertRefundProductionActivation } from "@/lib/refunds/refund-productio
 import { assertRefundTransition } from "@/lib/refunds/refund-state-machine";
 import { REFUND_METHODS, REFUND_POLICY_VERSION, REFUND_REASON_CODES, type RefundMethodCode, type RefundReasonCodeValue } from "@/lib/refunds/types";
 import type { RefundProviderRegistry } from "@/lib/refunds/providers/refund-provider-registry";
-import { ensureCustomerRefundWallet } from "./customer-wallet.service";
-import { ensureGuestRefundHeldAccount, resolveRefundHeldAccount } from "./refund-held-account.service";
+import { ensureCustomerRefundWallet, ensureCustomerWalletAccountsInTx } from "./customer-wallet.service";
+import { ensureGuestRefundHeldAccount, ensureStoreRefundHeldAccountsInTx, resolveRefundHeldAccount } from "./refund-held-account.service";
+import { resolveParcelWalletFundingAuthorityInTx } from "./wallet-spending.service";
 import { assertCommittedMarketplaceAdjustmentFunding } from "./marketplace-adjustment-refund-authority";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { assertGenericRefundHasNoStoreEarningExposure, releaseStoreEarningRefundReservationsWithinTransaction } from "./store-earning-refund.service";
@@ -39,7 +40,7 @@ async function lockPaymentByReference(tx: Prisma.TransactionClient, publicRefere
     where: { id: rows[0].id },
     include: {
       user: { select: { id: true, role: true, status: true } },
-      order: { select: { id: true, orderNumber: true } },
+      order: { select: { id: true, orderNumber: true, storeId: true, store: { select: { id: true, ownerUserId: true, status: true } } } },
       successfulAttempt: { select: { id: true, status: true, provider: true, providerReference: true } },
       successWebhookEvent: { select: { id: true, processingStatus: true, signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true } },
       refunds: { select: { id: true, amount: true, status: true } },
@@ -198,6 +199,9 @@ export type RefundRequestInput = Readonly<{
   reasonCode: RefundReasonCodeValue;
   customerNote?: string;
   operationId: string;
+  explicitStoreId?: string | null;
+  allowCancellationAuthority?: boolean;
+  cancellationActorType?: "CUSTOMER" | "FINANCE_ADMIN" | "SYSTEM";
 }>;
 
 function assertRefundRequestInput(input: RefundRequestInput) {
@@ -220,27 +224,67 @@ export async function createRefundRequestInTransaction(tx: Prisma.TransactionCli
   const { operationId, amount, customerNote } = assertRefundRequestInput(input);
   const replayByOperation = await tx.paymentRefund.findUnique({ where: { creationIdempotencyKey: operationId } });
   if (replayByOperation) {
-    const payment = await tx.payment.findUnique({ where: { publicReference: input.paymentPublicReference }, select: { id: true } });
-    const requestHash = payment ? refundCreationHash({ paymentId: payment.id, customerUserId: input.actorUserId, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference }) : null;
+    const payment = await tx.payment.findUnique({
+      where: { publicReference: input.paymentPublicReference },
+      select: { id: true, userId: true, order: { select: { storeId: true } } },
+    });
+    const hashSubjectKey = payment?.order?.storeId
+      ? `STORE:${payment.order.storeId}`
+      : (input.allowCancellationAuthority && payment?.userId ? payment.userId : input.actorUserId);
+    const requestHash = payment ? refundCreationHash({ paymentId: payment.id, customerUserId: hashSubjectKey, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference }) : null;
     if (requestHash && replayByOperation.creationRequestHash === requestHash) return replayByOperation;
     throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to a different refund request.");
   }
 
   const payment = await lockPaymentByReference(tx, input.paymentPublicReference);
-  const requestHash = refundCreationHash({ paymentId: payment.id, customerUserId: input.actorUserId, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference });
-  if (!payment.user || payment.userId !== input.actorUserId || payment.user.role !== "CUSTOMER" || payment.user.status !== "ACTIVE") throw new RefundError("REFUND_FORBIDDEN", "Payment does not belong to the active customer.");
+  const storeId = payment.order?.storeId ?? null;
+  const beneficiaryCustomerUserId = storeId
+    ? null
+    : (input.allowCancellationAuthority ? payment.userId : input.actorUserId);
+
+  if (storeId) {
+    if (!input.allowCancellationAuthority) {
+      try {
+        await resolveParcelWalletFundingAuthorityInTx(tx, {
+          orderId: payment.orderId!,
+          actorUserId: input.actorUserId,
+          explicitStoreId: input.explicitStoreId,
+        });
+      } catch {
+        throw new RefundError("REFUND_FORBIDDEN", "Payment refund is not authorized for this store account.");
+      }
+    }
+  } else if (input.allowCancellationAuthority) {
+    if (!payment.user || !payment.userId || payment.user.status !== "ACTIVE" || !["CUSTOMER", "STORE"].includes(payment.user.role)) {
+      throw new RefundError("REFUND_FORBIDDEN", "Payment does not belong to an active customer.");
+    }
+  } else {
+    if (!payment.user || payment.userId !== input.actorUserId || payment.user.role !== "CUSTOMER" || payment.user.status !== "ACTIVE") {
+      throw new RefundError("REFUND_FORBIDDEN", "Payment does not belong to the active customer.");
+    }
+  }
+
+  const hashSubjectKey = storeId ? `STORE:${storeId}` : beneficiaryCustomerUserId!;
+  const requestHash = refundCreationHash({ paymentId: payment.id, customerUserId: hashSubjectKey, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference });
   const succeeded = payment.refunds.filter((refund) => refund.status === "SUCCEEDED").reduce((sum, refund) => sum.add(refund.amount), new Prisma.Decimal(0));
   const reserved = payment.refunds.filter((refund) => ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "RECONCILIATION_REQUIRED"].includes(refund.status)).reduce((sum, refund) => sum.add(refund.amount), new Prisma.Decimal(0));
   if (!succeeded.equals(payment.totalRefundedAmount) || !reserved.equals(payment.totalRefundReservedAmount)) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Payment refund projections do not match refund evidence.");
   const remaining = payment.amount.sub(succeeded).sub(reserved);
   if (amount.toDecimal().greaterThan(remaining)) throw new RefundError("REFUND_AMOUNT_EXCEEDS_REMAINING", "Requested refund exceeds the remaining refundable amount.");
-  const accounts = await resolveCustomerRefundAccounts(tx, input.actorUserId);
+
+  const accounts = storeId
+    ? await ensureStoreRefundHeldAccountsInTx(tx, storeId)
+    : input.allowCancellationAuthority
+      ? await ensureCustomerWalletAccountsInTx(tx, beneficiaryCustomerUserId!).then((w) => ({ wallet: w.wallet, available: w.available, held: w.refundHeld }))
+      : await resolveCustomerRefundAccounts(tx, beneficiaryCustomerUserId!);
+
   const incompatible = payment.refunds.some((refund) => refund.status === "PROCESSING" || refund.status === "RECONCILIATION_REQUIRED");
   const provider = payment.provider === "PAYSTACK" || payment.provider === "PAYFAST" ? payment.provider : null;
   const adapter = input.method === "ORIGINAL_PAYMENT_METHOD" && provider && dependencies.providerRegistry ? dependencies.providerRegistry.getAdapter(provider) : null;
   const providerSupportsMethod = Boolean(adapter && adapter.capabilities.supportsFullRefund && (amount.toDecimal().equals(payment.amount) || adapter.capabilities.supportsPartialRefund) && !adapter.capabilities.requiresCustomerBankData);
-  assertRefundEligibility({ paymentStatus: payment.status, paymentCustomerUserId: payment.userId, requestingCustomerUserId: input.actorUserId, currency: payment.currency, paymentAmount: payment.amount.toFixed(2), remainingRefundableAmount: remaining.toFixed(2), requestedAmount: amount.toString(), hasVerifiedSuccessfulAttempt: payment.successfulAttempt?.status === "SUCCEEDED", hasVerifiedWebhook: Boolean(payment.successWebhookEvent?.processingStatus === "APPLIED" && payment.successWebhookEvent.signatureVerified && payment.successWebhookEvent.merchantVerified && payment.successWebhookEvent.amountVerified && payment.successWebhookEvent.providerDataVerified), hasSuccessLedgerJournal: Boolean(payment.successLedgerJournalId), hasIncompatibleActiveRefund: incompatible, hasChargebackOrDisputeEvidence: false, financialAllocationsSafe: true, customerWalletProvisioned: Boolean(accounts.available && accounts.held), providerReferenceAvailable: Boolean(payment.successfulAttempt?.providerReference), providerSupportsMethod, method: input.method, reasonCode: input.reasonCode });
-  if (sourceAdjustmentReference) await assertCommittedMarketplaceAdjustmentFunding(tx, { adjustmentReference: sourceAdjustmentReference, paymentId: payment.id, operationId, amount: amount.toString(), customerUserId: input.actorUserId });
+  const effectiveEligibilityActor = input.allowCancellationAuthority ? (payment.userId ?? input.actorUserId) : input.actorUserId;
+  assertRefundEligibility({ paymentStatus: payment.status, paymentProvider: payment.provider, paymentCustomerUserId: payment.userId ?? "", requestingCustomerUserId: effectiveEligibilityActor, currency: payment.currency, paymentAmount: payment.amount.toFixed(2), remainingRefundableAmount: remaining.toFixed(2), requestedAmount: amount.toString(), hasVerifiedSuccessfulAttempt: payment.successfulAttempt?.status === "SUCCEEDED", hasVerifiedWebhook: Boolean(payment.successWebhookEvent?.processingStatus === "APPLIED" && payment.successWebhookEvent.signatureVerified && payment.successWebhookEvent.merchantVerified && payment.successWebhookEvent.amountVerified && payment.successWebhookEvent.providerDataVerified), hasSuccessLedgerJournal: Boolean(payment.successLedgerJournalId), hasIncompatibleActiveRefund: incompatible, hasChargebackOrDisputeEvidence: false, financialAllocationsSafe: true, customerWalletProvisioned: Boolean(accounts.available && accounts.held), providerReferenceAvailable: Boolean(payment.successfulAttempt?.providerReference), providerSupportsMethod, method: input.method, reasonCode: input.reasonCode });
+  if (sourceAdjustmentReference) await assertCommittedMarketplaceAdjustmentFunding(tx, { adjustmentReference: sourceAdjustmentReference, paymentId: payment.id, operationId, amount: amount.toString(), customerUserId: beneficiaryCustomerUserId });
   else await assertGenericRefundHasNoStoreEarningExposure(tx, payment.id);
   await assertGenericRefundHasNoDriverEarningExposure(tx, payment.id);
   const allocations = await resolveOriginalCommissionAllocations(tx, payment);
@@ -252,14 +296,14 @@ export async function createRefundRequestInTransaction(tx: Prisma.TransactionCli
   const funding = buildRefundFundingPlan({ refundAmount: amount.toString(), customerFundsHeldAccountId: customerFunds.id, adjustmentDeltas: deltas, createReference: fundingReference });
   await lockAndVerifyFundingAccounts(tx, funding, accounts.held.id);
   const publicReference = refundReference();
-  const reserveJournal = await postLedgerJournalWithinTransaction(tx, refundReservePosting({ refundReference: publicReference, paymentReference: payment.publicReference, amount: amount.toString(), actorUserId: input.actorUserId, heldAccountId: accounts.held.id, method: input.method, reasonCode: input.reasonCode, funding }));
-  const refund = await tx.paymentRefund.create({ data: { publicReference, paymentId: payment.id, customerUserId: input.actorUserId, method: input.method, amount: amount.toDecimal(), currency: "ZAR", status: "REQUESTED", reasonCode: input.reasonCode, customerNote, creationIdempotencyKey: operationId, creationRequestHash: requestHash, policyVersion: REFUND_POLICY_VERSION, reserveLedgerJournalId: reserveJournal.id } });
+  const reserveJournal = await postLedgerJournalWithinTransaction(tx, refundReservePosting({ refundReference: publicReference, paymentReference: payment.publicReference, amount: amount.toString(), actorUserId: input.cancellationActorType === "SYSTEM" ? undefined : input.actorUserId, heldAccountId: accounts.held.id, method: input.method, reasonCode: input.reasonCode, funding }));
+  const refund = await tx.paymentRefund.create({ data: { publicReference, paymentId: payment.id, customerUserId: beneficiaryCustomerUserId, beneficiaryStoreId: storeId, method: input.method, amount: amount.toDecimal(), currency: "ZAR", status: "REQUESTED", reasonCode: input.reasonCode, customerNote, creationIdempotencyKey: operationId, creationRequestHash: requestHash, policyVersion: REFUND_POLICY_VERSION, reserveLedgerJournalId: reserveJournal.id } });
   await tx.refundFundingAllocation.createMany({ data: funding.map((item) => ({ publicReference: item.publicReference, refundId: refund.id, sourceType: item.sourceType, ledgerAccountId: item.ledgerAccountId, commissionAccrualId: item.commissionAccrualId, commissionAllocationId: item.commissionAllocationId, storeEarningId: item.storeEarningId, driverEarningId: item.driverEarningId, amount: item.amount, currency: "ZAR" })) });
   const projection = await tx.payment.updateMany({ where: { id: payment.id, version: payment.version }, data: { totalRefundReservedAmount: { increment: amount.toDecimal() }, version: { increment: 1 } } });
   if (projection.count !== 1) throw new RefundError("REFUND_CONCURRENCY_CONFLICT", "Payment refund reservation lost a concurrent update.", true);
   await tx.refundStatusHistory.createMany({ data: [
-    { refundId: refund.id, toStatus: "REQUESTED", actorType: "CUSTOMER", actorUserId: input.actorUserId, operationId, reasonCode: "REFUND_REQUESTED" },
-    { refundId: refund.id, toStatus: "REQUESTED", actorType: "SYSTEM", reasonCode: "FUNDS_RESERVED", safeMetadata: { reserveJournalReference: reserveJournal.reference } },
+    { refundId: refund.id, toStatus: "REQUESTED", actorType: input.cancellationActorType ?? "CUSTOMER", actorUserId: input.cancellationActorType === "SYSTEM" ? null : input.actorUserId, operationId, reasonCode: "REFUND_REQUESTED", ...(storeId ? { safeMetadata: { beneficiaryStoreId: storeId } } : {}) },
+    { refundId: refund.id, toStatus: "REQUESTED", actorType: "SYSTEM", reasonCode: "FUNDS_RESERVED", safeMetadata: { reserveJournalReference: reserveJournal.reference, ...(storeId ? { beneficiaryStoreId: storeId } : {}) } },
   ] });
   return refund;
 }
@@ -272,7 +316,13 @@ async function createCustomerRefundRequest(input: RefundRequestInput, dependenci
   (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
   assertRefundRequestInput(input);
 
-  await ensureCustomerRefundWallet(input.actorUserId);
+  const paymentMeta = await prisma.payment.findUnique({
+    where: { publicReference: input.paymentPublicReference },
+    select: { order: { select: { storeId: true } } },
+  });
+  if (!paymentMeta?.order?.storeId) {
+    await ensureCustomerRefundWallet(input.actorUserId);
+  }
   const run = () => prisma.$transaction((tx) => createRefundRequestInTransaction(tx, input, dependencies, sourceAdjustmentReference), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
   try { return await withLedgerRetry(run); }
@@ -280,9 +330,13 @@ async function createCustomerRefundRequest(input: RefundRequestInput, dependenci
     if ((error as { code?: string })?.code !== "P2002") throw error;
     const operationId = assertRefundOperationId(input.operationId);
     const winner = await prisma.paymentRefund.findUnique({ where: { creationIdempotencyKey: operationId } });
-    const payment = await prisma.payment.findUnique({ where: { publicReference: input.paymentPublicReference }, select: { id: true } });
+    const payment = await prisma.payment.findUnique({
+      where: { publicReference: input.paymentPublicReference },
+      select: { id: true, order: { select: { storeId: true } } },
+    });
     const { amount, customerNote } = assertRefundRequestInput(input);
-    if (winner && payment && winner.creationRequestHash === refundCreationHash({ paymentId: payment.id, customerUserId: input.actorUserId, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference })) return winner;
+    const hashSubjectKey = payment?.order?.storeId ? `STORE:${payment.order.storeId}` : input.actorUserId;
+    if (winner && payment && winner.creationRequestHash === refundCreationHash({ paymentId: payment.id, customerUserId: hashSubjectKey, amount: amount.toString(), method: input.method, reasonCode: input.reasonCode, customerNote, policyVersion: REFUND_POLICY_VERSION, sourceAdjustmentReference })) return winner;
     throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to a different refund request.");
   }
 }
@@ -293,22 +347,34 @@ async function releaseRefundReservation(input: Readonly<{ actorUserId: string; p
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "PaymentRefund" WHERE "publicReference" = ${input.publicReference} FOR UPDATE`);
     if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
-    const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } }, fundingAllocations: { include: { commissionAllocation: { select: { publicReference: true } } }, orderBy: { id: "asc" } } } });
+    const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, beneficiaryStore: { select: { ownerUserId: true } }, statusHistory: { where: { toStatus: "REQUESTED" }, select: { actorUserId: true }, take: 2 }, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } }, fundingAllocations: { include: { commissionAllocation: { select: { publicReference: true } } }, orderBy: { id: "asc" } } } });
     if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
-    if (input.targetStatus === "CANCELLED" && refund.customerUserId !== input.actorUserId) throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");
-    if (input.targetStatus === "REJECTED" && refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot reject their own refund administratively.");
+    const requesterBlocked =
+      refund.customerUserId === input.actorUserId ||
+      refund.beneficiaryStore?.ownerUserId === input.actorUserId ||
+      refund.statusHistory.some((h) => h.actorUserId === input.actorUserId);
+    if (input.targetStatus === "CANCELLED") {
+      if (refund.beneficiaryStoreId && refund.payment.orderId) {
+        try {
+          await resolveParcelWalletFundingAuthorityInTx(tx, { orderId: refund.payment.orderId, actorUserId: input.actorUserId });
+        } catch {
+          throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to this store account.");
+        }
+      } else if (refund.customerUserId !== input.actorUserId) {
+        throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");
+      }
+    }
+    if (input.targetStatus === "REJECTED" && requesterBlocked) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot reject their own refund administratively.");
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
       if (replay.toStatus === input.targetStatus && refund.status === input.targetStatus && replay.actorUserId === input.actorUserId && (input.targetStatus !== "REJECTED" || refund.financeNote === financeNote)) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
-    if (input.targetStatus === "CANCELLED" && refund.customerUserId !== input.actorUserId) throw new RefundError("REFUND_FORBIDDEN", "Refund request does not belong to the customer.");
-    if (input.targetStatus === "REJECTED" && refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot reject their own refund administratively.");
     if (!((["REQUESTED", "UNDER_REVIEW"] as string[]).includes(refund.status))) throw new RefundError("REFUND_INVALID_STATE", "Refund reservation cannot be released from its current state.");
     assertRefundTransition(refund.status, input.targetStatus);
     if (refund.releaseLedgerJournalId || refund.completionLedgerJournalId) throw new RefundError("REFUND_INVALID_STATE", "Refund already has release or completion evidence.");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`);
-    const held = await resolveRefundHeldAccount(tx, refund.customerUserId);
+    const held = await resolveRefundHeldAccount(tx, refund.customerUserId, refund.beneficiaryStoreId);
     if (!held) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Customer refund-held account is unavailable.");
     assertRefundReserveJournalEvidence({ refundAmount: refund.amount, heldAccountId: held.id, journal: refund.reserveLedgerJournal });
     const funding: RefundFundingPlanItem[] = refund.fundingAllocations.map((item) => ({ publicReference: item.publicReference, sourceType: item.sourceType, ledgerAccountId: item.ledgerAccountId, commissionAccrualId: item.commissionAccrualId, commissionAllocationId: item.commissionAllocationId, commissionAllocationReference: item.commissionAllocation?.publicReference ?? null, storeEarningId: item.storeEarningId, driverEarningId: item.driverEarningId, amount: item.amount.toFixed(2) }));

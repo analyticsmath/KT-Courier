@@ -5,6 +5,7 @@ import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-chec
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { prepareMarketplacePayment as preparePhase10MarketplacePayment, type MarketplacePaymentPreparationCommand } from "@/lib/services/payment-preparation.service";
 import { prepareMarketplacePaystackCustomerAction } from "@/lib/marketplace-checkout/marketplace-paystack-checkout.service";
+import type { PaymentChannel } from "@/lib/payments/providers/payment-provider-adapter";
 
 export type MarketplacePaymentPreparationResult = Readonly<{
   paymentReference: string;
@@ -24,11 +25,13 @@ export interface MarketplacePaymentOrchestrator {
     checkoutId: string; checkoutReference: string; customerUserId: string | null;
     guestAccessTokenHash: string | null; payerEmail: string; amount: string; currency: "ZAR";
     commercialFingerprint: string; operationId: string; walletAmount?: string | null;
+    channel?: PaymentChannel;
   }>): Promise<MarketplacePaymentPreparationResult>;
   /** Resume the EXISTING canonical payment, not a new financial intent. */
   resumeMarketplaceProviderAction?(input: Readonly<{
     paymentId: string; paymentReference: string; payerEmail: string;
     operationId: string; guestCheckoutEvidence: boolean;
+    channel?: PaymentChannel;
   }>): Promise<MarketplacePaymentPreparationResult["providerAction"]>;
 }
 
@@ -38,10 +41,11 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
     async resumeMarketplaceProviderAction(input: Readonly<{
       paymentId: string; paymentReference: string; payerEmail: string;
       operationId: string; guestCheckoutEvidence: boolean;
+      channel?: PaymentChannel;
     }>) {
       return prepareMarketplacePaystackCustomerAction(input);
     },
-    async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand) {
+    async prepareMarketplacePayment(input: MarketplacePaymentPreparationCommand & Readonly<{ channel?: PaymentChannel }>) {
       const payment = await preparePhase10MarketplacePayment({ ...input });
       if (payment.walletSettled) {
         return Object.freeze({
@@ -71,6 +75,7 @@ export function createPhase10And11MarketplacePaymentOrchestrator(): MarketplaceP
         payerEmail: input.payerEmail,
         operationId: input.operationId + ":paystack",
         guestCheckoutEvidence: !input.customerUserId,
+        ...(input.channel ? { channel: input.channel } : {}),
       });
       return Object.freeze({
         paymentReference: payment.publicReference, paymentId: payment.id,
@@ -108,6 +113,7 @@ export async function prepareMarketplaceCheckoutPayment(
     payerEmail: string;
     operationId: string;
     walletAmount?: string | null;
+    channel?: PaymentChannel;
     testApproval?: { approved: true };
   }>,
 ): Promise<MarketplacePaymentPreparationResult> {
@@ -165,6 +171,7 @@ export async function prepareMarketplaceCheckoutPayment(
         paymentId: checkout.payment.id, paymentReference: checkout.payment.publicReference,
         payerEmail: input.payerEmail, operationId: input.operationId + ":paystack",
         guestCheckoutEvidence: !checkout.customerUserId,
+        ...(input.channel ? { channel: input.channel } : {}),
       });
       if (!providerAction) {
         throw new MarketplaceCheckoutError("PAYMENT_PREPARATION_BLOCKED",
@@ -189,6 +196,7 @@ export async function prepareMarketplaceCheckoutPayment(
     payerEmail: input.payerEmail, amount: payable, currency: "ZAR",
     commercialFingerprint: checkout.acceptedFingerprint, operationId: input.operationId,
     walletAmount: input.walletAmount,
+    ...(input.channel ? { channel: input.channel } : {}),
   });
   const prepWalletAmount = input.walletAmount ?? "0.00";
   const prepMatches = Math.round(Number(prepared.amount) * 100) + Math.round(Number(prepWalletAmount) * 100) === Math.round(Number(payable) * 100);

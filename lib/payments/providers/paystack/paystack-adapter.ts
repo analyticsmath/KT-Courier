@@ -1,5 +1,6 @@
 import { PaymentError } from "../../errors";
 import type {
+  PaymentChannel,
   PaymentProviderAdapter,
   PaymentProviderCapabilities,
   ProviderCallContext,
@@ -68,6 +69,11 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       throw new PaymentError("PAYMENT_PROVIDER_NOT_CONFIGURED", "Paystack payment provider is disabled.");
     }
 
+    const paymentChannel: PaymentChannel = input.paymentChannel ?? "CARD";
+    if (paymentChannel === "EFT" && !this.configuration.eftChannelEnabled) {
+      throw new PaymentError("EFT_UNAVAILABLE", "Paystack EFT channel is not enabled on this merchant account.");
+    }
+
     const amountCents = zarToSubunitCents(input.amount);
     if (input.currency !== "ZAR") {
       throw new PaymentError("PAYMENT_CURRENCY_INVALID", "Paystack payments must be in ZAR.");
@@ -131,11 +137,13 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       amountCents,
       reference: input.merchantReference,
       callbackUrl: input.returnUrl,
+      channels: paymentChannel === "EFT" ? ["eft"] : ["card"],
       metadata: Object.freeze({
         paymentPublicReference: input.paymentPublicReference,
         orderReference: input.orderReference,
         customerReference: input.customerReference,
         providerOperationKey: input.providerOperationKey,
+        paymentChannel,
       }),
     }, context.signal);
 
@@ -156,6 +164,7 @@ export class PaystackAdapter implements PaymentProviderAdapter {
       safeMetadata: Object.freeze({
         environment: this.configuration.environment,
         reference: initData.reference,
+        paymentChannel,
       }),
       definitive: false,
     });

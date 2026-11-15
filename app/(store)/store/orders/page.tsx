@@ -18,13 +18,18 @@ import type { StoreFulfilmentQueue as StoreFulfilmentQueueModel } from "@/lib/st
 
 export const metadata: Metadata = { title: "Store orders" };
 
-export default async function StoreOrdersPage() {
-  await requireBusinessPage("/store/orders");
+export default async function StoreOrdersPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ storeId?: string }>;
+}) {
+  const { storeId } = (searchParams ? await searchParams : {}) ?? {};
+  await requireBusinessPage("/store/orders", storeId);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const [courierRequests, ownedStore] = await Promise.all([
-    listOrders(user, { page: 1, pageSize: 50 }, true),
-    storeAccess(user.id, "orders").then((a) => a.store),
+    listOrders(user, { page: 1, pageSize: 50 }, true, storeId),
+    storeAccess(user.id, "orders", storeId).then((a) => a.store),
   ]);
   const marketplaceQueue = ownedStore
     ? await listStoreOrderQueue(ownedStore.id)

@@ -46,6 +46,18 @@ export function sanitizeReturnUrl(url: string | null | undefined): string {
   return trimmed;
 }
 
+function buildForwardedRequestHeaders(request: NextRequest, pathname: string): Headers {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-kt-store-context");
+  if (pathname === "/store" || pathname.startsWith("/store/")) {
+    const storeId = request.nextUrl.searchParams.get("storeId")?.trim();
+    if (storeId) {
+      requestHeaders.set("x-kt-store-context", storeId);
+    }
+  }
+  return requestHeaders;
+}
+
 /**
  * Next.js 16 request proxy handler for coarse browser surface gating and request integrity.
  * Proxy provides coarse gating only; final business authorization is enforced at route/service layers.
@@ -59,7 +71,9 @@ export function proxy(request: NextRequest): NextResponse {
       if (!resolveEdgeOrigin(process.env)) throw new Error("Missing edge identity");
       // The build's beforeFiles rewrites own the origin for every path/asset.
       // Do not rewrite from mutable runtime origins or render preview pages.
-      return NextResponse.next();
+      return NextResponse.next({
+        request: { headers: buildForwardedRequestHeaders(request, pathname) },
+      });
     } catch {
       return NextResponse.json({ error: "Routing is unavailable in this environment." }, { status: 503, headers: { "Cache-Control": "no-store" } });
     }
@@ -117,7 +131,9 @@ export function proxy(request: NextRequest): NextResponse {
   }
 
   // Security headers for response
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: { headers: buildForwardedRequestHeaders(request, pathname) },
+  });
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

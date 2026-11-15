@@ -1,4 +1,5 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
@@ -36,8 +37,9 @@ export async function POST(
     );
   try {
     const id = (await c.params).id;
+    const explicitStoreId = resolveExplicitStoreContextId(req);
     const business = user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE";
-    const store = business ? (await storeAccess(user.id, "deliveries")).store : null;
+    const store = business ? (await storeAccess(user.id, "deliveries", explicitStoreId)).store : null;
     if (business && !store) throw new PlatformError("STORE_NOT_FOUND", "Business not found.", 403);
     const replayInput = { quoteId: id, userId: user.id, storeId: store?.id ?? null, booking: parsed.data };
     // The first POST may have committed even if the HTTP response was lost.
@@ -111,7 +113,7 @@ export async function POST(
         if (claimed.count !== 1) throw new PlatformError("QUOTE_EXPIRED", "Request a new quote before booking.", 409);
         // Ownership, consumption, contacts and the canonical order commit together.
         // A refused payment policy must leave the anonymous quote usable by its owner.
-        return createOrder(user, input, business, tx);
+        return createOrder(user, input, business, tx, explicitStoreId);
       });
     } catch (cause) {
       // Another concurrent POST can win the single-use quote race after our

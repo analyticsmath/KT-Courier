@@ -60,8 +60,11 @@ export async function prepareOrderPayment(
   }
 
   let subject: ResolvedOrderPaymentSubject;
+  const explicitStoreId = parsed.data.storeContextId?.trim() || null;
   try {
-    subject = await resolveOrderPaymentSubject(parsed.data.orderId, payer.id);
+    subject = await resolveOrderPaymentSubject(parsed.data.orderId, payer.id, prisma, {
+      explicitStoreId,
+    });
   } catch (error) {
     if (error instanceof PaymentError && error.code === "PAYMENT_ORDER_ALREADY_PAID") {
       const committed = await prisma.payment?.findUnique?.({
@@ -82,6 +85,9 @@ export async function prepareOrderPayment(
             subjectType: "ORDER",
             subjectId: parsed.data.orderId,
             payerUserId: payer.id,
+            storeId: meta?.walletOwnerType === "STORE" && typeof meta.walletOwnerId === "string" ? meta.walletOwnerId : null,
+            walletOwnerType: meta?.walletOwnerType === "STORE" ? "STORE" : "CUSTOMER",
+            walletOwnerId: meta?.walletOwnerType === "STORE" && typeof meta.walletOwnerId === "string" ? meta.walletOwnerId : payer.id,
             currency: "ZAR",
             amount: LedgerMoney.parse(payableStr),
           },
@@ -118,6 +124,7 @@ export async function prepareOrderPayment(
           orderId: parsed.data.orderId,
           idempotencyKey: parsed.data.idempotencyKey,
           walletAmount: parsed.data.walletAmount,
+          explicitStoreId,
           preparationIntent,
         });
         if (walletPayment) return walletPayment;
@@ -138,8 +145,17 @@ export async function prepareOrderPayment(
       if (succeeded) throw new PaymentError("PAYMENT_ORDER_ALREADY_PAID", "Order already has a successful payment.");
 
       await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${subject.subjectId} FOR UPDATE`;
-      const freshSubject = await resolveOrderPaymentSubject(subject.subjectId, payer.id, tx);
-      if (!freshSubject.amount.equals(subject.amount) || freshSubject.currency !== subject.currency) throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
+      const freshSubject = await resolveOrderPaymentSubject(subject.subjectId, payer.id, tx, {
+        explicitStoreId,
+      });
+      if (
+        !freshSubject.amount.equals(subject.amount) ||
+        freshSubject.currency !== subject.currency ||
+        freshSubject.walletOwnerType !== subject.walletOwnerType ||
+        freshSubject.walletOwnerId !== subject.walletOwnerId
+      ) {
+        throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
+      }
       const payment = await tx.payment.create({
         data: {
           publicReference: newPublicPaymentReference(),
@@ -155,7 +171,17 @@ export async function prepareOrderPayment(
           creationRequestHash: requestHash,
           version: 0,
           latestAttemptNumber: 0,
-          metadata: { subjectType: "ORDER", policyVersion: PAYMENT_POLICY_VERSION },
+          metadata: {
+            subjectType: "ORDER",
+            policyVersion: PAYMENT_POLICY_VERSION,
+            ...(freshSubject.walletOwnerType === "STORE"
+              ? {
+                  walletOwnerType: "STORE",
+                  walletOwnerId: freshSubject.walletOwnerId,
+                  actingActorUserId: payer.id,
+                }
+              : {}),
+          },
         },
         include: PAYMENT_SUMMARY_INCLUDE,
       });

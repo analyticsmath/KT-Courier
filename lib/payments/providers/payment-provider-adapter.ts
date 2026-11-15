@@ -19,6 +19,8 @@ export type ProviderCallContext = Readonly<{
   freshAttempt?: boolean;
 }>;
 
+export type PaymentChannel = "CARD" | "EFT";
+
 export type ProviderCheckoutSessionInput = Readonly<{
   merchantReference: string;
   paymentPublicReference: string;
@@ -33,6 +35,7 @@ export type ProviderCheckoutSessionInput = Readonly<{
   notificationUrl: string;
   description: string;
   providerOperationKey: string;
+  paymentChannel?: PaymentChannel;
 }>;
 
 export type ProviderCustomerAction =

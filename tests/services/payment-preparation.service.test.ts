@@ -176,13 +176,22 @@ describe("payment preparation service", () => {
       ]),
       user: {
         findFirst: vi.fn().mockResolvedValue({ id: "u" }),
-        findUnique: vi.fn().mockResolvedValue({ id: "u", status: "ACTIVE" }),
+        findUnique: vi.fn().mockResolvedValue({ id: "u", status: "ACTIVE", role: "CUSTOMER" }),
       },
       order: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "o",
+          orderNumber: "KT-1",
+          customerId: "u",
+          storeId: null,
+          store: null,
+        }),
         findUniqueOrThrow: vi.fn().mockResolvedValue({
           id: "o",
           orderNumber: "KT-1",
           status: "PENDING",
+          customerId: "u",
+          storeId: null,
           store: null,
           cashOnDelivery: null,
           pricingSnapshot: {},

@@ -4,6 +4,7 @@ import { marketplaceError, marketplaceJson, marketplaceOwner } from "@/lib/marke
 import { prisma } from "@/lib/db/prisma";
 import { listCustomerAddresses } from "@/lib/services/customer-addresses.service";
 import { MARKETPLACE_CHECKOUT_COOKIE, MARKETPLACE_ORDER_COOKIE, marketplaceGuestCookieOptions } from "@/lib/marketplace-checkout/tokens";
+import { evaluatePaystackEftReadiness } from "@/lib/payments/providers/paystack/paystack-config";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ reference: string }> }) {
   try {
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ref
       checkout: projectPublicCheckout(checkout),
       ...(owner.type === "CUSTOMER" ? { account, savedAddresses } : {}),
     });
+    response.headers.set("X-KT-Eft-Available", evaluatePaystackEftReadiness().ready ? "true" : "false");
     if (owner.type === "GUEST" && checkout.status === "COMPLETED") {
       const order = await prisma.marketplaceOrder.findUnique({ where: { checkoutId: checkout.id }, select: { guestConfirmationHash: true, customerUserId: true } });
       const secret = request.cookies.get(MARKETPLACE_CHECKOUT_COOKIE)?.value;

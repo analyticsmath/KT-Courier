@@ -106,10 +106,39 @@ export async function createWithdrawalRequest(input: Readonly<{
       { withdrawalId: withdrawal.id, toStatus: "REQUESTED", actorType: "OWNER", actorUserId: input.actorUserId, reasonCode: "WITHDRAWAL_REQUESTED" },
       { withdrawalId: withdrawal.id, toStatus: "REQUESTED", actorType: "SYSTEM", reasonCode: "FUNDS_RESERVED", safeMetadata: { reserveJournalReference: reserve.reference } },
     ] });
+    const { recordAdminAlertIntentInTx } = await import("@/lib/notifications/admin-alert-dispatch.service");
+    await recordAdminAlertIntentInTx(tx, {
+      eventType: "WITHDRAWAL_REQUESTED",
+      aggregateReference: `withdrawal:${withdrawal.publicReference}`,
+      title: `Withdrawal requested ${withdrawal.publicReference}`,
+      summary: `${owner.ownerType} withdrawal request for R${amount.toDecimal().toFixed(2)} awaiting review.`,
+      adminPath: `/admin/withdrawals/${withdrawal.id}`,
+      details: {
+        withdrawalReference: withdrawal.publicReference,
+        ownerType: owner.ownerType,
+        amountZar: amount.toDecimal().toFixed(2),
+      },
+    });
     return withdrawal;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-  try { return await withLedgerRetry(run); }
+  try {
+    const created = await withLedgerRetry(run);
+    const { emitAdminAlertNonBlocking } = await import("@/lib/notifications/admin-alert-dispatch.service");
+    await emitAdminAlertNonBlocking({
+      eventType: "WITHDRAWAL_REQUESTED",
+      aggregateReference: `withdrawal:${created.publicReference}`,
+      title: `Withdrawal requested ${created.publicReference}`,
+      summary: `${created.ownerType} withdrawal request for R${created.amount.toFixed(2)} awaiting review.`,
+      adminPath: `/admin/withdrawals/${created.id}`,
+      details: {
+        withdrawalReference: created.publicReference,
+        ownerType: created.ownerType,
+        amountZar: created.amount.toFixed(2),
+      },
+    });
+    return created;
+  }
   catch (error) {
     if ((error as { code?: string })?.code !== "P2002") throw error;
     const existing = await prisma.withdrawalRequest.findUnique({ where: { creationIdempotencyKey: operationId } });

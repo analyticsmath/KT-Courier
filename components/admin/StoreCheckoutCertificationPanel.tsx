@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 
+type StageResult = {
+  stage: string;
+  passed: boolean;
+  summary: string;
+  durationMs: number;
+};
+
 type Certification = {
   status: string;
   revision: number;
@@ -18,7 +25,25 @@ type Certification = {
   routeEvidenceDigest: string | null;
   checkoutEvidenceReference: string;
   checkoutEvidenceDigest: string | null;
+  evidenceType?: string | null;
+  engineProofReference?: string | null;
+  engineProofDigest?: string | null;
+  engineProofSuiteSha?: string | null;
+  policyFingerprint?: string | null;
+  stageResults?: unknown;
 } | null;
+
+function normalizeStages(value: unknown): StageResult[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is StageResult =>
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as StageResult).stage === "string" &&
+      typeof (item as StageResult).passed === "boolean" &&
+      typeof (item as StageResult).summary === "string",
+  );
+}
 
 export function StoreCheckoutCertificationPanel({
   storeId, initial, initialNeedsRenewal = false,
@@ -26,6 +51,11 @@ export function StoreCheckoutCertificationPanel({
   const router = useRouter();
   const [status, setStatus] = useState(initialNeedsRenewal ? "RENEWAL_REQUIRED" : initial?.status ?? "NOT_SUBMITTED");
   const [revision, setRevision] = useState(initial?.revision ?? 0);
+  const [evidenceType, setEvidenceType] = useState(initial?.evidenceType ?? null);
+  const [engineProofRef, setEngineProofRef] = useState(initial?.engineProofReference ?? null);
+  const [engineProofDigest, setEngineProofDigest] = useState(initial?.engineProofDigest ?? null);
+  const [engineProofSuiteSha, setEngineProofSuiteSha] = useState(initial?.engineProofSuiteSha ?? null);
+  const [stages, setStages] = useState<StageResult[]>(normalizeStages(initial?.stageResults));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -58,6 +88,19 @@ export function StoreCheckoutCertificationPanel({
       // The server's status is authoritative. No client-side promotion to Live.
       setStatus(payload.status);
       setRevision(payload.revision);
+      if (payload.engineProof) {
+        setEvidenceType(payload.evidenceType ?? "DISPOSABLE_END_TO_END_CHECKOUT_PROOF");
+        setEngineProofRef(payload.engineProof.engineProofReference ?? null);
+        setEngineProofDigest(payload.engineProof.engineProofDigest ?? null);
+        setEngineProofSuiteSha(payload.engineProof.suiteSha ?? null);
+        setStages(normalizeStages(payload.engineProof.stageResults));
+      } else if (action === "prepare") {
+        setEvidenceType("CONFIGURATION_CAPABILITY_PREFLIGHT");
+        setEngineProofRef(null);
+        setEngineProofDigest(null);
+        setEngineProofSuiteSha(null);
+        setStages([]);
+      }
       setNotice(action !== "approve"
         ? "Evidence recorded. A different authorized administrator must independently inspect and approve it."
         : "Independent certification approved. Store activation remains a separate authorized action.");
@@ -79,12 +122,39 @@ export function StoreCheckoutCertificationPanel({
       <dl className="grid gap-3 sm:grid-cols-2 text-sm">
         <div><dt>Certification status</dt><dd className="font-bold">{status.replaceAll("_", " ")}</dd></div>
         <div><dt>Revision</dt><dd>{revision}</dd></div>
+        {evidenceType ? <div><dt>Trusted provenance</dt><dd className="font-semibold">{evidenceType.replaceAll("_", " ")}</dd></div> : null}
+        {engineProofRef ? (
+          <div>
+            <dt>Engine proof receipt</dt>
+            <dd className="break-all font-mono text-xs">{engineProofRef}</dd>
+            {engineProofDigest ? <dd className="break-all text-xs">Digest: {engineProofDigest.slice(0, 24)}…</dd> : null}
+            {engineProofSuiteSha ? <dd className="break-all text-xs">Suite SHA: {engineProofSuiteSha.slice(0, 16)}…</dd> : null}
+          </div>
+        ) : null}
         {initial?.routeEvidenceReference ? <div><dt>Route receipt</dt><dd className="break-all">{initial.routeEvidenceReference}</dd>
           <dd className="break-all text-xs">SHA-256: {initial.routeEvidenceDigest ?? "Legacy receipt without retained digest"}</dd></div> : null}
         {initial?.checkoutEvidenceReference ? <div><dt>Checkout receipt</dt><dd className="break-all">{initial.checkoutEvidenceReference}</dd>
           <dd className="break-all text-xs">SHA-256: {initial.checkoutEvidenceDigest ?? "Legacy receipt without retained digest"}</dd></div> : null}
         {initial?.expiresAt ? <div><dt>Valid until</dt><dd>{new Date(initial.expiresAt).toLocaleDateString("en-ZA")}</dd></div> : null}
       </dl>
+      {stages.length > 0 ? (
+        <div className="rounded-lg border border-slate-200 p-3 text-xs space-y-1.5" data-testid="engine-proof-stages">
+          <p className="font-semibold text-sm">Disposable Checkout Engine Proof Stages</p>
+          <ul className="space-y-1">
+            {stages.map((stage) => (
+              <li key={stage.stage} className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className={stage.passed ? "font-semibold text-emerald-700" : "font-semibold text-red-700"}>
+                    {stage.passed ? "PASS" : "FAIL"}
+                  </span>{" "}
+                  <span className="font-mono">{stage.stage}</span> — {stage.summary}
+                </span>
+                <span className="text-slate-500">{stage.durationMs}ms</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {status !== "APPROVED" ? (
         <form className="grid gap-4" onSubmit={e => { e.preventDefault(); void submit("prepare"); }}>
           <div>

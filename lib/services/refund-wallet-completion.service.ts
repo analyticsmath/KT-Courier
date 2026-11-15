@@ -24,23 +24,32 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "PaymentRefund" WHERE "publicReference" = ${input.publicReference} FOR UPDATE`);
     if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
-    const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } } } });
+    const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, beneficiaryStore: { select: { ownerUserId: true } }, statusHistory: { where: { toStatus: "REQUESTED" }, select: { actorUserId: true }, take: 2 }, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } } } });
     if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
+    if (refund.beneficiaryStore?.ownerUserId === input.actorUserId || refund.statusHistory.some((h) => h.actorUserId === input.actorUserId)) {
+      throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Refund requester or beneficiary store owner cannot complete wallet refund.");
+    }
     assertRefundCompletionControl({ customerUserId: refund.customerUserId ?? "", approvedByUserId: refund.approvedByUserId, completedByUserId: input.actorUserId });
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
       if (replay.toStatus === "SUCCEEDED" && refund.status === "SUCCEEDED" && replay.actorUserId === input.actorUserId) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
-    if (!refund.customerUserId || refund.method !== "CUSTOMER_WALLET" || refund.status !== "APPROVED") throw new RefundError("REFUND_INVALID_STATE", "Only approved authenticated customer-wallet refunds can be completed internally.");
+    if ((!refund.customerUserId && !refund.beneficiaryStoreId) || refund.method !== "CUSTOMER_WALLET" || refund.status !== "APPROVED") throw new RefundError("REFUND_INVALID_STATE", "Only approved authenticated customer-wallet or store-wallet refunds can be completed internally.");
     assertRefundCompletionControl({ customerUserId: refund.customerUserId ?? "", approvedByUserId: refund.approvedByUserId, completedByUserId: input.actorUserId });
     assertRefundTransition(refund.status, "SUCCEEDED");
     if (refund.releaseLedgerJournalId || refund.completionLedgerJournalId || !refund.reserveLedgerJournalId) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Refund financial evidence is not coherent for wallet completion.");
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${refund.paymentId} FOR UPDATE`);
-    const accounts = await tx.ledgerAccount.findMany({ where: { currency: "ZAR", purpose: { in: ["CUSTOMER_REFUND_HELD", "CUSTOMER_WALLET_AVAILABLE"] }, wallet: { ownerType: "CUSTOMER", ownerId: refund.customerUserId ?? undefined, status: "ACTIVE" } }, orderBy: { id: "asc" } });
+    const accounts = refund.beneficiaryStoreId
+      ? await tx.ledgerAccount.findMany({ where: { currency: "ZAR", purpose: { in: ["CUSTOMER_REFUND_HELD", "STORE_REFERRAL_WALLET_AVAILABLE"] }, wallet: { ownerType: "STORE", ownerId: refund.beneficiaryStoreId, status: "ACTIVE" } }, orderBy: { id: "asc" } })
+      : await tx.ledgerAccount.findMany({ where: { currency: "ZAR", purpose: { in: ["CUSTOMER_REFUND_HELD", "CUSTOMER_WALLET_AVAILABLE"] }, wallet: { ownerType: "CUSTOMER", ownerId: refund.customerUserId ?? undefined, status: "ACTIVE" } }, orderBy: { id: "asc" } });
     const held = accounts.find((account) => account.purpose === "CUSTOMER_REFUND_HELD");
-    const available = accounts.find((account) => account.purpose === "CUSTOMER_WALLET_AVAILABLE");
-    if (!held || !available || held.category !== "LIABILITY" || available.category !== "LIABILITY" || held.allowNegative || available.allowNegative) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Customer wallet accounts are invalid.");
+    const available = accounts.find((account) =>
+      refund.beneficiaryStoreId
+        ? account.purpose === "STORE_REFERRAL_WALLET_AVAILABLE"
+        : account.purpose === "CUSTOMER_WALLET_AVAILABLE",
+    );
+    if (!held || !available || held.category !== "LIABILITY" || available.category !== "LIABILITY" || held.allowNegative || available.allowNegative) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Wallet accounts are invalid for refund completion.");
     const accountIds = [held.id, available.id].sort();
     const locked = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(accountIds)}) ORDER BY "id" ASC FOR UPDATE`);
     if (locked.length !== 2) throw new RefundError("REFUND_LEDGER_INCOHERENT", "Customer wallet accounts could not be locked.");

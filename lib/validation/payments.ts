@@ -22,17 +22,24 @@ export const PrepareOrderPaymentSchema = z.object({
   orderId: boundedId,
   idempotencyKey: boundedKey,
   walletAmount: moneyString.optional(),
+  storeContextId: boundedId.optional(),
 }).strict();
+
+export const PaymentChannelSchema = z.enum(["CARD", "EFT"]);
 
 export const CreateProviderSessionSchema = z.object({
   paymentId: boundedId,
   provider: z.literal("PAYSTACK"),
   idempotencyKey: boundedKey,
+  storeContextId: boundedId.optional(),
+  channel: PaymentChannelSchema.optional(),
 }).strict();
 
 export const PaymentOperationSchema = z.object({
   operationId,
   walletAmount: moneyString.optional(),
+  storeContextId: boundedId.optional(),
+  channel: PaymentChannelSchema.optional(),
 }).strict();
 export const OrderPaymentParamsSchema = z.object({ orderId: boundedId }).strict();
 export const CustomerPaymentParamsSchema = z.object({ publicReference: paymentPublicReference }).strict();

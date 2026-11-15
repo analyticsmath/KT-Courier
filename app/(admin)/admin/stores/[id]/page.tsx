@@ -52,6 +52,8 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         preparedByUserId: true, approvedByUserId: true,
         routeEvidenceReference: true, routeEvidenceDigest: true,
         checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
+        evidenceType: true, engineProofReference: true, engineProofDigest: true,
+        engineProofSuiteSha: true, policyFingerprint: true, stageResults: true,
       },
     }) : Promise.resolve(null),
     canUpdate ? getStorePickupAddressForStore(id) : Promise.resolve(null),

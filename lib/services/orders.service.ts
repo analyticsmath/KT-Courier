@@ -1,6 +1,6 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { OrderSource, OrderStatus } from "@/types/db";
 import type { AuthenticatedUser } from "@/types/domain";
 import { generateOrderNumber } from "@/lib/utils/order-number";
@@ -28,6 +28,20 @@ import { assertParcelPaymentChoice, assertSelectedPaymentMode } from "@/lib/paym
 import { createCashOnDeliveryObligationWithinTransaction } from "@/lib/services/cash-on-delivery.service";
 import { initialCourierBookingStatus } from "@/lib/orders/courier-confirmation-policy";
 import { releaseParcelOrderWalletReservationWithinTransaction } from "@/lib/services/wallet-spending.service";
+import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
+import { openPaymentReconciliationCaseWithinTransaction } from "@/lib/services/payment-reconciliation.service";
+import {
+  cancelUncollectedCodObligationInTx,
+  cancellationRequestHash,
+  extractParcelWalletSplit,
+  hasUnresolvedProviderActivity,
+  revokePendingDispatchOffersInTx,
+  settlePaidOrderCancellationInTx,
+  toCancellationResolutionSummary,
+  UNRESOLVED_ATTEMPT_STATUSES,
+  upsertParcelCancellationResolutionInTx,
+  type CancellationResolutionSummaryDto,
+} from "@/lib/orders/parcel-cancellation-coordinator.service";
 
 // ─── Full include for order queries ──────────────────────────────────────────
 
@@ -58,13 +72,18 @@ export async function createOrder(
   input: CreateOrderInput,
   business = user.role === "STORE",
   transaction?: Prisma.TransactionClient,
+  explicitStoreId?: string | null,
 ): Promise<OrderDetailDto> {
   let storeId: string | null = null;
   let customerId: string | null = null;
   let source: OrderSource;
 
   if (business) {
-    storeId = (await storeAccess(user.id, "deliveries")).store.id;
+    storeId = (
+      await (explicitStoreId
+        ? storeAccess(user.id, "deliveries", explicitStoreId)
+        : storeAccess(user.id, "deliveries"))
+    ).store.id;
     if (!storeId) throw new Error("No store found for this account.");
     source = OrderSource.STORE;
   } else if (user.role === "CUSTOMER") {
@@ -255,10 +274,11 @@ export async function listOrders(
   user: AuthenticatedUser,
   filters: OrderListFilters,
   business = user.role === "STORE",
+  explicitStoreId?: string | null,
 ): Promise<{ data: OrderSummaryDto[]; total: number }> {
   const skip = (filters.page - 1) * filters.pageSize;
 
-  const where = await buildOwnerWhere(user, business);
+  const where = await buildOwnerWhere(user, business, explicitStoreId);
   if (filters.status)
     (where as Record<string, unknown>).status = filters.status;
 
@@ -282,8 +302,9 @@ export async function getOrder(
   user: AuthenticatedUser,
   orderId: string,
   business = user.role === "STORE",
+  explicitStoreId?: string | null,
 ): Promise<OrderDetailDto | null> {
-  const where = await buildOwnerWhere(user, business);
+  const where = await buildOwnerWhere(user, business, explicitStoreId);
   (where as Record<string, unknown>).id = orderId;
 
   const order = await prisma.order.findFirst({
@@ -382,18 +403,34 @@ export async function getRepeatDeliveryPrefill(
 
 // ─── Cancel (customer/store — only before pickup) ────────────────────────────
 
+export type CancelOrderResult =
+  | { order: OrderDetailDto; resolution?: CancellationResolutionSummaryDto | null }
+  | {
+      error: string;
+      conflictCode?: "CANCELLATION_PENDING_PAYMENT_RESOLUTION";
+      resolution?: CancellationResolutionSummaryDto | null;
+    };
+
 export async function cancelOrder(
   user: AuthenticatedUser,
   orderId: string,
   input: CustomerCancelOrderInput,
   business = user.role === "STORE",
-): Promise<{ order: OrderDetailDto } | { error: string }> {
-  const where = await buildOwnerWhere(user, business);
+  options?: { explicitStoreId?: string | null },
+): Promise<CancelOrderResult> {
+  const where = await buildOwnerWhere(user, business, options?.explicitStoreId);
   (where as Record<string, unknown>).id = orderId;
 
   const existing = await prisma.order.findFirst({
     where,
-    select: { id: true, orderNumber: true, status: true, source: true },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      source: true,
+      storeId: true,
+      customerId: true,
+    },
   });
 
   if (!existing) return { error: "Order not found." };
@@ -405,6 +442,7 @@ export async function cancelOrder(
   };
 
   if (
+    existing.status !== OrderStatus.CANCELLED &&
     !canTransitionOrderStatus({
       from: existing.status,
       to: OrderStatus.CANCELLED,
@@ -417,54 +455,350 @@ export async function cancelOrder(
     };
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
-    await transitionOrderStatusInTx(tx, {
-      orderId,
-      fromStatus: existing.status,
-      toStatus: OrderStatus.CANCELLED,
-      actorUserId: user.id,
-      actorRole: user.role,
-      reason: input.reason,
-      note: input.reason?.trim()
-        ? `Cancelled by ${user.role === "STORE" ? "store" : "customer"}: ${input.reason.trim()}`
-        : `Cancelled by ${user.role === "STORE" ? "store" : "customer"}`,
-      source:
-        user.role === "STORE" ? "store_cancel_order" : "customer_cancel_order",
-      context,
-    });
-
-    const payment = tx.payment?.findUnique
-      ? await tx.payment.findUnique({
-          where: { orderId },
-          include: { attempts: { select: { id: true, status: true } } },
-        })
-      : null;
-    const meta =
-      payment?.metadata && typeof payment.metadata === "object" && !Array.isArray(payment.metadata)
-        ? (payment.metadata as Record<string, unknown>)
-        : null;
-    if (
-      payment &&
-      meta?.walletSplit === true &&
-      ["CREATED", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status) &&
-      !payment.attempts.some((a) =>
-        ["RESERVED", "REQUESTING", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN", "SUCCEEDED"].includes(a.status),
-      )
-    ) {
-      await releaseParcelOrderWalletReservationWithinTransaction(tx, {
-        orderId,
-        reason: input.reason?.trim() || "Parcel order cancelled before provider settlement",
-        actorUserId: user.id,
-      });
-    }
-
-    return tx.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: ORDER_FULL_INCLUDE,
-    });
+  const reasonText =
+    input.reason?.trim() ||
+    `Cancelled by ${business ? "store" : "customer"}`;
+  const actorRoleLabel = business ? "STORE" : user.role;
+  const operationId = `cancel:${orderId}:${user.id}`;
+  const requestHash = cancellationRequestHash({
+    orderId,
+    requestedByUserId: user.id,
+    actorRole: actorRoleLabel,
+    reason: reasonText,
   });
 
-  return { order: toOrderDetailDto(updated) };
+  const outcome = await withPaymentDatabaseRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        if (typeof tx.$queryRaw === "function") {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`,
+          );
+        }
+
+        const freshOrder =
+          typeof tx.order?.findUnique === "function"
+            ? await tx.order.findUnique({
+                where: { id: orderId },
+                select: {
+                  id: true,
+                  orderNumber: true,
+                  status: true,
+                  storeId: true,
+                  customerId: true,
+                },
+              })
+            : {
+                id: existing.id,
+                orderNumber: existing.orderNumber,
+                status: existing.status,
+                storeId: existing.storeId ?? null,
+                customerId: existing.customerId ?? null,
+              };
+
+        if (!freshOrder) {
+          return { kind: "ERROR" as const, error: "Order not found." };
+        }
+
+        if (freshOrder.status === OrderStatus.CANCELLED) {
+          const existingResolution =
+            typeof tx.parcelCancellationResolution?.findUnique === "function"
+              ? await tx.parcelCancellationResolution.findUnique({
+                  where: { orderId },
+                })
+              : null;
+          if (existingResolution && existingResolution.status.startsWith("COMPLETED")) {
+            const fullOrder = await tx.order.findUniqueOrThrow({
+              where: { id: orderId },
+              include: ORDER_FULL_INCLUDE,
+            });
+            return {
+              kind: "COMPLETED" as const,
+              order: fullOrder,
+              resolution: toCancellationResolutionSummary(existingResolution),
+            };
+          }
+          return {
+            kind: "ERROR" as const,
+            error: `This order cannot be cancelled once it has progressed to ${freshOrder.status}. Please contact KT Couriers for assistance.`,
+          };
+        }
+
+        if (
+          !canTransitionOrderStatus({
+            from: freshOrder.status,
+            to: OrderStatus.CANCELLED,
+            actorRole: user.role,
+            context,
+          })
+        ) {
+          return {
+            kind: "ERROR" as const,
+            error: `This order cannot be cancelled once it has progressed to ${freshOrder.status}. Please contact KT Couriers for assistance.`,
+          };
+        }
+
+        if (
+          typeof tx.payment?.findUnique === "function" &&
+          typeof tx.$queryRaw === "function"
+        ) {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "Payment" WHERE "orderId" = ${orderId} FOR UPDATE`,
+          );
+        }
+
+        const payment =
+          typeof tx.payment?.findUnique === "function"
+            ? await tx.payment.findUnique({
+                where: { orderId },
+                select: {
+                  id: true,
+                  publicReference: true,
+                  userId: true,
+                  provider: true,
+                  status: true,
+                  amount: true,
+                  totalRefundedAmount: true,
+                  totalRefundReservedAmount: true,
+                  version: true,
+                  metadata: true,
+                  attempts: {
+                    orderBy: { attemptNumber: "asc" },
+                    select: { id: true, status: true },
+                  },
+                },
+              })
+            : null;
+
+        if (payment && typeof tx.$queryRaw === "function") {
+          await tx.$queryRaw(
+            Prisma.sql`SELECT "id" FROM "PaymentAttempt" WHERE "paymentId" = ${payment.id} ORDER BY "attemptNumber" ASC FOR UPDATE`,
+          );
+        }
+
+        if (payment && hasUnresolvedProviderActivity(payment)) {
+          const activeAttempt = payment.attempts.find((a) =>
+            (UNRESOLVED_ATTEMPT_STATUSES as readonly string[]).includes(a.status),
+          );
+          const reconCase =
+            typeof tx.paymentReconciliationCase?.findUnique === "function"
+              ? await openPaymentReconciliationCaseWithinTransaction(tx, {
+                  paymentId: payment.id,
+                  attemptId: activeAttempt?.id ?? undefined,
+                  reason: "UNKNOWN_OUTCOME",
+                  provider: payment.provider === "PAYFAST" ? "PAYFAST" : "PAYSTACK",
+                  safeEvidence: {
+                    orderId,
+                    paymentStatus: payment.status,
+                    unresolvedAttemptIds: payment.attempts
+                      .filter((a) =>
+                        (UNRESOLVED_ATTEMPT_STATUSES as readonly string[]).includes(
+                          a.status,
+                        ),
+                      )
+                      .map((a) => a.id)
+                      .join(","),
+                    requestedByUserId: user.id,
+                  },
+                })
+              : null;
+
+          const pendingResolution = await upsertParcelCancellationResolutionInTx(
+            tx,
+            {
+              orderId,
+              paymentId: payment.id,
+              status: "PENDING_PAYMENT_RESOLUTION",
+              operationId,
+              requestHash,
+              requestedByUserId: user.id,
+              actorRole: actorRoleLabel,
+              reason: reasonText,
+              reconciliationCaseId: reconCase?.id ?? null,
+              decisionEvidence: {
+                paymentStatus: payment.status,
+                unresolvedAttemptIds: payment.attempts
+                  .filter((a) =>
+                    (UNRESOLVED_ATTEMPT_STATUSES as readonly string[]).includes(
+                      a.status,
+                    ),
+                  )
+                  .map((a) => a.id),
+              },
+              resolved: false,
+            },
+          );
+
+          return {
+            kind: "PENDING_PAYMENT" as const,
+            error:
+              "Payment is currently processing or awaiting confirmation. Order cancellation is pending payment resolution.",
+            conflictCode: "CANCELLATION_PENDING_PAYMENT_RESOLUTION" as const,
+            resolution: pendingResolution
+              ? toCancellationResolutionSummary(pendingResolution)
+              : null,
+          };
+        }
+
+        await revokePendingDispatchOffersInTx(tx, {
+          orderId,
+          actorUserId: user.id,
+          actorRole: actorRoleLabel,
+          note: reasonText,
+        });
+
+        await cancelUncollectedCodObligationInTx(tx, {
+          orderId,
+          actorUserId: user.id,
+          reason: reasonText,
+        });
+
+        await transitionOrderStatusInTx(tx, {
+          orderId,
+          fromStatus: freshOrder.status,
+          toStatus: OrderStatus.CANCELLED,
+          actorUserId: user.id,
+          actorRole: user.role,
+          reason: input.reason,
+          note: input.reason?.trim()
+            ? `Cancelled by ${business ? "store" : "customer"}: ${input.reason.trim()}`
+            : `Cancelled by ${business ? "store" : "customer"}`,
+          source: business ? "store_cancel_order" : "customer_cancel_order",
+          context,
+        });
+
+        let resolution = null;
+        if (payment && payment.status === "SUCCEEDED") {
+          const settlement = await settlePaidOrderCancellationInTx(tx, {
+            orderId,
+            orderNumber: freshOrder.orderNumber,
+            storeId: freshOrder.storeId,
+            customerId: freshOrder.customerId,
+            payment,
+            reason: reasonText,
+            preferredActorUserId: user.id,
+            cancellationActorType: business ? "STORE" : "CUSTOMER",
+            operationKeyPrefix: "order-cancel",
+          });
+          resolution = await upsertParcelCancellationResolutionInTx(tx, {
+            orderId,
+            paymentId: payment.id,
+            status: "COMPLETED_REFUND_INITIATED",
+            operationId,
+            requestHash,
+            requestedByUserId: user.id,
+            actorRole: actorRoleLabel,
+            reason: reasonText,
+            walletOwnerType: settlement.walletOwnerType,
+            walletOwnerId: settlement.walletOwnerId,
+            walletRefundJournalId: settlement.walletRefundJournalId,
+            paymentRefundId: settlement.paymentRefundId,
+            decisionEvidence: {
+              paymentStatus: payment.status,
+              provider: payment.provider,
+              paymentRefundId: settlement.paymentRefundId,
+              walletRefundJournalId: settlement.walletRefundJournalId,
+            },
+            resolved: true,
+          });
+        } else {
+          const split = payment
+            ? extractParcelWalletSplit(payment, freshOrder)
+            : { walletSplit: false, walletAmount: null, owner: null };
+          if (
+            payment &&
+            split.walletSplit &&
+            ["CREATED", "FAILED", "CANCELLED", "EXPIRED"].includes(payment.status)
+          ) {
+            await releaseParcelOrderWalletReservationWithinTransaction(tx, {
+              orderId,
+              reason:
+                input.reason?.trim() || "Parcel order cancelled before provider settlement",
+              actorUserId: user.id,
+            });
+          }
+
+          if (
+            payment &&
+            payment.status === "CREATED" &&
+            typeof tx.payment?.update === "function"
+          ) {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: "CANCELLED",
+                cancelledAt: new Date(),
+                version: { increment: 1 },
+              },
+            });
+            if (typeof tx.paymentStatusHistory?.create === "function") {
+              await tx.paymentStatusHistory.create({
+                data: {
+                  paymentId: payment.id,
+                  fromStatus: "CREATED",
+                  toStatus: "CANCELLED",
+                  reasonCode: "ORDER_CANCELLED",
+                  actorType: "PAYER",
+                  actorId: user.id,
+                  metadata: { orderId, reason: reasonText },
+                },
+              });
+            }
+          }
+
+          resolution = await upsertParcelCancellationResolutionInTx(tx, {
+            orderId,
+            paymentId: payment?.id ?? null,
+            status: "COMPLETED_NO_PAYMENT",
+            operationId,
+            requestHash,
+            requestedByUserId: user.id,
+            actorRole: actorRoleLabel,
+            reason: reasonText,
+            walletOwnerType: split.owner?.ownerType ?? null,
+            walletOwnerId: split.owner?.ownerId ?? null,
+            decisionEvidence: {
+              paymentStatus: payment?.status ?? null,
+              walletHoldReleased: split.walletSplit,
+            },
+            resolved: true,
+          });
+        }
+
+        const fullOrder = await tx.order.findUniqueOrThrow({
+          where: { id: orderId },
+          include: ORDER_FULL_INCLUDE,
+        });
+
+        return {
+          kind: "COMPLETED" as const,
+          order: fullOrder,
+          resolution: resolution ? toCancellationResolutionSummary(resolution) : null,
+        };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5_000,
+        timeout: 10_000,
+      },
+    ),
+  );
+
+  if (outcome.kind === "PENDING_PAYMENT") {
+    return {
+      error: outcome.error,
+      conflictCode: outcome.conflictCode,
+      resolution: outcome.resolution,
+    };
+  }
+  if (outcome.kind === "ERROR") {
+    return { error: outcome.error };
+  }
+
+  return {
+    order: toOrderDetailDto(outcome.order),
+    ...(outcome.resolution ? { resolution: outcome.resolution } : {}),
+  };
 }
 
 // ─── Order counts (for dashboard) ────────────────────────────────────────────
@@ -510,9 +844,16 @@ export async function getOrderCounts(
 async function buildOwnerWhere(
   user: AuthenticatedUser,
   business = user.role === "STORE",
+  explicitStoreId?: string | null,
 ): Promise<Record<string, unknown>> {
   if (business)
-    return { storeId: (await storeAccess(user.id, "orders")).store.id };
+    return {
+      storeId: (
+        await (explicitStoreId
+          ? storeAccess(user.id, "orders", explicitStoreId)
+          : storeAccess(user.id, "orders"))
+      ).store.id,
+    };
   if (user.role === "CUSTOMER") return { customerId: user.id };
   throw new Error("Order access is unavailable for this account.");
 }

@@ -1,6 +1,7 @@
 import { createMarketplaceProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
 import type { MarketplacePaymentPreparationResult } from "@/lib/marketplace-checkout/marketplace-payment-preparation.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
+import type { PaymentChannel } from "@/lib/payments/providers/payment-provider-adapter";
 
 export async function prepareMarketplacePaystackCustomerAction(input: Readonly<{
   paymentId: string;
@@ -8,12 +9,14 @@ export async function prepareMarketplacePaystackCustomerAction(input: Readonly<{
   payerEmail: string;
   operationId: string;
   guestCheckoutEvidence: boolean;
+  channel?: PaymentChannel;
 }>): Promise<MarketplacePaymentPreparationResult["providerAction"]> {
   const session = await createMarketplaceProviderCheckoutSession({
     paymentId: input.paymentId,
     idempotencyKey: input.operationId,
     payerEmail: input.payerEmail,
     guestCheckoutEvidence: input.guestCheckoutEvidence,
+    ...(input.channel ? { channel: input.channel } : {}),
   });
 
   if (!session.attempt.publicReference) {

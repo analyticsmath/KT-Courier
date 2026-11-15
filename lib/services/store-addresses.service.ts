@@ -31,8 +31,9 @@ export interface StorePickupAddressState {
 export async function getStorePickupAddress(
   userId: string,
   section: "settings" | "deliveries" = "settings",
+  explicitStoreId?: string | null,
 ): Promise<StorePickupAddressState | null> {
-  const access = await storeAccess(userId, section);
+  const access = await storeAccess(userId, section, explicitStoreId);
   return getStorePickupAddressForStore(access.store.id);
 }
 

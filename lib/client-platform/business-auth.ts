@@ -22,12 +22,12 @@ export async function requireBusinessApi(path: string) {
     return failure(e);
   }
 }
-export async function requireBusinessPage(path: string) {
+export async function requireBusinessPage(path: string, explicitStoreId?: string | null) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   let access;
   try {
-    access = await storeAccess(user.id);
+    access = await storeAccess(user.id, undefined, explicitStoreId);
   } catch {
     redirect("/account");
   }

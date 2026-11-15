@@ -87,17 +87,19 @@ function retainCheckoutPresentation(next: PublicCheckoutData, previous: PublicCh
   };
 }
 
-export function CheckoutExperience() {
+export function CheckoutExperience({ eftAvailable = false }: { eftAvailable?: boolean } = {}) {
   const searchParams = useSearchParams();
   const checkoutRef = searchParams.get("ref");
-  return <CheckoutSession key={checkoutRef ?? "no-checkout"} checkoutRef={checkoutRef} />;
+  return <CheckoutSession key={checkoutRef ?? "no-checkout"} checkoutRef={checkoutRef} eftAvailable={eftAvailable} />;
 }
 
-function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
+function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | null; eftAvailable: boolean }) {
 
   const [checkout, setCheckout] = useState<PublicCheckoutData | null>(null);
+  const [eftAvailableState, setEftAvailableState] = useState(eftAvailable);
   const [loading, setLoading] = useState(Boolean(checkoutRef));
   const [submitting, setSubmitting] = useState(false);
+  const [paymentChannel, setPaymentChannel] = useState<"CARD" | "EFT">("CARD");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deliveryReviewRequired, setDeliveryReviewRequired] = useState(false);
   const [deliveryQuotePreviews, setDeliveryQuotePreviews] = useState<StoreDeliveryQuotePreview[]>([]);
@@ -159,6 +161,10 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.error || "Unable to load checkout session.");
+        }
+        const headerEft = res.headers?.get?.("X-KT-Eft-Available");
+        if (!ignore && (headerEft === "true" || headerEft === "false")) {
+          setEftAvailableState(headerEft === "true");
         }
         return res.json();
       })
@@ -525,6 +531,7 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
           checkoutVersion: checkout.version,
           operationId: payOpId,
           requestHash: payHash,
+          channel: paymentChannel,
         }),
       });
 
@@ -1133,8 +1140,23 @@ function CheckoutSession({ checkoutRef }: { checkoutRef: string | null }) {
                   <svg aria-hidden="true" width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M6 10V7a6 6 0 0 1 12 0v3M5 10h14v11H5V10Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 14v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 </div>
 
+                <fieldset style={{ border: "1px solid var(--kt-public-border-subtle)", borderRadius: 4, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <legend style={{ fontSize: "0.8rem", fontWeight: 600, padding: "0 6px" }}>Payment Channel</legend>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: "pointer" }}>
+                    <input type="radio" name="marketplace-paystack-channel" value="CARD" checked={paymentChannel === "CARD"} onChange={() => setPaymentChannel("CARD")} disabled={submitting} />
+                    <span>Card (Visa / Mastercard via Paystack)</span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.9rem", cursor: eftAvailableState ? "pointer" : "not-allowed", color: eftAvailableState ? "inherit" : "var(--kt-public-text-muted)" }}>
+                    <input type="radio" name="marketplace-paystack-channel" value="EFT" checked={paymentChannel === "EFT"} onChange={() => eftAvailableState && setPaymentChannel("EFT")} disabled={submitting || !eftAvailableState} />
+                    <span>Instant EFT via Paystack {!eftAvailableState ? "(Unavailable until EFT channel activation)" : ""}</span>
+                  </label>
+                </fieldset>
+
                 <p style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)", lineHeight: 1.4 }}>
-                  You will be securely redirected to Paystack to complete your card or instant EFT authorization for <strong>{formatMoney(checkout?.totals.digitalRequired ?? checkout?.totals.grandTotal)}</strong>.
+                  {eftAvailableState
+                    ? `You will be securely redirected to Paystack to complete your ${paymentChannel === "EFT" ? "Instant EFT" : "card"} authorization for `
+                    : "You will be securely redirected to Paystack to complete your card authorization for "}
+                  <strong>{formatMoney(checkout?.totals.digitalRequired ?? checkout?.totals.grandTotal)}</strong>.
                 </p>
 
                 <button

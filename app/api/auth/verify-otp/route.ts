@@ -7,6 +7,7 @@ import { checkAuthRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { tooManyRequests } from "@/lib/api/response";
 import { getPostAuthRedirect } from "@/lib/auth/role-redirects";
+import { claimGuestCartIfPresentOnCustomerAuth } from "@/lib/marketplace-checkout/claim-guest-cart-on-login";
 
 export async function POST(req: NextRequest) {
   const originFailure = await enforceSameOriginRequest(req);
@@ -44,6 +45,10 @@ export async function POST(req: NextRequest) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
   const cookieStore = await cookies();
   setSessionCookie(cookieStore, result.rawToken);
+  await claimGuestCartIfPresentOnCustomerAuth(cookieStore, {
+    id: result.userId,
+    role: result.role,
+  });
 
   const redirect = getPostAuthRedirect(result.role);
 

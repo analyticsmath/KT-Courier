@@ -10,9 +10,30 @@ import { rejectRefundRequest } from "./refund-request.service";
 async function lockRefund(tx: Prisma.TransactionClient, publicReference: string) {
   const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "PaymentRefund" WHERE "publicReference" = ${publicReference} FOR UPDATE`);
   if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
-  const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: { include: { successfulAttempt: { select: { status: true, providerReference: true } } } }, fundingAllocations: true } });
+  const refund = await tx.paymentRefund.findUnique({
+    where: { id: rows[0].id },
+    include: {
+      payment: { include: { successfulAttempt: { select: { status: true, providerReference: true } } } },
+      beneficiaryStore: { select: { ownerUserId: true } },
+      statusHistory: { where: { toStatus: "REQUESTED" }, select: { actorUserId: true }, take: 2 },
+      fundingAllocations: true,
+    },
+  });
   if (!refund) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
   return refund;
+}
+
+function assertRefundActorNotRequesterOrOwner(
+  refund: Awaited<ReturnType<typeof lockRefund>>,
+  actorUserId: string,
+): void {
+  if (
+    refund.customerUserId === actorUserId ||
+    refund.beneficiaryStore?.ownerUserId === actorUserId ||
+    refund.statusHistory.some((h) => h.actorUserId === actorUserId)
+  ) {
+    throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "The refund requester or beneficiary owner cannot review or approve this refund.");
+  }
 }
 
 function assertDecisionCoherence(refund: Awaited<ReturnType<typeof lockRefund>>): void {
@@ -32,13 +53,13 @@ export async function beginRefundReview(input: Readonly<{ actorUserId: string; p
   const operationId = assertRefundOperationId(input.operationId);
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const refund = await lockRefund(tx, input.publicReference);
-    if (refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot review their own refund administratively.");
+    assertRefundActorNotRequesterOrOwner(refund, input.actorUserId);
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {
       if (replay.toStatus === "UNDER_REVIEW" && replay.actorUserId === input.actorUserId) return refund;
       throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to another refund transition.");
     }
-    if (refund.customerUserId === input.actorUserId) throw new RefundError("REFUND_DUAL_CONTROL_REQUIRED", "Customer requester cannot review their own refund administratively.");
+    assertRefundActorNotRequesterOrOwner(refund, input.actorUserId);
     assertRefundTransition(refund.status, "UNDER_REVIEW");
     assertDecisionCoherence(refund);
     const updated = await tx.paymentRefund.update({ where: { id: refund.id }, data: { status: "UNDER_REVIEW", version: { increment: 1 } } });
@@ -52,6 +73,7 @@ export async function approveRefund(input: Readonly<{ actorUserId: string; publi
   const financeNote = sanitizeRefundNote(input.financeNote);
   return withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const refund = await lockRefund(tx, input.publicReference);
+    assertRefundActorNotRequesterOrOwner(refund, input.actorUserId);
     assertRefundApprovalControl({ customerUserId: refund.customerUserId ?? "", approverUserId: input.actorUserId });
     const replay = await tx.refundStatusHistory.findUnique({ where: { refundId_operationId: { refundId: refund.id, operationId } } });
     if (replay) {

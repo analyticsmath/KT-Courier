@@ -14,9 +14,15 @@ import { MobileSheet } from "@/components/public-v2/overlays";
 import { DesktopPrimaryNavigation } from "./DesktopPrimaryNavigation";
 import { ServicesAtlasMenu, allServices } from "./ServicesAtlasMenu";
 import { marketplaceHref, marketplaceSearchHref } from "@/lib/public-marketplace/routes";
+import {
+  accountLabelForRoute,
+  usePublicAccountRoute,
+} from "@/components/public-v3/navigation/use-public-account-route";
 import styles from "./public-shell.module.css";
 
 export function PublicHeaderV3() {
+  const accountHref = usePublicAccountRoute();
+  const isSignedIn = accountHref !== "/login";
   const [servicesOpen, setServicesOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [mobileServicesView, setMobileServicesView] = useState(false);
@@ -128,12 +134,20 @@ export function PublicHeaderV3() {
 
           {/* Desktop Utilities */}
           <div className={styles.headerUtilities}>
-            <Link className={styles.utilLink} href="/join">
-              Join
-            </Link>
-            <Link className={styles.utilLink} href="/login">
-              Sign in
-            </Link>
+            {isSignedIn ? (
+              <Link className={styles.utilLink} href={accountHref}>
+                {accountLabelForRoute(accountHref)}
+              </Link>
+            ) : (
+              <>
+                <Link className={styles.utilLink} href="/join">
+                  Join
+                </Link>
+                <Link className={styles.utilLink} href="/login">
+                  Sign in
+                </Link>
+              </>
+            )}
             <Link
               aria-label={`Cart with ${cartCount} items`}
               className={styles.utilLink}
@@ -286,26 +300,41 @@ export function PublicHeaderV3() {
                   <KtIconArrowRight size={16} />
                 </Link>
               </li>
-              <li>
-                <Link
-                  className={styles.mobileMenuRow}
-                  href="/join"
-                  onClick={handleMobileSheetClose}
-                >
-                  <span>Join</span>
-                  <KtIconArrowRight size={16} />
-                </Link>
-              </li>
-              <li>
-                <Link
-                  className={styles.mobileMenuRow}
-                  href="/login"
-                  onClick={handleMobileSheetClose}
-                >
-                  <span>Sign in</span>
-                  <KtIconArrowRight size={16} />
-                </Link>
-              </li>
+              {isSignedIn ? (
+                <li>
+                  <Link
+                    className={styles.mobileMenuRow}
+                    href={accountHref}
+                    onClick={handleMobileSheetClose}
+                  >
+                    <span>{accountLabelForRoute(accountHref)}</span>
+                    <KtIconArrowRight size={16} />
+                  </Link>
+                </li>
+              ) : (
+                <>
+                  <li>
+                    <Link
+                      className={styles.mobileMenuRow}
+                      href="/join"
+                      onClick={handleMobileSheetClose}
+                    >
+                      <span>Join</span>
+                      <KtIconArrowRight size={16} />
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      className={styles.mobileMenuRow}
+                      href="/login"
+                      onClick={handleMobileSheetClose}
+                    >
+                      <span>Sign in</span>
+                      <KtIconArrowRight size={16} />
+                    </Link>
+                  </li>
+                </>
+              )}
             </ul>
           )}
         </div>

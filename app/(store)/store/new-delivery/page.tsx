@@ -14,14 +14,14 @@ export const metadata: Metadata = { title: "New store delivery" };
 export default async function StoreNewDeliveryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ repeatFrom?: string }>;
+  searchParams: Promise<{ repeatFrom?: string; storeId?: string }>;
 }) {
-  await requireBusinessPage("/store/new-delivery");
+  const { repeatFrom, storeId } = await searchParams;
+  await requireBusinessPage("/store/new-delivery", storeId);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const { repeatFrom } = await searchParams;
   const [pickupState, repeatPrefill] = await Promise.all([
-    getStorePickupAddress(user.id, "deliveries"),
+    getStorePickupAddress(user.id, "deliveries", storeId),
     repeatFrom
       ? getRepeatDeliveryPrefill(user, repeatFrom, true)
       : Promise.resolve(null),
@@ -76,6 +76,7 @@ export default async function StoreNewDeliveryPage({
       <PublicDeliveryQuoteForm
         signedIn
         business
+        storeContextId={pickupState?.store?.id ?? null}
         defaultPickup={defaultPickupAddress}
         prefill={repeatPrefill}
       />

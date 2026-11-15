@@ -58,6 +58,12 @@ export function integerField(body: Record<string, unknown>, key: string): number
 
 export function marketplaceError(error: unknown): NextResponse {
   const code = (error as { code?: unknown })?.code;
+  if (code === "EFT_UNAVAILABLE") {
+    return marketplaceJson({
+      error: "Instant EFT is currently unavailable until the Paystack EFT channel is approved and activated.",
+      code: "EFT_UNAVAILABLE",
+    }, 503);
+  }
   if (code === "CHECKOUT_PUBLIC_DISABLED" || code === MARKETPLACE_CHECKOUT_PRODUCTION_BLOCK_REASON) {
     return marketplaceJson({
       error: "Online checkout is temporarily paused for scheduled maintenance.",

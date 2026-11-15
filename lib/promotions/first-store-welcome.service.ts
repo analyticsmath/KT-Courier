@@ -103,7 +103,14 @@ export async function checkFirstStoreWelcomeEligibility(
   const priorWelcomeOfferRedemptions = await db.promotionRedemption.count({
     where: {
       customerUserId,
-      status: { in: ["COMMITTED", "PARTIALLY_REVERSED"] },
+      status: {
+        in: [
+          "COMMITTED",
+          "PARTIALLY_REVERSED",
+          "FULLY_REVERSED",
+          "RECONCILIATION_REQUIRED",
+        ],
+      },
       campaignVersion: {
         campaign: {
           internalCode: "FIRST_STORE_WELCOME",

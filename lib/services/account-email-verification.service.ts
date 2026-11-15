@@ -4,10 +4,16 @@ import { generateToken, hashToken } from "@/lib/auth/tokens";
 import { sessionExpiresAt } from "@/lib/auth/session";
 import { OtpPurpose, UserStatus } from "@/types/db";
 import { INVALID_VERIFICATION_NOTICE } from "@/lib/auth/public-auth-messages";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 /** Consuming the code, activating an eligible account and issuing its session share the account lock. */
 export async function verifyAccountEmail(email: string, code: string) {
-  return prisma.$transaction(async tx => {
+  let customerAlertEvent: AdminAlertEventInput | null = null;
+  const result = await prisma.$transaction(async tx => {
     const identity = await tx.user.findUnique({ where: { email }, select: { id: true } });
     if (!identity) return { ok: false as const, status: 400, error: INVALID_VERIFICATION_NOTICE };
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${identity.id} FOR UPDATE`;
@@ -42,12 +48,26 @@ export async function verifyAccountEmail(email: string, code: string) {
           safePayload: {},
         },
       });
+      if (user.role === "CUSTOMER") {
+        customerAlertEvent = {
+          eventType: "NEW_CUSTOMER_REGISTERED",
+          aggregateReference: `customer:${user.id}`,
+          title: `New verified customer ${user.id}`,
+          summary: `Customer account completed email verification and is now active.`,
+          metadata: { userId: user.id, accountType: "CUSTOMER" },
+        };
+        await recordAdminAlertIntentInTx(tx, customerAlertEvent);
+      }
     }
     const rawToken = generateToken(32);
     await tx.session.create({ data: { userId: user.id, tokenHash: hashToken(rawToken), expiresAt: sessionExpiresAt() } });
     // Some imported accounts have no credential. The code proves email
     // ownership and opens a session, but cannot make the password entered
     // on an unrelated prior signup attempt authoritative.
-    return { ok: true as const, rawToken, role: user.role, requiresPasswordSetup: !user.passwordHash };
+    return { ok: true as const, rawToken, userId: user.id, role: user.role, requiresPasswordSetup: !user.passwordHash };
   });
+  if (result.ok && customerAlertEvent) {
+    await emitAdminAlertNonBlocking(customerAlertEvent);
+  }
+  return result;
 }

@@ -25,6 +25,9 @@ import {
 import { isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 import { settleAndFinalizeLocalDemoPayment } from "@/lib/marketplace-checkout/local-demo-payment-settlement.service";
 import { onVerifiedMarketplacePaymentSucceededInProduction } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
+import { PaymentError } from "@/lib/payments/errors";
+import type { PaymentChannel } from "@/lib/payments/providers/payment-provider-adapter";
+import { isPaystackEftChannelApproved } from "@/lib/payments/providers/paystack/paystack-config";
 import { releaseWalletSpendWithinTransaction } from "@/lib/services/wallet-spending.service";
 import { withSerializableRetry } from "@/lib/db/serializable-retry";
 import type { CartOwner } from "@/lib/marketplace-checkout/cart.service";
@@ -679,8 +682,13 @@ export async function prepareMarketplacePayment(input: {
   operationId: string;
   requestHash: string;
   walletAmount?: string | null;
+  channel?: PaymentChannel;
   testApproval?: { approved: true };
 }) {
+  const channel: PaymentChannel = input.channel ?? "CARD";
+  if (channel === "EFT" && !isPaystackEftChannelApproved()) {
+    throw new PaymentError("EFT_UNAVAILABLE", "Paystack EFT channel is not enabled on this merchant account.");
+  }
   resolveMarketplaceCheckoutProductionComposition();
   const checkout = await table("marketplaceCheckout").findFirst({
     where: {
@@ -711,6 +719,7 @@ export async function prepareMarketplacePayment(input: {
       payerEmail: checkout.contactSnapshot.email,
       operationId: input.operationId,
       walletAmount: input.walletAmount,
+      channel,
       testApproval: input.testApproval,
     },
   );

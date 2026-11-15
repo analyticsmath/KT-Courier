@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { noStoreJson } from "@/lib/payments/customer-api-policy";
+import { noStoreJson, paymentApiError, resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { getCustomerPaymentStatus } from "@/lib/services/payment-customer-query.service";
 import { CustomerPaymentParamsSchema } from "@/lib/validation/payments";
@@ -18,6 +18,11 @@ export async function GET(
   if (!rate.ok) return noStoreJson({ error: "Too many status requests." }, 429);
   const parsed = CustomerPaymentParamsSchema.safeParse(await params);
   if (!parsed.success) return noStoreJson({ error: "Payment not found." }, 404);
-  const payment = await getCustomerPaymentStatus(user.id, parsed.data.publicReference);
-  return payment ? noStoreJson({ payment }) : noStoreJson({ error: "Payment not found." }, 404);
+  try {
+    const storeContextId = resolveExplicitStoreContextId(request);
+    const payment = await getCustomerPaymentStatus(user.id, parsed.data.publicReference, storeContextId);
+    return payment ? noStoreJson({ payment }) : noStoreJson({ error: "Payment not found." }, 404);
+  } catch (error) {
+    return paymentApiError(error);
+  }
 }

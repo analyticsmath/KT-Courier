@@ -6,7 +6,10 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { CanonicalKtLogo } from "../brand/CanonicalKtLogo";
 import { useMarketplaceCartCount } from "../navigation/marketplace-cart-client";
-import { usePublicAccountRoute } from "../navigation/use-public-account-route";
+import {
+  accountLabelForRoute,
+  usePublicAccountRoute,
+} from "../navigation/use-public-account-route";
 
 const destinations = [
   ["Send a parcel", "/services/parcel"],
@@ -22,6 +25,8 @@ export function MarketingNavigation() {
   const pathname = usePathname();
   const cartCount = useMarketplaceCartCount();
   const accountHref = usePublicAccountRoute();
+  const isSignedIn = accountHref !== "/login";
+  const accountLabel = accountLabelForRoute(accountHref);
   useEffect(() => {
     let previous = false;
     const update = () => {
@@ -72,6 +77,14 @@ export function MarketingNavigation() {
             Send a parcel
           </Link>
           <Link href="/track">Track</Link>
+          {isSignedIn ? (
+            <Link href={accountHref}>{accountLabel}</Link>
+          ) : (
+            <>
+              <Link href="/join">Join</Link>
+              <Link href="/login">Sign in</Link>
+            </>
+          )}
         </nav>
         <div className="kt-new-header-tools">
           <Link
@@ -174,15 +187,23 @@ export function MarketingNavigation() {
           <Link href="/coverage-areas" onClick={close}>
             Where we deliver
           </Link>
-          <Link href="/join" onClick={close}>
-            Join the network
-          </Link>
           <Link href="/contact" onClick={close}>
             Contact
           </Link>
-          <Link href={accountHref} onClick={close}>
-            {accountHref === "/login" ? "Sign in" : "Your account"} ↗
-          </Link>
+          {isSignedIn ? (
+            <Link href={accountHref} onClick={close}>
+              {accountLabel} ↗
+            </Link>
+          ) : (
+            <>
+              <Link href="/join" onClick={close}>
+                Join the network
+              </Link>
+              <Link href="/login" onClick={close}>
+                Sign in ↗
+              </Link>
+            </>
+          )}
         </nav>
         <nav className="kt-menu-legal" aria-label="Support and policies">
           <Link href="/faq" onClick={close}>

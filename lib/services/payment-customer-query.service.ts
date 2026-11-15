@@ -1,10 +1,62 @@
 import { prisma } from "@/lib/db/prisma";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import type {
   CustomerPaymentPageDto,
   CustomerPaymentStatusDto,
 } from "@/lib/dto/payment.dto";
 import { PaymentError } from "@/lib/payments/errors";
 import { resolveOrderPaymentSubject } from "./payment-subject.service";
+
+async function assertStoreOrderPaymentVisibility(
+  payerId: string,
+  orderStoreId: string,
+  explicitStoreId?: string | null,
+): Promise<void> {
+  const normalizedExplicit = explicitStoreId?.trim() || null;
+  if (normalizedExplicit && normalizedExplicit !== orderStoreId) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Payment does not belong to the selected store workspace.",
+    );
+  }
+  const db = prisma as unknown as {
+    store?: { findMany?: typeof prisma.store.findMany };
+    storeEmployeeMembership?: { findMany?: typeof prisma.storeEmployeeMembership.findMany };
+  };
+  if (typeof db.store?.findMany !== "function" || typeof db.storeEmployeeMembership?.findMany !== "function") {
+    return;
+  }
+  const [ownedStores, activeMemberships] = await Promise.all([
+    db.store.findMany({
+      where: { ownerUserId: payerId, status: { notIn: ["SUSPENDED", "DISABLED"] } },
+      select: { id: true },
+    }),
+    db.storeEmployeeMembership.findMany({
+      where: { userId: payerId, status: "ACTIVE", store: { status: "ACTIVE" } },
+      select: { storeId: true, permissions: true },
+    }),
+  ]);
+  const ownsTarget = ownedStores.some((s) => s.id === orderStoreId);
+  const hasFinance = activeMemberships.some(
+    (m) => m.storeId === orderStoreId && membershipAllows(m.permissions, "finance"),
+  );
+  if (!ownsTarget && !hasFinance) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Payment is not available for this payer.",
+    );
+  }
+  const allActorStores = new Set<string>([
+    ...ownedStores.map((s) => s.id),
+    ...activeMemberships.map((m) => m.storeId),
+  ]);
+  if (!normalizedExplicit && allActorStores.size > 1) {
+    throw new PaymentError(
+      "STORE_CONTEXT_AMBIGUOUS",
+      "Select a store workspace before continuing.",
+    );
+  }
+}
 
 function toCustomerStatus(payment: {
   publicReference: string;
@@ -37,17 +89,59 @@ function toCustomerStatus(payment: {
 export async function getCustomerPaymentStatus(
   payerId: string,
   publicReference: string,
+  explicitStoreId?: string | null,
 ): Promise<CustomerPaymentStatusDto | null> {
+  const normalizedExplicit = explicitStoreId?.trim() || null;
+  if (!normalizedExplicit) {
+    const payment = await prisma.payment.findFirst({
+      where: { publicReference, userId: payerId },
+      include: { order: { select: { id: true, orderNumber: true, storeId: true } } },
+    });
+    if (!payment?.order) return null;
+    if (payment.order.storeId) {
+      await assertStoreOrderPaymentVisibility(payerId, payment.order.storeId, null);
+    }
+    return toCustomerStatus(payment);
+  }
+
   const payment = await prisma.payment.findFirst({
-    where: { publicReference, userId: payerId },
-    include: { order: { select: { orderNumber: true } } },
+    where: {
+      publicReference,
+      order: { storeId: normalizedExplicit },
+      OR: [
+        { order: { store: { ownerUserId: payerId, status: { notIn: ["SUSPENDED", "DISABLED"] } } } },
+        {
+          order: {
+            store: {
+              status: "ACTIVE",
+              employeeMemberships: {
+                some: {
+                  userId: payerId,
+                  status: "ACTIVE",
+                  permissions: { array_contains: ["finance"] },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+    include: { order: { select: { id: true, orderNumber: true, storeId: true } } },
   });
-  return payment?.order ? toCustomerStatus(payment) : null;
+  if (!payment?.order?.storeId) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Customer parcel payment does not belong to a store workspace.",
+    );
+  }
+  await assertStoreOrderPaymentVisibility(payerId, payment.order.storeId, normalizedExplicit);
+  return toCustomerStatus(payment);
 }
 
 export async function getOwnedPaymentIdentity(
   payerId: string,
   publicReference: string,
+  explicitStoreId?: string | null,
 ): Promise<Readonly<{
   id: string;
   publicReference: string;
@@ -57,11 +151,33 @@ export async function getOwnedPaymentIdentity(
   currentRedirectUrl: string | null;
 }> | null> {
   const payment = await prisma.payment.findFirst({
-    where: { publicReference, userId: payerId },
+    where: {
+      publicReference,
+      OR: [
+        { userId: payerId, order: { storeId: null } },
+        { userId: payerId, orderId: null },
+        { order: { store: { ownerUserId: payerId, status: { notIn: ["SUSPENDED", "DISABLED"] } } } },
+        {
+          order: {
+            store: {
+              status: "ACTIVE",
+              employeeMemberships: {
+                some: {
+                  userId: payerId,
+                  status: "ACTIVE",
+                  permissions: { array_contains: ["finance"] },
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
     select: {
       id: true,
       publicReference: true,
       status: true,
+      order: { select: { storeId: true } },
       attempts: {
         orderBy: { attemptNumber: "desc" },
         take: 1,
@@ -73,28 +189,36 @@ export async function getOwnedPaymentIdentity(
       },
     },
   });
-  return payment
-    ? Object.freeze({
-        id: payment.id,
-        publicReference: payment.publicReference,
-        status: payment.status,
-        currentAttemptReference: payment.attempts[0]?.publicReference ?? null,
-        currentActionType: payment.attempts[0]?.checkoutActionType ?? null,
-        currentRedirectUrl: payment.attempts[0]?.redirectUrl ?? null,
-      })
-    : null;
+  if (!payment) return null;
+  if (payment.order?.storeId) {
+    await assertStoreOrderPaymentVisibility(payerId, payment.order.storeId, explicitStoreId);
+  } else if (explicitStoreId?.trim()) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Customer parcel payment does not belong to a store workspace.",
+    );
+  }
+  return Object.freeze({
+    id: payment.id,
+    publicReference: payment.publicReference,
+    status: payment.status,
+    currentAttemptReference: payment.attempts[0]?.publicReference ?? null,
+    currentActionType: payment.attempts[0]?.checkoutActionType ?? null,
+    currentRedirectUrl: payment.attempts[0]?.redirectUrl ?? null,
+  });
 }
 
 export async function getCustomerPaymentPage(
   payer: Readonly<{ id: string; email: string }>,
   orderReference: string,
+  explicitStoreId?: string | null,
 ): Promise<CustomerPaymentPageDto | null> {
   const order = await prisma.order.findFirst({
     where: {
       orderNumber: orderReference,
       OR: [
-        { customerId: payer.id },
-        { store: { ownerUserId: payer.id } },
+        { storeId: null, customerId: payer.id },
+        { store: { ownerUserId: payer.id, status: { notIn: ["SUSPENDED", "DISABLED"] } } },
         {
           store: {
             status: "ACTIVE",
@@ -112,6 +236,7 @@ export async function getCustomerPaymentPage(
     select: {
       id: true,
       orderNumber: true,
+      storeId: true,
       priceEstimate: true,
       cashOnDelivery: {
         select: {
@@ -123,20 +248,24 @@ export async function getCustomerPaymentPage(
     },
   });
   if (!order) return null;
+  if (order.storeId) {
+    await assertStoreOrderPaymentVisibility(payer.id, order.storeId, explicitStoreId);
+  }
   const payment = await prisma.payment.findUnique({
     where: { orderId: order.id },
     include: { order: { select: { orderNumber: true } } },
   });
   if (payment) {
+    const isStoreAuthorized = Boolean(order.storeId);
+    const canCheckout = isStoreAuthorized || payment.userId === payer.id;
     return Object.freeze({
       orderId: order.id,
       orderReference: order.orderNumber,
       amount: payment.amount.toFixed(2),
-      canCheckout: payment.userId === payer.id,
-      checkoutBlockReason:
-        payment.userId !== payer.id
-          ? "This payment was prepared by another authorized payer. They can continue checkout from their own account."
-          : undefined,
+      canCheckout,
+      checkoutBlockReason: !canCheckout
+        ? "This payment was prepared by another authorized payer. They can continue checkout from their own account."
+        : undefined,
       currency: "ZAR",
       payment: toCustomerStatus(payment),
     });
@@ -153,7 +282,9 @@ export async function getCustomerPaymentPage(
     });
   let subject;
   try {
-    subject = await resolveOrderPaymentSubject(order.id, payer.id);
+    subject = await resolveOrderPaymentSubject(order.id, payer.id, prisma, {
+      explicitStoreId,
+    });
   } catch (error) {
     if (
       error instanceof PaymentError &&

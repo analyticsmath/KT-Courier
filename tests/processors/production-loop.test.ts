@@ -4,14 +4,18 @@ import {
   createProcessorCadenceTracker,
   createProductionCycleWorkCheck,
   DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS,
+  DELEGATED_COMPOSITE_PROCESSORS,
+  evaluateCommercialGateState,
+  hasEnabledCommercialProcessorWork,
   productionProcessors,
   runProductionCycle,
   summarizeProductionCycleReadiness,
   hasEnabledOrdinaryReferralWork,
 } from "@/lib/processors/production-loop";
+import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
 
 describe("production processor orchestration", () => {
-  it("settles marketplace jobs after verified payment finalization", () => {
+  it("settles marketplace jobs after verified payment finalization and accounts for all 29 registered processors", () => {
     expect(productionProcessors).toEqual([
       "apply-paystack-webhook-events",
       "consume-verified-payment-events",
@@ -31,7 +35,43 @@ describe("production processor orchestration", () => {
       "scan-refund-reconciliation",
       "scan-withdrawal-reconciliation",
       "scan-paystack-transfer-reconciliation",
+      "process-managed-marketing-lifecycle",
+      "process-privacy-requests",
+      "process-data-retention",
+      "reconcile-customer-parcel-loyalty",
+      "process-subscription-renewals",
+      "process-promoter-qualifications",
+      "process-valid-click-charges",
+      "deliver-developer-webhooks",
     ]);
+    const covered = new Set<string>([
+      ...productionProcessors,
+      ...Object.keys(DELEGATED_COMPOSITE_PROCESSORS),
+    ]);
+    expect(covered.size).toBe(Object.keys(PROCESSOR_REGISTRY).length);
+  });
+  it("keeps commercial processors fail-closed when gated and opens automatically when authorized (CR-158/159)", async () => {
+    const hasPending = vi.fn().mockResolvedValue(true);
+    expect(await hasEnabledCommercialProcessorWork({ enabled: true, approved: false, hasPending })).toBe(false);
+    expect(hasPending).not.toHaveBeenCalled();
+    expect(evaluateCommercialGateState({ enabled: true, approved: false, blockerCode: "PROMOTERS_PRODUCTION_LOCKED" })).toEqual({
+      activationState: "ACTIVATION_GATED",
+      blockerCode: "PROMOTERS_PRODUCTION_LOCKED",
+    });
+    expect(await hasEnabledCommercialProcessorWork({ enabled: true, approved: true, hasPending })).toBe(true);
+    expect(hasPending).toHaveBeenCalledOnce();
+  });
+  it("surfaces processor failure and retry backlog blockers loudly instead of reporting healthy (CR-160)", () => {
+    const withFailure = productionProcessors.map((name, idx) => ({
+      name,
+      status: idx === 0 ? ("FAILED" as const) : ("IDLE" as const),
+      itemsCompleted: 0,
+      itemsRetried: idx === 1 ? 2 : 0,
+    }));
+    const summary = summarizeProductionCycleReadiness(withFailure, []);
+    expect(summary.healthy).toBe(false);
+    expect(summary.readinessBlockers).toContain("PROCESSOR_FAILED_APPLY_PAYSTACK_WEBHOOK_EVENTS");
+    expect(summary.readinessBlockers).toContain("PROCESSOR_RETRY_BACKLOG_CONSUME_VERIFIED_PAYMENT_EVENTS");
   });
   it("runs automatic referrals only when issuing is enabled and work is pending", async () => {
     const hasPending = vi.fn().mockResolvedValue(true);

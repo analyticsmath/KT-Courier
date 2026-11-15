@@ -24,17 +24,48 @@ export const productionProcessors = [
   "scan-refund-reconciliation",
   "scan-withdrawal-reconciliation",
   "scan-paystack-transfer-reconciliation",
+  // Scheduled compliance, loyalty backfill, and activation-gated commercial jobs
+  "process-managed-marketing-lifecycle",
+  "process-privacy-requests",
+  "process-data-retention",
+  "reconcile-customer-parcel-loyalty",
+  "process-subscription-renewals",
+  "process-promoter-qualifications",
+  "process-valid-click-charges",
+  "deliver-developer-webhooks",
 ] as const satisfies readonly ImplementedProcessorName[];
+
+/** Composite canonical consumers already execute these registered processor paths
+ * inside one authoritative queue pass without duplicate polling loops. */
+export const DELEGATED_COMPOSITE_PROCESSORS = {
+  "finalize-paid-marketplace-checkouts": "consume-verified-payment-events",
+  "release-mature-store-earnings": "process-earning-lifecycle",
+  "release-mature-driver-earnings": "process-earning-lifecycle",
+} as const satisfies Readonly<Partial<Record<ImplementedProcessorName, (typeof productionProcessors)[number]>>>;
+
+export type ProcessorActivationState = "ACTIVE" | "ACTIVATION_GATED" | "DISABLED_BY_FLAG";
 
 export type ProductionCycleResult = Readonly<{
   name: ProductionProcessor;
   status: "COMPLETED" | "PEER_LEASE" | "FAILED" | "IDLE";
   itemsCompleted: number;
   itemsRetried: number;
+  activationState?: ProcessorActivationState;
+  blockerCode?: string | null;
+  backlogCount?: number | null;
 }>;
 
 export function summarizeProductionCycleReadiness(results: readonly ProductionCycleResult[], blockers: readonly string[] = []) {
-  const readinessBlockers = [...new Set(blockers)].sort();
+  const automaticBlockers: string[] = [];
+  for (const result of results) {
+    const normalizedName = result.name.replaceAll("-", "_").toUpperCase();
+    if (result.status === "FAILED") {
+      automaticBlockers.push(`PROCESSOR_FAILED_${normalizedName}`);
+    } else if (result.itemsRetried > 0) {
+      automaticBlockers.push(`PROCESSOR_RETRY_BACKLOG_${normalizedName}`);
+    }
+  }
+  const readinessBlockers = [...new Set([...blockers, ...automaticBlockers])].sort();
   return {
     healthy: results.length === productionProcessors.length &&
       results.every((result) => result.status !== "FAILED" && result.itemsRetried === 0) &&
@@ -59,6 +90,14 @@ export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<Pr
   "scan-refund-reconciliation": 900_000,
   "scan-withdrawal-reconciliation": 900_000,
   "scan-paystack-transfer-reconciliation": 900_000,
+  "process-managed-marketing-lifecycle": 300_000,
+  "process-privacy-requests": 300_000,
+  "process-data-retention": 86_400_000,
+  "reconcile-customer-parcel-loyalty": 300_000,
+  "process-subscription-renewals": 300_000,
+  "process-promoter-qualifications": 300_000,
+  "process-valid-click-charges": 300_000,
+  "deliver-developer-webhooks": 60_000,
 };
 
 /** Keep automatic financial work closed until its operator authorization and issuing switch are both present. */
@@ -67,6 +106,31 @@ export async function hasEnabledOrdinaryReferralWork(checks: { isAuthorized: boo
 }
 
 export async function hasEnabledPromotionExpiryWork(checks: { enabled: boolean; approved: boolean; hasPending: () => Promise<boolean> }): Promise<boolean> {
+  return checks.enabled && checks.approved && await checks.hasPending();
+}
+
+export function evaluateCommercialGateState(input: { enabled: boolean; approved: boolean; blockerCode: string }): {
+  activationState: ProcessorActivationState;
+  blockerCode: string | null;
+} {
+  if (!input.approved) return { activationState: "ACTIVATION_GATED", blockerCode: input.blockerCode };
+  if (!input.enabled) return { activationState: "DISABLED_BY_FLAG", blockerCode: `${input.blockerCode}_WORKER_DISABLED` };
+  return { activationState: "ACTIVE", blockerCode: null };
+}
+
+export function evaluateOperationalWorkerGateState(input: { enabled: boolean; blockerCode: string }): {
+  activationState: ProcessorActivationState;
+  blockerCode: string | null;
+} {
+  if (!input.enabled) return { activationState: "DISABLED_BY_FLAG", blockerCode: `${input.blockerCode}_WORKER_DISABLED` };
+  return { activationState: "ACTIVE", blockerCode: null };
+}
+
+export async function hasEnabledCommercialProcessorWork(checks: {
+  enabled: boolean;
+  approved: boolean;
+  hasPending: () => Promise<boolean>;
+}): Promise<boolean> {
   return checks.enabled && checks.approved && await checks.hasPending();
 }
 

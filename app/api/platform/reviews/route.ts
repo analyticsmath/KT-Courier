@@ -6,6 +6,7 @@ import {
   submitDeliveryReview,
 } from "@/lib/client-platform/reviews.service";
 import { json, failure, mutation } from "@/lib/client-platform/api";
+import { emitAdminAlertNonBlocking } from "@/lib/notifications/admin-alert-dispatch.service";
 export async function GET(req: NextRequest) {
   const u = await getCurrentUser();
   if (!u) return json({ error: "Sign in to continue." }, 401);
@@ -36,7 +37,19 @@ export async function POST(req: NextRequest) {
       422,
     );
   try {
-    return json(await submitDeliveryReview(u.id, p.data), 201);
+    const created = await submitDeliveryReview(u.id, p.data);
+    if (created.rating <= 2) {
+      await emitAdminAlertNonBlocking({
+        eventType: "LOW_RATED_REVIEW",
+        aggregateReference: `delivery-review:${created.id}`,
+        title: `Low-rated delivery review (${created.rating}/5)`,
+        summary: `Customer submitted a ${created.rating}-star delivery review on order ${p.data.orderId}.`,
+        adminPath: `/admin/driver-reviews?rating=${created.rating}`,
+        relatedOrderId: p.data.orderId,
+        metadata: { rating: created.rating, orderId: p.data.orderId },
+      });
+    }
+    return json(created, 201);
   } catch (e) {
     return failure(e);
   }

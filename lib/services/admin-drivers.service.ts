@@ -11,6 +11,7 @@ import { DriverStatus, DriverAvailability, DriverOnboardingStatus, DocumentStatu
 import { isValidStatusTransition, canDriverBeAvailable } from "../constants/drivers";
 import { recordAdminActivity } from "./admin-activity.service";
 import type { AdminCreateDriverInput, AdminUpdateDriverInput } from "../validation/driver";
+import { emitAdminAlertNonBlocking } from "@/lib/notifications/admin-alert-dispatch.service";
 
 export interface ListDriversOptions {
   status?: DriverStatus;
@@ -239,6 +240,15 @@ export async function createDriverProfile(
     entityId: driver.id,
     message: `Created driver profile ${driverCode} for user ${user.email}`,
     metadata: { driverProfileId: driver.id },
+  });
+
+  await emitAdminAlertNonBlocking({
+    eventType: "NEW_DRIVER_APPLICATION",
+    aggregateReference: `driver:${driver.id}`,
+    title: `New driver profile ${driverCode}`,
+    summary: `Driver ${driverCode} was created and requires onboarding verification.`,
+    adminPath: `/admin/drivers/${driver.id}`,
+    metadata: { driverProfileId: driver.id, driverCode },
   });
 
   return toDriverDetailDto(driver);

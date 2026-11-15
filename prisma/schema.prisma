@@ -607,6 +607,7 @@ model Store {
   sponsoredCampaignVersions      AdvertisingCampaignVersion[]
   advertisingFundingAllocations  AdvertisingFundingAllocation[]
   sellingTerritory               StoreSellingTerritory?
+  paymentRefunds                 PaymentRefund[]                     @relation("RefundBeneficiaryStore")
 
   CatalogOperationReceipt CatalogOperationReceipt[]
 
@@ -632,6 +633,12 @@ model StoreCheckoutCertification {
   routeEvidenceDigest        String?
   checkoutEvidenceReference  String
   checkoutEvidenceDigest     String?
+  evidenceType               String    @default("OPERATOR_SUPPLIED_EVIDENCE")
+  engineProofReference       String?
+  engineProofDigest          String?
+  engineProofSuiteSha        String?
+  policyFingerprint          String?
+  stageResults               Json?
   preparedByUserId           String
   approvedByUserId           String?
   status                     String    @default("PENDING_REVIEW")
@@ -782,6 +789,7 @@ model Order {
   packagePolicyDeclaration     ShipmentPackagePolicyDeclaration?
   preparationObligation        ShipmentPreparationObligation?
   driverResponsibilityReports  DriverDeliveryResponsibilityReport[]
+  parcelCancellationResolution ParcelCancellationResolution?
 
   @@index([orderNumber])
   @@index([source])
@@ -2901,6 +2909,7 @@ model PaymentRefund {
   publicReference           String           @unique
   paymentId                 String
   customerUserId            String?
+  beneficiaryStoreId        String?
   method                    RefundMethod
   amount                    Decimal          @db.Decimal(18, 2)
   currency                  LedgerCurrency   @default(ZAR)
@@ -2942,6 +2951,7 @@ model PaymentRefund {
 
   payment                                  Payment                                   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
   customer                                 User?                                     @relation("RefundCustomer", fields: [customerUserId], references: [id], onDelete: Restrict)
+  beneficiaryStore                         Store?                                    @relation("RefundBeneficiaryStore", fields: [beneficiaryStoreId], references: [id], onDelete: Restrict)
   approvedBy                               User?                                     @relation("RefundApprovedBy", fields: [approvedByUserId], references: [id], onDelete: Restrict)
   rejectedBy                               User?                                     @relation("RefundRejectedBy", fields: [rejectedByUserId], references: [id], onDelete: Restrict)
   cancelledBy                              User?                                     @relation("RefundCancelledBy", fields: [cancelledByUserId], references: [id], onDelete: Restrict)
@@ -2962,6 +2972,7 @@ model PaymentRefund {
 
   @@index([paymentId, createdAt])
   @@index([customerUserId, createdAt])
+  @@index([beneficiaryStoreId, createdAt])
   @@index([status, createdAt], map: "PaymentRefund_refundStatus_createdAt_idx")
   @@index([method, status], map: "PaymentRefund_method_refundStatus_idx")
   @@index([reconciliationRequiredAt])
@@ -2969,6 +2980,34 @@ model PaymentRefund {
   @@index([legacyCreatedByUserId], map: "PaymentRefund_createdByUserId_idx")
   @@index([paymentId], map: "PaymentRefund_paymentId_idx")
   @@index([legacyPaymentStatus], map: "PaymentRefund_status_idx")
+}
+
+model ParcelCancellationResolution {
+  id                    String    @id @default(cuid())
+  publicReference       String    @unique
+  orderId               String    @unique
+  paymentId             String?
+  status                String
+  operationId           String    @unique
+  requestHash           String
+  requestedByUserId     String
+  actorRole             String
+  reason                String
+  walletOwnerType       String?
+  walletOwnerId         String?
+  walletRefundJournalId String?
+  paymentRefundId       String?
+  reconciliationCaseId  String?
+  decisionEvidence      Json?
+  version               Int       @default(0)
+  resolvedAt            DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([paymentId])
 }
 
 model RefundFundingAllocation {

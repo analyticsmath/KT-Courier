@@ -12,6 +12,7 @@ const config: PaystackRuntimeConfiguration = {
   secretKey: "sk_test_not_a_real_key", appOrigin: "https://ktcouriers.example",
   apiBaseUrl: "https://api.paystack.co", credentialVersion: "test-v1",
   checkoutAuditVersion: "paystack-redirect-v1", configurationFingerprint: "paystack-v1:sandbox",
+  eftChannelEnabled: false,
 };
 const request: ProviderCheckoutSessionInput = {
   merchantReference: "kt_test_order_123", paymentPublicReference: "pay_123",

@@ -11,7 +11,9 @@ import { assertPaymentAttemptTransition } from "@/lib/payments/payment-attempt-s
 import { assertPaymentTransition } from "@/lib/payments/payment-state-machine";
 import { sanitizeProviderSnapshot } from "@/lib/payments/provider-snapshot-policy";
 import { PaymentProviderRegistry, createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+import { isPaystackEftChannelApproved } from "@/lib/payments/providers/paystack/paystack-config";
 import type {
+  PaymentChannel,
   PaymentProviderAdapter,
   ProviderCheckoutSessionInput,
   ProviderCheckoutSessionResult,
@@ -28,6 +30,7 @@ import { PAYMENT_SESSION_POLICY_VERSION, type PaymentAttemptState, type PaymentP
 import { CreateProviderSessionSchema, type CreateProviderSessionInput } from "@/lib/validation/payments";
 import { assertPaymentSubjectIntegrity } from "@/lib/payments/payment-subject-policy";
 import { openPaymentReconciliationCaseWithinTransaction } from "@/lib/services/payment-reconciliation.service";
+import { resolveParcelWalletFundingAuthorityInTx } from "@/lib/services/wallet-spending.service";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const UNRESOLVED_ATTEMPTS = ["RESERVED", "REQUESTING", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN"] as const;
@@ -59,6 +62,7 @@ type ReservedSession = Readonly<{
   attempt: ReservedAttemptRecord;
   requestHash: string;
   callbackUrls: PaymentCallbackUrls;
+  paymentChannel: PaymentChannel;
   replayed: boolean;
 }>;
 
@@ -89,6 +93,7 @@ function providerRequestInput(reservation: ReservedSession): ProviderCheckoutSes
     notificationUrl: reservation.callbackUrls.notificationUrl,
     description: reservation.description,
     providerOperationKey: reservation.attempt.merchantReference,
+    paymentChannel: reservation.paymentChannel,
   });
 }
 
@@ -100,10 +105,12 @@ function attemptHash(args: {
   callbackUrls: PaymentCallbackUrls;
   description: string;
   configurationFingerprint: string;
+  paymentChannel?: PaymentChannel;
 }): string {
   return canonicalPaymentHash({
     paymentId: args.paymentId,
     provider: args.provider,
+    ...(args.paymentChannel && args.paymentChannel !== "CARD" ? { paymentChannel: args.paymentChannel } : {}),
     amount: args.amount,
     currency: args.currency,
     merchantReferenceSemantics: "kt:payment:<public-reference>:attempt:<locked-counter>",
@@ -140,20 +147,49 @@ async function reserveAttempt(
     const paymentBeforeLock = await tx.payment.findUnique({
       where: { id: input.paymentId },
       include: {
-        order: { select: { orderNumber: true } },
+        order: { select: { id: true, orderNumber: true, storeId: true, status: true } },
         user: { select: { email: true, name: true } },
       },
     });
     if (!paymentBeforeLock) throw new PaymentError("PAYMENT_NOT_FOUND", "Payment was not found.");
-    if (paymentBeforeLock.userId !== payerId) {
-      throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
+
+    const isStoreOrder = Boolean(paymentBeforeLock.orderId && paymentBeforeLock.order?.storeId);
+    if (isStoreOrder && paymentBeforeLock.orderId && typeof tx.store?.findMany === "function") {
+      await resolveParcelWalletFundingAuthorityInTx(tx, {
+        orderId: paymentBeforeLock.orderId,
+        actorUserId: payerId,
+        explicitStoreId: input.storeContextId,
+      });
+    } else {
+      if (input.storeContextId?.trim()) {
+        throw new PaymentError(
+          "PAYMENT_PAYER_NOT_AUTHORIZED",
+          "Customer parcel payment does not belong to a store workspace.",
+        );
+      }
+      if (paymentBeforeLock.userId !== payerId) {
+        throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
+      }
+      if (paymentBeforeLock.orderId && typeof tx.order?.findUnique === "function") {
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${paymentBeforeLock.orderId} FOR UPDATE`);
+      }
     }
-    if (!paymentBeforeLock.user?.email || !validPayerEmail(paymentBeforeLock.user.email)) {
+
+    const actorUser =
+      typeof tx.user?.findUnique === "function" && payerId !== paymentBeforeLock.userId
+        ? await tx.user.findUnique({
+            where: { id: payerId },
+            select: { email: true, name: true },
+          })
+        : paymentBeforeLock.user;
+    const effectiveUser = actorUser ?? paymentBeforeLock.user;
+    if (!effectiveUser?.email || !validPayerEmail(effectiveUser.email)) {
       throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required for checkout.");
     }
 
     const callbackUrls = callbackUrlFactory(paymentBeforeLock.publicReference);
     const description = `KT Couriers order ${paymentBeforeLock.order?.orderNumber ?? paymentBeforeLock.publicReference}`.slice(0, 160);
+    const paymentChannel: PaymentChannel = input.channel ?? "CARD";
     const requestHash = attemptHash({
       paymentId: paymentBeforeLock.id,
       provider: input.provider,
@@ -162,6 +198,7 @@ async function reserveAttempt(
       callbackUrls,
       description,
       configurationFingerprint: adapter.checkoutAudit.configurationFingerprint,
+      paymentChannel,
     });
 
     const existing = await tx.paymentAttempt.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
@@ -173,9 +210,9 @@ async function reserveAttempt(
         paymentId: paymentBeforeLock.id,
         paymentStatus: paymentBeforeLock.status as PaymentState,
         paymentPublicReference: paymentBeforeLock.publicReference,
-        payerUserId: paymentBeforeLock.userId,
-        payerEmail: (paymentBeforeLock.user?.email ?? "").trim().toLowerCase(),
-        payerName: paymentBeforeLock.user?.name ?? null,
+        payerUserId: payerId,
+        payerEmail: (effectiveUser.email ?? "").trim().toLowerCase(),
+        payerName: effectiveUser.name ?? null,
         orderReference: paymentBeforeLock.order?.orderNumber ?? paymentBeforeLock.publicReference,
         amount: paymentBeforeLock.amount.toFixed(2),
         currency: "ZAR" as const,
@@ -183,6 +220,7 @@ async function reserveAttempt(
         attempt: existing,
         requestHash,
         callbackUrls,
+        paymentChannel,
         replayed: true,
       };
     }
@@ -191,13 +229,27 @@ async function reserveAttempt(
     const payment = await tx.payment.findUnique({
       where: { id: input.paymentId },
       include: {
-        order: { select: { orderNumber: true } },
+        order: { select: { id: true, orderNumber: true, storeId: true, status: true } },
         user: { select: { email: true, name: true } },
       },
     });
     if (!payment) throw new PaymentError("PAYMENT_NOT_FOUND", "Payment was not found.");
-    if (payment.userId !== payerId) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
-    if (!payment.user?.email || !validPayerEmail(payment.user.email)) throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required for checkout.");
+    if (payment.order?.status && ["CANCELLED", "DELIVERED", "RETURNED", "FAILED"].includes(payment.order.status)) {
+      throw new PaymentError("PAYMENT_ORDER_NOT_PAYABLE", "Order is no longer payable.");
+    }
+    if (payment.orderId && typeof tx.parcelCancellationResolution?.findUnique === "function") {
+      const cancellationResolution = await tx.parcelCancellationResolution.findUnique({
+        where: { orderId: payment.orderId },
+        select: { status: true },
+      });
+      if (cancellationResolution) {
+        throw new PaymentError("PAYMENT_ORDER_NOT_PAYABLE", "Order has a pending or completed cancellation resolution.");
+      }
+    }
+    if (!(payment.orderId && payment.order?.storeId && typeof tx.store?.findMany === "function") && payment.userId !== payerId) {
+      throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Payment is not available for this payer.");
+    }
+    if (!effectiveUser?.email || !validPayerEmail(effectiveUser.email)) throw new PaymentError("PAYMENT_PAYER_EMAIL_REQUIRED", "A valid payer email is required for checkout.");
     if (payment.amount.toFixed(2) !== paymentBeforeLock.amount.toFixed(2) || payment.currency !== "ZAR") {
       throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment financial identity changed during reservation.");
     }
@@ -262,9 +314,9 @@ async function reserveAttempt(
       paymentId: payment.id,
       paymentStatus: "PROVIDER_PENDING" as const,
       paymentPublicReference: payment.publicReference,
-      payerUserId: payment.userId,
-      payerEmail: (payment.user?.email ?? "").trim().toLowerCase(),
-      payerName: payment.user?.name ?? null,
+      payerUserId: payerId,
+      payerEmail: (effectiveUser.email ?? "").trim().toLowerCase(),
+      payerName: effectiveUser.name ?? null,
       orderReference: payment.order?.orderNumber ?? payment.publicReference,
       amount: payment.amount.toFixed(2),
       currency: "ZAR" as const,
@@ -272,13 +324,14 @@ async function reserveAttempt(
       attempt,
       requestHash,
       callbackUrls,
+      paymentChannel,
       replayed: false,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
 
 async function reserveMarketplaceAttempt(
-  input: Readonly<{ paymentId: string; idempotencyKey: string; payerEmail: string; guestCheckoutEvidence: boolean }>,
+  input: Readonly<{ paymentId: string; idempotencyKey: string; payerEmail: string; guestCheckoutEvidence: boolean; channel?: PaymentChannel }>,
   callbackUrlFactory: (publicReference: string) => PaymentCallbackUrls,
   adapter: PaymentProviderAdapter,
 ): Promise<ReservedSession> {
@@ -292,12 +345,13 @@ async function reserveMarketplaceAttempt(
     if (!payment.marketplaceCheckout.customerUserId && !input.guestCheckoutEvidence) throw new PaymentError("PAYMENT_PAYER_NOT_AUTHORIZED", "Guest checkout ownership evidence is required.");
     const callbackUrls = callbackUrlFactory(payment.publicReference);
     const description = `KT Couriers marketplace checkout ${payment.marketplaceCheckout.publicReference}`.slice(0, 160);
-    const requestHash = attemptHash({ paymentId: payment.id, provider: adapter.code, amount: payment.amount.toFixed(2), currency: "ZAR", callbackUrls, description, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint });
+    const paymentChannel: PaymentChannel = input.channel ?? "CARD";
+    const requestHash = attemptHash({ paymentId: payment.id, provider: adapter.code, amount: payment.amount.toFixed(2), currency: "ZAR", callbackUrls, description, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint, paymentChannel });
     const existing = await tx.paymentAttempt.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     const payerUserId = payment.userId ?? `guest:${payment.marketplaceCheckout.id}`;
     if (existing) {
       if (existing.paymentId !== payment.id || existing.requestHash !== requestHash) throw new PaymentError("PAYMENT_ATTEMPT_IDEMPOTENCY_CONFLICT", "Provider-session key was reused for different marketplace evidence.");
-      return { paymentId: payment.id, paymentStatus: payment.status as PaymentState, paymentPublicReference: payment.publicReference, payerUserId, payerEmail: input.payerEmail.trim().toLowerCase(), payerName: null, orderReference: payment.marketplaceCheckout.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR", description, attempt: existing, requestHash, callbackUrls, replayed: true } as ReservedSession;
+      return { paymentId: payment.id, paymentStatus: payment.status as PaymentState, paymentPublicReference: payment.publicReference, payerUserId, payerEmail: input.payerEmail.trim().toLowerCase(), payerName: null, orderReference: payment.marketplaceCheckout.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR", description, attempt: existing, requestHash, callbackUrls, paymentChannel, replayed: true } as ReservedSession;
     }
     if (!( ["CREATED", "FAILED", "EXPIRED"] as string[]).includes(payment.status)) throw new PaymentError("PAYMENT_STATE_TRANSITION_INVALID", "Marketplace payment does not permit a new provider attempt.");
     const unresolved = await tx.paymentAttempt.findFirst({ where: { paymentId: payment.id, status: { in: [...UNRESOLVED_ATTEMPTS] } }, select: { id: true } });
@@ -308,8 +362,8 @@ async function reserveMarketplaceAttempt(
     const updated = await tx.payment.updateMany({ where: { id: payment.id, version: payment.version, status: payment.status }, data: { provider: adapter.code, status: "PROVIDER_PENDING", latestAttemptNumber: nextAttemptNumber, version: { increment: 1 }, failedAt: null, expiresAt: null } });
     if (updated.count !== 1) throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Marketplace payment reservation lost a concurrent update.", true);
     const attempt = await tx.paymentAttempt.create({ data: { paymentId: payment.id, publicReference: newPublicAttemptReference(), attemptNumber: nextAttemptNumber, provider: adapter.code, idempotencyKey: input.idempotencyKey, requestHash, merchantReference, status: "RESERVED", amount: payment.amount, currency: "ZAR", providerEnvironment: adapter.checkoutAudit.environment, providerProtocolVersion: adapter.checkoutAudit.protocolVersion, configurationFingerprint: adapter.checkoutAudit.configurationFingerprint, providerCredentialVersion: adapter.checkoutAudit.credentialVersion, version: 0 } });
-    await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, attemptId: attempt.id, fromStatus: payment.status, toStatus: "PROVIDER_PENDING", reasonCode: "MARKETPLACE_PROVIDER_ATTEMPT_RESERVED", actorType: payment.userId ? "PAYER" : "SYSTEM", actorId: payment.userId, metadata: { provider: adapter.code, attemptNumber: nextAttemptNumber, checkoutReference: payment.marketplaceCheckout.publicReference } } });
-    return { paymentId: payment.id, paymentStatus: "PROVIDER_PENDING", paymentPublicReference: payment.publicReference, payerUserId, payerEmail: input.payerEmail.trim().toLowerCase(), payerName: null, orderReference: payment.marketplaceCheckout.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR", description, attempt, requestHash, callbackUrls, replayed: false } as ReservedSession;
+    await tx.paymentStatusHistory.create({ data: { paymentId: payment.id, attemptId: attempt.id, fromStatus: payment.status, toStatus: "PROVIDER_PENDING", reasonCode: "MARKETPLACE_PROVIDER_ATTEMPT_RESERVED", actorType: payment.userId ? "PAYER" : "SYSTEM", actorId: payment.userId, metadata: { provider: adapter.code, attemptNumber: nextAttemptNumber, checkoutReference: payment.marketplaceCheckout.publicReference, paymentChannel } } });
+    return { paymentId: payment.id, paymentStatus: "PROVIDER_PENDING", paymentPublicReference: payment.publicReference, payerUserId, payerEmail: input.payerEmail.trim().toLowerCase(), payerName: null, orderReference: payment.marketplaceCheckout.publicReference, amount: payment.amount.toFixed(2), currency: "ZAR", description, attempt, requestHash, callbackUrls, paymentChannel, replayed: false } as ReservedSession;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
 }
 
@@ -409,6 +463,7 @@ async function finalizeAttempt(
       cancelRouteId: reservation.callbackUrls.cancelRouteId,
       notificationRouteId: reservation.callbackUrls.notificationRouteId,
       description: request.description,
+      paymentChannel: request.paymentChannel ?? "CARD",
       fieldVersion: attempt.providerProtocolVersion,
       configurationFingerprint: attempt.configurationFingerprint,
       policyVersion: PAYMENT_SESSION_POLICY_VERSION,
@@ -552,6 +607,18 @@ export async function createProviderCheckoutSession(
   // Configuration and the Phase 11 production lock are resolved before a
   // reservation so an unavailable provider never consumes an attempt number.
   const adapter = registry.getAdapter(parsed.data.provider);
+  const requestedChannel: PaymentChannel = parsed.data.channel ?? "CARD";
+  if (
+    requestedChannel === "EFT" &&
+    parsed.data.provider === "PAYSTACK" &&
+    !dependencies.registry &&
+    !isPaystackEftChannelApproved()
+  ) {
+    throw new PaymentError(
+      "EFT_UNAVAILABLE",
+      "Paystack EFT channel is not enabled on this merchant account.",
+    );
+  }
 
   let reservation: Awaited<ReturnType<typeof reserveAttempt>>;
   try {
@@ -590,12 +657,15 @@ export async function createProviderCheckoutSession(
 
 /** Phase 11 marketplace entry point; signing and provider calls stay in the existing adapter. */
 export async function createMarketplaceProviderCheckoutSession(
-  input: Readonly<{ paymentId: string; idempotencyKey: string; payerEmail: string; guestCheckoutEvidence: boolean }>,
+  input: Readonly<{ paymentId: string; idempotencyKey: string; payerEmail: string; guestCheckoutEvidence: boolean; channel?: PaymentChannel }>,
   dependencies: SessionDependencies = {},
 ): Promise<ProviderSessionDto> {
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerMarketplacePaymentCallbackUrls;
   const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
   const adapter = registry.getAdapter("PAYSTACK");
+  if ((input.channel ?? "CARD") === "EFT" && !dependencies.registry && !isPaystackEftChannelApproved()) {
+    throw new PaymentError("EFT_UNAVAILABLE", "Paystack EFT channel is not enabled on this merchant account.");
+  }
   const reservation = await reserveMarketplaceAttempt(input, callbackUrlFactory, adapter);
   if (reservation.replayed) return sessionDto({ paymentId: reservation.paymentId, paymentStatus: reservation.paymentStatus, attempt: reservation.attempt, replayed: true });
   const request = providerRequestInput(reservation);

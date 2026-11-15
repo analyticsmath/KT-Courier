@@ -23,7 +23,23 @@ import { calculateRoute } from "@/lib/maps/routes.service";
 import type { DeliveryZoneCheckResult, RouteCalculationResult } from "@/lib/maps/google-maps.types";
 import { deliveryCatalog } from "@/lib/client-platform/delivery.service";
 import { createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+import { evaluatePaystackCheckoutReadiness } from "@/lib/payments/providers/paystack/paystack-config";
 import { getStorePickupOperationalPreflight } from "./store-pickup-preflight.service";
+import {
+  STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+  computeStorePolicyFingerprint,
+  runDisposableStoreCheckoutEngineProof,
+  type StoreCheckoutEngineProofResult,
+  type StoreCheckoutEngineStageResult,
+} from "./store-checkout-engine-proof.service";
+
+export {
+  STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+  computeStorePolicyFingerprint,
+  runDisposableStoreCheckoutEngineProof,
+  type StoreCheckoutEngineProofResult,
+  type StoreCheckoutEngineStageResult,
+};
 
 export class StoreCertificationError extends Error {
   constructor(
@@ -118,11 +134,23 @@ export function certificationMatchesFacts(
     cert.serviceSignature === facts.serviceSignature;
 }
 
+const BLOCKED_FAKE_RECEIPT_PATTERNS: readonly RegExp[] = [
+  /^(?:pay|trx|chg)_[A-Za-z0-9_-]{3,}$/i,
+  /^(?:live_|test_|fake_|dummy_)(?:pay|trx|chg)_/i,
+  /VERIFIED_PROVIDER_PAYMENT/i,
+];
+
 function checkEvidence(e: CheckoutCertificationEvidence) {
   for (const value of [e.routeEvidenceReference, e.checkoutEvidenceReference]) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:/-]{11,159}$/.test(value)) {
       throw new StoreCertificationError("CERTIFICATION_REFERENCE_INVALID",
         "Record the authentic staging route and paid checkout receipt references.");
+    }
+    if (BLOCKED_FAKE_RECEIPT_PATTERNS.some((pattern) => pattern.test(value.trim()))) {
+      throw new StoreCertificationError(
+        "CERTIFICATION_REFERENCE_INVALID",
+        "Fabricated external transaction references (e.g., pay_/trx_/chg_/VERIFIED_PROVIDER_PAYMENT) cannot certify store checkout; run the disposable engine proof suite instead.",
+      );
     }
   }
   for (const value of [e.routeEvidenceDigest, e.checkoutEvidenceDigest]) {
@@ -172,6 +200,7 @@ export async function prepareStoreCheckoutCertification(
         routeEvidenceDigest: evidence.routeEvidenceDigest,
         checkoutEvidenceReference: evidence.checkoutEvidenceReference,
         checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
+        evidenceType: "CONFIGURATION_CAPABILITY_PREFLIGHT",
         preparedByUserId: preparerId, status: "PENDING_REVIEW", expiresAt,
         reviewNote: evidence.reviewNote,
       },
@@ -182,6 +211,12 @@ export async function prepareStoreCheckoutCertification(
         routeEvidenceDigest: evidence.routeEvidenceDigest,
         checkoutEvidenceReference: evidence.checkoutEvidenceReference,
         checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
+        evidenceType: "CONFIGURATION_CAPABILITY_PREFLIGHT",
+        engineProofReference: null,
+        engineProofDigest: null,
+        engineProofSuiteSha: null,
+        policyFingerprint: null,
+        stageResults: Prisma.JsonNull,
         preparedByUserId: preparerId, approvedByUserId: null, approvedAt: null,
         status: "PENDING_REVIEW", expiresAt, reviewNote: evidence.reviewNote,
         revision: { increment: 1 },
@@ -196,6 +231,15 @@ export async function prepareStoreCheckoutCertification(
     } });
     return { status: cert.status, revision: cert.revision, expiresAt: cert.expiresAt };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+const ENGINE_PROOF_EVIDENCE_TYPES = [
+  "DISPOSABLE_END_TO_END_CHECKOUT_PROOF",
+  "DISPOSABLE_ENGINE_PROOF",
+] as const;
+
+function isEngineProofEvidenceType(value: string | null | undefined): boolean {
+  return Boolean(value && (ENGINE_PROOF_EVIDENCE_TYPES as readonly string[]).includes(value));
 }
 
 /** A distinct admin must review receipt provenance before granting go-Live authority. */
@@ -225,6 +269,19 @@ export async function approveStoreCheckoutCertification(
         !/^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? "") ||
         !certificationMatchesFacts(cert, facts)) {
       throw new StoreCertificationError("CERTIFICATION_STALE", "Pickup, courier service or region changed.");
+    }
+    if (
+      isEngineProofEvidenceType(cert.evidenceType) &&
+      (
+        cert.engineProofSuiteSha !== STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA ||
+        !/^[a-f0-9]{64}$/.test(cert.engineProofDigest ?? "") ||
+        !/^[a-f0-9]{64}$/.test(cert.policyFingerprint ?? "")
+      )
+    ) {
+      throw new StoreCertificationError(
+        "CERTIFICATION_STALE",
+        "Engine proof suite version or policy fingerprint is missing or stale; rerun capability preflight.",
+      );
     }
     const updated = await tx.storeCheckoutCertification.update({
       where: { id: cert.id },
@@ -325,7 +382,17 @@ export type CheckoutCapabilityPreflight = Readonly<{
     paymentProviderReady: boolean;
     paymentProviderEnvironment: string | null;
   }>;
-  generatedEvidence: CheckoutCertificationEvidence | null;
+  readonly generatedEvidence: CheckoutCertificationEvidence | null;
+  readonly policyFingerprint: string | null;
+  readonly engineProofSuiteSha: string;
+  readonly certificationProvenance: Readonly<{
+    evidenceType: string;
+    engineProofReference: string | null;
+    engineProofDigest: string | null;
+    engineProofSuiteSha: string | null;
+    policyFingerprint: string | null;
+    stageResults: readonly StoreCheckoutEngineStageResult[];
+  }> | null;
 }>;
 
 /**
@@ -549,9 +616,19 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
     options?.paymentProviderReadiness ??
     createProductionPaymentProviderRegistry().readiness();
   const paystackState = providerList.find((item) => item.code === "PAYSTACK") ?? null;
-  const paymentProviderReady = Boolean(
-    paystackState?.configured && paystackState.errorCategory === "NONE",
-  );
+  const paystackReadiness = evaluatePaystackCheckoutReadiness(paystackState);
+  const paymentProviderReady = paystackReadiness.ready;
+
+  const policyFingerprint = computeStorePolicyFingerprint({
+    pickupAddressId: pickup?.id ?? null,
+    pickupFingerprint,
+    coverageRegionId,
+    serviceSignature,
+    sellerIdentityReference: sellerIdentity?.publicReference ?? null,
+    sellerIdentityVersion: sellerIdentity?.identityVersion ?? null,
+    operationalPolicyReference: operationalPolicy?.publicReference ?? null,
+    commissionPlanReference: commissionReadiness.planReference,
+  });
 
   const cert = store.checkoutCertification;
   const currentFactsMatchCert = Boolean(
@@ -569,6 +646,18 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
       }),
   );
 
+  const engineProofDrift = Boolean(
+    cert &&
+      isEngineProofEvidenceType(cert.evidenceType) &&
+      (
+        cert.engineProofSuiteSha !== STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA ||
+        !/^[a-f0-9]{64}$/.test(cert.engineProofDigest ?? "") ||
+        !cert.policyFingerprint ||
+        !policyFingerprint ||
+        cert.policyFingerprint !== policyFingerprint
+      ),
+  );
+
   let independentReviewerStatus: IndependentReviewerStatus = "NOT_PREPARED";
   let certificationStale = false;
   if (cert) {
@@ -576,7 +665,7 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
       independentReviewerStatus = "REVOKED";
       certificationStale = true;
     } else if (cert.status === "PENDING_REVIEW") {
-      if (cert.expiresAt <= now || !currentFactsMatchCert) {
+      if (cert.expiresAt <= now || !currentFactsMatchCert || engineProofDrift) {
         independentReviewerStatus = "STALE_OR_EXPIRED";
         certificationStale = true;
       } else {
@@ -592,6 +681,7 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
         !/^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? "") ||
         !/^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? "") ||
         !currentFactsMatchCert ||
+        engineProofDrift ||
         !sellerApproved ||
         !policyActive
       ) {
@@ -701,13 +791,27 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
       paymentProviderEnvironment: paystackState?.environment ?? null,
     }),
     generatedEvidence,
+    policyFingerprint,
+    engineProofSuiteSha: STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA,
+    certificationProvenance: cert
+      ? Object.freeze({
+          evidenceType: cert.evidenceType,
+          engineProofReference: cert.engineProofReference ?? null,
+          engineProofDigest: cert.engineProofDigest ?? null,
+          engineProofSuiteSha: cert.engineProofSuiteSha ?? null,
+          policyFingerprint: cert.policyFingerprint ?? null,
+          stageResults: Array.isArray(cert.stageResults)
+            ? (cert.stageResults as unknown as StoreCheckoutEngineStageResult[])
+            : [],
+        })
+      : null,
   });
 }
 
 /**
- * Prepares a store's checkout certification directly from the deterministic
- * non-mutating CheckoutCapabilityPreflight without requiring a live card charge
- * or persistent staging environment. Requires a distinct administrator to approve.
+ * Executes the transaction-isolated disposable checkout engine proof suite
+ * after CheckoutCapabilityPreflight passes, then records cryptographic evidence
+ * for independent two-reviewer approval without persisting synthetic orders.
  */
 export async function prepareStoreCheckoutCertificationFromPreflight(
   storeId: string,
@@ -728,6 +832,30 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
       preflight.capabilityBlockers,
     );
   }
+
+  const engineProof = await runDisposableStoreCheckoutEngineProof({
+    storeId,
+    pickupAddressId: preflight.pickupAddressId,
+    pickupFingerprint: preflight.pickupFingerprint,
+    coverageRegionId: preflight.coverageRegionId,
+    coverageRegionName: preflight.coverageRegionName,
+    matchingServiceVersions: preflight.matchingServiceVersions,
+    serviceSignature: preflight.serviceSignature,
+    routeDistanceMeters: preflight.routeFeasibility.distanceMeters ?? 5000,
+    sellerIdentityReference: preflight.policySummary.sellerIdentityReference,
+    sellerIdentityVersion: preflight.policySummary.sellerIdentityVersion,
+    operationalPolicyReference: preflight.policySummary.operationalPolicyReference,
+    commissionPlanReference: preflight.policySummary.commissionPlanReference,
+  });
+
+  if (!engineProof.passed) {
+    throw new StoreCertificationError(
+      "PREFLIGHT_CAPABILITY_BLOCKED",
+      `Disposable store checkout engine proof failed at stage ${engineProof.failedStage ?? "UNKNOWN"}: ${engineProof.failureMessage ?? "Verification did not pass."}`,
+      preflight.capabilityBlockers,
+    );
+  }
+
   const effectiveNote =
     reviewNote && reviewNote.trim().length >= 24
       ? reviewNote.trim()
@@ -764,7 +892,12 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
         prior.expiresAt > new Date() &&
         /^[a-f0-9]{64}$/.test(prior.routeEvidenceDigest ?? "") &&
         /^[a-f0-9]{64}$/.test(prior.checkoutEvidenceDigest ?? "") &&
-        certificationMatchesFacts(prior, facts)
+        certificationMatchesFacts(prior, facts) &&
+        !(
+          isEngineProofEvidenceType(prior.evidenceType) &&
+          (prior.engineProofSuiteSha !== engineProof.suiteSha ||
+            prior.policyFingerprint !== engineProof.policyFingerprint)
+        )
       ) {
         throw new StoreCertificationError(
           "CERTIFICATION_ALREADY_APPROVED",
@@ -784,6 +917,12 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
           routeEvidenceDigest: evidence.routeEvidenceDigest,
           checkoutEvidenceReference: evidence.checkoutEvidenceReference,
           checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
+          evidenceType: "DISPOSABLE_END_TO_END_CHECKOUT_PROOF",
+          engineProofReference: engineProof.engineProofReference,
+          engineProofDigest: engineProof.engineProofDigest,
+          engineProofSuiteSha: engineProof.suiteSha,
+          policyFingerprint: engineProof.policyFingerprint,
+          stageResults: engineProof.stageResults as unknown as Prisma.InputJsonValue,
           preparedByUserId: preparerId,
           status: "PENDING_REVIEW",
           expiresAt,
@@ -798,6 +937,12 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
           routeEvidenceDigest: evidence.routeEvidenceDigest,
           checkoutEvidenceReference: evidence.checkoutEvidenceReference,
           checkoutEvidenceDigest: evidence.checkoutEvidenceDigest,
+          evidenceType: "DISPOSABLE_END_TO_END_CHECKOUT_PROOF",
+          engineProofReference: engineProof.engineProofReference,
+          engineProofDigest: engineProof.engineProofDigest,
+          engineProofSuiteSha: engineProof.suiteSha,
+          policyFingerprint: engineProof.policyFingerprint,
+          stageResults: engineProof.stageResults as unknown as Prisma.InputJsonValue,
           preparedByUserId: preparerId,
           approvedByUserId: null,
           approvedAt: null,
@@ -813,15 +958,20 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
           action: "UPDATE",
           entityType: "Store",
           entityId: storeId,
-          message: "Store deterministic checkout capability preflight submitted for independent review",
+          message: "Store disposable checkout engine proof and capability preflight submitted for independent review",
           metadata: {
             certificateId: cert.id,
             mode: "PREFLIGHT",
+            evidenceType: "DISPOSABLE_END_TO_END_CHECKOUT_PROOF",
             pickupFingerprint: cert.pickupFingerprint,
             routeReference: evidence.routeEvidenceReference,
             routeDigest: evidence.routeEvidenceDigest,
             checkoutReference: evidence.checkoutEvidenceReference,
             checkoutDigest: evidence.checkoutEvidenceDigest,
+            engineProofReference: engineProof.engineProofReference,
+            engineProofDigest: engineProof.engineProofDigest,
+            engineProofSuiteSha: engineProof.suiteSha,
+            policyFingerprint: engineProof.policyFingerprint,
           },
         },
       });
@@ -829,7 +979,14 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
         status: cert.status,
         revision: cert.revision,
         expiresAt: cert.expiresAt,
+        evidenceType: cert.evidenceType,
+        engineProofReference: cert.engineProofReference,
+        engineProofDigest: cert.engineProofDigest,
+        engineProofSuiteSha: cert.engineProofSuiteSha,
+        policyFingerprint: cert.policyFingerprint,
+        stageResults: engineProof.stageResults,
         preflight,
+        engineProof,
       };
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },

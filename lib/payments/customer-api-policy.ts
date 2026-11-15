@@ -3,6 +3,24 @@ import { PaymentError } from "./errors";
 
 export const PAYMENT_API_BODY_LIMIT = 2_048;
 
+export function resolveExplicitStoreContextId(
+  request: NextRequest,
+  bodyStoreContextId?: string | null,
+): string | null {
+  const fromHeader = request.headers?.get?.("x-kt-store-id")?.trim() || null;
+  const fromQuery = request.nextUrl?.searchParams?.get?.("storeId")?.trim() || null;
+  const fromBody = bodyStoreContextId?.trim() || null;
+  const provided = [fromHeader, fromQuery, fromBody].filter((v): v is string => Boolean(v));
+  const unique = new Set(provided);
+  if (unique.size > 1) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Conflicting store workspace selection.",
+    );
+  }
+  return provided[0] ?? null;
+}
+
 export function noStoreJson<T>(data: T, status = 200): NextResponse<T> {
   return NextResponse.json(data, {
     status,
@@ -85,6 +103,14 @@ export function paymentApiError(error: unknown): NextResponse {
     case "PAYMENT_CONCURRENCY_CONFLICT":
     case "PAYMENT_PROVIDER_OUTCOME_UNKNOWN":
       return noStoreJson({ error: "Payment request conflicts with its current state." }, 409);
+    case "STORE_CONTEXT_AMBIGUOUS":
+      return noStoreJson(
+        {
+          error: "Store context is ambiguous. Select the active store before continuing payment.",
+          code: "STORE_CONTEXT_AMBIGUOUS",
+        },
+        409,
+      );
     case "PAYFAST_PRODUCTION_NOT_READY":
       return noStoreJson({ error: "Payfast production checkout is unavailable until secure confirmation is enabled." }, 503);
     case "PAYFAST_NOT_CONFIGURED":
@@ -112,6 +138,14 @@ export function paymentApiError(error: unknown): NextResponse {
     case "PAYMENT_PROVIDER_UNAVAILABLE":
     case "PAYMENT_PROVIDER_AUTHENTICATION_FAILED":
       return noStoreJson({ error: "Card checkout is temporarily unavailable. Please contact KT Couriers support." }, 503);
+    case "EFT_UNAVAILABLE":
+      return noStoreJson(
+        {
+          error: "Instant EFT is currently unavailable until the Paystack EFT channel is approved and activated.",
+          code: "EFT_UNAVAILABLE",
+        },
+        503,
+      );
     case "PAYMENT_PROVIDER_TIMEOUT":
       return noStoreJson({ error: "The payment provider did not respond. Check the payment's current status before retrying." }, 503);
     case "PAYMENT_PROVIDER_RATE_LIMITED":

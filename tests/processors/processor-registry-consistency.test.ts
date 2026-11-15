@@ -17,6 +17,10 @@ const dryRunDb = vi.hoisted(() => ({
     findMany: vi.fn(async () => []),
     update: vi.fn(),
   },
+  subscriptionBillingCycle: { findMany: vi.fn(async () => []) },
+  developerWebhookDelivery: { count: vi.fn(async () => 0) },
+  reportJob: { findMany: vi.fn(async () => []) },
+  reportExportArtifact: { findMany: vi.fn(async () => []) },
   $transaction: vi.fn(),
 }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: dryRunDb }));
@@ -109,6 +113,25 @@ describe("Workstream A: Processor Registry and Compile-Time Closure", () => {
     expect(paymentResult.safeSummary).toContain("[DRY_RUN]");
     expect(dryRunDb.storeEarning.update).not.toHaveBeenCalled();
     expect(dryRunDb.paymentVerifiedEventIntent.update).not.toHaveBeenCalled();
+    expect(dryRunDb.$transaction).not.toHaveBeenCalled();
+
+    for (const dryOnlyName of [
+      "process-subscription-renewals",
+      "deliver-developer-webhooks",
+      "generate-report-jobs",
+      "expire-report-artifacts",
+    ] as const) {
+      const r = await executeRegisteredProcessor({
+        name: dryOnlyName,
+        mode: "DRY_RUN",
+        batchSize: 5,
+      });
+      expect(r.success).toBe(true);
+      expect(r.mode).toBe("DRY_RUN");
+      expect(r.itemsClaimed).toBe(0);
+      expect(r.itemsCompleted).toBe(0);
+      expect(r.safeSummary).toContain("[DRY_RUN]");
+    }
     expect(dryRunDb.$transaction).not.toHaveBeenCalled();
   });
 });

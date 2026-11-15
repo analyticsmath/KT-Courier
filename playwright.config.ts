@@ -61,6 +61,8 @@ export default defineConfig({
         /store-earnings-finance-admin\.spec\.ts/,
         /withdrawal-owner\.spec\.ts/,
         /withdrawal-finance-admin\.spec\.ts/,
+        /phase-a-p0-closure\.spec\.ts/,
+        /phase-b-eft-and-session\.spec\.ts/,
       ],
     },
     {

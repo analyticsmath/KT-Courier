@@ -24,20 +24,23 @@ export const metadata: Metadata = { title: "Store delivery request" };
 
 export default async function StoreOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ storeId?: string }>;
 }) {
-  await requireBusinessPage("/store/orders/[id]");
   const { id } = await params;
+  const { storeId } = (searchParams ? await searchParams : {}) ?? {};
+  await requireBusinessPage("/store/orders/[id]", storeId);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const order = await getOrder(user, id, true);
+  const order = await getOrder(user, id, true, storeId);
   if (!order) notFound();
   const cod = await prisma.cashOnDelivery.findUnique({
     where: { orderId: order.id },
     select: { policyMode: true, cashObligation: true, cashCollected: true },
   });
-  const access = await storeAccess(user.id);
+  const access = await storeAccess(user.id, "orders", storeId ?? order.store?.id ?? null);
   const canPay =
     access.owner || membershipAllows(access.permissions, "finance");
   const canChat = access.owner || membershipAllows(access.permissions, "chat");
@@ -85,7 +88,8 @@ export default async function StoreOrderDetailPage({
             <CancelOrderButton
               business
               orderId={order.id}
-              redirectTo="/store/orders"
+              redirectTo={storeId ? `/store/orders?storeId=${encodeURIComponent(storeId)}` : "/store/orders"}
+              storeContextId={access.store.id}
             />
           </div>
         ) : null}

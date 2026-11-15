@@ -13,3 +13,7 @@ export function assertPromotersProductionReady(): void {
   if (PROMOTERS_PRODUCTION_VALIDATION_APPROVED) return;
   throw new PromoterError("PROMOTER_PRODUCTION_LOCKED", `Promoter operations are inactive pending ${PROMOTERS_PRODUCTION_BLOCK_REASON}.`);
 }
+
+export function promotersProductionReady(): boolean {
+  return PROMOTERS_PRODUCTION_VALIDATION_APPROVED;
+}

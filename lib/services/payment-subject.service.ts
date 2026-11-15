@@ -1,4 +1,6 @@
+import { PlatformError } from "@/lib/client-platform/contracts";
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import { OrderStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { LedgerMoney } from "@/lib/ledger/money";
@@ -15,6 +17,9 @@ export type ResolvedOrderPaymentSubject = Readonly<{
   subjectId: string;
   orderReference: string;
   payerUserId: string;
+  storeId: string | null;
+  walletOwnerType: "CUSTOMER" | "STORE";
+  walletOwnerId: string;
   currency: "ZAR";
   amount: LedgerMoney;
   description: string;
@@ -22,15 +27,106 @@ export type ResolvedOrderPaymentSubject = Readonly<{
   existingSuccessfulPaymentId: null;
 }>;
 
+export type OrderSubjectDb = Pick<Prisma.TransactionClient, "order"> &
+  Partial<Pick<Prisma.TransactionClient, "user" | "store" | "storeEmployeeMembership">>;
+
+async function resolveTransactionalStoreAuthorization(
+  db: OrderSubjectDb,
+  payerUserId: string,
+  orderStoreId: string,
+  orderStoreOwnerUserId: string | undefined,
+  orderStoreStatus: string | undefined,
+  explicitStoreId?: string | null,
+): Promise<boolean> {
+  if (explicitStoreId && explicitStoreId !== orderStoreId) {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Order does not belong to the selected store workspace.",
+    );
+  }
+
+  if (db.user?.findUnique) {
+    const actor = await db.user.findUnique({
+      where: { id: payerUserId },
+      select: { status: true, role: true },
+    });
+    if (!actor || actor.status !== "ACTIVE" || !["CUSTOMER", "STORE"].includes(actor.role)) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "An active account is required for store parcel payment.",
+      );
+    }
+  }
+
+  if (orderStoreStatus === "SUSPENDED" || orderStoreStatus === "DISABLED") {
+    throw new PaymentError(
+      "PAYMENT_PAYER_NOT_AUTHORIZED",
+      "Store account is suspended or unavailable.",
+    );
+  }
+
+  if (db.store?.findMany && db.storeEmployeeMembership?.findMany) {
+    const [ownedStores, activeMemberships] = await Promise.all([
+      db.store.findMany({
+        where: { ownerUserId: payerUserId, status: { notIn: ["SUSPENDED", "DISABLED"] } },
+        select: { id: true, status: true },
+      }),
+      db.storeEmployeeMembership.findMany({
+        where: { userId: payerUserId, status: "ACTIVE", store: { status: "ACTIVE" } },
+        select: { storeId: true, permissions: true },
+      }),
+    ]);
+
+    const allActorStoreIds = new Set<string>([
+      ...ownedStores.map((s) => s.id),
+      ...activeMemberships.map((m) => m.storeId),
+    ]);
+
+    const ownsTarget = ownedStores.some((s) => s.id === orderStoreId);
+    const hasFinanceMembership = activeMemberships.some(
+      (m) => m.storeId === orderStoreId && membershipAllows(m.permissions, "finance"),
+    );
+    if (!ownsTarget && !hasFinanceMembership) {
+      return false;
+    }
+
+    if (!explicitStoreId && allActorStoreIds.size > 1) {
+      throw new PaymentError(
+        "STORE_CONTEXT_AMBIGUOUS",
+        "Multiple store workspaces are available; select the active store before paying.",
+      );
+    }
+
+    return true;
+  }
+
+  if (orderStoreOwnerUserId === payerUserId) {
+    return true;
+  }
+
+  try {
+    const access = explicitStoreId
+      ? await storeAccess(payerUserId, "finance", explicitStoreId)
+      : await storeAccess(payerUserId, "finance");
+    return access.store.id === orderStoreId;
+  } catch (error) {
+    if (error instanceof PlatformError && error.code === "STORE_CONTEXT_AMBIGUOUS") {
+      throw new PaymentError("STORE_CONTEXT_AMBIGUOUS", error.message);
+    }
+    return false;
+  }
+}
+
 export async function resolveOrderPaymentSubject(
   orderId: string,
   payerUserId: string,
-  db: Pick<Prisma.TransactionClient, "order"> = prisma,
+  db: OrderSubjectDb = prisma,
+  options?: Readonly<{ explicitStoreId?: string | null }>,
 ): Promise<ResolvedOrderPaymentSubject> {
   const order = await db.order.findUnique({
     where: { id: orderId },
     include: {
-      store: { select: { ownerUserId: true } },
+      store: { select: { id: true, ownerUserId: true, status: true } },
       pricingQuote: {
         select: {
           id: true,
@@ -56,22 +152,36 @@ export async function resolveOrderPaymentSubject(
       "PAYMENT_ORDER_NOT_FOUND",
       "Order is not available for payment.",
     );
-  const ownsCustomerOrder = order.customerId === payerUserId;
-  const ownsStoreOrder = order.store?.ownerUserId === payerUserId;
-  let authorizedEmployee = false;
-  if (!ownsCustomerOrder && !ownsStoreOrder && order.storeId) {
-    try {
-      authorizedEmployee =
-        (await storeAccess(payerUserId, "finance")).store.id === order.storeId;
-    } catch {
-      /* Business access is denied. */
-    }
-  }
-  if (!ownsCustomerOrder && !ownsStoreOrder && !authorizedEmployee) {
-    throw new PaymentError(
-      "PAYMENT_PAYER_NOT_AUTHORIZED",
-      "Order is not available for this payer.",
+
+  const explicitStoreId = options?.explicitStoreId?.trim() || null;
+  if (order.storeId) {
+    const authorized = await resolveTransactionalStoreAuthorization(
+      db,
+      payerUserId,
+      order.storeId,
+      order.store?.ownerUserId ?? undefined,
+      order.store?.status,
+      explicitStoreId ?? undefined,
     );
+    if (!authorized) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Order is not available for this payer.",
+      );
+    }
+  } else {
+    if (explicitStoreId) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Customer parcel order does not belong to a store workspace.",
+      );
+    }
+    if (order.customerId !== payerUserId) {
+      throw new PaymentError(
+        "PAYMENT_PAYER_NOT_AUTHORIZED",
+        "Order is not available for this payer.",
+      );
+    }
   }
   if (order.payments.length > 0) {
     throw new PaymentError(
@@ -177,6 +287,9 @@ export async function resolveOrderPaymentSubject(
     subjectId: order.id,
     orderReference: order.orderNumber,
     payerUserId,
+    storeId: order.storeId ?? null,
+    walletOwnerType: order.storeId ? "STORE" : "CUSTOMER",
+    walletOwnerId: order.storeId ?? payerUserId,
     currency: "ZAR",
     amount,
     description: `KT Couriers order ${order.orderNumber}`.slice(0, 160),

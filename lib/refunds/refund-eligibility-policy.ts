@@ -4,6 +4,7 @@ import { REFUND_METHODS, REFUND_REASON_CODES } from "./types";
 
 export function assertRefundEligibility(input: Readonly<{
   paymentStatus: string;
+  paymentProvider?: string | null;
   paymentCustomerUserId: string;
   requestingCustomerUserId: string;
   currency: string;
@@ -22,12 +23,17 @@ export function assertRefundEligibility(input: Readonly<{
   method: RefundMethodCode;
   reasonCode: RefundReasonCodeValue;
 }>): void {
+  const isManualWalletSettlement =
+    input.paymentProvider === "MANUAL" && input.method === "CUSTOMER_WALLET";
+  const providerEvidenceOk = isManualWalletSettlement
+    ? input.hasSuccessLedgerJournal
+    : input.hasVerifiedSuccessfulAttempt && input.hasVerifiedWebhook;
+
   if (
     input.paymentStatus !== "SUCCEEDED"
     || input.paymentCustomerUserId !== input.requestingCustomerUserId
     || input.currency !== "ZAR"
-    || !input.hasVerifiedSuccessfulAttempt
-    || !input.hasVerifiedWebhook
+    || !providerEvidenceOk
     || !input.hasSuccessLedgerJournal
     || input.hasChargebackOrDisputeEvidence
     || !input.financialAllocationsSafe

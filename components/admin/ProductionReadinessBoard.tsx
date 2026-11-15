@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Capability, CapabilityStatus } from "@/lib/production-readiness/contracts";
+import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capability-matrix.service";
 
 type Owner = Capability["owner"];
 const owners: Owner[] = ["ENGINEERING", "OPERATIONS", "FINANCE", "ADMIN_REVIEW", "CLIENT"];
@@ -25,7 +26,13 @@ const routes: Record<string, { href: string; label: string }> = {
 const isBlocker = (s: CapabilityStatus) => s !== "READY" && s !== "DISABLED_BY_POLICY";
 const readable = (s: string) => s.replaceAll("_", " ").toLowerCase().replace(/^./, c => c.toUpperCase());
 
-export function ProductionReadinessBoard({ capabilities }: { capabilities: Capability[] }) {
+export function ProductionReadinessBoard({
+  capabilities,
+  capabilityMatrix = [],
+}: {
+  capabilities: Capability[];
+  capabilityMatrix?: readonly CapabilityMatrixEntry[];
+}) {
   const [view, setView] = useState<"ALL" | "BLOCKERS">("ALL");
   const ready = capabilities.filter(c => c.status === "READY").length;
   const excluded = capabilities.filter(c => c.status === "DISABLED_BY_POLICY").length;
@@ -51,6 +58,50 @@ export function ProductionReadinessBoard({ capabilities }: { capabilities: Capab
       </div>)}
     </dl>
     <p className="sr-only">{blocked} launch blockers, {ready} verified ready, {excluded} excluded by policy.</p>
+    {capabilityMatrix.length > 0 && (
+      <section aria-labelledby="capability-matrix-heading" className="space-y-3">
+        <div>
+          <h3 id="capability-matrix-heading" className="font-semibold text-[var(--kt-brand-navy)]">Read-only capability &amp; live activation matrix</h3>
+          <p className="mt-1 text-sm text-[var(--kt-text-soft)]">Source implementation, runtime credentials, external entitlements, admin policy, and worker health are measured independently so no software deployment can claim live activation prematurely.</p>
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-[var(--kt-border)] bg-white">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-[var(--kt-border)] bg-[var(--kt-surface-muted)] font-semibold text-[var(--kt-text-soft)]">
+              <tr>
+                <th className="p-3">Capability</th>
+                <th className="p-3">Source</th>
+                <th className="p-3">Isolated SHA</th>
+                <th className="p-3">Runtime</th>
+                <th className="p-3">External Auth</th>
+                <th className="p-3">Admin Policy</th>
+                <th className="p-3">Worker</th>
+                <th className="p-3">Live Eligible</th>
+                <th className="p-3">Blocker</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--kt-border)]">
+              {capabilityMatrix.map((row) => (
+                <tr key={row.key}>
+                  <td className="p-3 font-medium text-[var(--kt-brand-navy)]">{row.label}</td>
+                  <td className="p-3">{row.sourceImplemented ? "Yes" : "No"}</td>
+                  <td className="p-3 font-mono">{row.isolatedTestPassSha ? row.isolatedTestPassSha.slice(0, 8) : "Unrecorded"}</td>
+                  <td className="p-3">{row.runtimeConfigured ? "Configured" : "Pending"}</td>
+                  <td className="p-3">{row.externalEntitlementApproved ? "Approved" : "Locked"}</td>
+                  <td className="p-3">{row.adminPolicyEffective ? "Effective" : "Pending"}</td>
+                  <td className="p-3">{row.schedulerRegisteredAndHealthy === null ? "N/A" : row.schedulerRegisteredAndHealthy ? "Healthy" : "Blocked"}</td>
+                  <td className="p-3">
+                    <span className={`inline-block rounded px-2 py-0.5 font-semibold ${row.eligibleForLiveUse ? "bg-[#edf7f0] text-[#236547]" : "bg-[#fff2e7] text-[#875224]"}`}>
+                      {row.eligibleForLiveUse ? "ELIGIBLE" : "BLOCKED"}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono text-[11px] text-[var(--kt-text-soft)]">{row.lastBlockerCode ?? "NONE"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
     <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--kt-border)] pb-4">
       <div><h3 className="font-semibold text-[var(--kt-brand-navy)]">Release acceptance register</h3><p className="mt-1 text-sm text-[var(--kt-text-soft)]">{capabilities.length} evidence-backed checks · organized by responsible team</p></div>
       <div role="group" aria-label="Filter release checks" className="inline-flex gap-1 rounded-lg border border-[var(--kt-border)] bg-white p-1">

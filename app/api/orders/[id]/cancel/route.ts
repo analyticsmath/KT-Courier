@@ -1,4 +1,5 @@
-import { type NextRequest } from "next/server";
+import { resolveExplicitStoreContextId, paymentApiError } from "@/lib/payments/customer-api-policy";
+import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { cancelOrder } from "@/lib/services/orders.service";
 import { CustomerCancelOrderSchema } from "@/lib/validation/order";
@@ -44,17 +45,44 @@ export async function POST(
     );
   }
 
-  const result = await cancelOrder(
-    user,
-    id,
-    parsed.data,
-    user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE",
-  );
+  let explicitStoreId: string | null = null;
+  try {
+    explicitStoreId = resolveExplicitStoreContextId(req, parsed.data.storeContextId);
+  } catch (err) {
+    return paymentApiError(err);
+  }
+
+  const businessWorkspace =
+    user.role === "STORE" ||
+    req.headers.get("X-KT-Workspace") === "STORE" ||
+    Boolean(explicitStoreId);
+
+  let result: Awaited<ReturnType<typeof cancelOrder>>;
+  try {
+    result = await cancelOrder(user, id, parsed.data, businessWorkspace, {
+      explicitStoreId,
+    });
+  } catch (err) {
+    return paymentApiError(err);
+  }
 
   if ("error" in result) {
+    if (result.conflictCode === "CANCELLATION_PENDING_PAYMENT_RESOLUTION") {
+      return NextResponse.json(
+        {
+          error: result.error,
+          code: result.conflictCode,
+          ...(result.resolution ? { resolution: result.resolution } : {}),
+        },
+        { status: 409 },
+      );
+    }
     if (result.error === "Order not found.") return notFound(result.error);
     return badRequest(result.error);
   }
 
-  return ok(result.order);
+  return ok({
+    ...result.order,
+    ...(result.resolution ? { cancellationResolution: result.resolution } : {}),
+  });
 }

@@ -17,9 +17,9 @@ export const metadata: Metadata = {
 export default async function CompleteParcelBookingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string; workspace?: string }>;
+  searchParams: Promise<{ reference?: string; workspace?: string; storeId?: string }>;
 }) {
-  const { reference, workspace } = await searchParams;
+  const { reference, workspace, storeId } = await searchParams;
   if (!reference || !/^[A-Za-z0-9_-]{8,128}$/.test(reference)) redirect("/quote");
   const bookingHref = parcelBookingStepHref(reference, workspace === "store");
   const user = await getCurrentUser();
@@ -29,7 +29,11 @@ export default async function CompleteParcelBookingPage({
   // Store staff may have a CUSTOMER primary role but a verified business
   // workspace membership. Never silently switch their shipment to CUSTOMER.
   const storePickup = business
-    ? await getStorePickupAddress(user.id, "deliveries").catch(() => null)
+    ? await (
+        storeId
+          ? getStorePickupAddress(user.id, "deliveries", storeId)
+          : getStorePickupAddress(user.id, "deliveries")
+      ).catch(() => null)
     : null;
   if (business && !storePickup) redirect("/store/workspace");
 
@@ -56,6 +60,7 @@ export default async function CompleteParcelBookingPage({
       <PublicDeliveryQuoteForm
         signedIn
         business={business}
+        storeContextId={storePickup?.store?.id ?? null}
         bookingOnly
         reference={reference}
         senderDefaults={{

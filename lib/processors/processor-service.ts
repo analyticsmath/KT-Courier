@@ -90,13 +90,31 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     if (result.failed) throw new Error(`Advertising click processing failed for ${result.failed} event(s).`);
     return { itemsExamined: result.examined, itemsClaimed: result.charged + result.reconciled, itemsCompleted: result.charged, itemsSkipped: mode === "DRY_RUN" ? result.examined : 0, itemsRetried: 0, itemsReconciled: result.reconciled, safeSummary: `Advertising clicks: ${result.charged} charged, ${result.reconciled} require review.` };
   },
-  "process-subscription-renewals": async ({ batchSize }) => {
+  "process-subscription-renewals": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const now = new Date();
+      const candidates = await prisma.subscriptionBillingCycle.findMany({
+        where: { status: "SCHEDULED", billingDate: { lte: now }, contract: { status: { in: ["ACTIVE", "GRACE", "PAST_DUE"] } } },
+        select: { id: true },
+        take: batchSize,
+      });
+      return { itemsExamined: candidates.length, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: candidates.length, itemsRetried: 0, itemsReconciled: 0, safeSummary: `[DRY_RUN] Identified ${candidates.length} due subscription billing cycles.` };
+    }
     const { runSubscriptionRenewalBatch } = await import("@/lib/subscriptions/subscription-renewal-batch");
     const result = await runSubscriptionRenewalBatch({ limit: batchSize });
     if (result.failed) throw new Error(`Subscription renewal preparation failed for ${result.failed} cycle(s).`);
     return { itemsExamined: result.examined, itemsClaimed: result.prepared + result.reconciled, itemsCompleted: result.prepared, itemsSkipped: result.skipped, itemsRetried: 0, itemsReconciled: result.reconciled, safeSummary: `Prepared ${result.prepared} renewals; ${result.reconciled} require review.` };
   },
-  "deliver-developer-webhooks": async ({ batchSize }) => {
+  "deliver-developer-webhooks": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const now = new Date();
+      const [pendingCount, retryCount] = await Promise.all([
+        prisma.developerWebhookDelivery.count({ where: { status: "PENDING", OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] } }),
+        prisma.developerWebhookDelivery.count({ where: { status: "FAILED_RETRYABLE", nextAttemptAt: { lte: now } } }),
+      ]);
+      const examined = Math.min(batchSize, pendingCount + retryCount);
+      return { itemsExamined: examined, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: examined, itemsRetried: 0, itemsReconciled: 0, safeSummary: `[DRY_RUN] Identified ${pendingCount + retryCount} pending/retryable developer webhook deliveries.` };
+    }
     const { assertDeveloperApiProductionReady } = await import("@/lib/developer-api/production-readiness");
     assertDeveloperApiProductionReady();
     const [{ recoverStaleWebhookClaims }, { resolveDeveloperApiProductionComposition }] = await Promise.all([import("@/lib/developer-api/webhook-recovery"), import("@/lib/developer-api/composition-root")]);
@@ -113,7 +131,16 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     if (failed) throw new Error(`Webhook delivery encountered ${failed} failure(s); retry or reconciliation is required.`);
     return { itemsExamined: retries.length + pending.length, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: 0, itemsRetried: retries.length, itemsReconciled: recovery.recovered, safeSummary: `Webhook delivery completed ${completed}; ${recovery.recovered} interrupted claims require review.` };
   },
-  "generate-report-jobs": async ({ batchSize }) => {
+  "generate-report-jobs": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const now = new Date();
+      const candidates = await prisma.reportJob.findMany({
+        where: { OR: [{ status: "QUEUED" }, { status: "FAILED_RETRYABLE", OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }] }, { status: "RUNNING", claimExpiresAt: { lte: now } }] },
+        select: { id: true },
+        take: batchSize,
+      });
+      return { itemsExamined: candidates.length, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: candidates.length, itemsRetried: 0, itemsReconciled: 0, safeSummary: `[DRY_RUN] Identified ${candidates.length} queued/retryable/expired report jobs.` };
+    }
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
       const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");
@@ -140,7 +167,15 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     }
     return { itemsExamined: candidates.length, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: skipped, itemsRetried: 0, itemsReconciled: 0, safeSummary: `Developer credential expiry: ${completed} expired, ${skipped} unchanged.` };
   },
-  "expire-report-artifacts": async ({ batchSize }) => {
+  "expire-report-artifacts": async ({ mode, batchSize }) => {
+    if (mode === "DRY_RUN") {
+      const candidates = await prisma.reportExportArtifact.findMany({
+        where: { storageDeletedAt: null, expiresAt: { lte: new Date() } },
+        select: { id: true },
+        take: batchSize,
+      });
+      return { itemsExamined: candidates.length, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: candidates.length, itemsRetried: 0, itemsReconciled: 0, safeSummary: `[DRY_RUN] Identified ${candidates.length} expired report artifacts.` };
+    }
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
       const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");

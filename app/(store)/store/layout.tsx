@@ -1,4 +1,5 @@
 import { getProfileAvatarUrl } from "@/lib/client-platform/profile-avatar-url";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import {
@@ -23,9 +24,11 @@ export default async function StoreLayout({
     where: { id: user.id },
     select: { avatarMediaReference: true },
   });
+  const requestHeaders = await headers();
+  const explicitStoreId = requestHeaders.get("x-kt-store-context")?.trim() || null;
   let access;
   try {
-    access = await storeAccess(user.id);
+    access = await storeAccess(user.id, undefined, explicitStoreId);
   } catch {
     // Suspended/disabled business owners must be able to see the reason for
     // the restriction without entering the protected store workspace.

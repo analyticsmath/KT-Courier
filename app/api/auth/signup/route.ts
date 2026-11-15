@@ -29,6 +29,11 @@ import {
   shouldQueueSecurityEmail,
   securityEmailUnavailableResponse,
 } from "@/lib/auth/security-email-readiness";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 const OTP_EXPIRES_MINUTES = 15;
 
@@ -132,6 +137,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      let adminAlertEvent: AdminAlertEventInput;
       if (accountType === "CUSTOMER") {
         const d = data as { fullName: string };
         await tx.customerProfile.create({
@@ -141,6 +147,13 @@ export async function POST(req: NextRequest) {
             defaultPhone: data.phone ?? null,
           },
         });
+        adminAlertEvent = {
+          eventType: "NEW_CUSTOMER_REGISTERED",
+          aggregateReference: `customer:${newUser.id}`,
+          title: `New customer account ${newUser.id}`,
+          summary: `Customer account registered and awaiting verification.`,
+          metadata: { accountType: "CUSTOMER", userId: newUser.id },
+        };
       } else if (accountType === "STORE") {
         const d = data as StoreSignupInput;
         const invitation = d.inviteToken ? await tx.storeOnboardingInvitation.findUnique({where:{tokenHash:hashToken(d.inviteToken)}}) : null;
@@ -190,9 +203,17 @@ export async function POST(req: NextRequest) {
           } });
           await tx.store.update({ where: { id: store.id }, data: { defaultPickupAddressId: pickup.id } });
         }
+        adminAlertEvent = {
+          eventType: "NEW_STORE_APPLICATION",
+          aggregateReference: `store:${store.id}`,
+          title: `New store application: ${store.name}`,
+          summary: `Store ${store.name} (${store.slug}) submitted an onboarding application.`,
+          adminPath: `/admin/stores/${store.id}`,
+          metadata: { storeId: store.id, storeSlug: store.slug },
+        };
       } else {
         const driverCode = newDriverCode();
-        await tx.driverProfile.create({
+        const driverProfile = await tx.driverProfile.create({
           data: {
             userId: newUser.id,
             driverCode,
@@ -204,6 +225,14 @@ export async function POST(req: NextRequest) {
             vehicleComplianceRequiredAt: new Date(),
           },
         });
+        adminAlertEvent = {
+          eventType: "NEW_DRIVER_APPLICATION",
+          aggregateReference: `driver:${driverProfile.id}`,
+          title: `New driver application ${driverCode}`,
+          summary: `Driver ${driverCode} submitted an application for review.`,
+          adminPath: `/admin/drivers/${driverProfile.id}`,
+          metadata: { driverProfileId: driverProfile.id, driverCode },
+        };
       }
 
       // The optional ordinary customer/store attribution is bound atomically
@@ -251,9 +280,12 @@ export async function POST(req: NextRequest) {
         securityEmailQueueFailed = false;
       }
 
+      await recordAdminAlertIntentInTx(tx, adminAlertEvent);
+
       return {
         devOtp: process.env.NODE_ENV !== "production" ? code : undefined,
         deliveryId,
+        adminAlertEvent,
       };
     })
     .catch((error: unknown) => { transactionFailure = error; return null; });
@@ -273,6 +305,7 @@ export async function POST(req: NextRequest) {
     );
     deliveryPending = !delivered?.accepted;
   }
+  await emitAdminAlertNonBlocking(result.adminAlertEvent);
 
   return NextResponse.json(
     {

@@ -17,7 +17,9 @@ export type SafeProviderConfigurationState = Readonly<{
     | "CONFIGURATION_INVALID"
     | "PAYFAST_SOURCE_ADDRESS_TRUST_NOT_CONFIGURED"
     | "CONSOLIDATED_VALIDATION_NOT_APPROVED"
+    | "TEMP_SANDBOX_EXPIRED"
     | null;
+  temporarySandboxExpired?: boolean;
 }>;
 
 export function unconfiguredProviderState(code: PaymentProviderCode): SafeProviderConfigurationState {
