@@ -147,7 +147,7 @@ test.afterAll(async () => {
 
 test.describe("Phase A P0 browser closure workflows (F01..F04)", () => {
   for (const width of [1440, 390]) {
-    test(`F01/F04: store staff cancels pre-gateway parcel cleanly and sees 409 pending resolution banner on in-flight payment at ${width}px`, async ({ page }) => {
+    test(`F01/F04: store staff cancels pre-gateway parcel cleanly and sees conflict (409) resolution banner while payment is pending at ${width}px`, async ({ page }) => {
       test.setTimeout(90_000);
       const suffix = `${width}-${randomUUID().slice(0, 8)}`;
       const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
