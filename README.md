@@ -2,19 +2,21 @@
 
   <img src="./public/images/kt-couriers/brand/logo.svg" width="118" height="118" alt="KT Couriers brand mark" />
 
-  # KT COURIERS
+  <h1>KT COURIERS</h1>
 
-  **The operating platform for commerce, couriers & the last mile.**
+  <p><strong>The operating platform for commerce, couriers &amp; the last mile.</strong></p>
 
-  A South African, multi-role marketplace and logistics system connecting customers, independent stores, drivers and platform operators — from product discovery or parcel quotation to verified handover and financial reconciliation.
+  <p>A South African, multi-role marketplace and logistics system connecting customers, independent stores, drivers and platform operators — from product discovery or parcel quotation to verified handover and financial reconciliation.</p>
 
-  [**Explore the platform**](#the-platform) · [**Architecture**](#system-architecture) · [**Run locally**](#quick-start) · [**Engineering evidence**](#engineering-intelligence) · [**Release position**](#release-readiness)
+  <p><a href="#the-platform"><strong>Explore the platform</strong></a> · <a href="#system-architecture"><strong>Architecture</strong></a> · <a href="#quick-start"><strong>Run locally</strong></a> · <a href="#engineering-intelligence"><strong>Engineering evidence</strong></a> · <a href="#release-readiness"><strong>Release position</strong></a></p>
 
-  [![CI](https://github.com/analyticsmath/KT-Courier/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/analyticsmath/KT-Courier/actions/workflows/ci.yml)
-  [![Engineering Certification](https://github.com/analyticsmath/KT-Courier/actions/workflows/production-certification.yml/badge.svg?branch=main)](https://github.com/analyticsmath/KT-Courier/actions/workflows/production-certification.yml)
-  ![Next.js](https://img.shields.io/badge/Next.js-16.4.2-101827?style=flat-square&logo=nextdotjs&logoColor=white)
-  ![TypeScript](https://img.shields.io/badge/TypeScript-5-101827?style=flat-square&logo=typescript&logoColor=white)
-  ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-101827?style=flat-square&logo=postgresql&logoColor=white)
+  <p>
+    <a href="https://github.com/analyticsmath/KT-Courier/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/analyticsmath/KT-Courier/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+    <a href="https://github.com/analyticsmath/KT-Courier/actions/workflows/production-certification.yml"><img alt="Engineering Certification" src="https://github.com/analyticsmath/KT-Courier/actions/workflows/production-certification.yml/badge.svg?branch=main" /></a>
+    <img alt="Next.js 16.4.2" src="https://img.shields.io/badge/Next.js-16.4.2-101827?style=flat-square&amp;logo=nextdotjs&amp;logoColor=white" />
+    <img alt="TypeScript 5" src="https://img.shields.io/badge/TypeScript-5-101827?style=flat-square&amp;logo=typescript&amp;logoColor=white" />
+    <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-101827?style=flat-square&amp;logo=postgresql&amp;logoColor=white" />
+  </p>
 
 </div>
 
@@ -366,12 +368,12 @@ The nine owner-supplied source documents cover the **Website Developer Brief; Up
 
 <div align="center">
 
-  **KT COURIERS (PTY) LTD**
+  <p><strong>KT COURIERS (PTY) LTD</strong></p>
 
-  *Delivering convenience. Creating opportunities. Growing businesses.*
+  <p><em>Delivering convenience. Creating opportunities. Growing businesses.</em></p>
 
-  **Built around the handoff — engineered for accountable operations.**
+  <p><strong>Built around the handoff — engineered for accountable operations.</strong></p>
 
-  [Back to top](#kt-couriers) · [Source](https://github.com/analyticsmath/KT-Courier) · [Engineering workflows](https://github.com/analyticsmath/KT-Courier/actions)
+  <p><a href="#kt-couriers">Back to top</a> · <a href="https://github.com/analyticsmath/KT-Courier">Source</a> · <a href="https://github.com/analyticsmath/KT-Courier/actions">Engineering workflows</a></p>
 
 </div>
