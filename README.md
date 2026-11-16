@@ -18,6 +18,9 @@
     <img alt="PostgreSQL 16" src="https://img.shields.io/badge/PostgreSQL-16-101827?style=flat-square&amp;logo=postgresql&amp;logoColor=white" />
   </p>
 
+  <p><a href="https://valtumstudio.com.au/"><img src="./public/images/valtum-studio/valtum-studio-logo.webp" width="68" alt="Valtum Studio — Australian software engineering and digital product studio" /></a></p>
+  <p><sub>SOFTWARE PLATFORM OWNERSHIP &amp; ENGINEERING &nbsp;·&nbsp; <a href="https://valtumstudio.com.au/">VALTUM STUDIO</a> &nbsp;·&nbsp; AUSTRALIA</sub></p>
+
 </div>
 
 ---
@@ -354,6 +357,33 @@ Do not convert a blocked gate to passed by editing paperwork, inventing test rec
 
 The nine owner-supplied source documents cover the **Website Developer Brief; Updated Details; Delivery and Access; Website & System Changes; Shipping & Delivery; Terms & Conditions; Refund & Cancellation; Privacy Policy; and About Us**. Later explicit owner decisions, legal constraints, genuine provider behavior and independently verifiable evidence take precedence where older statements conflict. The linked traceability documents include historical snapshots; review their dates and the live source before treating an older acceptance flag as current.
 
+## Software ownership & engineering stewardship
+
+<div align="center">
+
+  <a href="https://valtumstudio.com.au/work/kt-couriers"><img src="./public/images/valtum-studio/valtum-studio-banner.webp" width="720" alt="Valtum Studio — software engineering, AI systems and digital products" /></a>
+
+  <p><a href="https://valtumstudio.com.au/"><img src="./public/images/valtum-studio/valtum-studio-logo.webp" width="96" alt="Valtum Studio symbol and wordmark" /></a></p>
+
+  <p><strong>ENGINEERED &amp; OWNED BY VALTUM STUDIO</strong><br/><sub>AN INDEPENDENT AUSTRALIAN SOFTWARE STUDIO</sub></p>
+
+</div>
+
+**Software platform ownership and engineering stewardship:** [Valtum Studio](https://valtumstudio.com.au/) — an Australian software studio working across **product design, custom web applications, platform architecture, connected operational workflows, AI-assisted systems and analytics**. Valtum Studio is identified by the project owner as the owner and engineering steward of this **software platform and repository**.
+
+**Client and operational identity:** **KT Couriers (Pty) Ltd**, the South African courier and marketplace business represented by the customer-facing product. The engineering ownership attribution above refers to the **software project**, not ownership of the KT Couriers legal entity, its customer relationships, transport business, or regulated operating obligations.
+
+Valtum Studio's [official KT Couriers engineering case study](https://valtumstudio.com.au/work/kt-couriers) describes logistics as a chain of accountable handoffs across the customer, merchant, dispatcher, driver and recipient. That engineering philosophy appears in this codebase through:
+
+- **Role-scoped workflows:** customer, store, driver and operator surfaces share order identity while enforcing distinct permissions and transition conditions.
+- **Traceable parcel custody:** dispatch, collection, transit, delivery evidence and exceptions represent accountable actions—not editable status labels alone.
+- **Connected commerce and operations:** inventory, payments, checkout, fulfilment, routing and finance are designed as related business processes with explicit system boundaries.
+- **Evidence-based software delivery:** CI, state integrity, reconciliation and operator acceptance remain independently verifiable requirements rather than marketing claims.
+
+[**Explore Valtum Studio**](https://valtumstudio.com.au/) · [**Read the KT Couriers case study**](https://valtumstudio.com.au/work/kt-couriers) · [**Software engineering capabilities**](https://valtumstudio.com.au/services/digital-products) · [**Connected operations**](https://valtumstudio.com.au/services/connected-operations)
+
+> **Attribution boundary:** A software ownership statement is not a public-launch certificate, legal opinion, software license grant, or a transfer of the client's operational liabilities. All existing release gates, contract rights, financial approvals, data obligations and production restrictions remain unchanged.
+
 ## Working on this repository
 
 - Keep changes scoped to the requested feature or documentation surface; avoid unrelated edits.
@@ -373,6 +403,8 @@ The nine owner-supplied source documents cover the **Website Developer Brief; Up
   <p><em>Delivering convenience. Creating opportunities. Growing businesses.</em></p>
 
   <p><strong>Built around the handoff — engineered for accountable operations.</strong></p>
+
+  <p><sub>SOFTWARE PLATFORM OWNERSHIP &amp; ENGINEERING: <a href="https://valtumstudio.com.au/">VALTUM STUDIO · AUSTRALIA</a></sub></p>
 
   <p><a href="#kt-couriers">Back to top</a> · <a href="https://github.com/analyticsmath/KT-Courier">Source</a> · <a href="https://github.com/analyticsmath/KT-Courier/actions">Engineering workflows</a></p>
 
