@@ -18,6 +18,7 @@ export interface AddressDto {
   contactPhone: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -37,6 +38,7 @@ export function toAddressDto(address: Address): AddressDto {
     contactPhone: address.contactPhone,
     line1: address.line1,
     line2: address.line2,
+    suburb: address.suburb ?? null,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,

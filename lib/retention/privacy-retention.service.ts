@@ -2,6 +2,8 @@
 import { createHash } from "node:crypto";
 import { db } from "@/lib/db";
 import { phase5Reference, phase5Repository, safeOperationalText } from "@/lib/operations/phase5-repository";
+import { PrivateMediaPolicyError, PrivateMediaService } from "@/lib/private-media/private-media.service";
+import { PrivateMediaStorageError } from "@/lib/private-media/private-media-storage";
 import { evaluateRetentionHolds } from "./hold-evaluator";
 
 export const RETENTION_DATA_CLASSES = ["ACCOUNT_PROFILE", "CUSTOMER_ADDRESS", "MARKETING_PREFERENCE_HISTORY", "COOKIE_PREFERENCE_HISTORY", "LEGAL_ACCEPTANCE_EVIDENCE", "LOCATION_DATA", "PRIVATE_MEDIA", "CLAIM_EVIDENCE", "POD_EVIDENCE", "PAYMENT_METADATA", "FINANCIAL_LEDGER", "SECURITY_AUDIT", "DSAR_EXPORT"] as const;
@@ -32,14 +34,65 @@ export async function executeAccountAnonymisation(input: { userId: string; polic
   catch { const existing = await phase5Repository.retentionExecution.findUnique({ where: { executionKey } }); if (existing) return existing; throw new RetentionError("RETENTION_EXECUTION_CONFLICT"); }
   const client = db as any; const user = await client.user.findUnique({ where: { id: input.userId } }); if (!user) throw new RetentionError("RETENTION_RESOURCE_NOT_FOUND");
   const token = createHash("sha256").update(`${input.userId}:${input.operationId}`).digest("hex").slice(0, 28);
-  await client.$transaction(async (tx: any) => { await tx.user.update({ where: { id: input.userId }, data: { email: `deleted-${token}@anonymized.invalid`, name: "Deleted account", phone: null, passwordHash: null, status: "DISABLED" } }); await tx.session.deleteMany({ where: { userId: input.userId } }); if (tx.address) await tx.address.updateMany({ where: { userId: input.userId }, data: { line1: "Anonymized", line2: null, contactName: null, contactPhone: null, city: "Anonymized", postalCode: null } }); });
+  await client.$transaction(async (tx: any) => { await tx.user.update({ where: { id: input.userId }, data: { email: `deleted-${token}@anonymized.invalid`, name: "Deleted account", phone: null, passwordHash: null, status: "DISABLED" } }); await tx.session.deleteMany({ where: { userId: input.userId } }); if (tx.address) await tx.address.updateMany({ where: { userId: input.userId }, data: { line1: "Anonymized", line2: null, suburb: null, contactName: null, contactPhone: null, city: "Anonymized", postalCode: null, formattedAddress: null } }); });
   return phase5Repository.retentionExecution.update({ where: { id: String(claimed.id) }, data: { status: "COMPLETED", safeReasonCode: "IDENTITY_REMOVED_FINANCIAL_RELATIONSHIPS_RETAINED" } });
 }
 export async function executeRetentionTarget(input: { dataClass: string; resourceType: string; resourceReference: string; resourceCreatedAt: Date; subjectType: string; subjectReference: string; operationId: string; actorReference: string }) {
   const policy = await resolveRetentionPolicy(input.dataClass); const eligible = eligibleAt(policy, input.resourceCreatedAt); if (!eligible || eligible > new Date()) throw new RetentionError("RETENTION_NOT_ELIGIBLE");
   const key = `${policy.id}:${input.resourceType}:${input.resourceReference}:${input.operationId}`; const replay = await phase5Repository.retentionExecution.findUnique({ where: { executionKey: key } }); if (replay) return replay;
-  const hold = await evaluateRetentionHolds({ subjectType: input.subjectType, subjectReference: input.subjectReference });
+  const subjectHold = await evaluateRetentionHolds({ subjectType: input.subjectType, subjectReference: input.subjectReference });
+  const hold = subjectHold.hasHold || input.resourceType !== "PrivateMediaObject"
+    ? subjectHold
+    : await evaluateRetentionHolds({ subjectType: "PrivateMediaObject", subjectReference: input.resourceReference });
   if (hold.hasHold) { try { return await phase5Repository.retentionExecution.create({ data: { executionKey: key, policyVersionId: String(policy.id), dataClass: input.dataClass, resourceType: input.resourceType, resourceReference: input.resourceReference, action: String(policy.action), status: "HELD", safeReasonCode: hold.activeHoldReason, actorReference: input.actorReference } }); } catch { const existing = await phase5Repository.retentionExecution.findUnique({ where: { executionKey: key } }); if (existing) return existing; throw new RetentionError("RETENTION_EXECUTION_CONFLICT"); } }
   if (String(policy.action) === "ANONYMIZE" && input.resourceType === "User") return executeAccountAnonymisation({ userId: input.resourceReference, policyVersionId: String(policy.id), operationId: input.operationId, actorReference: input.actorReference });
+  if (input.dataClass === "PRIVATE_MEDIA" && input.resourceType === "PrivateMediaObject" && String(policy.action) === "DELETE") {
+    let status: "COMPLETED" | "HELD" | "DEFERRED" = "COMPLETED";
+    let safeReasonCode = "PRIVATE_MEDIA_DELETED";
+    try {
+      await new PrivateMediaService().requestDeletion({
+        actor: { userId: input.actorReference, role: "SUPER_ADMIN" },
+        reference: input.resourceReference,
+      });
+    } catch (error) {
+      if (error instanceof PrivateMediaPolicyError) {
+        if (error.code === "DEPOSIT_PROOF_FINANCIAL_HOLD") {
+          status = "HELD";
+          safeReasonCode = "DEPOSIT_PROOF_FINANCIAL_HOLD";
+        } else if (error.code === "PRIVATE_MEDIA_NOT_FOUND") {
+          throw new RetentionError("RETENTION_RESOURCE_NOT_FOUND");
+        } else if (error.code === "PRIVATE_MEDIA_STORAGE_NOT_CONFIGURED" || error.code === "PRIVATE_MEDIA_STORAGE_FAILURE") {
+          status = "DEFERRED";
+          safeReasonCode = "PRIVATE_MEDIA_STORAGE_RETRY_REQUIRED";
+        } else {
+          throw error;
+        }
+      } else if (error instanceof PrivateMediaStorageError) {
+        status = "DEFERRED";
+        safeReasonCode = "PRIVATE_MEDIA_STORAGE_RETRY_REQUIRED";
+      } else {
+        throw error;
+      }
+    }
+    try {
+      return await phase5Repository.retentionExecution.create({
+        data: {
+          executionKey: key,
+          policyVersionId: String(policy.id),
+          dataClass: input.dataClass,
+          resourceType: input.resourceType,
+          resourceReference: input.resourceReference,
+          action: String(policy.action),
+          status,
+          safeReasonCode: safeOperationalText(safeReasonCode, 80),
+          actorReference: input.actorReference,
+        },
+      });
+    } catch {
+      const existing = await phase5Repository.retentionExecution.findUnique({ where: { executionKey: key } });
+      if (existing) return existing;
+      throw new RetentionError("RETENTION_EXECUTION_CONFLICT");
+    }
+  }
   try { return await phase5Repository.retentionExecution.create({ data: { executionKey: key, policyVersionId: String(policy.id), dataClass: input.dataClass, resourceType: input.resourceType, resourceReference: input.resourceReference, action: String(policy.action), status: ["FINANCIAL_LEDGER", "PAYMENT_METADATA", "CLAIM_EVIDENCE"].includes(input.dataClass) ? "RETAINED" : "DEFERRED", safeReasonCode: safeOperationalText("POLICY_EXECUTOR_REQUIRED", 80), actorReference: input.actorReference } }); } catch { const existing = await phase5Repository.retentionExecution.findUnique({ where: { executionKey: key } }); if (existing) return existing; throw new RetentionError("RETENTION_EXECUTION_CONFLICT"); }
 }

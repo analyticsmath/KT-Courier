@@ -64,6 +64,7 @@ export default defineConfig({
         /phase-a-p0-closure\.spec\.ts/,
         /phase-b-eft-and-session\.spec\.ts/,
         /vendor-onboarding-v005-v008\.spec\.ts/,
+        /checkout-saved-address-l01\.spec\.ts/,
       ],
     },
     {

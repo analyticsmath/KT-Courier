@@ -1,10 +1,11 @@
 import type { SavedAddressUpdateInput } from "@/lib/validation/address-book";
 
-type LocationTextField = "line1" | "line2" | "city" | "province" | "postalCode" | "country" | "formattedAddress";
+type LocationTextField = "line1" | "line2" | "suburb" | "city" | "province" | "postalCode" | "country" | "formattedAddress";
 
 export type ExistingCustomerAddressLocation = Readonly<{
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -16,7 +17,7 @@ export type ExistingCustomerAddressLocation = Readonly<{
 }>;
 
 const ADDRESS_TEXT_FIELDS: readonly LocationTextField[] = [
-  "line1", "line2", "city", "province", "postalCode", "country", "formattedAddress",
+  "line1", "line2", "suburb", "city", "province", "postalCode", "country", "formattedAddress",
 ];
 
 function coordinateChanged(
@@ -42,7 +43,7 @@ export function staleCustomerSavedAddressPinReset(
   input: SavedAddressUpdateInput,
 ): { placeId: null; latitude: null; longitude: null; formattedAddress?: null } | null {
   const textChanged = ADDRESS_TEXT_FIELDS.some(
-    (field) => input[field] !== undefined && input[field] !== existing[field],
+    (field) => input[field] !== undefined && (input[field] ?? null) !== (existing[field] ?? null),
   );
   const pointChanged =
     (input.placeId !== undefined && input.placeId !== existing.placeId)

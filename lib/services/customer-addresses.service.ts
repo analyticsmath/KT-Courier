@@ -15,6 +15,7 @@ export interface SavedAddressDto {
   contactPhone: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -38,6 +39,7 @@ export function toSavedAddressDto(address: Address): SavedAddressDto {
     contactPhone: address.contactPhone,
     line1: address.line1,
     line2: address.line2,
+    suburb: address.suburb ?? null,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,
@@ -62,6 +64,7 @@ function createData(userId: string, input: SavedAddressCreateInput) {
     contactPhone: input.contactPhone ?? null,
     line1: input.line1,
     line2: input.line2 ?? null,
+    suburb: input.suburb ?? null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -83,6 +86,7 @@ function updateData(input: SavedAddressUpdateInput) {
     ...(input.contactPhone !== undefined && { contactPhone: input.contactPhone || null }),
     ...(input.line1 !== undefined && { line1: input.line1 }),
     ...(input.line2 !== undefined && { line2: input.line2 || null }),
+    ...(input.suburb !== undefined && { suburb: input.suburb || null }),
     ...(input.city !== undefined && { city: input.city || null }),
     ...(input.province !== undefined && { province: input.province || null }),
     ...(input.postalCode !== undefined && { postalCode: input.postalCode || null }),

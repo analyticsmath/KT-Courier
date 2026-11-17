@@ -63,6 +63,7 @@ export function normalizeGooglePlaceAddress(place: {
     placeId: place.place_id ?? null,
     line1: line1 || (place.formatted_address ?? ""),
     line2,
+    suburb: sublocality ?? null,
     city,
     province: adminArea1,
     postalCode,

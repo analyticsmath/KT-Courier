@@ -13,6 +13,7 @@ export type CustomerCheckoutSavedAddress = Readonly<{
   contactPhone: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -27,15 +28,19 @@ export type CustomerCheckoutSavedAddress = Readonly<{
 export type CheckoutAddressPrefill = Readonly<{
   line1: string;
   line2: string;
+  suburb: string;
   city: string;
   province: string;
   postalCode: string;
   instructions: string;
+  needsSuburbConfirmation: boolean;
+  needsMapLocationConfirmation: boolean;
   mapped: {
     formattedAddress: string;
     placeId: string | null;
     line1: string;
     line2: string | null;
+    suburb: string | null;
     city: string | null;
     province: string | null;
     postalCode: string | null;
@@ -66,6 +71,9 @@ export function customerCheckoutAddressPrefill(
 ): CheckoutAddressPrefill {
   const lat = address.latitude;
   const lng = address.longitude;
+  // Never infer suburb from unit/building (line2); legacy addresses without a
+  // trusted suburb or map pin prompt for confirmation in checkout instead.
+  const suburb = address.suburb?.trim() ?? "";
   // Stored data alone never authorizes a route: checkout calls the configured
   // geocoding/coverage providers again after the customer submits.
   const mapped = address.placeId
@@ -76,10 +84,11 @@ export function customerCheckoutAddressPrefill(
     && (lat !== 0 || lng !== 0)
       ? {
           formattedAddress: address.formattedAddress?.trim()
-            || [address.line1, address.city, address.province, address.postalCode, "South Africa"].filter(Boolean).join(", "),
+            || [address.line1, suburb || null, address.city, address.province, address.postalCode, "South Africa"].filter(Boolean).join(", "),
           placeId: address.placeId,
           line1: address.line1,
           line2: address.line2,
+          suburb: suburb || null,
           city: address.city,
           province: address.province,
           postalCode: address.postalCode,
@@ -91,10 +100,13 @@ export function customerCheckoutAddressPrefill(
   return {
     line1: address.line1,
     line2: address.line2 ?? "",
+    suburb,
     city: address.city ?? "",
     province: address.province ?? "Gauteng",
     postalCode: address.postalCode ?? "",
     instructions: address.accessNotes ?? "",
+    needsSuburbConfirmation: suburb.length === 0,
+    needsMapLocationConfirmation: mapped === null,
     mapped,
   };
 }

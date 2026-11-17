@@ -14,6 +14,7 @@ export async function createAddress(input: CreateAddressInput) {
       contactPhone: input.contactPhone ?? null,
       line1: input.line1,
       line2: input.line2 ?? null,
+      suburb: input.suburb ?? null,
       city: input.city ?? null,
       province: input.province ?? null,
       postalCode: input.postalCode ?? null,

@@ -47,8 +47,8 @@ export async function GET(
         input = (
           q.metadata as {
             bookingInput?: {
-              pickupAddress?: { city?: string; line2?: string | null; province?: string };
-              dropoffAddress?: { city?: string; line2?: string | null; province?: string };
+              pickupAddress?: { city?: string; line2?: string | null; suburb?: string | null; province?: string };
+              dropoffAddress?: { city?: string; line2?: string | null; suburb?: string | null; province?: string };
             };
           }
         )?.bookingInput;
@@ -70,12 +70,12 @@ export async function GET(
           // cash in high-risk suburbs and then reject it after booking.
           originLocality: {
             city: input?.pickupAddress?.city,
-            suburb: input?.pickupAddress?.line2,
+            suburb: input?.pickupAddress?.suburb ?? input?.pickupAddress?.line2,
             province: input?.pickupAddress?.province,
           },
           destinationLocality: {
             city: input?.dropoffAddress?.city,
-            suburb: input?.dropoffAddress?.line2,
+            suburb: input?.dropoffAddress?.suburb ?? input?.dropoffAddress?.line2,
             province: input?.dropoffAddress?.province,
           },
           authoritativeTotal: q.total.toFixed(2),

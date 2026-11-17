@@ -41,11 +41,22 @@ describe("same-account marketplace checkout address prefill", () => {
     expect(new Set(entries.map(item => item.id))).toEqual(new Set(["iso2", "iso3", "iso3z", "full"]));
   });
 
-  it("fills checkout's contact-address fields without losing a valid map pin", () => {
-    expect(customerCheckoutAddressPrefill(address)).toMatchObject({
-      line1: "15 Example Street", line2: "Flat 2", city: "Johannesburg",
+  it("fills checkout's contact-address fields without losing a valid map pin or independent suburb", () => {
+    expect(customerCheckoutAddressPrefill({ ...address, line2: "Unit 4B", suburb: "Rosebank" })).toMatchObject({
+      line1: "15 Example Street", line2: "Unit 4B", suburb: "Rosebank", city: "Johannesburg",
       province: "Gauteng", postalCode: "2000", instructions: "Reception",
-      mapped: { placeId: "ChIJexample123", latitude: -26.2041, longitude: 28.0473 },
+      needsSuburbConfirmation: false, needsMapLocationConfirmation: false,
+      mapped: { placeId: "ChIJexample123", latitude: -26.2041, longitude: 28.0473, suburb: "Rosebank" },
+    });
+  });
+
+  it("never promotes unit/building line2 into suburb when a saved address has no canonical suburb or map pin", () => {
+    expect(customerCheckoutAddressPrefill({ ...address, line2: "Unit 4B", suburb: null, placeId: null })).toMatchObject({
+      line2: "Unit 4B",
+      suburb: "",
+      needsSuburbConfirmation: true,
+      needsMapLocationConfirmation: true,
+      mapped: null,
     });
   });
 

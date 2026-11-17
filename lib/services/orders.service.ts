@@ -126,8 +126,8 @@ export async function createOrder(
               regionId: quote.destinationRegionId,
               originRegionId: quote.originRegionId,
               destinationRegionId: quote.destinationRegionId,
-              originLocality: { city: input.pickupAddress.city, suburb: input.pickupAddress.line2, province: input.pickupAddress.province },
-              destinationLocality: { city: input.dropoffAddress.city, suburb: input.dropoffAddress.line2, province: input.dropoffAddress.province },
+              originLocality: { city: input.pickupAddress.city, suburb: input.pickupAddress.suburb ?? input.pickupAddress.line2, province: input.pickupAddress.province },
+              destinationLocality: { city: input.dropoffAddress.city, suburb: input.dropoffAddress.suburb ?? input.dropoffAddress.line2, province: input.dropoffAddress.province },
               authoritativeTotal: quote.total.toFixed(2),
             },
             tx,
@@ -142,6 +142,7 @@ export async function createOrder(
         contactPhone: input.pickupAddress.contactPhone ?? null,
         line1: input.pickupAddress.line1,
         line2: input.pickupAddress.line2 ?? null,
+        suburb: input.pickupAddress.suburb ?? null,
         city: input.pickupAddress.city ?? null,
         province: input.pickupAddress.province ?? null,
         postalCode: input.pickupAddress.postalCode ?? null,
@@ -161,6 +162,7 @@ export async function createOrder(
         contactPhone: input.dropoffAddress.contactPhone ?? input.recipientPhone,
         line1: input.dropoffAddress.line1,
         line2: input.dropoffAddress.line2 ?? null,
+        suburb: input.dropoffAddress.suburb ?? null,
         city: input.dropoffAddress.city ?? null,
         province: input.dropoffAddress.province ?? null,
         postalCode: input.dropoffAddress.postalCode ?? null,
@@ -322,6 +324,7 @@ export interface RepeatDeliveryAddressPrefill {
   placeId: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -365,6 +368,7 @@ function toRepeatAddressPrefill(
     placeId: address.placeId,
     line1: address.line1,
     line2: address.line2,
+    suburb: address.suburb ?? null,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,

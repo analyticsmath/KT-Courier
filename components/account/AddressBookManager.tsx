@@ -23,6 +23,8 @@ interface FormState {
   isDefault: boolean;
   contactName: string;
   contactPhone: string;
+  line2: string;
+  suburb: string;
   accessNotes: string;
   address: AddressAutocompleteValue | null;
 }
@@ -34,6 +36,8 @@ const EMPTY_FORM: FormState = {
   isDefault: false,
   contactName: "",
   contactPhone: "",
+  line2: "",
+  suburb: "",
   accessNotes: "",
   address: null,
 };
@@ -42,12 +46,13 @@ function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
   return {
     formattedAddress:
       address.formattedAddress ??
-      [address.line1, address.city, address.province, address.postalCode, address.country]
+      [address.line1, address.suburb, address.city, address.province, address.postalCode, address.country]
         .filter(Boolean)
         .join(", "),
     placeId: address.placeId,
     line1: address.line1,
     line2: address.line2,
+    suburb: address.suburb ?? null,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,
@@ -64,7 +69,7 @@ function typeLabel(type: AddressKind): string {
 }
 
 function summary(address: SavedAddressDto): string {
-  return [address.line1, address.city, address.province].filter(Boolean).join(", ");
+  return [address.line1, address.line2, address.suburb, address.city, address.province].filter(Boolean).join(", ");
 }
 
 export function AddressBookManager({ initialAddresses }: AddressBookManagerProps) {
@@ -91,6 +96,8 @@ export function AddressBookManager({ initialAddresses }: AddressBookManagerProps
       isDefault: address.isDefault,
       contactName: address.contactName ?? "",
       contactPhone: address.contactPhone ?? "",
+      line2: address.line2 ?? "",
+      suburb: address.suburb ?? "",
       accessNotes: address.accessNotes ?? "",
       address: addressToValue(address),
     });
@@ -124,7 +131,8 @@ export function AddressBookManager({ initialAddresses }: AddressBookManagerProps
       contactName: form.contactName.trim() || null,
       contactPhone: form.contactPhone.trim() || null,
       line1: form.address.line1.trim(),
-      line2: form.address.line2,
+      line2: form.line2.trim() || null,
+      suburb: form.suburb.trim() || null,
       city: form.address.city,
       province: form.address.province,
       postalCode: form.address.postalCode,
@@ -273,7 +281,13 @@ export function AddressBookManager({ initialAddresses }: AddressBookManagerProps
               label="Address"
               required
               value={form.address}
-              onChange={(value) => setForm((current) => ({ ...current, address: value }))}
+              onChange={(value) =>
+                setForm((current) => ({
+                  ...current,
+                  address: value,
+                  ...(value?.placeId ? { suburb: value.suburb ?? "" } : {}),
+                }))
+              }
               contactName={form.contactName}
               contactPhone={form.contactPhone}
               onContactNameChange={(value) => setForm((current) => ({ ...current, contactName: value }))}
@@ -282,6 +296,29 @@ export function AddressBookManager({ initialAddresses }: AddressBookManagerProps
               onAccessNotesChange={(value) => setForm((current) => ({ ...current, accessNotes: value }))}
               error={fieldErrors["line1"] ?? fieldErrors["address.line1"]}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="address_line2">Unit, apartment or building (optional)</Label>
+                <Input
+                  id="address_line2"
+                  placeholder="e.g. Unit 4B"
+                  value={form.line2}
+                  onChange={(event) => setForm((current) => ({ ...current, line2: event.target.value }))}
+                  error={fieldErrors.line2}
+                />
+              </div>
+              <div>
+                <Label htmlFor="address_suburb">Suburb / area</Label>
+                <Input
+                  id="address_suburb"
+                  placeholder="e.g. Rosebank"
+                  value={form.suburb}
+                  onChange={(event) => setForm((current) => ({ ...current, suburb: event.target.value }))}
+                  error={fieldErrors.suburb}
+                />
+              </div>
+            </div>
 
             <label className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--kt-ink-navy)]">
               <input

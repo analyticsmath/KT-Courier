@@ -17,6 +17,7 @@ const savedNullableFields = {
   contactName: AddressInputSchema.shape.contactName.nullable(),
   contactPhone: AddressInputSchema.shape.contactPhone.nullable(),
   line2: AddressInputSchema.shape.line2.nullable(),
+  suburb: AddressInputSchema.shape.suburb.nullable(),
   city: AddressInputSchema.shape.city.nullable(),
   province: AddressInputSchema.shape.province.nullable(),
   postalCode: AddressInputSchema.shape.postalCode.nullable(),

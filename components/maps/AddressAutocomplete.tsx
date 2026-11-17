@@ -14,6 +14,7 @@ export interface AddressAutocompleteValue {
   placeId: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;
@@ -210,12 +211,13 @@ export function AddressAutocomplete({
       const next = { ...manualValue, [key]: val };
       setManual(next);
       const addr: AddressAutocompleteValue = {
-        formattedAddress: [next.line1, next.city, next.province, next.postalCode, "South Africa"]
+        formattedAddress: [next.line1, value?.suburb, next.city, next.province, next.postalCode, "South Africa"]
           .filter(Boolean)
           .join(", "),
         placeId: null,
         line1: next.line1,
-        line2: null,
+        line2: value?.line2 ?? null,
+        suburb: value?.suburb ?? null,
         city: next.city || null,
         province: next.province || null,
         postalCode: next.postalCode || null,
@@ -227,7 +229,7 @@ export function AddressAutocomplete({
       };
       onChange(next.line1.trim().length >= 3 ? addr : null);
     },
-    [manualValue, onChange]
+    [manualValue, onChange, value?.line2, value?.suburb]
   );
 
   const handleBlur = useCallback(() => {

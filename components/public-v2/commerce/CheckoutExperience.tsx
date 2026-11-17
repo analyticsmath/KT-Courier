@@ -189,7 +189,7 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
         setContactMethod(saved.contact?.preferredContactMethod ?? "EMAIL");
         setAddrLine1(saved.deliveryAddress?.line1 ?? address?.line1 ?? "");
         setAddrLine2(saved.deliveryAddress?.line2 ?? address?.line2 ?? "");
-        setAddrSuburb(saved.deliveryAddress?.suburb ?? "");
+        setAddrSuburb(saved.deliveryAddress?.suburb ?? address?.suburb ?? "");
         setAddrCity(saved.deliveryAddress?.city ?? address?.city ?? "");
         setAddrProvince(saved.deliveryAddress?.province ?? address?.province ?? "Gauteng");
         setAddrPostalCode(saved.deliveryAddress?.postalCode ?? address?.postalCode ?? "");
@@ -836,7 +836,7 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
                         const prefill = customerCheckoutAddressPrefill(selected);
                         setAddrLine1(prefill.line1);
                         setAddrLine2(prefill.line2);
-                        setAddrSuburb("");
+                        setAddrSuburb(prefill.suburb);
                         setAddrCity(prefill.city);
                         setAddrProvince(prefill.province);
                         setAddrPostalCode(prefill.postalCode);
@@ -853,6 +853,23 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
                         </option>
                       ))}
                     </select>
+                    {selectedSavedAddressId && (!addrSuburb.trim() || !mappedAddress) && (
+                      <p
+                        role="status"
+                        className="mt-2 rounded-lg px-3 py-2 text-xs"
+                        style={{
+                          backgroundColor: "var(--kt-public-surface-secondary)",
+                          border: "1px solid var(--kt-public-border-control)",
+                          color: "var(--kt-state-warning)",
+                        }}
+                      >
+                        {!addrSuburb.trim() && !mappedAddress
+                          ? "Please confirm the suburb / area and map location for this saved address before calculating delivery."
+                          : !addrSuburb.trim()
+                            ? "Please confirm the suburb / area for this saved address before calculating delivery."
+                            : "Please confirm the map location for this saved address before calculating delivery."}
+                      </p>
+                    )}
                     <p className="mt-2 text-xs text-[var(--kt-public-text-muted)]">
                       Your saved addresses work in both parcel delivery and marketplace checkout.
                       Delivery coverage and the map location are verified again before calculating a fee.
@@ -869,7 +886,7 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
                     setAddrCity(address.city ?? "");
                     setAddrProvince(address.province ?? "");
                     setAddrPostalCode(address.postalCode ?? "");
-                    setAddrSuburb("");
+                    setAddrSuburb(address.suburb ?? "");
                   }}
                   showContactFields={false}
                   showNotesField={false}

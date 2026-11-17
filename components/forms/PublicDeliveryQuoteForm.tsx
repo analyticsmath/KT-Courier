@@ -177,20 +177,24 @@ export function PublicDeliveryQuoteForm({
         });
     return () => { live = false; };
   }, [reference, catalogRevision, bookingOnly]);
-  const address = (f: FormData, p: string, selected: Address) => ({
-    line1: String(f.get(`${p}-line1`)),
-    ...(selected.line2 ? { line2: selected.line2 } : {}),
-    city: String(f.get(`${p}-city`)),
-    province: String(f.get(`${p}-province`)),
-    ...(f.get(`${p}-postalCode`)
-      ? { postalCode: String(f.get(`${p}-postalCode`)) }
-      : {}),
-    // Google Places confirms this selection on the client; the server
-    // resolves the Place ID independently. Never price from browser lat/lng.
-    ...(selected.placeId && typeof selected.latitude === "number" && typeof selected.longitude === "number"
-      ? { placeId: selected.placeId, latitude: selected.latitude, longitude: selected.longitude }
-      : {}),
-  });
+  const address = (f: FormData, p: string, selected: Address) => {
+    const suburb = String(f.get(`${p}-suburb`) ?? selected.suburb ?? "").trim();
+    return {
+      line1: String(f.get(`${p}-line1`)),
+      ...(selected.line2 ? { line2: selected.line2 } : {}),
+      ...(suburb ? { suburb } : {}),
+      city: String(f.get(`${p}-city`)),
+      province: String(f.get(`${p}-province`)),
+      ...(f.get(`${p}-postalCode`)
+        ? { postalCode: String(f.get(`${p}-postalCode`)) }
+        : {}),
+      // Google Places confirms this selection on the client; the server
+      // resolves the Place ID independently. Never price from browser lat/lng.
+      ...(selected.placeId && typeof selected.latitude === "number" && typeof selected.longitude === "number"
+        ? { placeId: selected.placeId, latitude: selected.latitude, longitude: selected.longitude }
+        : {}),
+    };
+  };
   async function estimate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
@@ -263,12 +267,13 @@ export function PublicDeliveryQuoteForm({
         {process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY && <AddressAutocomplete
           id={`${prefix}-mapped-address`} label={`Find ${title.toLowerCase()}`}
           showContactFields={false} showNotesField={false}
-          value={value.line1 ? { formattedAddress: value.formattedAddress ?? value.line1, placeId: value.placeId ?? null, line1: value.line1, line2: value.line2 ?? null, city: value.city ?? null, province: value.province ?? null, postalCode: value.postalCode ?? null, country: value.country ?? "South Africa", latitude: value.latitude ?? null, longitude: value.longitude ?? null } as AddressDto : null}
+          value={value.line1 ? { formattedAddress: value.formattedAddress ?? value.line1, placeId: value.placeId ?? null, line1: value.line1, line2: value.line2 ?? null, suburb: value.suburb ?? null, city: value.city ?? null, province: value.province ?? null, postalCode: value.postalCode ?? null, country: value.country ?? "South Africa", latitude: value.latitude ?? null, longitude: value.longitude ?? null } as AddressDto : null}
           onChange={address => { setValue(address ?? {}); setQuote(null); setError(""); setErrorCode(""); }}
         />}
         {(
           [
             ["line1", "Street address"],
+            ["suburb", "Suburb / area"],
             ["city", "City"],
             ["postalCode", "Postal code"],
           ] as const
@@ -279,7 +284,7 @@ export function PublicDeliveryQuoteForm({
               id={`${prefix}-${key}`}
               name={`${prefix}-${key}`}
               value={value[key] ?? ""}
-              required={key !== "postalCode"}
+              required={key === "line1" || key === "city"}
               maxLength={key === "line1" ? 250 : 100}
               onChange={(e) => {
                 setValue({ ...value, [key]: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });

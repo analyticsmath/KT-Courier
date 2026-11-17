@@ -20,6 +20,7 @@ export interface AddressDto {
   placeId: string | null;
   line1: string;
   line2: string | null;
+  suburb?: string | null;
   city: string | null;
   province: string | null;
   postalCode: string | null;

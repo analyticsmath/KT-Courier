@@ -19,6 +19,7 @@ export const AddressInputSchema = z.object({
   contactPhone: z.string().trim().optional(),
   line1: z.string().min(3, "Address is required").max(200).trim(),
   line2: z.string().trim().max(200).optional(),
+  suburb: z.string().trim().max(100).optional(),
   city: z.string().trim().max(100).optional(),
   province: z.string().trim().max(100).optional(),
   postalCode: z.string().trim().max(20).optional(),

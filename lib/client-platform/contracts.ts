@@ -78,6 +78,7 @@ export const QuoteAddressSchema = z
   .object({
     line1: z.string().trim().min(5).max(250),
     line2: z.string().trim().max(150).optional(),
+    suburb: z.string().trim().max(100).optional(),
     city: z.string().trim().min(2).max(100),
     province: z.enum(PROVINCES),
     postalCode: z.string().trim().max(10).optional(),

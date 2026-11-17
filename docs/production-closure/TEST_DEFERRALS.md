@@ -41,6 +41,7 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/integration/gate4/refund-concurrency.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/gate4/transaction-retry.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/marketplace-checkout-postgres-real.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
+| tests/integration/parcel-wallet-split-retry-postgres.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/paystack-webhook-concurrency.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/reviewed-client-initialization.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
 | tests/integration/store-order-postgres-real.integration.test.ts | RELEASE_CRITICAL | MUST_EXECUTE_WITH_DISPOSABLE_FLAGS | Safety guard must be enabled only in disposable infrastructure; certification rejects actual skips/early-return markers. |
@@ -70,4 +71,4 @@ Generated from the current test tree. This inventory does not make an exclusion 
 | tests/phase26/integration/retention-schedules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 | tests/phase26/integration/screening-rules.integration.test.ts | DEFERRED_OPTIONAL_INACTIVE | EXCLUDED_WITH_SCOPE | Optional Phase 26 recruitment remains source-locked false; see OPTIONAL_RECRUITMENT_EXCLUSION.md. Excluded, not passed. Canonical driver/staff launch tests remain required. |
 
-Audited files with skip/deferral markers: 65. Release-critical open placeholders: 0.
+Audited files with skip/deferral markers: 66. Release-critical open placeholders: 0.
