@@ -3,10 +3,10 @@ import { expect, test } from "@playwright/test";
 import { login } from "./fixtures/auth";
 import { assertDisposablePaystackAcceptance } from "../../lib/testing/disposable-paystack-policy";
 
-for (const width of [1440, 390]) {
-  test(`L-01 saved address unit vs suburb prefill, historic prompt, same-account /quote parity, and foreign denial at ${width}px`, async ({ page, browser }) => {
+for (const width of [1440, 390, 320]) {
+  test(`L-01 saved address unit vs suburb prefill, historic prompt, same-account /quote parity, /account/addresses fields, and foreign denial at ${width}px`, async ({ page, browser }) => {
     assertDisposablePaystackAcceptance();
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.setViewportSize({ width, height: width <= 390 ? 844 : 900 });
     await login(page, "customer@ktcouriers.local");
 
     const origin = process.env.E2E_BASE_URL!;
@@ -88,6 +88,7 @@ for (const width of [1440, 390]) {
     await page.getByLabel("Phone Number (SA)", { exact: true }).fill("+27821112233");
     await page.getByRole("button", { name: /Continue to Delivery Address/ }).click();
     await expect(page.getByRole("heading", { name: "2. Delivery address", exact: true })).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
     // Mapped default prefills Unit 4B and Central independently
     const dropdown = page.locator("#checkout-saved-address");
@@ -107,8 +108,16 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: /Calculate Delivery/ }).click();
     await expect(page.getByRole("heading", { name: "3. Delivery options", exact: true })).toBeFocused();
 
-    // Verify same customer saved address works consistently on /quote
+    // Verify independent unit/suburb fields and zero horizontal overflow on /account/addresses
+    await page.goto("/account/addresses");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await page.getByRole("button", { name: "Add address", exact: true }).click();
+    await expect(page.locator("#address_line2")).toBeVisible();
+    await expect(page.locator("#address_suburb")).toBeVisible();
+
+    // Verify same customer saved address works consistently on /quote with zero horizontal overflow
     await page.goto("/quote");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.locator("#pickup-saved").selectOption(mappedId);
     await expect(page.locator("#pickup-line1")).toHaveValue("45 Commission St");
     await expect(page.locator("#pickup-suburb")).toHaveValue("Central");

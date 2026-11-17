@@ -59,7 +59,8 @@ import {
 import { SavedAddressCreateSchema, SavedAddressUpdateSchema } from "@/lib/validation/address-book";
 import { customerCheckoutAddressPrefill } from "@/lib/marketplace-checkout/customer-checkout-prefill";
 import { updateMarketplaceCheckoutAddress } from "@/lib/marketplace-checkout/checkout.service";
-import { createPublicQuote } from "@/lib/client-platform/delivery.service";
+import { createPublicQuote, saveDeliveryConfiguration } from "@/lib/client-platform/delivery.service";
+import { calculateRoute } from "@/lib/maps/routes.service";
 import { evaluateLocalityCashRisk, parseHighRiskAreas } from "@/lib/settings/high-risk-area-policy";
 import { updateSettingValue } from "@/lib/services/admin-settings.service";
 import { setDeliveryRegionHighRisk } from "@/lib/settings/high-risk-region-policy";
@@ -71,6 +72,7 @@ const cleanupCartIds: string[] = [];
 const cleanupCheckoutIds: string[] = [];
 const cleanupRegionIds: string[] = [];
 const cleanupServiceIds: string[] = [];
+const cleanupServiceKeys: string[] = [];
 const suspendedUnconfiguredServiceIds: string[] = [];
 let adminId = "";
 let previousHighRiskAreas: unknown = null;
@@ -143,8 +145,15 @@ describe("L-01 saved address suburb isolation and L-02 Gauteng/Pretoria/high-ris
       if (cleanupCartIds.length) {
         await prisma.marketplaceCart.deleteMany({ where: { id: { in: cleanupCartIds } } });
       }
-      if (cleanupServiceIds.length) {
-        await prisma.deliveryServiceDefinition.deleteMany({ where: { id: { in: cleanupServiceIds } } });
+      if (cleanupServiceIds.length || cleanupServiceKeys.length) {
+        await prisma.deliveryServiceDefinition.deleteMany({
+          where: {
+            OR: [
+              ...(cleanupServiceIds.length ? [{ id: { in: cleanupServiceIds } }] : []),
+              ...(cleanupServiceKeys.length ? [{ stableKey: { in: cleanupServiceKeys } }] : []),
+            ],
+          },
+        });
       }
       if (cleanupRegionIds.length) {
         await prisma.deliveryRegion.deleteMany({ where: { id: { in: cleanupRegionIds } } });
@@ -396,6 +405,7 @@ describe("L-01 saved address suburb isolation and L-02 Gauteng/Pretoria/high-ris
       },
     });
     cleanupServiceIds.push(activeSvc.id, inactiveSvc.id);
+    cleanupServiceKeys.push(activeServiceKey, inactiveServiceKey);
 
     const baseQuote: PublicQuoteInput = {
       serviceKey: activeServiceKey,
@@ -409,6 +419,20 @@ describe("L-01 saved address suburb isolation and L-02 Gauteng/Pretoria/high-ris
     const valid = await createPublicQuote(baseQuote);
     expect(valid.total).toBe("129.00");
 
+    // Positive Jhb -> Jhb internal succeeds
+    const internalJhb = await createPublicQuote({
+      ...baseQuote,
+      dropoffAddress: { line1: "77 Juta St", suburb: "Braamfontein", city: "Johannesburg", province: "Gauteng", postalCode: "2001" },
+    });
+    expect(internalJhb.total).toBe("129.00");
+
+    // Negative: active service but unavailable route (route provider failure fails closed)
+    vi.mocked(calculateRoute).mockResolvedValueOnce({
+      ok: false,
+      error: { code: "MAPS_ROUTE_NOT_FOUND", message: "No drivable road route between coordinates." },
+    });
+    await expect(createPublicQuote(baseQuote)).rejects.toMatchObject({ status: 503 });
+
     // Negative: outside enabled province
     await expect(
       createPublicQuote({
@@ -416,6 +440,61 @@ describe("L-01 saved address suburb isolation and L-02 Gauteng/Pretoria/high-ris
         dropoffAddress: { line1: "10 Adderley St", city: "Cape Town", province: "Western Cape", postalCode: "8001" },
       }),
     ).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE", status: 409 });
+
+    // Negative: Gauteng-but-outside-explicit-region-scope (provinces: ["Gauteng"], explicit regionIds: [jhbRegion.id] denies Pretoria ~48km outside jhbRegion)
+    const narrowed = await saveDeliveryConfiguration(adminId, {
+      stableKey: activeServiceKey,
+      displayName: "Standard L02 Jhb Only",
+      active: true,
+      turnaround: "1–2 business days",
+      provinces: ["Gauteng"],
+      regionIds: [jhbRegion.id],
+      tariffs: {
+        SMALL: { baseFee: "129.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+        MEDIUM: { baseFee: "179.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+        LARGE: { baseFee: "249.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+      },
+      expectedVersion: 1,
+      reason: "Narrow scope to explicit Jhb radius region only",
+    });
+    expect(narrowed.version).toBe(2);
+    await expect(createPublicQuote(baseQuote)).rejects.toMatchObject({ code: "COVERAGE_UNAVAILABLE", status: 409 });
+
+    // Positive: admin province rollout (region activation + service toggle) enables Western Cape without mutating earlier frozen quote
+    const wcRegion = await prisma.deliveryRegion.create({
+      data: {
+        name: `WC Province ${tag}`,
+        slug: `l02-wc-${tag}`,
+        coverageMode: "PROVINCE",
+        province: "Western Cape",
+        active: true,
+        pricingEnabled: true,
+      },
+    });
+    cleanupRegionIds.push(wcRegion.id);
+    const rolledOut = await saveDeliveryConfiguration(adminId, {
+      stableKey: activeServiceKey,
+      displayName: "Standard L02 Multi-Province Rollout",
+      active: true,
+      turnaround: "1–2 business days",
+      provinces: ["Gauteng", "Western Cape"],
+      regionIds: [],
+      tariffs: {
+        SMALL: { baseFee: "149.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+        MEDIUM: { baseFee: "199.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+        LARGE: { baseFee: "269.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+      },
+      expectedVersion: 2,
+      reason: "Admin rollout toggle enables Western Cape",
+    });
+    expect(rolledOut.version).toBe(3);
+    const capeQuote = await createPublicQuote({
+      ...baseQuote,
+      dropoffAddress: { line1: "10 Adderley St", city: "Cape Town", province: "Western Cape", postalCode: "8001" },
+    });
+    expect(capeQuote.total).toBe("149.00");
+    const frozenEarlier = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: valid.id } });
+    expect(frozenEarlier.total.toFixed(2)).toBe("129.00");
 
     // Negative: disabled service
     await expect(
