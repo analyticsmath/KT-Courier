@@ -15,6 +15,13 @@ const bank = {
 const cash = {
   totals: { collected: "125.00", remitted: "0.00", held: "125.00" },
   cashCapacity: { limit: "1000.00", held: "125.00", reserved: "0.00", exposure: "125.00", remaining: "875.00", atLimit: false },
+  overdueRemittance: {
+    timezone: "Africa/Johannesburg",
+    overdueCount: 0,
+    overdueAmountZar: "0.00",
+    oldestDueAt: null,
+    newCodAssignmentsBlocked: false,
+  },
   bankInstructions: bank, handoverEnabled: true, hasMoreActionableOrders: false,
   orders: [{ orderId: "order-fixture", orderNumber: "KT-123",
     total: "125.00", digitalPaid: "0.00", cashRequired: "125.00",

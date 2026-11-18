@@ -976,7 +976,7 @@ export async function retryPendingAdminAlertDeliveries(options?: {
           p.metadata &&
           typeof p.metadata === "object" &&
           !Array.isArray(p.metadata)
-            ? (p.metadata as Record<string, unknown>)
+            ? (p.metadata as AdminAlertEventInput["metadata"])
             : undefined,
       },
       { providerOverride: provider, db },

@@ -165,7 +165,7 @@ export async function createMarketplaceRefundRequest(input: Readonly<{
     const replay = await tx.paymentRefund.findUnique({ where: { creationIdempotencyKey: operationId } });
     if (replay) {
       if (replay.creationRequestHash !== requestHash) throw new RefundError("REFUND_IDEMPOTENCY_CONFLICT", "Operation ID belongs to a different marketplace refund request.");
-      return replay;
+      return { refund: replay, refundAlert: null as AdminAlertEventInput | null };
     }
     const succeeded = payment.refunds.filter((refund) => refund.status === "SUCCEEDED").reduce((sum, refund) => sum.add(refund.amount), new Prisma.Decimal(0));
     const reserved = payment.refunds.filter((refund) => ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "RECONCILIATION_REQUIRED"].includes(refund.status)).reduce((sum, refund) => sum.add(refund.amount), new Prisma.Decimal(0));
@@ -210,7 +210,9 @@ export async function createMarketplaceRefundRequest(input: Readonly<{
     return { refund, refundAlert };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   const result = await withLedgerRetry(run);
-  void emitAdminAlertNonBlocking(result.refundAlert);
+  if (result.refundAlert) {
+    void emitAdminAlertNonBlocking(result.refundAlert);
+  }
   return result.refund;
 }
 

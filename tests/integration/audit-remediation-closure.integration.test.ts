@@ -1,4 +1,5 @@
 import { createHmac, randomInt, randomUUID } from "node:crypto";
+import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db/prisma";
@@ -811,7 +812,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       created_at: new Date().toISOString(),
       data: { email_id: providerMsgIds.get(emailProviderRecover), to: [emailProviderRecover] },
     });
-    const badSigRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+    const badSigRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
       headers: { "svix-id": `msg_${t}_1`, "svix-timestamp": String(Math.floor(Date.now() / 1000)), "svix-signature": "v1,invalid", "x-forwarded-for": "10.0.0.1" },
       body: deliverPayload,
@@ -819,7 +820,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     expect(badSigRes.status).toBe(401);
 
     const oldTs = String(Math.floor(Date.now() / 1000) - 600);
-    const staleSigRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+    const staleSigRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
       headers: { "svix-id": `msg_${t}_2`, "svix-timestamp": oldTs, "svix-signature": signSvixWebhook(svixSecret, `msg_${t}_2`, oldTs, deliverPayload), "x-forwarded-for": "10.0.0.2" },
       body: deliverPayload,
@@ -828,7 +829,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
 
     const freshTs = String(Math.floor(Date.now() / 1000));
     const svixId = `msg_${t}_ok`;
-    const okRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+    const okRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
       headers: {
         "svix-id": svixId,
@@ -841,7 +842,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     expect(okRes.status).toBe(200);
 
     // Replay with same svix-id returns duplicate=true
-    const replayRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+    const replayRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
       headers: {
         "svix-id": svixId,
@@ -872,7 +873,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       data: { email_id: recoveredEmailIdAtAcc, to: [emailAlreadyAccepted] },
     });
     const bounceId = `msg_${t}_bounce`;
-    const bounceRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+    const bounceRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
       headers: {
         "svix-id": bounceId,
@@ -1272,7 +1273,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
 
     const firstCod = await bookCodOrder("FULL_COD");
     await prisma.order.update({ where: { id: firstCod.id }, data: { deliveryRegionId: gautengRegion.id } });
-    const offer1 = await offerAssignment(adminUser.id, firstCod.id, { driverProfileId: driver.id, ttlSeconds: 3600 });
+    const offer1 = await offerAssignment(adminUser.id, firstCod.id, { driverProfileId: driver.id });
     await acceptDispatchAssignment(driver.id, offer1.id, { expectedVersion: offer1.version });
     await prisma.order.update({ where: { id: firstCod.id }, data: { status: OrderStatus.IN_TRANSIT } });
 
@@ -1357,15 +1358,16 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     const blockedCodOrder = await bookCodOrder("FULL_COD");
     await prisma.order.update({ where: { id: blockedCodOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
     await expect(
-      offerAssignment(adminUser.id, blockedCodOrder.id, { driverProfileId: driver.id, ttlSeconds: 3600 }),
+      offerAssignment(adminUser.id, blockedCodOrder.id, { driverProfileId: driver.id }),
     ).rejects.toThrow(DriverCashRemittanceOverdueError);
 
     // Attempt new paid DIGITAL_ONLY assignment to SAME driver -> ALLOWED!
     const digitalOrder = await bookCodOrder("DIGITAL_ONLY");
     await prisma.order.update({ where: { id: digitalOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
     await payOrderViaVerify(digitalOrder.id);
-    const digitalOffer = await offerAssignment(adminUser.id, digitalOrder.id, { driverProfileId: driver.id, ttlSeconds: 3600 });
-    expect(digitalOffer.driverProfileId).toBe(driver.id);
+    const digitalOffer = await offerAssignment(adminUser.id, digitalOrder.id, { driverProfileId: driver.id });
+    expect(digitalOffer.status).toBe(OrderAssignmentStatus.ASSIGNED);
+    expect((await prisma.orderAssignment.findUniqueOrThrow({ where: { id: digitalOffer.id } })).driverProfileId).toBe(driver.id);
 
     // Independent finance confirmation reconciles cash -> UNBLOCKS new COD assignment!
     await reviewDriverDeposit(superAdminUser, deposit.id, {
@@ -1381,8 +1383,8 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
 
     const unblockedOffer = await offerAssignment(adminUser.id, blockedCodOrder.id, {
       driverProfileId: driver.id,
-      ttlSeconds: 3600,
     });
-    expect(unblockedOffer.driverProfileId).toBe(driver.id);
+    expect(unblockedOffer.status).toBe(OrderAssignmentStatus.ASSIGNED);
+    expect((await prisma.orderAssignment.findUniqueOrThrow({ where: { id: unblockedOffer.id } })).driverProfileId).toBe(driver.id);
   });
 });
