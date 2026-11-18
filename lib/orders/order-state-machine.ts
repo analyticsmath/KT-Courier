@@ -24,12 +24,16 @@ export type OrderTransitionErrorCode =
   | "REASON_REQUIRED";
 
 export class OrderTransitionError extends Error {
+  public readonly reasonCode?: string;
+
   constructor(
     message: string,
     public readonly code: OrderTransitionErrorCode = "INVALID_TRANSITION",
+    reasonCode?: string,
   ) {
     super(message);
     this.name = "OrderTransitionError";
+    if (reasonCode) this.reasonCode = reasonCode;
   }
 }
 

@@ -73,7 +73,10 @@ export async function NotificationAdministrationOverview() {
     <ProtectedPageHeader eyebrow="Notification administration" title="Notification operations" description="Canonical configuration, delivery, and reconciliation records. Counts are source-backed, not delivery analytics." />
     {lockNotice()}
     <OperationalPanel title="Operational records" description="Open a record group to review its permission-scoped projection.">
-      <p className="mb-4"><Link href="/admin/notifications/customer-orders">Review customer courier order updates</Link></p>
+      <div className="mb-4 flex flex-wrap gap-4">
+        <Link className="eo-inline-action" href="/admin/notifications/alerts">Manage Admin &amp; SuperAdmin alerts &amp; recipients</Link>
+        <Link className="eo-inline-action" href="/admin/notifications/customer-orders">Review customer courier order updates</Link>
+      </div>
       <ul aria-label="Notification administration record groups" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{entries.map((entry) => <li key={entry.id}><Link className="block rounded border border-[var(--eo-border)] p-4 font-semibold " href={entry.href}>{entry.label}<span className="mt-1 block text-sm font-normal text-[var(--eo-muted)]">{entry.count} recorded</span></Link></li>)}</ul>
     </OperationalPanel>
   </ProtectedPageFrame>;

@@ -177,6 +177,15 @@ async function main() {
         select: { id: true },
       });
     }
+    if (name === "expire-unpaid-courier-orders") {
+      const { UNPAID_PARCEL_EXPIRY_ELIGIBLE_WHERE } = await import(
+        "../lib/services/parcel-unpaid-expiry.service"
+      );
+      return !!await prisma.order.findFirst({
+        where: UNPAID_PARCEL_EXPIRY_ELIGIBLE_WHERE(new Date()),
+        select: { id: true },
+      });
+    }
     if (name === "dispatch-marketplace-orders") {
       return !!await prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
         where: {

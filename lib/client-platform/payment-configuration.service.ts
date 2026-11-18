@@ -52,8 +52,12 @@ export const PaymentConfigurationSchema = z
       c.addIssue({ code: "custom", path: ["effectiveTo"], message: "The end must be later than the start." });
     if (v.mode !== "DIGITAL" && !v.maximumCodAmount)
       c.addIssue({ code: "custom", message: "Cash requires a positive cash limit." });
-    if (v.mode !== "DIGITAL" && !v.storeId && v.mode !== "FULL_COD")
-      c.addIssue({ code: "custom", message: "Only 100% parcel COD can be approved without a store." });
+    const isScopedStorelessDeposit =
+      v.mode === "DEPOSIT_PLUS_COD" &&
+      v.orderType === "PARCEL_DOCUMENT" &&
+      (v.depositPercent === "0.5" || v.depositPercent === "0.5000");
+    if (v.mode !== "DIGITAL" && !v.storeId && v.mode !== "FULL_COD" && !isScopedStorelessDeposit)
+      c.addIssue({ code: "custom", message: "Only 100% parcel COD or 50% parcel deposit-plus-COD can be approved without a store." });
     if (v.mode === "FULL_COD" && v.orderType != null && v.orderType !== "PARCEL_DOCUMENT")
       c.addIssue({ code: "custom", message: "Full COD is limited to courier parcel deliveries." });
     if (v.mode === "DEPOSIT_PLUS_COD" && !v.depositPercent)
@@ -170,9 +174,13 @@ async function saveReviewedPaymentConfiguration(
     businessModuleId: null,
     storeId: input.storeId,
     deliveryServiceId: input.deliveryServiceId,
-    // Store-less FULL_COD applies to personal parcel delivery, never checkout
-    // for unrelated orders. Keep the scope stable across edits/disable actions.
-    orderType: input.orderType ?? (input.mode === "FULL_COD" ? "PARCEL_DOCUMENT" : null),
+    // Store-less COD (FULL_COD or 50/50 DEPOSIT_PLUS_COD) applies to personal parcel
+    // delivery, never unrelated marketplace orders. Keep the scope stable.
+    orderType:
+      input.orderType ??
+      (input.mode === "FULL_COD" || (input.mode === "DEPOSIT_PLUS_COD" && !input.storeId)
+        ? "PARCEL_DOCUMENT"
+        : null),
     provinceScope: input.provinces,
     regionId: input.regionId,
     orderId: input.orderId,
@@ -251,7 +259,9 @@ async function saveReviewedPaymentConfiguration(
       if (review) {
         const validCash = input.mode === "FULL_COD"
           ? scope.orderType === "PARCEL_DOCUMENT" && !input.depositPercent
-          : input.mode === "DEPOSIT_PLUS_COD" && (input.depositPercent === "0.5" || input.depositPercent === "0.5000");
+          : input.mode === "DEPOSIT_PLUS_COD" &&
+            (input.depositPercent === "0.5" || input.depositPercent === "0.5000") &&
+            (!input.storeId ? scope.orderType === "PARCEL_DOCUMENT" : true);
         if (review.authorId === u.id || !validCash || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires parcel-only 100% COD (or the approved 50/50 scheme), an explicit service, area and remittance controls.", 422);
         const source = existing.find((p) => p.id === review.policyId && p.versionNumber === input.expectedVersion && p.status === "INACTIVE");
         if (!source || source.createdByUserId !== review.authorId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft for this scope.", 409);

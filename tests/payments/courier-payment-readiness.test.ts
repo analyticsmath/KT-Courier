@@ -113,15 +113,45 @@ describe("courier payment readiness", () => {
 
 describe("admin courier progress payment gate", () => {
   const unpaid = { status: "PAYMENT_REQUIRED" as const, dispatchEligible: false, paymentReference: null, amount: null, cashDue: null };
-  it("blocks pickup and delivery progress without ledger authorization", () => {
-    for (const status of ["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"]) {
+  it("blocks confirmation, pickup and delivery progress without ledger or approved FULL_COD authorization", () => {
+    for (const status of ["CONFIRMED", "PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERED"]) {
       expect(() => requirePaymentBeforeCourierProgress(status, unpaid)).toThrow(/payment/i);
     }
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", {
+        ...unpaid,
+        status: "RECONCILIATION_REQUIRED",
+        reasonCode: "PAYMENT_LEDGER_RECONCILIATION_REQUIRED",
+      }),
+    ).toThrow(/reconciliation/i);
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", {
+        ...unpaid,
+        reasonCode: "COD_DEPOSIT_PENDING",
+      }),
+    ).toThrow(/deposit/i);
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", {
+        ...unpaid,
+        reasonCode: "COD_POLICY_NOT_ACTIVE",
+      }),
+    ).toThrow(/Cash-on-delivery authorization is not active/i);
   });
-  it("allows pre-payment booking/cancellation and verified COD progress", () => {
-    for (const status of ["CONFIRMED", "CANCELLED", "FAILED"]) {
+  it("allows cancellation/failure without payment and verified PAID/COD confirmation and progress", () => {
+    for (const status of ["CANCELLED", "FAILED"]) {
       expect(() => requirePaymentBeforeCourierProgress(status, unpaid)).not.toThrow();
     }
-    expect(() => requirePaymentBeforeCourierProgress("PICKED_UP", { ...unpaid, status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true })).not.toThrow();
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", { ...unpaid, status: "PAID", dispatchEligible: true }),
+    ).not.toThrow();
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", { ...unpaid, status: "DEPOSIT_PAID_CASH_DUE", dispatchEligible: true }),
+    ).not.toThrow();
+    expect(() =>
+      requirePaymentBeforeCourierProgress("CONFIRMED", { ...unpaid, status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true }),
+    ).not.toThrow();
+    expect(() =>
+      requirePaymentBeforeCourierProgress("PICKED_UP", { ...unpaid, status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true }),
+    ).not.toThrow();
   });
 });

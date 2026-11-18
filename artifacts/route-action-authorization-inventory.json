@@ -1,12 +1,12 @@
 {
   "summary": {
-    "totalRoutes": 789,
+    "totalRoutes": 791,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 687,
-    "permissionGatedRoutes": 539,
+    "authenticatedRoutes": 689,
+    "permissionGatedRoutes": 541,
     "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 231,
+    "rateLimitedRoutes": 233,
     "generatedAt": "2026-11-15T19:10:16.974Z"
   },
   "serverActions": [],
@@ -3216,6 +3216,46 @@
         "SUPER_ADMIN"
       ],
       "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/notifications/admin-alerts/retry/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "notification_delivery.retry"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/notifications/admin-alerts/route.ts",
+      "httpMethods": [
+        "GET"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "notification_audit.read"
+      ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,

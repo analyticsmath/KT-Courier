@@ -368,7 +368,7 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
     }),
     buildRow({
       key: "PROCESSOR_LOOP",
-      label: "29-Processor Worker Loop",
+      label: "30-Processor Worker Loop",
       sourceImplemented: totalRegisteredCheck,
       isolatedTestPassSha: isolatedSha,
       runtimeConfigured: totalRegisteredCheck,

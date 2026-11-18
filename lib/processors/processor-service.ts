@@ -672,33 +672,72 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
         safeSummary: `[DRY_RUN] Scanned ${itemsExamined} payment reconciliation candidates; 0 cases opened.`,
       };
     }
+    const { recoverPaystackAttemptViaVerify } = await import(
+      "@/lib/services/paystack-verify-recovery.service"
+    );
+    const unresolvedAttempts: typeof staleAttempts = [];
+    let recoveredCount = 0;
+    for (const attempt of staleAttempts) {
+      if (attempt.provider === "PAYSTACK") {
+        const recovery = await recoverPaystackAttemptViaVerify({
+          attemptId: attempt.id,
+          trigger: "scan_payment_reconciliation",
+        }).catch(() => null);
+        if (recovery?.recovered || recovery?.outcome === "FAILED_VIA_VERIFY") {
+          recoveredCount += 1;
+          continue;
+        }
+      }
+      unresolvedAttempts.push(attempt);
+    }
     const { openPaymentReconciliationCaseWithinTransaction } = await import(
       "@/lib/services/payment-reconciliation.service"
     );
     let casesOpened = 0;
-    await prisma.$transaction(
-      async (tx) => {
-        for (const attempt of staleAttempts) {
-          await openPaymentReconciliationCaseWithinTransaction(tx, {
-            paymentId: attempt.paymentId,
-            attemptId: attempt.id,
-            reason: "STALE_PROCESSING_ATTEMPT",
-            provider: (attempt.provider ?? "PAYSTACK") as "PAYFAST" | "PAYSTACK",
-            safeEvidence: { attemptReference: attempt.publicReference, observedStatus: attempt.status },
-          });
-          casesOpened += 1;
-        }
-      },
-      { isolationLevel: "Serializable" },
-    );
+    if (unresolvedAttempts.length > 0) {
+      await prisma.$transaction(
+        async (tx) => {
+          for (const attempt of unresolvedAttempts) {
+            await openPaymentReconciliationCaseWithinTransaction(tx, {
+              paymentId: attempt.paymentId,
+              attemptId: attempt.id,
+              reason: "STALE_PROCESSING_ATTEMPT",
+              provider: (attempt.provider ?? "PAYSTACK") as "PAYFAST" | "PAYSTACK",
+              safeEvidence: { attemptReference: attempt.publicReference, observedStatus: attempt.status },
+            });
+            casesOpened += 1;
+          }
+        },
+        { isolationLevel: "Serializable" },
+      );
+    }
     return {
       itemsExamined,
-      itemsClaimed: casesOpened,
-      itemsCompleted: casesOpened,
+      itemsClaimed: recoveredCount + casesOpened,
+      itemsCompleted: recoveredCount + casesOpened,
       itemsSkipped: 0,
       itemsRetried: 0,
       itemsReconciled: casesOpened,
-      safeSummary: `Payment reconciliation scan recorded ${casesOpened} anomalies.`,
+      safeSummary: `Payment reconciliation scan recovered ${recoveredCount} attempts via Paystack verify and recorded ${casesOpened} anomalies.`,
+    };
+  },
+
+  "expire-unpaid-courier-orders": async ({ mode, batchSize }) => {
+    const { expireUnpaidCourierOrdersBatch } = await import(
+      "@/lib/services/parcel-unpaid-expiry.service"
+    );
+    const result = await expireUnpaidCourierOrdersBatch({
+      mode,
+      batchSize,
+    });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsClaimed,
+      itemsCompleted: result.itemsCompleted,
+      itemsSkipped: result.itemsSkipped,
+      itemsRetried: result.itemsRetried,
+      itemsReconciled: result.itemsReconciled,
+      safeSummary: result.safeSummary,
     };
   },
 

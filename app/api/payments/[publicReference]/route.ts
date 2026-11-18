@@ -2,7 +2,8 @@ import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { noStoreJson, paymentApiError, resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
-import { getCustomerPaymentStatus } from "@/lib/services/payment-customer-query.service";
+import { getCustomerPaymentStatus, getOwnedPaymentIdentity } from "@/lib/services/payment-customer-query.service";
+import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 import { CustomerPaymentParamsSchema } from "@/lib/validation/payments";
 
 const ALLOWED_ROLES = new Set(["CUSTOMER", "STORE"]);
@@ -20,8 +21,20 @@ export async function GET(
   if (!parsed.success) return noStoreJson({ error: "Payment not found." }, 404);
   try {
     const storeContextId = resolveExplicitStoreContextId(request);
-    const payment = await getCustomerPaymentStatus(user.id, parsed.data.publicReference, storeContextId);
-    return payment ? noStoreJson({ payment }) : noStoreJson({ error: "Payment not found." }, 404);
+    let payment = await getCustomerPaymentStatus(user.id, parsed.data.publicReference, storeContextId);
+    if (!payment) return noStoreJson({ error: "Payment not found." }, 404);
+    if (["CREATED", "REQUIRES_ACTION", "PROCESSING"].includes(payment.status)) {
+      const identity = await getOwnedPaymentIdentity(user.id, parsed.data.publicReference, storeContextId).catch(() => null);
+      if (identity) {
+        const recovery = await recoverPendingPaystackPaymentForPaymentId(identity.id, {
+          trigger: "customer_status_poll",
+        }).catch(() => null);
+        if (recovery?.recovered || recovery?.outcome === "FAILED_VIA_VERIFY") {
+          payment = (await getCustomerPaymentStatus(user.id, parsed.data.publicReference, storeContextId)) ?? payment;
+        }
+      }
+    }
+    return noStoreJson({ payment });
   } catch (error) {
     return paymentApiError(error);
   }

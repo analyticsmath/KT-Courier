@@ -767,6 +767,7 @@ model Order {
   currentDriverProfileId       String?
   custodyEstablishedAt         DateTime?
   transitStartedAt             DateTime?
+  paymentDueAt                 DateTime?
   emailLogs                    EmailLog[]                           @relation("OrderEmailLogs")
   customer                     User?                                @relation("CustomerOrders", fields: [customerId], references: [id])
   deliveryRegion               DeliveryRegion?                      @relation(fields: [deliveryRegionId], references: [id])
@@ -802,6 +803,7 @@ model Order {
   @@index([orderNumber])
   @@index([source])
   @@index([status])
+  @@index([status, paymentDueAt])
   @@index([deliveryType])
   @@index([customerId])
   @@index([storeId])

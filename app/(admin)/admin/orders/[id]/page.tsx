@@ -74,7 +74,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div><dt>Dispatch eligibility</dt><dd>{paymentReadiness.dispatchEligible ? "Payment requirement satisfied" : "Blocked until verified"}</dd></div>
           </dl>
         </OperationalPanel>
-        <OperationalPanel title="Administrative state" tone="subtle"><dl className="eo-definition-list"><div><dt>Source</dt><dd>{order.source}</dd></div><div><dt>Region</dt><dd>{order.deliveryRegionName ?? "Not matched"}</dd></div><div><dt>Scheduled</dt><dd>{order.scheduledFor ? formatDateTime(order.scheduledFor) : "Not scheduled"}</dd></div></dl></OperationalPanel>
+        <OperationalPanel title="Administrative state" tone="subtle"><dl className="eo-definition-list"><div><dt>Source</dt><dd>{order.source}</dd></div><div><dt>Region</dt><dd>{order.deliveryRegionName ?? "Not matched"}</dd></div><div><dt>Scheduled</dt><dd>{order.scheduledFor ? formatDateTime(order.scheduledFor) : "Not scheduled"}</dd></div>{order.paymentDueAt ? <div><dt>Payment deadline</dt><dd>{formatDateTime(order.paymentDueAt)}</dd></div> : null}</dl></OperationalPanel>
       </>}
     >
       <div className="grid gap-5">
@@ -154,7 +154,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         </OperationalPanel>
 
         <OperationalPanel title="Administrative action" description="Only permissions resolved on the server are shown. State changes wait for canonical server confirmation.">
-          {canManageStatus ? <AdminOrderStatusUpdate orderId={id} currentStatus={order.status} /> : <ProtectedState kind="restricted" title="Read-only operational access" description="This administrator can review the order but does not have the state-transition permission." />}
+          {canManageStatus ? <AdminOrderStatusUpdate orderId={id} currentStatus={order.status} paymentReadiness={paymentReadiness} /> : <ProtectedState kind="restricted" title="Read-only operational access" description="This administrator can review the order but does not have the state-transition permission." />}
         </OperationalPanel>
 
         <OperationalPanel title="History" description="Chronological events from the existing order and operational event authorities.">

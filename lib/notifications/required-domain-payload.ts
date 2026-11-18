@@ -48,6 +48,68 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
     }
     return unsupported();
   }
+  if (intent.sourceAuthority === "COURIER_ORDER") {
+    const order = await db.order.findUnique({
+      where: { id: intent.aggregateReference },
+      select: {
+        id: true,
+        customerId: true,
+        orderNumber: true,
+        status: true,
+        payments: {
+          where: { subjectType: "COURIER_ORDER", status: "SUCCEEDED", successLedgerJournalId: { not: null } },
+          take: 1,
+          select: { publicReference: true },
+        },
+        cashOnDelivery: { select: { policyMode: true, status: true } },
+      },
+    });
+    if (!order) return invalid();
+    const recipient = { customerUserId: order.customerId, orderNumber: order.orderNumber };
+    if (intent.eventType === "COURIER_BOOKING_PENDING_PAYMENT") {
+      requireOperation(intent, `courier-booking-pending:${order.id}`);
+      return recipient;
+    }
+    if (intent.eventType === "COURIER_PAYMENT_CONFIRMED") {
+      const paymentRef = typeof raw.paymentReference === "string" ? raw.paymentReference : order.payments[0]?.publicReference;
+      if (!paymentRef || !order.payments.some((p) => p.publicReference === paymentRef)) return invalid();
+      requireOperation(intent, `courier-payment-confirmed:${order.id}:${paymentRef}`);
+      return recipient;
+    }
+    if (intent.eventType === "COURIER_ACCEPTED") {
+      requireOperation(intent, `courier-accepted:${order.id}`);
+      const hasAcceptedHistory =
+        order.status !== "PENDING" && order.status !== "CANCELLED"
+          ? true
+          : Boolean(
+              await db.orderStatusHistory.findFirst({
+                where: { orderId: order.id, status: "CONFIRMED" },
+                select: { id: true },
+              }),
+            );
+      if (!hasAcceptedHistory) return invalid();
+      return recipient;
+    }
+    if (intent.eventType === "COURIER_PAYMENT_FAILED") {
+      const historyId = typeof raw.sourceEventId === "string" ? raw.sourceEventId : null;
+      if (!historyId) return invalid();
+      const history = await db.paymentStatusHistory.findUnique({
+        where: { id: historyId },
+        select: { toStatus: true, payment: { select: { orderId: true } } },
+      });
+      if (!history || history.payment.orderId !== order.id || !["FAILED", "CANCELLED", "EXPIRED"].includes(history.toStatus)) {
+        return invalid();
+      }
+      requireOperation(intent, `courier-payment-failed:${order.id}:${historyId}`);
+      return recipient;
+    }
+    if (intent.eventType === "COURIER_UNPAID_CANCELLED") {
+      requireOperation(intent, `courier-unpaid-cancelled:${order.id}`);
+      if (order.status !== "CANCELLED") return invalid();
+      return recipient;
+    }
+    return unsupported();
+  }
   if (intent.sourceAuthority === "MARKETPLACE") {
     const order = await db.marketplaceOrder.findUnique({ where: { id: intent.aggregateReference }, include: { checkout: { select: { publicReference: true, customerUserId: true } } } });
     if (!order || intent.eventType !== "MARKETPLACE_ORDER_CONFIRMED" || order.customerUserId !== order.checkout.customerUserId) return invalid();

@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { updateAdminOrderStatus } from "@/lib/services/admin-orders.service";
@@ -49,6 +49,12 @@ export async function PATCH(
 
     if ("error" in result) {
       if (result.error === "Order not found.") return notFound(result.error);
+      if (result.reasonCode) {
+        return NextResponse.json(
+          { error: result.error, code: result.reasonCode, reasonCode: result.reasonCode },
+          { status: 400 },
+        );
+      }
       return badRequest(result.error);
     }
 

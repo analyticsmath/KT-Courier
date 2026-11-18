@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   policy: vi.fn(),
   cash: vi.fn(),
   confirmed: vi.fn(),
+  bookingPending: vi.fn(),
+  accepted: vi.fn(),
   storeAccess: vi.fn(),
 }));
 vi.mock("@/lib/services/pricing-quote.service", () => ({
@@ -21,6 +23,8 @@ vi.mock("@/lib/services/cash-on-delivery.service", () => ({
 }));
 vi.mock("@/lib/services/notification-events.service", () => ({
   appendOrderConfirmedInTx: mocks.confirmed,
+  appendCourierBookingPendingPaymentInTx: mocks.bookingPending,
+  appendCourierOrderAcceptedInTx: mocks.accepted,
 }));
 vi.mock("@/lib/client-platform/store-access", () => ({
   storeAccess: mocks.storeAccess,
@@ -135,10 +139,19 @@ describe("source-bound direct parcel booking status in the same transaction", ()
       const tx = transaction();
       const order = await createOrder(customer as never, { ...input, paymentMethod: method } as never, false, tx as never);
       expect(order).toMatchObject({ status: OrderStatus.PENDING });
+      expect(tx.order.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          status: OrderStatus.PENDING,
+          paymentDueAt: expect.any(Date),
+        }),
+      }));
       expect(tx.orderStatusHistory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.PENDING }) }));
+      expect(mocks.confirmed).not.toHaveBeenCalled();
+      expect(mocks.bookingPending).toHaveBeenCalledOnce();
       if (method === "DIGITAL_ONLY") expect(mocks.cash).not.toHaveBeenCalled();
       else expect(mocks.cash).toHaveBeenCalledWith(tx, expect.objectContaining({ policyMode: "DEPOSIT_PLUS_COD", digitalRequired: "85.00" }));
       mocks.cash.mockClear();
+      mocks.bookingPending.mockClear();
     }
   });
 

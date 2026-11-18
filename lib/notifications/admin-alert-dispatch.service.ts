@@ -601,3 +601,162 @@ export async function emitAdminAlertNonBlocking(
     return null;
   }
 }
+
+export type AdminAlertOverviewItem = Readonly<{
+  id: string;
+  operationId: string;
+  eventType: string;
+  eventLabel: string;
+  aggregateReference: string;
+  title: string;
+  summary: string;
+  adminPath: string;
+  createdAt: string;
+  metadata: Record<string, string | number | boolean | null>;
+}>;
+
+export type AdminAlertDeliveryOverviewItem = Readonly<{
+  id: string;
+  operationId: string;
+  eventType: string;
+  eventLabel: string;
+  aggregateReference: string;
+  deliveryStatus: "PENDING" | "SENT" | "FAILED";
+  retryCount: number;
+  lastFailureCode: string | null;
+  providerMessageReference: string | null;
+  sentAt: string | null;
+  createdAt: string;
+}>;
+
+export async function listAdminAlertOverview(options?: {
+  eventType?: string | null;
+  deliveryStatus?: string | null;
+  limit?: number;
+  db?: typeof prisma;
+}) {
+  const db = options?.db ?? prisma;
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 150);
+
+  const [setting, domainIntents, deliveryIntents, pendingCount, failedCount, sentCount] =
+    await Promise.all([
+      db.systemSetting.findUnique({
+        where: { key: "notifications.admin_alert_recipients" },
+        select: { value: true },
+      }),
+      db.notificationEventIntent.findMany({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          operationId: { startsWith: "admin-alert:" },
+          ...(options?.eventType ? { eventType: options.eventType } : {}),
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: limit,
+      }),
+      db.notificationEventIntent.findMany({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          operationId: { startsWith: "admin-alert-delivery:" },
+          ...(options?.eventType ? { eventType: options.eventType } : {}),
+          ...(options?.deliveryStatus && ["PENDING", "SENT", "FAILED"].includes(options.deliveryStatus)
+            ? {
+                safePayload: {
+                  path: ["deliveryStatus"],
+                  equals: options.deliveryStatus,
+                },
+              }
+            : {}),
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: limit,
+      }),
+      db.notificationEventIntent.count({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          operationId: { startsWith: "admin-alert-delivery:" },
+          safePayload: { path: ["deliveryStatus"], equals: "PENDING" },
+        },
+      }),
+      db.notificationEventIntent.count({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          operationId: { startsWith: "admin-alert-delivery:" },
+          safePayload: { path: ["deliveryStatus"], equals: "FAILED" },
+        },
+      }),
+      db.notificationEventIntent.count({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          operationId: { startsWith: "admin-alert-delivery:" },
+          safePayload: { path: ["deliveryStatus"], equals: "SENT" },
+        },
+      }),
+    ]);
+
+  const parsedRecipients = setting ? parseAdminAlertRecipients(setting.value) ?? [] : [];
+
+  const events: AdminAlertOverviewItem[] = domainIntents.map((intent) => {
+    const p =
+      intent.safePayload && typeof intent.safePayload === "object" && !Array.isArray(intent.safePayload)
+        ? (intent.safePayload as Record<string, unknown>)
+        : {};
+    const ev = intent.eventType as AdminAlertEventType;
+    return {
+      id: intent.id,
+      operationId: intent.operationId,
+      eventType: intent.eventType,
+      eventLabel: getAdminAlertEventLabel(ev) ?? intent.eventType,
+      aggregateReference: intent.aggregateReference,
+      title: typeof p.title === "string" ? p.title : intent.eventType,
+      summary: typeof p.summary === "string" ? p.summary : intent.aggregateReference,
+      adminPath:
+        typeof p.adminPath === "string" && p.adminPath.startsWith("/")
+          ? p.adminPath
+          : getAdminAlertAdminPath(ev) ?? "/admin/orders",
+      createdAt: intent.createdAt.toISOString(),
+      metadata:
+        p.metadata && typeof p.metadata === "object" && !Array.isArray(p.metadata)
+          ? (p.metadata as Record<string, string | number | boolean | null>)
+          : {},
+    };
+  });
+
+  const deliveries: AdminAlertDeliveryOverviewItem[] = deliveryIntents.map((intent) => {
+    const p =
+      intent.safePayload && typeof intent.safePayload === "object" && !Array.isArray(intent.safePayload)
+        ? (intent.safePayload as Partial<SafeDeliveryPayload>)
+        : {};
+    const ev = intent.eventType as AdminAlertEventType;
+    return {
+      id: intent.id,
+      operationId: intent.operationId,
+      eventType: intent.eventType,
+      eventLabel: getAdminAlertEventLabel(ev) ?? intent.eventType,
+      aggregateReference: intent.aggregateReference,
+      deliveryStatus: (p.deliveryStatus ?? "PENDING") as "PENDING" | "SENT" | "FAILED",
+      retryCount: typeof p.retryCount === "number" ? p.retryCount : 0,
+      lastFailureCode: typeof p.lastFailureCode === "string" ? p.lastFailureCode : null,
+      providerMessageReference:
+        typeof p.providerMessageReference === "string" ? p.providerMessageReference : null,
+      sentAt: typeof p.sentAt === "string" ? p.sentAt : null,
+      createdAt: intent.createdAt.toISOString(),
+    };
+  });
+
+  return {
+    recipients: parsedRecipients,
+    events,
+    deliveries,
+    counts: {
+      pending: pendingCount,
+      failed: failedCount,
+      sent: sentCount,
+      activeAdminRecipients: parsedRecipients.filter(
+        (r) => r.active && (!r.roleScope || r.roleScope === "ALL" || r.roleScope === "ADMIN"),
+      ).length,
+      activeSuperAdminRecipients: parsedRecipients.filter(
+        (r) => r.active && (!r.roleScope || r.roleScope === "ALL" || r.roleScope === "SUPER_ADMIN"),
+      ).length,
+    },
+  };
+}

@@ -18,8 +18,101 @@ async function append(eventType: string, aggregateReference: string, operationId
   });
 }
 
+async function appendAuthorityIntent(
+  sourceAuthority: string,
+  eventType: string,
+  aggregateReference: string,
+  operationId: string,
+  safePayload: Record<string, unknown>,
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">> = prisma,
+) {
+  const delegate = db?.notificationEventIntent;
+  if (!delegate || typeof delegate.upsert !== "function") return null;
+  return delegate.upsert({
+    where: { operationId },
+    update: {},
+    create: {
+      sourceAuthority,
+      eventType,
+      aggregateReference,
+      operationId,
+      safePayload: toInputJsonObject(safePayload),
+    },
+  });
+}
+
 export async function appendOrderConfirmedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; deliveryType: string; source: string }) {
   await append("ORDER_CONFIRMED", order.id, `legacy-order-confirmed:${order.id}`, { orderNumber: order.orderNumber, deliveryType: order.deliveryType, source: order.source }, db);
+}
+
+export async function appendCourierBookingPendingPaymentInTx(
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
+  order: { id: string; orderNumber: string; deliveryType: string; source: string },
+) {
+  await appendAuthorityIntent(
+    "COURIER_ORDER",
+    "COURIER_BOOKING_PENDING_PAYMENT",
+    order.id,
+    `courier-booking-pending:${order.id}`,
+    { orderNumber: order.orderNumber, deliveryType: order.deliveryType, source: order.source },
+    db,
+  );
+}
+
+export async function appendCourierPaymentConfirmedInTx(
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
+  order: { id: string; orderNumber: string; paymentReference: string },
+) {
+  await appendAuthorityIntent(
+    "COURIER_ORDER",
+    "COURIER_PAYMENT_CONFIRMED",
+    order.id,
+    `courier-payment-confirmed:${order.id}:${order.paymentReference}`,
+    { orderNumber: order.orderNumber, paymentReference: order.paymentReference },
+    db,
+  );
+}
+
+export async function appendCourierOrderAcceptedInTx(
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
+  order: { id: string; orderNumber: string; deliveryType?: string; source?: string },
+) {
+  await appendAuthorityIntent(
+    "COURIER_ORDER",
+    "COURIER_ACCEPTED",
+    order.id,
+    `courier-accepted:${order.id}`,
+    { orderNumber: order.orderNumber, ...(order.deliveryType ? { deliveryType: order.deliveryType } : {}), ...(order.source ? { source: order.source } : {}) },
+    db,
+  );
+}
+
+export async function appendCourierPaymentFailedInTx(
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
+  input: { orderId: string; orderNumber: string; historyId: string; status: string },
+) {
+  await appendAuthorityIntent(
+    "COURIER_ORDER",
+    "COURIER_PAYMENT_FAILED",
+    input.orderId,
+    `courier-payment-failed:${input.orderId}:${input.historyId}`,
+    { orderNumber: input.orderNumber, sourceEventId: input.historyId, status: input.status },
+    db,
+  );
+}
+
+export async function appendCourierUnpaidCancelledInTx(
+  db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
+  order: { id: string; orderNumber: string; reasonCode?: string },
+) {
+  await appendAuthorityIntent(
+    "COURIER_ORDER",
+    "COURIER_UNPAID_CANCELLED",
+    order.id,
+    `courier-unpaid-cancelled:${order.id}`,
+    { orderNumber: order.orderNumber, reasonCode: order.reasonCode ?? "PAYMENT_DEADLINE_EXPIRED" },
+    db,
+  );
 }
 
 export async function appendOrderStatusChangedInTx(db: Pick<Prisma.TransactionClient, "notificationEventIntent">, order: { id: string; orderNumber: string; status: string; source: string; pricingSnapshot?: unknown }, historyId: string) {

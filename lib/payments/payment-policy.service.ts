@@ -196,19 +196,23 @@ export async function resolvePaymentBreakdown(
     }
   }
   if (mode !== "DIGITAL_ONLY") {
-    // A personal courier booking has no store. The only store-less cash policy
-    // is an explicitly scoped, approved FULL_COD parcel policy. Never treat a
-    // global marketplace policy as permission to collect physical cash.
+    // A personal courier booking has no store. Approved store-less cash
+    // policies are strictly scoped parcel policies (100% FULL_COD or 50/50
+    // DEPOSIT_PLUS_COD). Never treat an unscoped marketplace rule as cash authority.
     const personalParcelCod =
-      mode === "FULL_COD" && input.orderType === "PARCEL_DOCUMENT" &&
-      p.orderType === "PARCEL_DOCUMENT" && !input.storeId && !p.storeId &&
+      input.orderType === "PARCEL_DOCUMENT" &&
+      p.orderType === "PARCEL_DOCUMENT" &&
+      !input.storeId &&
+      !p.storeId &&
       !!p.deliveryServiceId &&
-      (!!p.regionId || (Array.isArray(p.provinceScope) && p.provinceScope.length > 0));
+      (!!p.regionId || (Array.isArray(p.provinceScope) && p.provinceScope.length > 0)) &&
+      (mode === "FULL_COD" ||
+        (mode === "DEPOSIT_PLUS_COD" && Boolean(p.depositPercent?.equals("0.5"))));
     const production = process.env.NODE_ENV === "production" && process.env.KT_RUNTIME_ENV !== "e2e";
     if (production) {
       const evidence = p.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
       const approvedCashMode = mode === "DEPOSIT_PLUS_COD"
-        ? p.depositPercent?.equals("0.5")
+        ? Boolean(p.depositPercent?.equals("0.5")) && (!p.storeId ? input.orderType === "PARCEL_DOCUMENT" && p.orderType === "PARCEL_DOCUMENT" : true)
         : mode === "FULL_COD" && input.orderType === "PARCEL_DOCUMENT" && p.orderType === "PARCEL_DOCUMENT" && !p.depositPercent && !p.depositAmount;
       if (!p.deliveryServiceId || (!p.regionId && (!Array.isArray(p.provinceScope) || !p.provinceScope.length)) || !approvedCashMode || !evidence?.approvedByUserId || evidence.approvedByUserId === p.createdByUserId || !evidence.approvedAt || !evidence.remittanceApproved) {
         throw new PaymentPolicyError("COD_PRODUCTION_APPROVAL_REQUIRED", "Cash requires an independently approved full parcel COD or approved deposit policy with specific service, area and remittance controls.");

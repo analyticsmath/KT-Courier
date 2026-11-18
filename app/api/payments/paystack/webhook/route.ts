@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { PaymentError } from "@/lib/payments/errors";
 import {
+  applyPaystackWebhookEvent,
   ingestPaystackWebhook,
 } from "@/lib/services/paystack-webhook-application.service";
 
@@ -62,6 +63,15 @@ export async function POST(request: NextRequest): Promise<Response> {
       modernSignature,
       sourceAddress,
     });
+
+    if (!ingestResult.duplicate && ingestResult.event === "charge.success") {
+      try {
+        await applyPaystackWebhookEvent({ webhookEventId: ingestResult.webhookEventId });
+      } catch {
+        // Signed webhook is durably saved; background apply-paystack-webhook-events
+        // and status-poll Verify recovery retry safely without losing intake ack.
+      }
+    }
 
     return new Response(JSON.stringify({ received: true, eventPublicReference: ingestResult.eventPublicReference }), {
       status: 200,

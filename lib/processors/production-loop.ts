@@ -17,6 +17,7 @@ export const productionProcessors = [
   "expire-developer-api-credentials",
   "deliver-notifications",
   "reconcile-expired-dispatch",
+  "expire-unpaid-courier-orders",
   "dispatch-marketplace-orders",
   // Live operations must scan unresolved money movements, not merely
   // register their processors in a separate unused scheduler executable.
@@ -85,6 +86,7 @@ export const DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS: Readonly<Partial<Record<Pr
   "generate-report-jobs": 60_000,
   "expire-developer-api-credentials": 3_600_000,
   "reconcile-expired-dispatch": 60_000,
+  "expire-unpaid-courier-orders": 300_000,
   "dispatch-marketplace-orders": 60_000,
   "scan-payment-reconciliation": 900_000,
   "scan-refund-reconciliation": 900_000,

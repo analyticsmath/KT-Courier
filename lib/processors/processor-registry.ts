@@ -556,6 +556,25 @@ export const PROCESSOR_REGISTRY = {
     operationalOwnerCategory: "Payments & Ledger",
     status: "IMPLEMENTED",
   },
+  "expire-unpaid-courier-orders": {
+    name: "expire-unpaid-courier-orders",
+    version: "1.0.0",
+    purpose: "Expires unpaid direct parcel orders past their 24-hour payment deadline safely",
+    triggerType: "CRON",
+    classification: "IDEMPOTENT_ITEM_PROCESSOR",
+    leaseRequired: true,
+    defaultPartition: "default",
+    defaultBatchSize: 50,
+    maxBatchSize: 250,
+    maxExecutionDurationSeconds: 180,
+    retryPolicy: "EXPONENTIAL_BACKOFF",
+    idempotencyStrategy: "ORDER_DEADLINE_CANCELLATION_RESOLUTION",
+    dryRunSupported: true,
+    manualExecutionAllowed: true,
+    requiredPermission: PERMISSIONS.ORDERS_STATUS_MANAGE,
+    operationalOwnerCategory: "Orders & Fulfilment",
+    status: "IMPLEMENTED",
+  },
 } as const satisfies Record<string, RegisteredProcessor>;
 
 export type ProcessorName = keyof typeof PROCESSOR_REGISTRY;

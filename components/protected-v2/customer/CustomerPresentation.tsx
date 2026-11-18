@@ -163,6 +163,11 @@ export function CustomerOrderDetail({
           <div className={styles.activeDeliveryHead}><div><ProtectedStatus label={status.label} tone={status.tone} /><p className={styles.statusCopy}>{status.description}</p></div>{cancelAction}</div>
           {price ? <p className={styles.financialValue}>{price}</p> : null}
         </div>
+        {order.status === "PENDING" && order.paymentDueAt ? (
+          <p className={styles.statusCopy} data-testid="customer-payment-deadline">
+            Complete verified payment before {formatCustomerDateTime(order.paymentDueAt) ?? String(order.paymentDueAt)} or this unpaid booking will automatically cancel.
+          </p>
+        ) : null}
       </OperationalPanel>
       <div className={styles.detailGrid}>
         <OperationalPanel title="Pickup"><p className={styles.recordRoute}>{formatAddress(order.pickupAddress, order.pickupSummary)}</p></OperationalPanel>

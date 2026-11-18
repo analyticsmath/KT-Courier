@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const txMock = vi.hoisted(() => ({
   order: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     findUniqueOrThrow: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -40,6 +41,26 @@ describe("order status service", () => {
   beforeEach(() => {
     prismaMock.$transaction.mockReset();
     txMock.order.findUnique.mockReset();
+    txMock.order.findMany.mockReset();
+    txMock.order.findMany.mockResolvedValue([
+      {
+        id: "order-1",
+        pricingSnapshot: null,
+        cashOnDelivery: null,
+        payments: [
+          {
+            id: "payment-1",
+            metadata: null,
+            publicReference: "pay_1",
+            status: "SUCCEEDED",
+            amount: { toFixed: () => "150.00" },
+            successLedgerJournalId: "journal-1",
+            reconciliationStatus: "NONE",
+          },
+        ],
+        marketplaceStoreOrderBridge: null,
+      },
+    ]);
     txMock.order.findUniqueOrThrow.mockReset();
     txMock.order.updateMany.mockReset();
     txMock.orderStatusHistory.create.mockReset().mockResolvedValue({ id: "history-1" });
@@ -180,5 +201,36 @@ describe("order status service", () => {
     ).rejects.toBeInstanceOf(OrderTransitionError);
 
     expect(txMock.orderStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks ADMIN and SUPER_ADMIN override confirmation when payment or COD deposit is missing", async () => {
+    txMock.order.findUnique.mockResolvedValue({ status: OrderStatus.PENDING });
+    txMock.order.findMany.mockResolvedValue([
+      {
+        id: "order-1",
+        pricingSnapshot: null,
+        cashOnDelivery: null,
+        payments: [],
+        marketplaceStoreOrderBridge: null,
+      },
+    ]);
+
+    for (const role of [UserRole.ADMIN, UserRole.SUPER_ADMIN]) {
+      await expect(
+        transitionOrderStatus({
+          orderId: "order-1",
+          toStatus: OrderStatus.CONFIRMED,
+          actorUserId: "admin-1",
+          actorRole: role,
+          reason: "Attempting manual override.",
+          context: { allowAdminOverride: true, reason: "Attempting manual override." },
+        }),
+      ).rejects.toMatchObject({
+        code: "FORBIDDEN",
+        reasonCode: "PAYMENT_PENDING",
+      });
+    }
+
+    expect(txMock.order.updateMany).not.toHaveBeenCalled();
   });
 });

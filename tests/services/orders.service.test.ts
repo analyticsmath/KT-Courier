@@ -41,6 +41,8 @@ vi.mock("@/lib/services/order-status.service", () => ({
 }));
 vi.mock("@/lib/services/notification-events.service", () => ({
   appendOrderConfirmedInTx: notifyOrderConfirmedMock,
+  appendCourierBookingPendingPaymentInTx: vi.fn(),
+  appendCourierOrderAcceptedInTx: vi.fn(),
   notifyOrderStatusChanged: notifyOrderStatusChangedMock,
 }));
 vi.mock("@/lib/services/pricing.service", () => ({

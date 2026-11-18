@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db/prisma";
 import { appendOrderStatusChangedInTx } from "./notification-events.service";
+import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
+import type { AdminAlertEventType } from "@/lib/settings/admin-alert-recipient-policy";
+import {
+  assertCourierOrderTransitionFundingInTx,
+  isCourierProgressStatus,
+} from "./courier-payment-readiness.service";
+import { Prisma as PrismaNamespace } from "@prisma/client";
 import {
   OrderOperationalEventType,
   OrderStatus,
@@ -63,6 +70,10 @@ export async function transitionOrderStatusInTx(
   tx: TxClient,
   args: TransitionOrderStatusArgs & { fromStatus?: OrderStatus }
 ): Promise<Order> {
+  if (typeof tx.$queryRaw === "function") {
+    await tx.$queryRaw(PrismaNamespace.sql`SELECT "id" FROM "Order" WHERE "id" = ${args.orderId} FOR UPDATE`);
+  }
+
   const current =
     args.fromStatus ??
     (
@@ -90,6 +101,10 @@ export async function transitionOrderStatusInTx(
 
   if (current === args.toStatus) {
     return tx.order.findUniqueOrThrow({ where: { id: args.orderId } });
+  }
+
+  if (isCourierProgressStatus(args.toStatus)) {
+    await assertCourierOrderTransitionFundingInTx(tx, args.orderId, args.toStatus);
   }
 
   const updateResult = await tx.order.updateMany({
@@ -140,8 +155,34 @@ export async function transitionOrderStatusInTx(
     });
   }
 
+  const STATUS_ALERT_MAP: Partial<Record<OrderStatus, AdminAlertEventType>> = {
+    [OrderStatus.PICKUP_SCHEDULED]: "PARCEL_DRIVER_ASSIGNED",
+    [OrderStatus.PICKED_UP]: "PARCEL_PICKED_UP",
+    [OrderStatus.IN_TRANSIT]: "PARCEL_IN_TRANSIT",
+    [OrderStatus.DELIVERY_ATTEMPTED]: "PARCEL_DELIVERY_ATTEMPTED",
+    [OrderStatus.DELIVERED]: "PARCEL_DELIVERED",
+    [OrderStatus.FAILED]: "PARCEL_DELIVERY_FAILED",
+    [OrderStatus.CANCELLED]: "PARCEL_ORDER_CANCELLED",
+  };
+
   const updated = await tx.order.findUniqueOrThrow({ where: { id: args.orderId } });
   await appendOrderStatusChangedInTx(tx, updated, history.id);
+  const mappedAlert = STATUS_ALERT_MAP[args.toStatus];
+  if (mappedAlert) {
+    await recordAdminAlertIntentInTx(tx, {
+      eventType: mappedAlert,
+      aggregateReference: `order-status:${history.id}`,
+      title: `Parcel ${updated.orderNumber}: ${args.toStatus.replaceAll("_", " ").toLowerCase()}`,
+      summary: historyNote(args) ?? `Parcel transitioned from ${current} to ${args.toStatus}.`,
+      adminPath: `/admin/orders/${updated.id}`,
+      relatedOrderId: updated.id,
+      metadata: {
+        orderNumber: updated.orderNumber,
+        fromStatus: current,
+        toStatus: args.toStatus,
+      },
+    });
+  }
   return updated;
 }
 

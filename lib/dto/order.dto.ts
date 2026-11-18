@@ -117,6 +117,7 @@ export interface OrderSummaryDto {
   parcelCount: number;
   priceEstimate: number | null;
   scheduledFor: Date | null;
+  paymentDueAt?: Date | null;
   pickupSummary: string;
   dropoffSummary: string;
   pickupCity: string | null;
@@ -165,6 +166,7 @@ export function toOrderSummaryDto(order: OrderWithAddresses): OrderSummaryDto {
     parcelCount: order.parcelCount,
     priceEstimate: order.priceEstimate !== null ? Number(order.priceEstimate) : null,
     scheduledFor: order.scheduledFor,
+    paymentDueAt: order.paymentDueAt ?? null,
     pickupSummary: addressSummary(order.pickupAddress ?? null),
     dropoffSummary: addressSummary(order.dropoffAddress ?? null),
     pickupCity: order.pickupAddress?.city ?? null,

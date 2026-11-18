@@ -65,6 +65,7 @@ export default defineConfig({
         /phase-b-eft-and-session\.spec\.ts/,
         /vendor-onboarding-v005-v008\.spec\.ts/,
         /checkout-saved-address-l01\.spec\.ts/,
+        /courier-payment-acceptance-alerts\.spec\.ts/,
       ],
     },
     {

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
+import { isCourierProgressStatus } from "@/lib/services/courier-payment-readiness.service";
+import type { CourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { VALID_STATUS_TRANSITIONS } from "@/lib/validation/order";
 import { getOrderStatusConfig } from "@/lib/constants/statuses";
 import type { OrderStatus } from "@/types/db";
@@ -12,9 +14,17 @@ import type { OrderStatus } from "@/types/db";
 interface AdminOrderStatusUpdateProps {
   orderId: string;
   currentStatus: OrderStatus;
+  paymentReadiness?: Pick<
+    CourierPaymentReadiness,
+    "status" | "dispatchEligible" | "reasonCode" | "reasonMessage"
+  >;
 }
 
-export function AdminOrderStatusUpdate({ orderId, currentStatus }: AdminOrderStatusUpdateProps) {
+export function AdminOrderStatusUpdate({
+  orderId,
+  currentStatus,
+  paymentReadiness,
+}: AdminOrderStatusUpdateProps) {
   const router = useRouter();
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | "">("");
   const [note, setNote] = useState("");
@@ -32,6 +42,13 @@ export function AdminOrderStatusUpdate({ orderId, currentStatus }: AdminOrderSta
       </p>
     );
   }
+
+  const isStatusBlocked = (status: OrderStatus) =>
+    Boolean(
+      paymentReadiness &&
+      !paymentReadiness.dispatchEligible &&
+      isCourierProgressStatus(status),
+    );
 
   async function handleUpdate() {
     if (!selectedStatus) return;
@@ -78,18 +95,38 @@ export function AdminOrderStatusUpdate({ orderId, currentStatus }: AdminOrderSta
             {getOrderStatusConfig(currentStatus).label}
           </span>
         </p>
+        {paymentReadiness && !paymentReadiness.dispatchEligible ? (
+          <div
+            role="status"
+            data-testid="payment-acceptance-blocked-banner"
+            className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          >
+            <p className="font-semibold">
+              Acceptance and fulfilment blocked ({paymentReadiness.reasonCode ?? paymentReadiness.status})
+            </p>
+            <p className="mt-0.5">{paymentReadiness.reasonMessage}</p>
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           {validTransitions.map((status) => {
             const config = getOrderStatusConfig(status);
+            const blocked = isStatusBlocked(status);
             return (
               <button
                 key={status}
                 type="button"
-                onClick={() => setSelectedStatus(status === selectedStatus ? "" : status)}
+                disabled={blocked}
+                title={blocked ? paymentReadiness?.reasonMessage : undefined}
+                onClick={() => {
+                  if (blocked) return;
+                  setSelectedStatus(status === selectedStatus ? "" : status);
+                }}
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors ${
-                  selectedStatus === status
-                    ? "border-[var(--kt-signal-cobalt)] bg-[var(--kt-cloud-blue)] text-[var(--kt-signal-cobalt)]"
-                    : "border-[var(--kt-soft-border)] text-[var(--kt-text-muted)]  "
+                  blocked
+                    ? "cursor-not-allowed border-[var(--kt-soft-border)] bg-[var(--kt-surface)] text-[var(--kt-text-muted)] opacity-50"
+                    : selectedStatus === status
+                      ? "border-[var(--kt-signal-cobalt)] bg-[var(--kt-cloud-blue)] text-[var(--kt-signal-cobalt)]"
+                      : "border-[var(--kt-soft-border)] text-[var(--kt-text-muted)]"
                 }`}
               >
                 → {config.label}

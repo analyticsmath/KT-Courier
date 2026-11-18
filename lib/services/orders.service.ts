@@ -15,7 +15,16 @@ import type {
   CreateOrderInput,
   CustomerCancelOrderInput,
 } from "@/lib/validation/order";
-import { appendOrderConfirmedInTx } from "./notification-events.service";
+import {
+  appendCourierBookingPendingPaymentInTx,
+  appendCourierOrderAcceptedInTx,
+  appendOrderConfirmedInTx,
+} from "./notification-events.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 import {
   hashPricingInput,
   pricingInputSnapshot,
@@ -175,6 +184,12 @@ export async function createOrder(
       },
     });
 
+    const createdAt = new Date();
+    const paymentDueAt =
+      bookingStatus === OrderStatus.PENDING
+        ? new Date(createdAt.getTime() + 24 * 60 * 60 * 1000)
+        : null;
+
     const order = await tx.order.create({
       data: {
         orderNumber,
@@ -192,6 +207,8 @@ export async function createOrder(
         parcelDescription: input.parcelDescription ?? null,
         parcelCount: input.parcelCount,
         scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
+        createdAt,
+        paymentDueAt,
         priceEstimate: quote.total,
         pricingQuoteId: quote.id,
         pricingSubtotal: quote.subtotal,
@@ -254,10 +271,49 @@ export async function createOrder(
       });
     }
 
-    await appendOrderConfirmedInTx(tx, order);
-    return order;
+    let bookingAdminAlert: AdminAlertEventInput;
+    if (bookingStatus === OrderStatus.CONFIRMED) {
+      await appendOrderConfirmedInTx(tx, order);
+      await appendCourierOrderAcceptedInTx(tx, order);
+      bookingAdminAlert = {
+        eventType: "PARCEL_ORDER_ACCEPTED",
+        aggregateReference: `parcel-accepted:${order.id}`,
+        title: `Approved COD parcel accepted (${order.orderNumber})`,
+        summary: `Full COD parcel booking ${order.orderNumber} is immediately eligible for dispatch.`,
+        adminPath: `/admin/orders/${order.id}`,
+        relatedOrderId: order.id,
+        metadata: {
+          orderNumber: order.orderNumber,
+          paymentMode: committedPayment?.mode ?? "FULL_COD",
+          status: order.status,
+        },
+      };
+    } else {
+      await appendCourierBookingPendingPaymentInTx(tx, order);
+      bookingAdminAlert = {
+        eventType: "PARCEL_ORDER_CREATED",
+        aggregateReference: `parcel-created:${order.id}`,
+        title: `New parcel booking pending payment (${order.orderNumber})`,
+        summary: `Booking ${order.orderNumber} requires verified payment before ${paymentDueAt?.toISOString() ?? "deadline"}.`,
+        adminPath: `/admin/orders/${order.id}`,
+        relatedOrderId: order.id,
+        metadata: {
+          orderNumber: order.orderNumber,
+          paymentMode: committedPayment?.mode ?? "DIGITAL_ONLY",
+          status: order.status,
+        },
+      };
+    }
+    await recordAdminAlertIntentInTx(tx, bookingAdminAlert);
+    return { order, bookingAdminAlert };
   };
-  const result = transaction ? await persist(transaction) : await prisma.$transaction(persist);
+  const { order: result, bookingAdminAlert } = transaction
+    ? await persist(transaction)
+    : await prisma.$transaction(persist);
+
+  if (!transaction && bookingAdminAlert) {
+    void emitAdminAlertNonBlocking(bookingAdminAlert);
+  }
 
   const dto = toOrderDetailDto(result);
 

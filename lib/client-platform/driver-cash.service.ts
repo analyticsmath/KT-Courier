@@ -532,7 +532,23 @@ export async function reviewDriverDeposit(
     });
     return updated;
   });
-  if (["REJECTED", "CONFIRMED"].includes(row.status))
+  if (row.status === "REJECTED") {
+    void emitAdminAlertNonBlocking({
+      eventType: "COD_RECONCILIATION_DISCREPANCY",
+      aggregateReference: `cash-deposit-rejected:${row.id}`,
+      title: `COD remittance rejected (R${row.amount.toFixed(2)})`,
+      summary: `Admin rejected ${row.remittanceMethod} remittance evidence for order ${row.orderId}.`,
+      adminPath: "/admin/cash-deposits",
+      relatedOrderId: row.orderId,
+      metadata: {
+        depositId: row.id,
+        remittanceMethod: row.remittanceMethod,
+        amountZar: row.amount.toFixed(2),
+      },
+    });
+    return { id: row.id, status: row.status };
+  }
+  if (row.status === "CONFIRMED")
     return { id: row.id, status: row.status };
   if (!(await matchingReceipt(row))) {
     try {
@@ -584,6 +600,19 @@ export async function reviewDriverDeposit(
           metadata: { orderId: row.orderId, remittanceMethod: row.remittanceMethod },
         },
       });
+  });
+  void emitAdminAlertNonBlocking({
+    eventType: "COD_REMITTANCE_RECONCILED",
+    aggregateReference: `cash-deposit-confirmed:${id}`,
+    title: `COD remittance reconciled (R${row.amount.toFixed(2)})`,
+    summary: `${row.remittanceMethod} remittance verified for order ${row.orderId}.`,
+    adminPath: "/admin/cash-deposits",
+    relatedOrderId: row.orderId,
+    metadata: {
+      depositId: id,
+      remittanceMethod: row.remittanceMethod,
+      amountZar: row.amount.toFixed(2),
+    },
   });
   return { id, status: "CONFIRMED" };
 }

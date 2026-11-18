@@ -12,6 +12,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Policy | null>(null),
     [mode, setMode] = useState("FULL_COD"),
+    [selectedStoreId, setSelectedStoreId] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -82,12 +83,12 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           <select
             id="policy-store"
             name="storeId"
-            required={mode === "DEPOSIT_PLUS_COD"}
-            defaultValue={editing?.storeId ?? ""}
+            value={editing ? (editing.storeId ?? "") : selectedStoreId}
+            onChange={(e) => setSelectedStoreId(e.target.value)}
             disabled={busy || !!editing}
             className="w-full min-h-12 border-b"
           >
-            <option value="">Individual parcel customers (full COD) / online-only policy</option>
+            <option value="">Individual parcel customers (full or 50% deposit COD) / online-only policy</option>
             {data.stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -113,7 +114,15 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
             </option>
           </select>
         </div>
-        <input type="hidden" name="orderType" value={mode === "FULL_COD" ? "PARCEL_DOCUMENT" : (editing?.orderType ?? "")} />
+        <input
+          type="hidden"
+          name="orderType"
+          value={
+            mode === "FULL_COD" || (mode === "DEPOSIT_PLUS_COD" && !(editing ? editing.storeId : selectedStoreId))
+              ? "PARCEL_DOCUMENT"
+              : (editing?.orderType ?? "")
+          }
+        />
         <div>
           <Label htmlFor="policy-service">Service</Label>
           <select
@@ -259,6 +268,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
               variant="secondary"
               onClick={() => {
                 setEditing(null);
+                setSelectedStoreId("");
                 setMode("FULL_COD");
               }}
             >
@@ -299,6 +309,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                   disabled={busy}
                   onClick={() => {
                     setEditing(p);
+                    setSelectedStoreId(p.storeId ?? "");
                     setMode(p.mode);
                     setError("");
                     setNotice("");

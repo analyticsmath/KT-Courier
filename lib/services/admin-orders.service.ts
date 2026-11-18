@@ -146,7 +146,7 @@ export async function updateAdminOrderStatus(
   adminUser: AuthenticatedUser,
   orderId: string,
   input: { status: OrderStatus; note?: string; internalNote?: string }
-): Promise<{ order: AdminOrderDetailDto } | { error: string }> {
+): Promise<{ order: AdminOrderDetailDto } | { error: string; reasonCode?: string }> {
   const existing = await prisma.order.findUnique({
     where: { id: orderId },
     select: { id: true, orderNumber: true, status: true },
@@ -202,7 +202,7 @@ export async function updateAdminOrderStatus(
     });
   } catch (error) {
     if (error instanceof OrderTransitionError) {
-      return { error: error.message };
+      return { error: error.message, ...(error.reasonCode ? { reasonCode: error.reasonCode } : {}) };
     }
     throw error;
   }

@@ -426,6 +426,16 @@ export const PROCESSOR_EXECUTION_MATRIX: Readonly<Record<ProcessorName, Processo
       positiveTest: "tests/processors/finance-reconciliation-scan-bounds.test.ts",
       negativeTest: "tests/services/payment-reconciliation.service.test.ts",
     }),
+    "expire-unpaid-courier-orders": buildEntry("expire-unpaid-courier-orders", {
+      engineeringStatus: "IMPLEMENTED",
+      handlerSymbol: "lib/services/parcel-unpaid-expiry.service.ts#expireUnpaidCourierOrdersBatch",
+      scanEnforcement: "prisma.order.findMany({ where: UNPAID_PARCEL_EXPIRY_ELIGIBLE_WHERE, take: Math.min(batchSize, 500) })",
+      schedulerRegistration: "PRODUCTION_LOOP_AUTOMATIC",
+      productionActivationGate: "AUTOMATIC_CANONICAL_QUEUE (300s cadence with Paystack verify preflight and Serializable lock)",
+      queueHealthIndicator: "scripts/production-processors.ts#hasWork(expire-unpaid-courier-orders)",
+      positiveTest: "tests/services/parcel-unpaid-expiry.service.test.ts",
+      negativeTest: "tests/services/parcel-unpaid-expiry.service.test.ts",
+    }),
   });
 
 const SYS_REQUIREMENT_ENTRIES: readonly DirectiveRequirementCoverageEntry[] = freezeEntries([

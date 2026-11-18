@@ -217,13 +217,13 @@ describe("Phase D Processors, Worker Loop, Capability Matrix & Governance Proof 
     expect(afterResult.status).toBe("DRY_RUN_COMPLETED");
   });
 
-  it("CR-158..160: covers all 29 registry jobs via 26 loop + 3 delegated composites, isolates failing peers, and records honest ACTIVATION_GATED readiness", async () => {
+  it("CR-158..160: covers all 30 registry jobs via 27 loop + 3 delegated composites, isolates failing peers, and records honest ACTIVATION_GATED readiness", async () => {
     const registryNames = Object.keys(PROCESSOR_REGISTRY).sort();
     const coveredSet = new Set<string>([
       ...productionProcessors,
       ...Object.keys(DELEGATED_COMPOSITE_PROCESSORS),
     ]);
-    expect(productionProcessors).toHaveLength(26);
+    expect(productionProcessors).toHaveLength(27);
     expect(Object.keys(DELEGATED_COMPOSITE_PROCESSORS)).toHaveLength(3);
     expect([...coveredSet].sort()).toEqual(registryNames);
 

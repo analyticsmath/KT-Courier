@@ -442,4 +442,42 @@ describe("scoped cash payment policies", () => {
     });
   });
 
+  it("supports scoped 50/50 personal-parcel DEPOSIT_PLUS_COD while rejecting unscoped or non-50% store-less drafts", async () => {
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", depositPercent: "0.5",
+    }).success).toBe(true);
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", depositPercent: "0.3",
+    }).success).toBe(false);
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", deliveryServiceId: null,
+    }).success).toBe(false);
+
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const date = new Date("2026-10-15T10:00:00.000Z");
+      db.paymentMethodPolicy.findMany.mockResolvedValue([{
+        ...base, storeId: null, orderType: "PARCEL_DOCUMENT", mode: "DEPOSIT_PLUS_COD",
+        deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
+        depositPercent: new Prisma.Decimal("0.5"), maximumCodAmount: new Prisma.Decimal("1000.00"),
+        policyEvidence: { approvedByUserId: "reviewer", approvedAt: date.toISOString(),
+          remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Bank receipt within 24 hours" },
+      }]);
+      db.systemSetting.findUnique.mockImplementation(async (args: { where: { key: string } }) =>
+        args.where.key === "client_cash_deposit_bank" ? {
+          value: { bankName: "Test bank", accountName: "KT Couriers", accountNumber: "1234567890", branchCode: "123456", referenceHint: "Use order reference", expectedVersion: 1 },
+          updatedAt: date,
+        } : areaSettings(args.where.key),
+      );
+      expect(await resolvePaymentBreakdown({
+        orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
+        provinces: ["Gauteng"], authoritativeTotal: "400.00", ...safeLocalities,
+      })).toMatchObject({
+        mode: "DEPOSIT_PLUS_COD", digitalRequired: "200.00", cashRequired: "200.00", cashOutstanding: "200.00",
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
 });

@@ -8,6 +8,7 @@ import { PaymentError } from "@/lib/payments/errors";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { getOwnedPaymentIdentity } from "@/lib/services/payment-customer-query.service";
+import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 import { createProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
 import { CustomerPaymentParamsSchema, PaymentOperationSchema } from "@/lib/validation/payments";
 
@@ -32,8 +33,19 @@ export async function POST(
   if (!parsed.success) return noStoreJson({ error: "A valid operationId is required." }, 422);
   try {
     const storeContextId = resolveExplicitStoreContextId(request, parsed.data.storeContextId);
-    const payment = await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference, storeContextId);
+    let payment = await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference, storeContextId);
     if (!payment) return noStoreJson({ error: "Payment not found." }, 404);
+    if (["CREATED", "REQUIRES_ACTION", "PROCESSING"].includes(payment.status)) {
+      const recovery = await recoverPendingPaystackPaymentForPaymentId(payment.id, {
+        trigger: "pre_checkout_session",
+      }).catch(() => null);
+      if (recovery?.recovered) {
+        payment = (await getOwnedPaymentIdentity(user.id, parsedParams.data.publicReference, storeContextId)) ?? payment;
+      }
+    }
+    if (payment.status === "SUCCEEDED") {
+      throw new PaymentError("PAYMENT_ORDER_ALREADY_PAID", "Payment has already been verified and recorded.");
+    }
     const registry = createProductionPaymentProviderRegistry();
     registry.getAdapter("PAYSTACK");
     const channel = parsed.data.channel ?? "CARD";

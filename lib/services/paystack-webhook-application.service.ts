@@ -636,8 +636,19 @@ export async function applyPaystackWebhookEvent(
         },
       });
 
-  // Check if already succeeded / duplicate
-  if (attempt.status === "SUCCEEDED" && payment.status === "SUCCEEDED") {
+  // Check if already succeeded / duplicate (unless Verify API settled it first
+  // without a signed webhook link yet, in which case attach signed provenance).
+  const settledWithoutWebhook =
+    attempt.status === "SUCCEEDED" &&
+    payment.status === "SUCCEEDED" &&
+    !payment.successWebhookEventId &&
+    Boolean(
+      payment.metadata &&
+      typeof payment.metadata === "object" &&
+      !Array.isArray(payment.metadata) &&
+      (payment.metadata as Record<string, unknown>).verifiedVia === "PAYSTACK_VERIFY_API",
+    );
+  if (attempt.status === "SUCCEEDED" && payment.status === "SUCCEEDED" && !settledWithoutWebhook) {
     const existing = (resolvedEvent && (resolvedEvent.ledgerJournalId !== undefined || resolvedEvent.id))
       ? resolvedEvent
       : await prisma.paymentWebhookEvent.findUnique({ where: { eventFingerprint } });
@@ -676,8 +687,73 @@ export async function applyPaystackWebhookEvent(
       }
 
       if (freshAttempt.status === "SUCCEEDED" && freshPayment.status === "SUCCEEDED") {
+        const needsWebhookBackfill =
+          !freshPayment.successWebhookEventId &&
+          Boolean(
+            freshPayment.metadata &&
+            typeof freshPayment.metadata === "object" &&
+            !Array.isArray(freshPayment.metadata) &&
+            (freshPayment.metadata as Record<string, unknown>).verifiedVia === "PAYSTACK_VERIFY_API",
+          );
+        if (needsWebhookBackfill && freshPayment.successLedgerJournalId) {
+          await tx.paymentWebhookEvent.update({
+            where: { id: resolvedEvent.id },
+            data: {
+              processingStatus: "APPLIED",
+              normalizedStatus: "COMPLETE",
+              appliedAt: now,
+              verifiedAt: now,
+              leaseToken: null,
+              leaseExpiresAt: null,
+              paymentId: freshPayment.id,
+              attemptId: freshAttempt.id,
+              ledgerJournalId: freshPayment.successLedgerJournalId,
+              signatureVerified: true,
+              merchantVerified: true,
+              amountVerified: true,
+              providerDataVerified: true,
+            },
+          });
+          await tx.payment.update({
+            where: { id: freshPayment.id },
+            data: {
+              successWebhookEventId: resolvedEvent.id,
+              version: { increment: 1 },
+            },
+          });
+          await appendVerifiedPaymentEventWithinTransaction(tx, {
+            payment: {
+              id: freshPayment.id,
+              publicReference: freshPayment.publicReference,
+              subjectType: freshPayment.subjectType,
+              orderId: freshPayment.orderId,
+              marketplaceCheckoutId: freshPayment.marketplaceCheckoutId,
+              subscriptionInvoiceId: freshPayment.subscriptionInvoiceId,
+              managedMarketingRequestId: freshPayment.managedMarketingRequestId,
+              userId: freshPayment.userId,
+              amount: freshPayment.amount,
+              currency: freshPayment.currency,
+              successfulAttemptId: freshAttempt.id,
+              successWebhookEventId: resolvedEvent.id,
+            },
+            attemptId: freshAttempt.id,
+            webhookEventId: resolvedEvent.id,
+            webhookEventReference: resolvedEvent.publicReference,
+            verifiedAt: now,
+          });
+          const journal = await tx.ledgerJournal.findUnique({
+            where: { id: freshPayment.successLedgerJournalId },
+            select: { reference: true },
+          });
+          return Object.freeze({
+            outcome: "APPLIED" as const,
+            eventPublicReference: resolvedEvent.publicReference,
+            ledgerJournalReference: journal?.reference ?? null,
+            postCommitAdminAlert: null,
+          });
+        }
         await tx.paymentWebhookEvent.update({ where: { id: resolvedEvent.id }, data: { processingStatus: "DUPLICATE", appliedAt: now } });
-        return Object.freeze({ outcome: "DUPLICATE" as const, eventPublicReference: resolvedEvent.publicReference, ledgerJournalReference: null });
+        return Object.freeze({ outcome: "DUPLICATE" as const, eventPublicReference: resolvedEvent.publicReference, ledgerJournalReference: null, postCommitAdminAlert: null });
       }
 
       // Ledger posting: PLATFORM-CASH-CLEARING-ZAR (Debit) and PLATFORM-CUSTOMER-FUNDS-HELD-ZAR (Credit)

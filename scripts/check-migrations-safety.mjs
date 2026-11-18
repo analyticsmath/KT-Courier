@@ -150,6 +150,18 @@ const approvedDestructiveOperations = [
     reason: "Replaces Payment_success_evidence_coherence_check in-place to align with Payment_succeeded_requires_provider_evidence_check for provider='MANUAL' internal wallet payments while preserving strict external provider evidence checks.",
   },
   {
+    migration: "20261118010000_paystack_verify_payment_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"Payment_success_evidence_coherence_check"\s*;\s*$/i,
+    reason: "Replaces Payment_success_evidence_coherence_check in-place to permit Paystack Verify API authoritative settlement (verifiedVia='PAYSTACK_VERIFY_API') without forging synthetic PaymentWebhookEvent records.",
+  },
+  {
+    migration: "20261118010000_paystack_verify_payment_evidence",
+    label: "DROP CONSTRAINT",
+    statement: /^\s*ALTER\s+TABLE\s+"Payment"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"Payment_succeeded_requires_provider_evidence_check"\s*;\s*$/i,
+    reason: "Replaces Payment_succeeded_requires_provider_evidence_check in-place to permit Paystack Verify API authoritative settlement with attempt, providerReference, and EXTERNAL_PAYMENT_RECEIPT ledger evidence.",
+  },
+  {
     migration: "20261111000000_marketplace_promotion_discount",
     label: "DROP CONSTRAINT",
     statement: /^\s*ALTER\s+TABLE\s+"MarketplaceCheckout"\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+"MarketplaceCheckout_totals_check"\s*;\s*$/i,

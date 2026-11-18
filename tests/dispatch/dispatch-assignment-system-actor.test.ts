@@ -5,7 +5,7 @@ const db = vi.hoisted(() => ({
   $executeRaw: vi.fn(),
   $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(db)),
   systemSetting: { findMany: vi.fn() },
-  order: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+  order: { findUnique: vi.fn(), findMany: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
   orderStatusHistory: { create: vi.fn() },
   notificationOutbox: { create: vi.fn() },
   notificationEventIntent: { upsert: vi.fn().mockResolvedValue({}) },
@@ -67,6 +67,25 @@ describe("dispatch assignment system actor attribution", () => {
       status: "CONFIRMED",
       deliveryRegionId: "reg-1",
     });
+    db.order.findMany.mockResolvedValue([
+      {
+        id: "ord-1",
+        pricingSnapshot: null,
+        cashOnDelivery: null,
+        payments: [
+          {
+            id: "pay-1",
+            metadata: null,
+            publicReference: "pay-ref-1",
+            status: "SUCCEEDED",
+            amount: { toFixed: () => "100.00" },
+            successLedgerJournalId: "jrn-1",
+            reconciliationStatus: "NONE",
+          },
+        ],
+        marketplaceStoreOrderBridge: null,
+      },
+    ]);
     db.orderAssignment.findMany.mockResolvedValue([]);
     db.orderAssignment.findFirst.mockResolvedValue(null);
     db.driverProfile.findUnique.mockResolvedValue({

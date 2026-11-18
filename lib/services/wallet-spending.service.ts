@@ -1052,6 +1052,17 @@ export async function spendWalletForParcelOrderWithinTransaction(
       },
     });
 
+    // Activate COD deposit obligation before confirming the parcel so central
+    // acceptance readiness observes READY_FOR_COLLECTION + digitalPaid.
+    if (order.cashOnDelivery) {
+      await activateDepositCashOnDeliveryWithinTransaction(tx, {
+        paymentId: payment.id,
+        orderId: order.id,
+        amount: payment.amount,
+        verifiedEventReference: `wallet-full:${order.orderNumber}`,
+      });
+    }
+
     await recordWalletCourierConfirmationInTx(tx, {
       orderId: order.id,
       orderStatus: order.status,
@@ -1061,16 +1072,6 @@ export async function spendWalletForParcelOrderWithinTransaction(
       journalId: consume.journalId,
       settledAt: now,
     });
-
-    // If COD was zero digital requirement, activate COD
-    if (order.cashOnDelivery) {
-      await activateDepositCashOnDeliveryWithinTransaction(tx, {
-        paymentId: payment.id,
-        orderId: order.id,
-        amount: payment.amount,
-        verifiedEventReference: `wallet-full:${order.orderNumber}`,
-      });
-    }
 
     return toPaymentSummaryDto(payment);
   }
