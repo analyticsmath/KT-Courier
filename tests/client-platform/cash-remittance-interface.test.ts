@@ -26,6 +26,7 @@ const cash = {
   orders: [{ orderId: "order-fixture", orderNumber: "KT-123",
     total: "125.00", digitalPaid: "0.00", cashRequired: "125.00",
     cashCollected: "125.00", cashDeposited: "0.00", status: "COLLECTED",
+    remittanceDueAt: null, isOverdue: false,
     canCollect: false, canDeposit: true }], deposits: [],
 } as Awaited<ReturnType<typeof driverCashSummary>>;
 
