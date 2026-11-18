@@ -4,7 +4,7 @@ import { hasPermission, syncSystemPermissions } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { createOrder } from "@/lib/services/orders.service";
 import { acceptDispatchAssignment, offerAssignment } from "@/lib/services/dispatch-assignment.service";
-import { createDriver, createPersistedQuote, createRegion, createUser, integrationPrisma, uniqueTag } from "./phase7-5-fixtures";
+import { createDriver, createPersistedQuote, createRegion, createUser, integrationPrisma, seedVerifiedPaidOrderEvidence, uniqueTag } from "./phase7-5-fixtures";
 
 beforeAll(async () => {
   await syncSystemPermissions({ actorUserId: "system" });
@@ -22,6 +22,12 @@ describe("Phase 7.5 live cross-module invariants", () => {
     const { input } = await createPersistedQuote(customer, `${tag}-quote`);
     await expect(createOrder(otherCustomer, input)).rejects.toMatchObject({ code: "QUOTE_OWNER_MISMATCH" });
     const order = await createOrder(customer, input);
+    await seedVerifiedPaidOrderEvidence(integrationPrisma, {
+      orderId: order.id,
+      amount: order.priceEstimate ? Number(order.priceEstimate).toFixed(2) : "115.00",
+      customerId: customer.id,
+      tag,
+    });
     await integrationPrisma.order.update({ where: { id: order.id }, data: { status: "CONFIRMED", deliveryRegionId: region.id } });
     const before = await integrationPrisma.order.findUniqueOrThrow({ where: { id: order.id }, select: { pricingQuoteId: true, priceEstimate: true, pricingSubtotal: true, pricingTaxAmount: true, pricingSnapshot: true } });
 

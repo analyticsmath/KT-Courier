@@ -24,6 +24,9 @@ import {
 import type { AuthenticatedUser } from "@/types/domain";
 import type { CreateOrderInput } from "@/lib/validation/order";
 import { hashPricingInput, pricingInputSnapshot } from "@/lib/pricing/input-hash";
+import { buildPaystackReceiptPosting } from "@/lib/payments/providers/paystack/paystack-ledger-posting-policy";
+import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 
 export const integrationPrisma = new PrismaClient();
 
@@ -156,8 +159,95 @@ export async function createApprovedDriverEvidence(driverProfileId: string, user
   return vehicle;
 }
 
+export async function seedVerifiedPaidOrderEvidence(
+  db: PrismaClient,
+  input: { orderId: string; amount: string; customerId: string | null; tag: string },
+) {
+  const suffix = randomUUID().replaceAll("-", "");
+  const now = new Date();
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('p75-platform-zar-seed'))`;
+    const pw = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }, tx);
+    const cash = await ensureLedgerAccount(
+      { walletId: pw.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" },
+      tx,
+    );
+    const held = await ensureLedgerAccount(
+      { walletId: pw.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" },
+      tx,
+    );
+
+    const paymentNumber = `KT-PAY-${suffix.slice(0, 16).toUpperCase()}`;
+    const payment = await tx.payment.create({
+      data: {
+        publicReference: paymentNumber,
+        userId: input.customerId,
+        orderId: input.orderId,
+        subjectType: "COURIER_ORDER",
+        provider: "PAYSTACK",
+        purpose: "ORDER",
+        status: "CREATED",
+        amount: input.amount,
+        currency: "ZAR",
+        creationIdempotencyKey: `idem-${suffix.slice(0, 20)}`,
+        creationRequestHash: hashPricingInput({ orderId: input.orderId, tag: input.tag, suffix }),
+      },
+    });
+
+    const attemptPublicRef = `pat_${suffix.slice(0, 24)}`;
+    const attemptRef = `kt_p75_${suffix.slice(0, 20)}`;
+    const providerRef = `ps_${suffix.slice(0, 20)}`;
+    const attempt = await tx.paymentAttempt.create({
+      data: {
+        paymentId: payment.id,
+        attemptNumber: 1,
+        publicReference: attemptPublicRef,
+        idempotencyKey: `idem-att-${suffix.slice(0, 20)}`,
+        requestHash: hashPricingInput({ orderId: input.orderId, attempt: 1, tag: input.tag, suffix }),
+        provider: "PAYSTACK",
+        merchantReference: attemptRef,
+        providerReference: providerRef,
+        status: "SUCCEEDED",
+        amount: input.amount,
+        currency: "ZAR",
+        startedAt: now,
+        providerConfirmedAt: now,
+        completedAt: now,
+      },
+    });
+
+    const journal = await postLedgerJournalWithinTransaction(
+      tx,
+      buildPaystackReceiptPosting({
+        paymentPublicReference: paymentNumber,
+        attemptPublicReference: attemptPublicRef,
+        eventPublicReference: `verify:${attemptRef}`,
+        providerPaymentId: providerRef,
+        amount: input.amount,
+        cashClearingAccountId: cash.id,
+        customerFundsHeldAccountId: held.id,
+      }),
+    );
+
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "SUCCEEDED",
+        latestAttemptNumber: 1,
+        successfulAttemptId: attempt.id,
+        successLedgerJournalId: journal.id,
+        providerConfirmedAt: now,
+        succeededAt: now,
+        reconciliationStatus: "RESOLVED",
+        metadata: { verifiedVia: "PAYSTACK_VERIFY_API", fixture: input.tag },
+        version: 1,
+      },
+    });
+  });
+}
+
 export async function createDispatchOrder(tag: string, customerId: string, regionId: string) {
-  return integrationPrisma.order.create({
+  const order = await integrationPrisma.order.create({
     data: {
       orderNumber: `P75-${tag}`.slice(0, 100),
       source: OrderSource.CUSTOMER,
@@ -176,6 +266,13 @@ export async function createDispatchOrder(tag: string, customerId: string, regio
       pricingSnapshot: { suite: "phase7-5", tag, total: "125.00" },
     },
   });
+  await seedVerifiedPaidOrderEvidence(integrationPrisma, {
+    orderId: order.id,
+    amount: "125.00",
+    customerId,
+    tag,
+  });
+  return order;
 }
 
 export function baseOrderInput(): CreateOrderInput {

@@ -222,7 +222,7 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       await createApprovedDriverEvidence(driverAProfileId, driverAUserId, `bola-a-${nonce}`);
       await createApprovedDriverEvidence(driverBProfileId, driverBUserId, `bola-b-${nonce}`);
 
-      // 5. Create Order for Customer B
+      // 5. Create Order for Customer B with genuine FULL_COD obligation before dispatch assignment
       customerBOrderNumber = `KT-ORD-B-${nonce}`;
       const orderB = await prisma.order.create({
         data: {
@@ -242,7 +242,24 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
       });
       customerBOrderId = orderB.id;
 
-      // 6. Create Order Assignment for Driver B on Customer B's Order
+      // 6. Create Genuine COD Obligation for Driver B's Courier Order
+      const codB = await prisma.cashOnDelivery.create({
+        data: {
+          publicReference: `COD-B-${nonce}`,
+          orderId: customerBOrderId,
+          status: "READY_FOR_COLLECTION",
+          policyMode: "FULL_COD" as any,
+          authoritativePayable: new Prisma.Decimal("100.00"),
+          cashObligation: new Prisma.Decimal("100.00"),
+          cashCollected: new Prisma.Decimal("0.00"),
+          cashReconciled: new Prisma.Decimal("0.00"),
+          digitalRequired: new Prisma.Decimal("0.00"),
+          digitalPaid: new Prisma.Decimal("0.00"),
+        },
+      });
+      codBId = codB.id;
+
+      // 7. Create Order Assignment for Driver B on Customer B's Order
       const offered = await offerAssignment(financeAdminId, customerBOrderId, {
         driverProfileId: driverBProfileId,
         reasonCode: "INITIAL_ASSIGNMENT",
@@ -348,23 +365,6 @@ describe("Strict PostgreSQL BOLA & Multi-Actor Authority Matrix (A through J)", 
         },
       });
       storeBClaimId = claimB.id;
-
-      // 9. Create Genuine COD Obligation for Driver B's Courier Order
-      const codB = await prisma.cashOnDelivery.create({
-        data: {
-          publicReference: `COD-B-${nonce}`,
-          orderId: customerBOrderId,
-          status: "READY_FOR_COLLECTION",
-          policyMode: "FULL_COD" as any,
-          authoritativePayable: new Prisma.Decimal("100.00"),
-          cashObligation: new Prisma.Decimal("100.00"),
-          cashCollected: new Prisma.Decimal("0.00"),
-          cashReconciled: new Prisma.Decimal("0.00"),
-          digitalRequired: new Prisma.Decimal("0.00"),
-          digitalPaid: new Prisma.Decimal("0.00"),
-        },
-      });
-      codBId = codB.id;
 
       // 9b. Ensure platform and driver wallets & ledger accounts for COD
       const platformWallet = await prisma.wallet.upsert({
