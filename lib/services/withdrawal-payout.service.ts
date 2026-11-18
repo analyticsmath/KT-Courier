@@ -19,6 +19,7 @@ import {
   transitionInFlightDisputesOnPayoutFailure,
   transitionInFlightDisputesOnPayoutSuccess,
 } from "./withdrawal-earning-allocation.service";
+import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
 
 function payoutAttemptReference(): string { return `WPA-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
 function reconciliationReference(): string { return `WRC-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
@@ -45,10 +46,22 @@ async function openReconciliationCase(
 ) {
   const caseKey = `withdrawal:${input.withdrawalReference}:${input.reason}:${input.attemptReference ?? "none"}`;
   const existing = await tx.withdrawalReconciliationCase.findUnique({ where: { caseKey } });
-  if (existing) {
-    return tx.withdrawalReconciliationCase.update({ where: { id: existing.id }, data: { observationCount: { increment: 1 }, lastObservedAt: new Date() } });
-  }
-  return tx.withdrawalReconciliationCase.create({ data: { publicReference: reconciliationReference(), caseKey, withdrawalId: input.withdrawalId, payoutAttemptId: input.attemptId, reason: input.reason, priority: input.reason === "INSUFFICIENT_CASH_CLEARING" ? "HIGH" : "HIGH", safeSummary: input.summary } });
+  const record = existing
+    ? await tx.withdrawalReconciliationCase.update({ where: { id: existing.id }, data: { observationCount: { increment: 1 }, lastObservedAt: new Date() } })
+    : await tx.withdrawalReconciliationCase.create({ data: { publicReference: reconciliationReference(), caseKey, withdrawalId: input.withdrawalId, payoutAttemptId: input.attemptId, reason: input.reason, priority: input.reason === "INSUFFICIENT_CASH_CLEARING" ? "HIGH" : "HIGH", safeSummary: input.summary } });
+  await recordAdminAlertIntentInTx(tx, {
+    eventType: "FINANCE_ANOMALY_ALERT",
+    aggregateReference: `withdrawal-recon:${input.withdrawalReference}:${input.reason}:${input.attemptReference ?? "none"}`,
+    adminPath: "/admin/withdrawal-reconciliation",
+    title: `Withdrawal reconciliation opened (${input.reason})`,
+    summary: input.summary,
+    metadata: {
+      withdrawalReference: input.withdrawalReference,
+      attemptReference: input.attemptReference ?? null,
+      reason: input.reason,
+    },
+  });
+  return record;
 }
 
 export async function startWithdrawalPayout(input: Readonly<{ actorUserId: string; publicReference: string; operationId: string }>) {

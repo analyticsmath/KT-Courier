@@ -7,6 +7,11 @@ import { PlatformError } from "./contracts";
 import type { AuthenticatedUser } from "@/types/domain";
 import { withLedgerRetry } from "@/lib/ledger/retry";
 import {
+  buildOverdueDriverCashWhere,
+  DRIVER_CASH_TIMEZONE,
+  isCashOnDeliveryOverdue,
+} from "@/lib/services/driver-cash-overdue-policy";
+import {
   emitAdminAlertNonBlocking,
   recordAdminAlertIntentInTx,
   type AdminAlertEventInput,
@@ -145,12 +150,15 @@ export async function saveBankInstructions(
     return { saved: true, version: version + 1 };
   });
 }
-export async function driverCashSummary(userId: string) {
+export async function driverCashSummary(
+  userId: string,
+  now: Date = new Date(),
+) {
   const driver = await activeDriver(userId);
   const cashOrderSelect = {
     orderId: true, collectorDriverId: true, authoritativePayable: true,
     digitalPaid: true, cashObligation: true, cashCollected: true,
-    cashReconciled: true, status: true,
+    cashReconciled: true, collectedAt: true, remittanceDueAt: true, status: true,
     order: { select: { orderNumber: true, status: true } },
   } as const;
   const driverOrderScope = {
@@ -159,7 +167,7 @@ export async function driverCashSummary(userId: string) {
       { order: { currentDriverProfileId: driver.id } },
     ],
   };
-  const [collected, custody, rows, actionableRows, deposits, bankInstructions, assignedCash] =
+  const [collected, custody, rows, actionableRows, overdueAgg, oldestOverdueRow, deposits, bankInstructions, assignedCash] =
     await Promise.all([
       prisma.cashOnDelivery.aggregate({
         where: { collectorDriverId: driver.id },
@@ -191,6 +199,16 @@ export async function driverCashSummary(userId: string) {
         select: cashOrderSelect,
         orderBy: { createdAt: "asc" },
         take: 101,
+      }),
+      prisma.cashOnDelivery.aggregate({
+        where: buildOverdueDriverCashWhere(now, { collectorDriverId: driver.id }),
+        _count: { _all: true },
+        _sum: { cashCollected: true, cashReconciled: true },
+      }),
+      prisma.cashOnDelivery.findFirst({
+        where: buildOverdueDriverCashWhere(now, { collectorDriverId: driver.id }),
+        orderBy: [{ remittanceDueAt: "asc" }, { collectedAt: "asc" }],
+        select: { remittanceDueAt: true, collectedAt: true },
       }),
       prisma.driverCashDeposit.findMany({
         where: { driverProfileId: driver.id },
@@ -248,6 +266,15 @@ export async function driverCashSummary(userId: string) {
     return sum.add(Prisma.Decimal.max(cod.cashObligation.sub(cod.cashCollected), new Prisma.Decimal(0)));
   }, new Prisma.Decimal(0));
   const exposure = heldAmount.add(reservedAmount);
+  const overdueCount = overdueAgg._count._all ?? 0;
+  const overdueAmount = Prisma.Decimal.max(
+    (overdueAgg._sum.cashCollected ?? new Prisma.Decimal(0)).sub(
+      overdueAgg._sum.cashReconciled ?? new Prisma.Decimal(0),
+    ),
+    new Prisma.Decimal(0),
+  );
+  const oldestDueAt =
+    oldestOverdueRow?.remittanceDueAt ?? oldestOverdueRow?.collectedAt ?? null;
   return {
     cashCapacity: {
       limit: cashLimit.toFixed(2),
@@ -256,6 +283,13 @@ export async function driverCashSummary(userId: string) {
       exposure: exposure.toFixed(2),
       remaining: Prisma.Decimal.max(cashLimit.sub(exposure), new Prisma.Decimal(0)).toFixed(2),
       atLimit: exposure.greaterThanOrEqualTo(cashLimit),
+    },
+    overdueRemittance: {
+      timezone: DRIVER_CASH_TIMEZONE,
+      overdueCount,
+      overdueAmountZar: overdueAmount.toFixed(2),
+      oldestDueAt: oldestDueAt ? oldestDueAt.toISOString() : null,
+      newCodAssignmentsBlocked: overdueCount > 0,
     },
     totals: {
       collected: (
@@ -277,6 +311,15 @@ export async function driverCashSummary(userId: string) {
       cashRequired: r.cashObligation.toFixed(2),
       cashCollected: r.cashCollected.toFixed(2),
       cashDeposited: r.cashReconciled.toFixed(2),
+      remittanceDueAt: r.remittanceDueAt ? r.remittanceDueAt.toISOString() : null,
+      isOverdue: isCashOnDeliveryOverdue(
+        {
+          status: r.status,
+          remittanceDueAt: r.remittanceDueAt,
+          collectedAt: r.collectedAt,
+        },
+        now,
+      ),
       status: r.status,
       canCollect:
         r.status === "READY_FOR_COLLECTION" &&

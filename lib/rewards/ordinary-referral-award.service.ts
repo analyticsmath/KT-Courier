@@ -11,6 +11,11 @@ import { ORDINARY_REFERRAL_LEDGER_INCLUDE, verifyOrdinaryReferralAwardJournal } 
 import { ensureLedgerAccountInTx, ensureWalletForOwnerInTx } from "@/lib/services/wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { PROMOTION_ACCOUNT_CODES } from "@/lib/promotions/promotion-ledger-policy";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export class OrdinaryReferralAwardError extends Error {
   constructor(
@@ -61,7 +66,9 @@ async function awardOrdinaryReferral(input: Readonly<{
   const operationDigest = referenceHash(input.operationId);
   const digest = referenceHash(input.referralEventId);
   const key = `ordinary-referral-award-${digest}`;
-  return withLedgerRetry(() => prisma.$transaction(async tx => {
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const result = await withLedgerRetry(() => prisma.$transaction(async tx => {
+    pendingAlert = null;
     const [operator, event] = await Promise.all([
       input.actor.kind === "USER"
         ? tx.user.findUnique({ where: { id: input.actor.userId }, select: { role: true, status: true } })
@@ -215,12 +222,33 @@ async function awardOrdinaryReferral(input: Readonly<{
         },
       },
     });
+    pendingAlert = {
+      eventType: "REFERRAL_REWARD_AWARDED",
+      aggregateReference: `referral-award:${event.id}`,
+      adminPath: "/admin/finance",
+      title: `Referral reward credited (${owner.ownerType} R${amount})`,
+      summary: `Verified first-paid-order ordinary referral ${event.id} credited R${amount} to ${owner.ownerType.toLowerCase()} wallet.`,
+      metadata: {
+        referralEventId: event.id,
+        journalId: journal.id,
+        journalReference: journal.reference,
+        qualifyingPaymentId: eligibility.qualifyingPaymentId,
+        ownerType: owner.ownerType,
+        ownerId: owner.ownerId,
+        amountZar: amount,
+      },
+    };
+    await recordAdminAlertIntentInTx(tx, pendingAlert);
     return Object.freeze({
       status: "CREDITED" as const, referralEventId: event.id,
       journalId: journal.id, journalReference: journal.reference,
       qualifyingPaymentId: eligibility.qualifyingPaymentId, amountZar: amount,
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000 }));
+  if (pendingAlert && result.status === "CREDITED") {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return result;
 }
 
 export async function processAutomaticOrdinaryReferralAwards(options?: {

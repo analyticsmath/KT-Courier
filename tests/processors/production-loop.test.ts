@@ -15,7 +15,7 @@ import {
 import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
 
 describe("production processor orchestration", () => {
-  it("settles marketplace jobs after verified payment finalization and accounts for all 30 registered processors", () => {
+  it("settles marketplace jobs after verified payment finalization and accounts for all 32 registered processors", () => {
     expect(productionProcessors).toEqual([
       "apply-paystack-webhook-events",
       "consume-verified-payment-events",
@@ -30,7 +30,9 @@ describe("production processor orchestration", () => {
       "expire-developer-api-credentials",
       "deliver-notifications",
       "reconcile-expired-dispatch",
+      "escalate-unassigned-courier-orders",
       "expire-unpaid-courier-orders",
+      "monitor-overdue-driver-cash",
       "dispatch-marketplace-orders",
       "scan-payment-reconciliation",
       "scan-refund-reconciliation",

@@ -1,12 +1,27 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { buildOverdueDriverCashWhere } from "./driver-cash-overdue-policy";
 
 /** Cash custody is real money. Never use float arithmetic or treat deposits as cleared before review. */
 export class DriverCashLimitError extends Error {
-  readonly code = "DRIVER_CASH_LIMIT_EXCEEDED";
+  readonly code: string = "DRIVER_CASH_LIMIT_EXCEEDED";
   constructor(readonly held: string, readonly reserved: string, readonly requested: string, readonly limit: string) {
     super("This driver has reached the approved cash-in-hand limit. Confirm and reconcile bank deposits before assigning more cash deliveries.");
     this.name = "DriverCashLimitError";
+  }
+}
+
+export class DriverCashRemittanceOverdueError extends DriverCashLimitError {
+  override readonly code = "DRIVER_CASH_REMITTANCE_OVERDUE";
+  constructor(
+    readonly overdueCount: number,
+    readonly overdueAmount: string,
+    readonly oldestDueAt: string | null,
+  ) {
+    super("0.00", "0.00", "0.00", "0.00");
+    this.name = "DriverCashRemittanceOverdueError";
+    this.message =
+      `This driver has ${overdueCount} overdue prior-day cash collection(s) (R${overdueAmount}) awaiting verified bank remittance. Digital deliveries may still be assigned, but new COD deliveries are blocked until finance reconciles the cash deposits.`;
   }
 }
 
@@ -34,13 +49,45 @@ function rejectIfOverCap(held: Prisma.Decimal, reserved: Prisma.Decimal, request
 /** Called inside the same transaction as manual/automatic driver assignment.
  * Reserved COD includes offered/accepted but uncollected cash deliveries.
  * The lock prevents concurrent offers from allocating beyond the cap.
+ *
+ * Digital-only deliveries return before custody/overdue checks so drivers
+ * with overdue COD cash remain blocked only on new COD assignments until
+ * bank remittance is independently verified and reconciled.
  */
-export async function assertDriverCashCapacityForAssignment(tx: CashTx, driverId: string, orderId: string): Promise<void> {
+export async function assertDriverCashCapacityForAssignment(
+  tx: CashTx,
+  driverId: string,
+  orderId: string,
+  now: Date = new Date(),
+): Promise<void> {
   const cod = await tx.cashOnDelivery.findUnique({ where: { orderId }, select: { cashObligation: true, cashCollected: true, status: true } });
   if (!cod || ["CANCELLED", "RECONCILED"].includes(cod.status)) return;
   const requested = Prisma.Decimal.max(cod.cashObligation.sub(cod.cashCollected), new Prisma.Decimal(0));
   if (requested.isZero()) return;
   const { limit, held } = await driverAndHeld(tx, driverId);
+  const overdueRows = await tx.cashOnDelivery.findMany({
+    where: buildOverdueDriverCashWhere(now, { collectorDriverId: driverId }),
+    select: {
+      cashCollected: true,
+      cashReconciled: true,
+      remittanceDueAt: true,
+      collectedAt: true,
+    },
+    orderBy: [{ remittanceDueAt: "asc" }, { collectedAt: "asc" }],
+  });
+  if (overdueRows.length > 0) {
+    const overdueAmount = overdueRows.reduce(
+      (sum, row) =>
+        sum.add(Prisma.Decimal.max(row.cashCollected.sub(row.cashReconciled), new Prisma.Decimal(0))),
+      new Prisma.Decimal(0),
+    );
+    const oldest = overdueRows[0]?.remittanceDueAt ?? overdueRows[0]?.collectedAt ?? null;
+    throw new DriverCashRemittanceOverdueError(
+      overdueRows.length,
+      overdueAmount.toFixed(2),
+      oldest ? oldest.toISOString() : null,
+    );
+  }
   const reserved = await reservedOtherCashAssignments(tx, driverId, orderId);
   rejectIfOverCap(held, reserved, requested, limit);
 }

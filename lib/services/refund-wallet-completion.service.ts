@@ -13,6 +13,11 @@ import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { completeStoreEarningRefundProjectionsWithinTransaction } from "./store-earning-refund.service";
 import { completeDriverEarningRefundProjectionsWithinTransaction } from "./driver-earning-refund.service";
 import { projectMarketplaceRefundCompletion } from "./marketplace-refund-completion.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export async function completeRefundToCustomerWallet(input: Readonly<{
   actorUserId: string;
@@ -21,7 +26,8 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
 }>, dependencies: Readonly<{ assertProductionReady?: () => void }> = {}) {
   (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
   const operationId = assertRefundOperationId(input.operationId);
-  return withLedgerRetry(() => prisma.$transaction(async (tx) => {
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const completed = await withLedgerRetry(() => prisma.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "PaymentRefund" WHERE "publicReference" = ${input.publicReference} FOR UPDATE`);
     if (rows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found.");
     const refund = await tx.paymentRefund.findUnique({ where: { id: rows[0].id }, include: { payment: true, beneficiaryStore: { select: { ownerUserId: true } }, statusHistory: { where: { toStatus: "REQUESTED" }, select: { actorUserId: true }, take: 2 }, reserveLedgerJournal: { include: { entries: { select: { accountId: true, direction: true, amount: true } } } } } });
@@ -66,6 +72,28 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
     await projectMarketplaceRefundCompletion(tx, refund.id);
     await tx.refundReconciliationCase.updateMany({ where: { refundId: refund.id, status: { in: ["OPEN", "MONITORING"] } }, data: { status: "RESOLVED", resolvedAt: now, resolutionCode: "WALLET_CREDIT_COMPLETED", resolvedByUserId: input.actorUserId } });
     await tx.refundStatusHistory.create({ data: { refundId: refund.id, fromStatus: refund.status, toStatus: "SUCCEEDED", actorType: "FINANCE_ADMIN", actorUserId: input.actorUserId, operationId, reasonCode: "WALLET_CREDIT_SUCCEEDED", safeMetadata: { completionJournalReference: journal.reference } } });
+    pendingAlert = {
+      eventType: "REFUND_COMPLETED",
+      aggregateReference: `refund-comp:${refund.publicReference}`,
+      adminPath: `/admin/refunds/${refund.id}`,
+      relatedOrderId: refund.payment.orderId ?? undefined,
+      title: `Refund completed (${refund.publicReference})`,
+      summary: `Wallet refund ${refund.publicReference} settled for R${refund.amount.toFixed(2)}.`,
+      metadata: {
+        refundPublicReference: refund.publicReference,
+        paymentPublicReference: refund.payment.publicReference,
+        amountZar: refund.amount.toFixed(2),
+        method: refund.method,
+        completionJournalReference: journal.reference,
+        ...(refund.payment.orderId ? { orderId: refund.payment.orderId } : {}),
+        ...(refund.beneficiaryStoreId ? { beneficiaryStoreId: refund.beneficiaryStoreId } : {}),
+      },
+    };
+    await recordAdminAlertIntentInTx(tx, pendingAlert);
     return updated;
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+  if (pendingAlert) {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return completed;
 }

@@ -73,7 +73,16 @@ test("admin payment acceptance guard UI, 24h payment deadline display, alerts co
       expect(overflow, `Horizontal overflow at ${route} @ ${width}px`).toBe(false);
     }
   }
+  await page.goto("/admin/notifications/alerts");
+  await expect(page.getByText(/Provider accepted/i).first()).toBeVisible();
+  await expect(page.getByText(/Inbox delivered/i).first()).toBeVisible();
+  await expect(page.getByText(/Failed \/ Blocked/i).first()).toBeVisible();
+  await expect(
+    page.getByLabel("Filter by email delivery status").locator('option[value="CANCELLED_BY_POLICY"]'),
+  ).toHaveText(/Cancelled by policy/i);
   await page.goto("/admin/processors");
   await expect(page.getByText(/expire-unpaid-courier-orders/i)).toBeVisible();
+  await expect(page.getByText(/monitor-overdue-driver-cash/i)).toBeVisible();
+  await expect(page.getByText(/escalate-unassigned-courier-orders/i)).toBeVisible();
   await expect(page.getByText(/Payment, webhook & 24h expiry backlog/i)).toBeVisible();
 });

@@ -14,6 +14,9 @@ import { recordAdminActivity } from "./admin-activity.service";
 import { AdminActionType } from "@/types/db";
 import { getSystemSettingDefinition } from "@/lib/settings/catalog";
 import { bumpGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
+import { hasPermission } from "@/lib/auth/permissions";
+import { PERMISSIONS } from "@/lib/auth/permission-keys";
+import { parseAdminAlertRecipients } from "@/lib/settings/admin-alert-recipient-policy";
 
 // ─── List all settings ────────────────────────────────────────────────────────
 
@@ -91,14 +94,38 @@ export async function updateSettingValue(
     return withLedgerRetry(() => prisma.$transaction(async (tx) => {
       const actor = await tx.user.findFirst({
         where: { id: actorUserId, role: { in: ["ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
-        select: { id: true },
+        select: { id: true, role: true },
       });
       if (!actor) return { error: "An active authorized administrator is required." };
+      if (key === "notifications.admin_alert_recipients") {
+        const permitted = await hasPermission({
+          userId: actor.id,
+          role: actor.role,
+          permissionKey: PERMISSIONS.SETTINGS_UPDATE,
+        });
+        if (!permitted) {
+          return { error: "Recipient policy updates require settings.update permission." };
+        }
+      }
       await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "SystemSetting" WHERE "key" = ${key} FOR UPDATE`);
       const stored = await tx.systemSetting.findUnique({ where: { key } });
       if (!stored || stored.type !== definition.type) return { error: "Setting type or availability changed. Refresh settings." };
       const currentValue = validateSettingValue(stored.type, rawValue, key);
       if (!currentValue.ok) return { error: currentValue.error };
+      if (key === "notifications.admin_alert_recipients" && actor.role !== "SUPER_ADMIN") {
+        const priorRecipients = parseAdminAlertRecipients(stored.value) ?? [];
+        const nextRecipients = parseAdminAlertRecipients(currentValue.value) ?? [];
+        const superAdminSignature = (list: readonly { email: string; roleScope?: string; active: boolean; label: string; events: readonly string[] }[]) =>
+          JSON.stringify(
+            list
+              .filter((r) => !r.roleScope || r.roleScope === "SUPER_ADMIN" || r.roleScope === "ALL")
+              .map((r) => ({ email: r.email, roleScope: r.roleScope ?? "ALL", active: r.active, events: [...r.events].sort() }))
+              .sort((a, b) => a.email.localeCompare(b.email)),
+          );
+        if (superAdminSignature(priorRecipients) !== superAdminSignature(nextRecipients)) {
+          return { error: "Only SUPER_ADMIN may add or modify SUPER_ADMIN or ALL alert recipient policies." };
+        }
+      }
       const updated = await tx.systemSetting.update({
         where: { key },
         data: { value: currentValue.value as Prisma.InputJsonValue },

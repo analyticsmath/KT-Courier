@@ -3,13 +3,12 @@ import { prisma } from "@/lib/db/prisma";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { AuthenticatedUser } from "@/types/domain";
 import { PlatformError } from "./contracts";
+import {
+  buildOverdueDriverCashWhere,
+  johannesburgDayStart,
+} from "@/lib/services/driver-cash-overdue-policy";
 
-/** South Africa has a fixed UTC+02:00 civil clock (no daylight-saving time). */
-export function johannesburgDayStart(reference: Date): Date {
-  const offset = 2 * 60 * 60 * 1000;
-  const shifted = new Date(reference.getTime() + offset);
-  return new Date(Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - offset);
-}
+export { johannesburgDayStart };
 
 export async function getDailyDriverCashReconciliation(
   actor: AuthenticatedUser, referenceTime: Date = new Date(),
@@ -39,7 +38,7 @@ export async function getDailyDriverCashReconciliation(
     }),
     prisma.cashOnDelivery.groupBy({
       by: ["collectorDriverId"],
-      where: { collectorDriverId: { in: ids }, status: "COLLECTED", collectedAt: { lt: cutoff } },
+      where: buildOverdueDriverCashWhere(referenceTime, { collectorDriverId: { in: ids } }),
       _sum: { cashCollected: true, cashReconciled: true }, _count: { _all: true },
     }),
     prisma.driverCashDeposit.groupBy({

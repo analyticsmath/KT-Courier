@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 791,
+    "totalRoutes": 792,
     "totalServerActions": 0,
     "publicRoutes": 99,
     "authenticatedRoutes": 689,
     "permissionGatedRoutes": 541,
-    "webhookSignatureRoutes": 3,
-    "rateLimitedRoutes": 233,
-    "generatedAt": "2026-11-15T19:10:16.974Z"
+    "webhookSignatureRoutes": 4,
+    "rateLimitedRoutes": 235,
+    "generatedAt": "2026-11-18T14:41:07.689Z"
   },
   "serverActions": [],
   "routes": [
@@ -3206,9 +3206,9 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/notifications/categories/[reference]/route.ts",
+      "routePath": "app/api/admin/notifications/admin-alerts/retry/route.ts",
       "httpMethods": [
-        "PATCH"
+        "POST"
       ],
       "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
       "requiredRoles": [
@@ -3224,26 +3224,6 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
-      "routePath": "app/api/admin/notifications/admin-alerts/retry/route.ts",
-      "httpMethods": [
-        "POST"
-      ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
-      "requiredRoles": [
-        "ADMIN",
-        "SUPER_ADMIN"
-      ],
-      "requiredPermissions": [
-        "notification_delivery.retry"
-      ],
-      "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
-      "bolaOwnershipValidated": true,
-      "originProtection": "DELEGATED_TO_GUARD_HELPER",
-      "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
-    },
-    {
       "routePath": "app/api/admin/notifications/admin-alerts/route.ts",
       "httpMethods": [
         "GET"
@@ -3253,9 +3233,25 @@
         "ADMIN",
         "SUPER_ADMIN"
       ],
-      "requiredPermissions": [
-        "notification_audit.read"
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/notifications/categories/[reference]/route.ts",
+      "httpMethods": [
+        "PATCH"
       ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
@@ -11821,7 +11817,8 @@
     {
       "routePath": "app/api/private-media/[reference]/route.ts",
       "httpMethods": [
-        "GET"
+        "GET",
+        "DELETE"
       ],
       "authorizationMechanism": "AUTHENTICATED_SESSION",
       "requiredRoles": [
@@ -11833,10 +11830,10 @@
         "PROMOTER"
       ],
       "requiredPermissions": [],
-      "rateLimitingApplied": false,
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
-      "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -14680,6 +14677,21 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": false,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/webhooks/resend/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "WEBHOOK_SIGNATURE",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "originProtection": "NOT_APPLICABLE_SIGNED_WEBHOOK",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },

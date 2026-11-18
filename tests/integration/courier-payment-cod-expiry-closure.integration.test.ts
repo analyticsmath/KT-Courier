@@ -341,12 +341,6 @@ describe("KT Couriers Payment -> Ledger -> Auto Acceptance -> 24h Expiry -> 50/5
         where: { deliveryServiceId: deliveryServiceKey },
       });
     }
-    if (suspendedInvalidServiceIds.length) {
-      await prisma.deliveryServiceDefinition.updateMany({
-        where: { id: { in: suspendedInvalidServiceIds } },
-        data: { status: "ACTIVE" },
-      });
-    }
     if (createdServiceId) {
       await prisma.deliveryServiceDefinition.deleteMany({
         where: { id: createdServiceId },

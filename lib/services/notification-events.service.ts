@@ -61,28 +61,60 @@ export async function appendCourierBookingPendingPaymentInTx(
 
 export async function appendCourierPaymentConfirmedInTx(
   db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
-  order: { id: string; orderNumber: string; paymentReference: string },
+  order: {
+    id: string;
+    orderNumber: string;
+    paymentReference: string;
+    paymentMode?: "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD" | "FULL_COD";
+    depositPaidZar?: string;
+    cashDueZar?: string;
+    walletPaidZar?: string;
+    providerPaidZar?: string;
+  },
 ) {
   await appendAuthorityIntent(
     "COURIER_ORDER",
     "COURIER_PAYMENT_CONFIRMED",
     order.id,
     `courier-payment-confirmed:${order.id}:${order.paymentReference}`,
-    { orderNumber: order.orderNumber, paymentReference: order.paymentReference },
+    {
+      orderNumber: order.orderNumber,
+      paymentReference: order.paymentReference,
+      ...(order.paymentMode ? { paymentMode: order.paymentMode } : {}),
+      ...(order.depositPaidZar ? { depositPaidZar: order.depositPaidZar } : {}),
+      ...(order.cashDueZar ? { cashDueZar: order.cashDueZar } : {}),
+      ...(order.walletPaidZar ? { walletPaidZar: order.walletPaidZar } : {}),
+      ...(order.providerPaidZar ? { providerPaidZar: order.providerPaidZar } : {}),
+    },
     db,
   );
 }
 
 export async function appendCourierOrderAcceptedInTx(
   db: Partial<Pick<Prisma.TransactionClient, "notificationEventIntent">>,
-  order: { id: string; orderNumber: string; deliveryType?: string; source?: string },
+  order: {
+    id: string;
+    orderNumber: string;
+    deliveryType?: string;
+    source?: string;
+    paymentMode?: "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD" | "FULL_COD";
+    depositPaidZar?: string;
+    cashDueZar?: string;
+  },
 ) {
   await appendAuthorityIntent(
     "COURIER_ORDER",
     "COURIER_ACCEPTED",
     order.id,
     `courier-accepted:${order.id}`,
-    { orderNumber: order.orderNumber, ...(order.deliveryType ? { deliveryType: order.deliveryType } : {}), ...(order.source ? { source: order.source } : {}) },
+    {
+      orderNumber: order.orderNumber,
+      ...(order.deliveryType ? { deliveryType: order.deliveryType } : {}),
+      ...(order.source ? { source: order.source } : {}),
+      ...(order.paymentMode ? { paymentMode: order.paymentMode } : {}),
+      ...(order.depositPaidZar ? { depositPaidZar: order.depositPaidZar } : {}),
+      ...(order.cashDueZar ? { cashDueZar: order.cashDueZar } : {}),
+    },
     db,
   );
 }

@@ -274,17 +274,24 @@ export async function createOrder(
     let bookingAdminAlert: AdminAlertEventInput;
     if (bookingStatus === OrderStatus.CONFIRMED) {
       await appendOrderConfirmedInTx(tx, order);
-      await appendCourierOrderAcceptedInTx(tx, order);
+      await appendCourierOrderAcceptedInTx(tx, {
+        ...order,
+        paymentMode: "FULL_COD",
+        depositPaidZar: "0.00",
+        cashDueZar: committedPayment?.cashRequired ?? quote.total.toFixed(2),
+      });
+      const cashDue = committedPayment?.cashRequired ?? quote.total.toFixed(2);
       bookingAdminAlert = {
         eventType: "PARCEL_ORDER_ACCEPTED",
         aggregateReference: `parcel-accepted:${order.id}`,
         title: `Approved COD parcel accepted (${order.orderNumber})`,
-        summary: `Full COD parcel booking ${order.orderNumber} is immediately eligible for dispatch.`,
+        summary: `Full COD parcel booking ${order.orderNumber} accepted under approved cash terms; R${cashDue} cash due to driver at delivery.`,
         adminPath: `/admin/orders/${order.id}`,
         relatedOrderId: order.id,
         metadata: {
           orderNumber: order.orderNumber,
           paymentMode: committedPayment?.mode ?? "FULL_COD",
+          cashDueZar: cashDue,
           status: order.status,
         },
       };

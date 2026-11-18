@@ -26,9 +26,18 @@ describe("Admin & SuperAdmin parcel lifecycle notification taxonomy (NTF-01..05)
       "PARCEL_DELIVERED",
       "PARCEL_DELIVERY_FAILED",
       "DRIVER_CASH_DEPOSIT_SUBMITTED",
+      "DRIVER_CASH_REMITTANCE_OVERDUE",
       "COD_REMITTANCE_RECONCILED",
       "COD_RECONCILIATION_DISCREPANCY",
       "PAYMENT_RECONCILIATION_ALERT",
+      "REFUND_REQUESTED",
+      "REFUND_COMPLETED",
+      "WALLET_CREDIT_ISSUED",
+      "LOYALTY_ADJUSTED",
+      "REFERRAL_REWARD_AWARDED",
+      "COUPON_PROMOTION_REDEEMED",
+      "UNASSIGNED_ORDER_ESCALATED",
+      "FINANCE_ANOMALY_ALERT",
     ] as const;
 
     for (const ev of required) {
@@ -36,6 +45,7 @@ describe("Admin & SuperAdmin parcel lifecycle notification taxonomy (NTF-01..05)
       expect(ADMIN_ALERT_EVENT_LABELS[ev]?.length).toBeGreaterThan(3);
       expect(ADMIN_ALERT_EVENT_ADMIN_LINKS[ev]).toMatch(/^\/admin\//);
     }
+    expect(ADMIN_ALERT_EVENT_TYPES.length).toBeGreaterThanOrEqual(33);
   });
 
   it("supports separate verified ADMIN and SUPER_ADMIN recipient configurations selectable per event", () => {

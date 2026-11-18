@@ -100,15 +100,15 @@ describe("F07 / P2-02 & §7.6 Directive Proof Index and Processor Execution Matr
     expect(CONFLICT_PRECEDENCE_AUTHORITY[3]?.authority).toContain("Updated Details");
   });
 
-  it("maps every one of the 30 registered processors accurately across productionProcessors (27) and delegated composites (3)", () => {
+  it("maps every one of the 32 registered processors accurately across productionProcessors (29) and delegated composites (3)", () => {
     const registryNames = Object.keys(PROCESSOR_REGISTRY).sort() as ProcessorName[];
     const matrixNames = Object.keys(PROCESSOR_EXECUTION_MATRIX).sort() as ProcessorName[];
-    expect(registryNames).toHaveLength(30);
+    expect(registryNames).toHaveLength(32);
     expect(matrixNames).toEqual(registryNames);
 
     const scheduledSet = new Set<string>(productionProcessors);
     const delegatedSet = new Set<string>(Object.keys(DELEGATED_COMPOSITE_PROCESSORS));
-    expect(scheduledSet.size).toBe(27);
+    expect(scheduledSet.size).toBe(29);
     expect(delegatedSet.size).toBe(3);
 
     for (const name of registryNames) {

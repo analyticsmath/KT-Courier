@@ -436,6 +436,26 @@ export const PROCESSOR_EXECUTION_MATRIX: Readonly<Record<ProcessorName, Processo
       positiveTest: "tests/services/parcel-unpaid-expiry.service.test.ts",
       negativeTest: "tests/services/parcel-unpaid-expiry.service.test.ts",
     }),
+    "monitor-overdue-driver-cash": buildEntry("monitor-overdue-driver-cash", {
+      engineeringStatus: "IMPLEMENTED",
+      handlerSymbol: "lib/services/driver-cash-overdue-sla.service.ts#scanOverdueDriverCashRemittanceBatch",
+      scanEnforcement: "prisma.cashOnDelivery.findMany({ where: buildOverdueDriverCashWhere(now), take: Math.min(batchSize, 500) })",
+      schedulerRegistration: "PRODUCTION_LOOP_AUTOMATIC",
+      productionActivationGate: "AUTOMATIC_CANONICAL_QUEUE (900s cadence; Africa/Johannesburg end-of-day SLA alert without auto-clearing)",
+      queueHealthIndicator: "scripts/production-processors.ts#hasWork(monitor-overdue-driver-cash)",
+      positiveTest: "tests/integration/audit-remediation-closure.integration.test.ts",
+      negativeTest: "tests/integration/audit-remediation-closure.integration.test.ts",
+    }),
+    "escalate-unassigned-courier-orders": buildEntry("escalate-unassigned-courier-orders", {
+      engineeringStatus: "IMPLEMENTED",
+      handlerSymbol: "lib/services/unassigned-order-escalation.service.ts#scanUnassignedCourierOrdersBatch",
+      scanEnforcement: "prisma.order.findMany({ where: { status: { in: ['CONFIRMED', 'PICKUP_SCHEDULED'] }, currentDriverProfileId: null }, take: Math.min(batchSize, 500) })",
+      schedulerRegistration: "PRODUCTION_LOOP_AUTOMATIC",
+      productionActivationGate: "AUTOMATIC_CANONICAL_QUEUE (300s cadence; escalates payment-ready orders stalled without assignment)",
+      queueHealthIndicator: "scripts/production-processors.ts#hasWork(escalate-unassigned-courier-orders)",
+      positiveTest: "tests/integration/audit-remediation-closure.integration.test.ts",
+      negativeTest: "tests/integration/audit-remediation-closure.integration.test.ts",
+    }),
   });
 
 const SYS_REQUIREMENT_ENTRIES: readonly DirectiveRequirementCoverageEntry[] = freezeEntries([

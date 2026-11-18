@@ -16,8 +16,43 @@ export async function prepareRequiredDomainNotifications(db: Prisma.TransactionC
     let template = await db.notificationTemplate.findUnique({ where: { key: definition.templateKey } });
     if (!template) template = await authority.templates.create({ key: definition.templateKey, categoryKey: definition.categoryKey });
     if (template!.categoryKey !== definition.categoryKey) throw new NotificationPolicyError("CLIENT_NOTIFICATION_CATEGORY_CONFLICT");
-    if (!await db.notificationTemplateVersion.findFirst({ where: { templateId: template!.id } })) {
-      const version = await authority.templates.createVersion(template!.publicReference, { purpose: "TRANSACTIONAL", sensitivity: "ACCOUNT", subjectTemplate: definition.title, titleTemplate: definition.title, plainTextTemplate: definition.body, actionRoute: definition.actionRoute, expiryMinutes: 1440, variables: definition.variables.map((name) => ({ name, type: "TEXT" as const, required: true, maximumLength: 160, sensitivity: "ACCOUNT" as const, allowedChannels: ["IN_APP", "EMAIL"] })) });
+    const latestTemplateVersion = await db.notificationTemplateVersion.findFirst({
+      where: { templateId: template!.id },
+      orderBy: { versionNumber: "desc" },
+    });
+    const declaredVars = latestTemplateVersion
+      ? new Set(
+          (
+            await db.notificationTemplateVariable.findMany({
+              where: { templateVersionId: latestTemplateVersion.id },
+              select: { name: true },
+            })
+          ).map((v) => v.name),
+        )
+      : new Set<string>();
+    const needsUpgradeVersion =
+      !latestTemplateVersion ||
+      definition.variables.some((requiredVar) => !declaredVars.has(requiredVar)) ||
+      (latestTemplateVersion.plainTextTemplate !== definition.body &&
+        definition.sourceAuthority === "COURIER_ORDER");
+    if (needsUpgradeVersion) {
+      const version = await authority.templates.createVersion(template!.publicReference, {
+        purpose: "TRANSACTIONAL",
+        sensitivity: "ACCOUNT",
+        subjectTemplate: definition.title,
+        titleTemplate: definition.title,
+        plainTextTemplate: definition.body,
+        actionRoute: definition.actionRoute,
+        expiryMinutes: 1440,
+        variables: definition.variables.map((name) => ({
+          name,
+          type: "TEXT" as const,
+          required: true,
+          maximumLength: name.endsWith("Summary") ? 420 : 160,
+          sensitivity: "ACCOUNT" as const,
+          allowedChannels: ["IN_APP", "EMAIL"],
+        })),
+      });
       await authority.templates.submit(version.publicReference);
     }
     if (!await db.notificationEventRoute.findUnique({ where: { key: definition.routeKey } })) await authority.routes.create({ key: definition.routeKey, sourceAuthority: definition.sourceAuthority, sourceEventType: definition.eventType });

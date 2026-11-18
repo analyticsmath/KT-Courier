@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
-const mocks = vi.hoisted(() => ({ driver:vi.fn(), collected:vi.fn(), custody:vi.fn(), codRows:vi.fn(), deposits:vi.fn(), bank:vi.fn(), assignments:vi.fn() }));
-vi.mock("@/lib/db/prisma",()=>({prisma:{driverProfile:{findUnique:mocks.driver},cashOnDelivery:{aggregate:mocks.collected,findMany:mocks.codRows},ledgerAccount:{aggregate:mocks.custody},driverCashDeposit:{findMany:mocks.deposits},orderAssignment:{findMany:mocks.assignments},systemSetting:{findUnique:mocks.bank}}}));
+const mocks = vi.hoisted(() => ({ driver:vi.fn(), collected:vi.fn(), codFirst:vi.fn(), custody:vi.fn(), codRows:vi.fn(), deposits:vi.fn(), bank:vi.fn(), assignments:vi.fn() }));
+vi.mock("@/lib/db/prisma",()=>({prisma:{driverProfile:{findUnique:mocks.driver},cashOnDelivery:{aggregate:mocks.collected,findMany:mocks.codRows,findFirst:mocks.codFirst},ledgerAccount:{aggregate:mocks.custody},driverCashDeposit:{findMany:mocks.deposits},orderAssignment:{findMany:mocks.assignments},systemSetting:{findUnique:mocks.bank}}}));
 import { driverCashSummary } from "@/lib/client-platform/driver-cash.service";
 const orderId="order-older-held-cash";
 const cod={orderId,collectorDriverId:"driver-id",authoritativePayable:new Prisma.Decimal("100"),digitalPaid:new Prisma.Decimal(0),cashObligation:new Prisma.Decimal("100"),cashCollected:new Prisma.Decimal("100"),cashReconciled:new Prisma.Decimal(0),status:"COLLECTED",order:{orderNumber:"KT-TEST",status:"DELIVERED"}};
@@ -10,7 +10,8 @@ beforeEach(()=>{
  vi.resetAllMocks();
  mocks.assignments.mockResolvedValue([]);
  mocks.driver.mockResolvedValue({id:"driver-id",status:"ACTIVE",user:{role:"DRIVER",status:"ACTIVE"}});
- mocks.collected.mockResolvedValue({_sum:{cashCollected:new Prisma.Decimal("100"),cashReconciled:new Prisma.Decimal(0)}});
+ mocks.collected.mockResolvedValue({_sum:{cashCollected:new Prisma.Decimal("100"),cashReconciled:new Prisma.Decimal(0)},_count:{_all:0}});
+ mocks.codFirst.mockResolvedValue(null);
  mocks.custody.mockResolvedValue({_sum:{currentBalance:new Prisma.Decimal("100")}});
  mocks.codRows.mockResolvedValue([cod]);
  mocks.bank.mockResolvedValue(null);

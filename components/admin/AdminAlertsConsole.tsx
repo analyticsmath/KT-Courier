@@ -27,6 +27,10 @@ interface AdminAlertsConsoleProps {
     pending: number;
     failed: number;
     sent: number;
+    providerAccepted?: number;
+    delivered?: number;
+    bounced?: number;
+    cancelledByPolicy?: number;
     activeAdminRecipients: number;
     activeSuperAdminRecipients: number;
   };
@@ -140,13 +144,14 @@ export function AdminAlertsConsole({
         checked?: number;
         sent?: number;
         failed?: number;
+        cancelledByPolicy?: number;
       };
       if (!res.ok || data.error) {
         setError(data.error ?? "Failed to retry admin alerts.");
         return;
       }
       setMessage(
-        `Retried ${data.checked ?? 0} deliveries: ${data.sent ?? 0} sent, ${data.failed ?? 0} still failing.`,
+        `Retried ${data.checked ?? 0} deliveries: ${data.sent ?? 0} provider accepted, ${data.cancelledByPolicy ?? 0} cancelled by policy, ${data.failed ?? 0} still failing.`,
       );
       router.refresh();
     } catch {
@@ -167,7 +172,7 @@ export function AdminAlertsConsole({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-6">
         <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-3">
           <p className="text-xs text-[var(--kt-text-muted)]">Admin recipients</p>
           <p className="mt-1 text-xl font-bold">{counts.activeAdminRecipients}</p>
@@ -177,16 +182,22 @@ export function AdminAlertsConsole({
           <p className="mt-1 text-xl font-bold">{counts.activeSuperAdminRecipients}</p>
         </div>
         <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-3">
-          <p className="text-xs text-[var(--kt-text-muted)]">Email sent</p>
-          <p className="mt-1 text-xl font-bold text-emerald-700">{counts.sent}</p>
+          <p className="text-xs text-[var(--kt-text-muted)]">Provider accepted</p>
+          <p className="mt-1 text-xl font-bold text-sky-700">{counts.providerAccepted ?? counts.sent}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-3">
+          <p className="text-xs text-[var(--kt-text-muted)]">Inbox delivered</p>
+          <p className="mt-1 text-xl font-bold text-emerald-700">{counts.delivered ?? 0}</p>
         </div>
         <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-3">
           <p className="text-xs text-[var(--kt-text-muted)]">Pending retry</p>
           <p className="mt-1 text-xl font-bold text-amber-700">{counts.pending}</p>
         </div>
         <div className="rounded-xl border border-[var(--kt-soft-border)] bg-white p-3">
-          <p className="text-xs text-[var(--kt-text-muted)]">Failed alerts</p>
-          <p className="mt-1 text-xl font-bold text-red-700">{counts.failed}</p>
+          <p className="text-xs text-[var(--kt-text-muted)]">Failed / Blocked</p>
+          <p className="mt-1 text-xl font-bold text-red-700">
+            {counts.failed + (counts.bounced ?? 0) + (counts.cancelledByPolicy ?? 0)}
+          </p>
         </div>
       </div>
 
@@ -381,9 +392,14 @@ export function AdminAlertsConsole({
               className="rounded-lg border border-[var(--kt-soft-border)] px-3 py-1.5 text-xs bg-white"
             >
               <option value="ALL">All delivery statuses</option>
-              <option value="SENT">Sent</option>
+              <option value="PROVIDER_ACCEPTED">Provider accepted</option>
+              <option value="DELIVERED">Delivered (webhook)</option>
+              <option value="BOUNCED">Bounced</option>
+              <option value="COMPLAINED">Complained</option>
+              <option value="CANCELLED_BY_POLICY">Cancelled by policy</option>
               <option value="PENDING">Pending</option>
               <option value="FAILED">Failed</option>
+              <option value="SENT">Legacy sent</option>
             </select>
           </div>
         </div>
@@ -432,11 +448,16 @@ export function AdminAlertsConsole({
                       <span className="font-semibold">{del.eventLabel}</span>
                       <span
                         className={`rounded px-2 py-0.5 font-semibold ${
-                          del.deliveryStatus === "SENT"
+                          del.deliveryStatus === "DELIVERED"
                             ? "bg-emerald-100 text-emerald-800"
-                            : del.deliveryStatus === "FAILED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-amber-100 text-amber-800"
+                            : del.deliveryStatus === "PROVIDER_ACCEPTED" || del.deliveryStatus === "SENT"
+                              ? "bg-sky-100 text-sky-800"
+                              : del.deliveryStatus === "FAILED" ||
+                                  del.deliveryStatus === "BOUNCED" ||
+                                  del.deliveryStatus === "COMPLAINED" ||
+                                  del.deliveryStatus === "CANCELLED_BY_POLICY"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
                         }`}
                       >
                         {del.deliveryStatus}
@@ -444,6 +465,8 @@ export function AdminAlertsConsole({
                     </div>
                     <p className="text-[var(--kt-text-muted)]">
                       Ref: {del.aggregateReference} · Retries: {del.retryCount}
+                      {del.providerMessageReference ? ` · Provider ID: ${del.providerMessageReference}` : ""}
+                      {del.inboxDeliveryStatus ? ` · Inbox: ${del.inboxDeliveryStatus}` : ""}
                       {del.lastFailureCode ? ` · Reason: ${del.lastFailureCode}` : ""}
                     </p>
                   </li>

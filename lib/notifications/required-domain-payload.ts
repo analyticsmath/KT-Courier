@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { NotificationPolicyError } from "./contracts";
 import { resolveOperationalDomainPayload } from "./operational-domain-payload";
 import { canReceiveConversationUpdate } from "@/lib/client-platform/conversations.service";
+import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
 
 type Intent = { sourceAuthority: string; eventType: string; aggregateReference: string; operationId: string; safePayload: unknown };
 const unsupported = (): never => { throw new NotificationPolicyError("CLIENT_NOTIFICATION_SOURCE_NOT_SUPPORTED"); };
@@ -58,10 +59,18 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
         status: true,
         payments: {
           where: { subjectType: "COURIER_ORDER", status: "SUCCEEDED", successLedgerJournalId: { not: null } },
-          take: 1,
+          take: 5,
           select: { publicReference: true },
         },
-        cashOnDelivery: { select: { policyMode: true, status: true } },
+        cashOnDelivery: {
+          select: {
+            policyMode: true,
+            status: true,
+            digitalRequired: true,
+            digitalPaid: true,
+            cashObligation: true,
+          },
+        },
       },
     });
     if (!order) return invalid();
@@ -74,7 +83,19 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
       const paymentRef = typeof raw.paymentReference === "string" ? raw.paymentReference : order.payments[0]?.publicReference;
       if (!paymentRef || !order.payments.some((p) => p.publicReference === paymentRef)) return invalid();
       requireOperation(intent, `courier-payment-confirmed:${order.id}:${paymentRef}`);
-      return recipient;
+      if (order.cashOnDelivery?.policyMode === "DEPOSIT_PLUS_COD") {
+        const cod = order.cashOnDelivery;
+        if (
+          !["READY_FOR_COLLECTION", "COLLECTED", "UNDER_RECONCILIATION", "RECONCILED"].includes(cod.status) ||
+          !cod.digitalPaid.equals(cod.digitalRequired) ||
+          cod.cashObligation.lessThanOrEqualTo(0)
+        ) {
+          return invalid();
+        }
+      }
+      const split = await describeCourierOrderPaymentSplitFromDb(db, order.id, paymentRef).catch(() => null);
+      if (!split) return invalid();
+      return { ...recipient, paymentSummary: split.paymentConfirmedBody };
     }
     if (intent.eventType === "COURIER_ACCEPTED") {
       requireOperation(intent, `courier-accepted:${order.id}`);
@@ -88,7 +109,29 @@ export async function resolveRequiredDomainPayload(db: Prisma.TransactionClient,
               }),
             );
       if (!hasAcceptedHistory) return invalid();
-      return recipient;
+      const cod = order.cashOnDelivery;
+      if (cod?.policyMode === "DEPOSIT_PLUS_COD") {
+        if (
+          order.payments.length === 0 ||
+          !["READY_FOR_COLLECTION", "COLLECTED", "UNDER_RECONCILIATION", "RECONCILED"].includes(cod.status) ||
+          !cod.digitalPaid.equals(cod.digitalRequired)
+        ) {
+          return invalid();
+        }
+      } else if (cod?.policyMode === "FULL_COD") {
+        if (
+          !cod.digitalRequired.isZero() ||
+          cod.cashObligation.lessThanOrEqualTo(0) ||
+          !["READY_FOR_COLLECTION", "COLLECTED", "UNDER_RECONCILIATION", "RECONCILED"].includes(cod.status)
+        ) {
+          return invalid();
+        }
+      } else if (order.payments.length === 0) {
+        return invalid();
+      }
+      const split = await describeCourierOrderPaymentSplitFromDb(db, order.id).catch(() => null);
+      if (!split) return invalid();
+      return { ...recipient, acceptanceSummary: split.acceptanceBody };
     }
     if (intent.eventType === "COURIER_PAYMENT_FAILED") {
       const historyId = typeof raw.sourceEventId === "string" ? raw.sourceEventId : null;

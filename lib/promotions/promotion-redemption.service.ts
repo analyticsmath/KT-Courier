@@ -11,6 +11,7 @@ import { lockBudgets, lockCampaignVersions } from './promotion-repositories';
 import { ensureWalletForOwnerInTx, ensureLedgerAccountInTx } from '@/lib/services/wallet-account.service';
 import { assertMarketplaceDigitalReceipt, marketplaceDigitalReceiptInclude } from '@/lib/marketplace-checkout/payment-funding';
 import { PROMOTION_ACCOUNT_CODES } from '@/lib/promotions/promotion-ledger-policy';
+import { recordAdminAlertIntentInTx } from '@/lib/notifications/admin-alert-dispatch.service';
 
 export interface RedemptionCommitInput {
   checkoutId: string;
@@ -279,6 +280,22 @@ export async function commitMarketplacePromotionRedemptions(input: RedemptionCom
     }, tx);
 
     redemptions.push(record);
+    await recordAdminAlertIntentInTx(tx, {
+      eventType: "COUPON_PROMOTION_REDEEMED",
+      aggregateReference: `promo-redemption:${record.id}`,
+      adminPath: "/admin/promotions",
+      title: `Promotion redeemed (${record.publicReference})`,
+      summary: `Paid marketplace order redeemed promotion ${record.publicReference} for R${record.discountAmount.toFixed(2)} discount.`,
+      metadata: {
+        redemptionPublicReference: record.publicReference,
+        promotionCodeId: record.promotionCodeId ?? null,
+        campaignVersionId: record.campaignVersionId,
+        marketplaceOrderId: record.marketplaceOrderId,
+        discountZar: record.discountAmount.toFixed(2),
+        platformFundingZar: record.platformFunding.toFixed(2),
+        storeFundingZar: record.storeFunding.toFixed(2),
+      },
+    });
 
     // Platform Funding subsidy
     if (record.platformFunding.greaterThan(0)) {

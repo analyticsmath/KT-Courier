@@ -23,6 +23,11 @@ import { assertCommittedMarketplaceAdjustmentFunding } from "./marketplace-adjus
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
 import { assertGenericRefundHasNoStoreEarningExposure, releaseStoreEarningRefundReservationsWithinTransaction } from "./store-earning-refund.service";
 import { assertGenericRefundHasNoDriverEarningExposure, releaseDriverEarningRefundReservationsWithinTransaction } from "./driver-earning-refund.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 function refundReference(): string { return `RF-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
 function fundingReference(): string { return `RFA-${randomUUID().replaceAll("-", "").toUpperCase()}`; }
@@ -186,9 +191,27 @@ export async function createMarketplaceRefundRequest(input: Readonly<{
     const projection = await tx.payment.updateMany({ where: { id: payment.id, version: payment.version }, data: { totalRefundReservedAmount: { increment: amount.toDecimal() }, version: { increment: 1 } } });
     if (projection.count !== 1) throw new RefundError("REFUND_CONCURRENCY_CONFLICT", "Guest refund reservation lost a concurrent update.", true);
     await tx.refundStatusHistory.create({ data: { refundId: refund.id, toStatus: "REQUESTED", actorType: "SYSTEM", operationId, reasonCode: "MARKETPLACE_GUEST_REFUND_RESERVED", safeMetadata: { reserveJournalReference: reserveJournal.reference, method: input.method } } });
-    return refund;
+    const refundAlert: AdminAlertEventInput = {
+      eventType: "REFUND_REQUESTED",
+      aggregateReference: `refund-req:${refund.publicReference}`,
+      adminPath: `/admin/refunds/${refund.id}`,
+      title: `Refund request submitted (${refund.publicReference})`,
+      summary: `Marketplace refund ${refund.publicReference} requested for R${refund.amount.toFixed(2)} via ${refund.method}.`,
+      metadata: {
+        refundPublicReference: refund.publicReference,
+        paymentPublicReference: payment.publicReference,
+        amountZar: refund.amount.toFixed(2),
+        method: refund.method,
+        reasonCode: refund.reasonCode,
+        guestMarketplace: true,
+      },
+    };
+    await recordAdminAlertIntentInTx(tx, refundAlert);
+    return { refund, refundAlert };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  return withLedgerRetry(run);
+  const result = await withLedgerRetry(run);
+  void emitAdminAlertNonBlocking(result.refundAlert);
+  return result.refund;
 }
 
 export type RefundRequestInput = Readonly<{
@@ -305,6 +328,23 @@ export async function createRefundRequestInTransaction(tx: Prisma.TransactionCli
     { refundId: refund.id, toStatus: "REQUESTED", actorType: input.cancellationActorType ?? "CUSTOMER", actorUserId: input.cancellationActorType === "SYSTEM" ? null : input.actorUserId, operationId, reasonCode: "REFUND_REQUESTED", ...(storeId ? { safeMetadata: { beneficiaryStoreId: storeId } } : {}) },
     { refundId: refund.id, toStatus: "REQUESTED", actorType: "SYSTEM", reasonCode: "FUNDS_RESERVED", safeMetadata: { reserveJournalReference: reserveJournal.reference, ...(storeId ? { beneficiaryStoreId: storeId } : {}) } },
   ] });
+  await recordAdminAlertIntentInTx(tx, {
+    eventType: "REFUND_REQUESTED",
+    aggregateReference: `refund-req:${refund.publicReference}`,
+    adminPath: `/admin/refunds/${refund.id}`,
+    relatedOrderId: payment.orderId ?? undefined,
+    title: `Refund request submitted (${refund.publicReference})`,
+    summary: `Refund ${refund.publicReference} requested for R${refund.amount.toFixed(2)} via ${refund.method}.`,
+    metadata: {
+      refundPublicReference: refund.publicReference,
+      paymentPublicReference: payment.publicReference,
+      amountZar: refund.amount.toFixed(2),
+      method: refund.method,
+      reasonCode: refund.reasonCode,
+      ...(payment.orderId ? { orderId: payment.orderId } : {}),
+      ...(storeId ? { beneficiaryStoreId: storeId } : {}),
+    },
+  });
   return refund;
 }
 
@@ -325,7 +365,26 @@ async function createCustomerRefundRequest(input: RefundRequestInput, dependenci
   }
   const run = () => prisma.$transaction((tx) => createRefundRequestInTransaction(tx, input, dependencies, sourceAdjustmentReference), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-  try { return await withLedgerRetry(run); }
+  try {
+    const refund = await withLedgerRetry(run);
+    void emitAdminAlertNonBlocking({
+      eventType: "REFUND_REQUESTED",
+      aggregateReference: `refund-req:${refund.publicReference}`,
+      adminPath: `/admin/refunds/${refund.id}`,
+      title: `Refund request submitted (${refund.publicReference})`,
+      summary: `Refund ${refund.publicReference} requested for R${refund.amount.toFixed(2)} via ${refund.method}.`,
+      metadata: {
+        refundPublicReference: refund.publicReference,
+        amountZar: refund.amount.toFixed(2),
+        method: refund.method,
+        reasonCode: refund.reasonCode,
+        ...(refund.beneficiaryStoreId
+          ? { beneficiaryStoreId: refund.beneficiaryStoreId }
+          : {}),
+      },
+    });
+    return refund;
+  }
   catch (error) {
     if ((error as { code?: string })?.code !== "P2002") throw error;
     const operationId = assertRefundOperationId(input.operationId);

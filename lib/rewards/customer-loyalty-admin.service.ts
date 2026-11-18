@@ -1,6 +1,11 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export type AdjustLoyaltyInput = Readonly<{
   customerUserId: string;
@@ -20,9 +25,11 @@ export async function adjustCustomerLoyaltyPoints(input: AdjustLoyaltyInput) {
     throw new Error("Delta points must be nonzero.");
   }
 
-  return withLedgerRetry(() =>
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const result = await withLedgerRetry(() =>
     prisma.$transaction(
       async (tx) => {
+        pendingAlert = null;
         const customer = await tx.user.findUnique({
           where: { id: input.customerUserId },
           select: { id: true, role: true, status: true },
@@ -95,6 +102,23 @@ export async function adjustCustomerLoyaltyPoints(input: AdjustLoyaltyInput) {
           },
         });
 
+        pendingAlert = {
+          eventType: "LOYALTY_ADJUSTED",
+          aggregateReference: `loyalty-adj:${input.customerUserId}:v${updated.version}`,
+          adminPath: "/admin/users",
+          title: `Loyalty points adjusted (${input.deltaPoints > 0n ? "+" : ""}${input.deltaPoints.toString()} pts)`,
+          summary: `Admin loyalty adjustment applied (${input.reason.trim()}). Balance now ${updated.availablePoints.toString()} pts.`,
+          metadata: {
+            customerUserId: input.customerUserId,
+            actorUserId: input.actorUserId,
+            deltaPoints: input.deltaPoints.toString(),
+            availablePointsAfter: updated.availablePoints.toString(),
+            version: updated.version,
+            source: "ADMIN_ADJUSTMENT",
+          },
+        };
+        await recordAdminAlertIntentInTx(tx, pendingAlert);
+
         return {
           customerUserId: input.customerUserId,
           availablePoints: updated.availablePoints.toString(),
@@ -107,4 +131,8 @@ export async function adjustCustomerLoyaltyPoints(input: AdjustLoyaltyInput) {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 },
     ),
   );
+  if (pendingAlert) {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return result;
 }

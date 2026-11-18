@@ -6,6 +6,11 @@ import { ensureLedgerAccountInTx, ensureWalletForOwnerInTx } from "@/lib/service
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
 import { PROMOTION_ACCOUNT_CODES } from "@/lib/promotions/promotion-ledger-policy";
 import { AdminWalletGrantError, validateAdminWalletGrant } from "./admin-customer-wallet-grant-policy";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 /**
  * Owner-funded grants are a platform marketing expense and nonwithdrawable
@@ -28,7 +33,9 @@ export async function creditCustomerWalletBySuperAdmin(input: Readonly<{
   const operationHash = createHash("sha256").update(grant.operationId).digest("hex").toUpperCase();
   const customerCode = `CUSTOMER-${createHash("sha256").update(input.customerUserId).digest("hex").slice(0, 24).toUpperCase()}-WALLET-ZAR`;
   const idempotencyKey = `admin-wallet-grant-${operationHash}`;
-  return withLedgerRetry(() => prisma.$transaction(async (tx) => {
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const outcome = await withLedgerRetry(() => prisma.$transaction(async (tx) => {
+    pendingAlert = null;
     const locked = await tx.$queryRaw<Array<{ id: string }>>(
       Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${input.customerUserId} FOR UPDATE`,
     );
@@ -85,6 +92,23 @@ export async function creditCustomerWalletBySuperAdmin(input: Readonly<{
     const projection = await tx.ledgerAccount.findUniqueOrThrow({
       where: { id: available.id }, select: { currentBalance: true },
     });
+    if (!existed) {
+      pendingAlert = {
+        eventType: "WALLET_CREDIT_ISSUED",
+        aggregateReference: `wallet-grant:${journal.reference}`,
+        adminPath: `/admin/users/${input.customerUserId}/wallet-credit`,
+        title: `SuperAdmin wallet credit issued (${journal.reference})`,
+        summary: `Customer wallet credited with R${grant.amount} (${grant.reason}).`,
+        metadata: {
+          journalReference: journal.reference,
+          customerUserId: input.customerUserId,
+          actorUserId: input.actorUserId,
+          amountZar: grant.amount,
+          reason: grant.reason,
+        },
+      };
+      await recordAdminAlertIntentInTx(tx, pendingAlert);
+    }
     return Object.freeze({
       journalReference: journal.reference,
       journalId: journal.id,
@@ -94,4 +118,8 @@ export async function creditCustomerWalletBySuperAdmin(input: Readonly<{
       status: existed ? "REPLAYED" as const : "CREDITED" as const,
     });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000 }));
+  if (pendingAlert && outcome.status === "CREDITED") {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return outcome;
 }

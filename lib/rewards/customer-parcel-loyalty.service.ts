@@ -7,6 +7,11 @@ import {
 } from "@/lib/rewards/customer-reward-policy";
 import { reconcileLoyaltyPointBalance } from "@/lib/rewards/customer-loyalty-reconciliation";
 import { isCanonicalCustomerPaymentReceipt } from "@/lib/rewards/customer-financial-evidence";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 /** Reconcile trusted, completed parcel payments into NON-MONETARY points.
  * Caller supplies identifiers only; money, refund, webhook and ledger
@@ -15,7 +20,9 @@ import { isCanonicalCustomerPaymentReceipt } from "@/lib/rewards/customer-financ
  */
 export async function reconcileCompletedParcelLoyalty(customerUserId: string, paymentId: string) {
   if (!customerUserId || !paymentId) throw new Error("Loyalty reconciliation requires verified source IDs.");
-  return withLedgerRetry(() => prisma.$transaction(async tx => {
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const result = await withLedgerRetry(() => prisma.$transaction(async tx => {
+    pendingAlert = null;
     const userRows = await tx.$queryRaw<Array<{id:string}>>(Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${customerUserId} FOR UPDATE`);
     if (userRows.length !== 1) throw new Error("Customer loyalty owner is not valid.");
     const customer = await tx.user.findUniqueOrThrow({
@@ -171,6 +178,26 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
         settledOrReservedRefundZar: refunded.toFixed(2), completed,
       },
     } });
+    if (next.deltaPoints !== 0n) {
+      pendingAlert = {
+        eventType: "LOYALTY_ADJUSTED",
+        aggregateReference: `loyalty-earn:${paymentId}:r${revision}`,
+        adminPath: "/admin/users",
+        title: `Parcel loyalty ${next.deltaPoints > 0n ? "awarded" : "adjusted"} (${next.deltaPoints > 0n ? "+" : ""}${next.deltaPoints.toString()} pts)`,
+        summary: `Verified parcel payment ${payment.publicReference} reconciled loyalty points (balance ${next.availablePoints.toString()} pts).`,
+        metadata: {
+          customerUserId,
+          paymentId,
+          paymentPublicReference: payment.publicReference,
+          originalOrderReference: originalOrderReference ?? null,
+          deltaPoints: next.deltaPoints.toString(),
+          availablePointsAfter: next.availablePoints.toString(),
+          revision,
+          source: "VERIFIED_PARCEL_EARNING",
+        },
+      };
+      await recordAdminAlertIntentInTx(tx, pendingAlert);
+    }
     return {
       status: next.deltaPoints > 0n ? "AWARDED" as const : "REVERSED" as const,
       recognizedPoints: expected.toString(),
@@ -178,6 +205,10 @@ export async function reconcileCompletedParcelLoyalty(customerUserId: string, pa
       debtPoints: next.debtPoints.toString(), revision,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 10_000 }));
+  if (pendingAlert) {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return result;
 }
 
 export const reconcileCompletedOrderLoyalty = reconcileCompletedParcelLoyalty;

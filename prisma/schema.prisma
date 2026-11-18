@@ -838,6 +838,7 @@ model CashOnDelivery {
   cashObligation          Decimal                        @db.Decimal(18, 2)
   cashCollected           Decimal                        @default(0) @db.Decimal(18, 2)
   cashReconciled          Decimal                        @default(0) @db.Decimal(18, 2)
+  remittanceDueAt         DateTime?
   status                  CashOnDeliveryStatus           @default(PENDING)
   collectorDriverId       String?
   collectedAt             DateTime?
@@ -864,6 +865,7 @@ model CashOnDelivery {
   reconciliations         CashOnDeliveryReconciliation[]
 
   @@index([status, collectorDriverId])
+  @@index([status, remittanceDueAt])
   @@index([paymentId])
 }
 

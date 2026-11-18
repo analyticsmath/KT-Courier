@@ -186,6 +186,28 @@ async function main() {
         select: { id: true },
       });
     }
+    if (name === "monitor-overdue-driver-cash") {
+      const { buildOverdueDriverCashWhere } = await import(
+        "../lib/services/driver-cash-overdue-policy"
+      );
+      return !!await prisma.cashOnDelivery.findFirst({
+        where: buildOverdueDriverCashWhere(new Date(), {
+          collectorDriverId: { not: null },
+        }),
+        select: { id: true },
+      });
+    }
+    if (name === "escalate-unassigned-courier-orders") {
+      const { scanUnassignedCourierOrdersBatch } = await import(
+        "../lib/services/unassigned-order-escalation.service"
+      );
+      return (
+        await scanUnassignedCourierOrdersBatch({
+          mode: "DRY_RUN",
+          batchSize: 20,
+        })
+      ).itemsEligible > 0;
+    }
     if (name === "dispatch-marketplace-orders") {
       return !!await prisma.marketplaceStoreOrderDeliveryBridge.findFirst({
         where: {
@@ -287,7 +309,10 @@ async function main() {
         name === "scan-refund-reconciliation" ||
         name === "scan-withdrawal-reconciliation" ||
         name === "scan-paystack-transfer-reconciliation") return true;
-    return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } });
+    const { hasPendingAdminAlertWork } = await import(
+      "../lib/notifications/admin-alert-dispatch.service"
+    );
+    return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } }) || await hasPendingAdminAlertWork(prisma);
   }
   while (!stopping) {
     readinessBlockers = [];

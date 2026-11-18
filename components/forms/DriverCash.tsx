@@ -115,6 +115,11 @@ export function DriverCash({ summary }: { summary: Summary }) {
           <p>Approved limit: <strong>R {summary.cashCapacity.limit}</strong> · Available capacity: <strong>R {summary.cashCapacity.remaining}</strong></p>
           <p className="mt-2">Cash in custody: R {summary.cashCapacity.held} · Reserved for offered deliveries: R {summary.cashCapacity.reserved} · Total exposure: R {summary.cashCapacity.exposure}</p>
           {summary.cashCapacity.atLimit && <p role="status" className="mt-2 font-semibold text-[var(--kt-red)]">Cash limit reached. No new COD delivery may be assigned until the bank deposit is independently verified and reconciled.</p>}
+          {summary.overdueRemittance?.newCodAssignmentsBlocked && (
+            <p role="alert" className="mt-2 font-semibold text-[var(--kt-red)]">
+              Overdue COD remittance SLA ({summary.overdueRemittance.overdueCount} prior-day collection(s) · R {summary.overdueRemittance.overdueAmountZar}): new COD assignments are blocked until finance verifies your bank deposit receipt. Pre-paid digital deliveries remain available.
+            </p>
+          )}
         </div>
       </section>
       <section className="space-y-3">
@@ -158,7 +163,10 @@ export function DriverCash({ summary }: { summary: Summary }) {
             >
               <div className="flex flex-wrap justify-between gap-3">
                 <h3 className="font-medium">{order.orderNumber}</h3>
-                <p className="text-sm">{order.status.replaceAll("_", " ")}</p>
+                <p className="text-sm">
+                  {order.status.replaceAll("_", " ")}
+                  {order.isOverdue && " · OVERDUE REMITTANCE"}
+                </p>
               </div>
               <dl className="grid gap-3 text-sm sm:grid-cols-4">
                 {Object.entries({

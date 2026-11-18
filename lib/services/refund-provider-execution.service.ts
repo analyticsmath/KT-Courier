@@ -20,6 +20,11 @@ import { completeStoreEarningRefundProjectionsWithinTransaction } from "./store-
 import { completeDriverEarningRefundProjectionsWithinTransaction } from "./driver-earning-refund.service";
 import { resolveRefundHeldAccount } from "./refund-held-account.service";
 import { projectMarketplaceRefundCompletion } from "./marketplace-refund-completion.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 const DEFAULT_REFUND_PROVIDER_TIMEOUT_MS = 10_000;
 
@@ -43,8 +48,22 @@ export async function openRefundReconciliationCase(tx: Prisma.TransactionClient,
 }>) {
   const caseKey = `refund:${input.refundReference}:${input.reason}:${input.attemptReference ?? "none"}`;
   const existing = await tx.refundReconciliationCase.findUnique({ where: { caseKey } });
-  if (existing) return tx.refundReconciliationCase.update({ where: { id: existing.id }, data: { observationCount: { increment: 1 }, lastObservedAt: new Date(), safeEvidence: input.safeEvidence } });
-  return tx.refundReconciliationCase.create({ data: { publicReference: reconciliationReference(), caseKey, refundId: input.refundId, attemptId: input.attemptId, reason: input.reason, priority: "HIGH", safeSummary: input.safeSummary, safeEvidence: input.safeEvidence } });
+  const record = existing
+    ? await tx.refundReconciliationCase.update({ where: { id: existing.id }, data: { observationCount: { increment: 1 }, lastObservedAt: new Date(), safeEvidence: input.safeEvidence } })
+    : await tx.refundReconciliationCase.create({ data: { publicReference: reconciliationReference(), caseKey, refundId: input.refundId, attemptId: input.attemptId, reason: input.reason, priority: "HIGH", safeSummary: input.safeSummary, safeEvidence: input.safeEvidence } });
+  await recordAdminAlertIntentInTx(tx, {
+    eventType: "FINANCE_ANOMALY_ALERT",
+    aggregateReference: `refund-recon:${input.refundReference}:${input.reason}:${input.attemptReference ?? "none"}`,
+    adminPath: "/admin/refund-reconciliation",
+    title: `Refund reconciliation opened (${input.reason})`,
+    summary: input.safeSummary,
+    metadata: {
+      refundReference: input.refundReference,
+      attemptReference: input.attemptReference ?? null,
+      reason: input.reason,
+    },
+  });
+  return record;
 }
 
 async function reserveProviderAttempt(input: Readonly<{ actorUserId: string; publicReference: string; operationId: string }>, adapter: RefundProviderAdapter) {
@@ -103,8 +122,10 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
   result: ProviderRefundResult;
 }>) {
   const validated = validateRefundProviderResult(input.result);
+  let pendingAlert: AdminAlertEventInput | null = null;
   try {
-    return await withLedgerRetry(() => prisma.$transaction(async (tx) => {
+    const finalized = await withLedgerRetry(() => prisma.$transaction(async (tx) => {
+      pendingAlert = null;
       const refundRows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "PaymentRefund" WHERE "publicReference" = ${input.refundPublicReference} FOR UPDATE`);
       if (refundRows.length !== 1) throw new RefundError("REFUND_NOT_FOUND", "Refund request was not found during provider finalization.");
       const attemptRows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "RefundExecutionAttempt" WHERE "publicReference" = ${input.attemptPublicReference} FOR UPDATE`);
@@ -283,8 +304,31 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
       await projectMarketplaceRefundCompletion(tx, refund.id);
       await tx.refundReconciliationCase.updateMany({ where: { refundId: refund.id, status: { in: ["OPEN", "MONITORING"] } }, data: { status: "RESOLVED", resolvedAt: now, resolutionCode: "PROVIDER_SUCCESS_POSTED", resolvedByUserId: input.actorUserId } });
       await tx.refundStatusHistory.create({ data: { refundId: refund.id, attemptId: attempt.id, fromStatus: refund.status, toStatus: "SUCCEEDED", actorType: "PROVIDER", actorUserId: input.actorUserId, reasonCode: "PROVIDER_REFUND_SUCCEEDED", safeMetadata: { attemptReference: attempt.publicReference, providerRefundId: validated.providerRefundId, completionJournalReference: journal.reference } } });
+      pendingAlert = {
+        eventType: "REFUND_COMPLETED",
+        aggregateReference: `refund-comp:${refund.publicReference}`,
+        adminPath: `/admin/refunds/${refund.id}`,
+        relatedOrderId: refund.payment.orderId ?? undefined,
+        title: `Refund completed (${refund.publicReference})`,
+        summary: `External refund ${refund.publicReference} settled via ${attempt.provider} for R${refund.amount.toFixed(2)}.`,
+        metadata: {
+          refundPublicReference: refund.publicReference,
+          paymentPublicReference: refund.payment.publicReference,
+          amountZar: refund.amount.toFixed(2),
+          method: refund.method,
+          provider: attempt.provider,
+          providerRefundId: validated.providerRefundId,
+          completionJournalReference: journal.reference,
+          ...(refund.payment.orderId ? { orderId: refund.payment.orderId } : {}),
+        },
+      };
+      await recordAdminAlertIntentInTx(tx, pendingAlert);
       return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+    if (pendingAlert) {
+      void emitAdminAlertNonBlocking(pendingAlert);
+    }
+    return finalized;
   } catch (error) {
     if ((error as { code?: string })?.code === "P2002") throw new RefundError("REFUND_PROVIDER_REFERENCE_CONFLICT", "Provider refund reference conflicts with existing evidence.");
     throw error;

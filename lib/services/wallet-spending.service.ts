@@ -18,6 +18,15 @@ import { resolveOrderPaymentSubject, type ResolvedOrderPaymentSubject } from "./
 import { activateDepositCashOnDeliveryWithinTransaction } from "./cash-on-delivery.service";
 import { transitionOrderStatusInTx } from "./order-status.service";
 import { customerAccountPrefix } from "./customer-wallet.service";
+import {
+  appendCourierOrderAcceptedInTx,
+  appendCourierPaymentConfirmedInTx,
+} from "./notification-events.service";
+import { describeCourierOrderPaymentSplitFromDb } from "./courier-payment-split-summary";
+import {
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export type CanonicalOrderPaymentPreparationIntent = Readonly<{
   subjectType: "ORDER";
@@ -913,6 +922,7 @@ export async function spendWalletForParcelOrderWithinTransaction(
     walletAmount?: string | null;
     explicitStoreId?: string | null;
     preparationIntent?: CanonicalOrderPaymentPreparationIntent;
+    onAdminAlert?: (alert: AdminAlertEventInput) => void;
   },
 ): Promise<PaymentSummaryDto | null> {
   const PAYMENT_SUMMARY_INCLUDE = {
@@ -1072,6 +1082,86 @@ export async function spendWalletForParcelOrderWithinTransaction(
       journalId: consume.journalId,
       settledAt: now,
     });
+
+    if (order.orderNumber) {
+      const split = await describeCourierOrderPaymentSplitFromDb(
+        tx,
+        order.id,
+        publicReference,
+      ).catch(() => null);
+      await appendCourierPaymentConfirmedInTx(tx, {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        paymentReference: publicReference,
+        ...(split
+          ? {
+              paymentMode: split.mode,
+              depositPaidZar: split.depositPaidZar,
+              cashDueZar: split.cashDueZar,
+              walletPaidZar: split.walletPaidZar,
+              providerPaidZar: split.providerPaidZar,
+            }
+          : {}),
+      });
+      await appendCourierOrderAcceptedInTx(tx, {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        ...(split
+          ? {
+              paymentMode: split.mode,
+              depositPaidZar: split.depositPaidZar,
+              cashDueZar: split.cashDueZar,
+            }
+          : {}),
+      });
+      const paidAlert: AdminAlertEventInput = {
+        eventType: "PARCEL_ORDER_PAID",
+        aggregateReference: `parcel:${order.id}`,
+        title: split?.adminPaidTitle ?? `Parcel order paid (${publicReference})`,
+        summary:
+          split?.adminPaidSummary ??
+          `Wallet settlement confirmed R${payable} in ledger.`,
+        adminPath: `/admin/orders/${order.id}`,
+        relatedOrderId: order.id,
+        metadata: {
+          paymentReference: publicReference,
+          verifiedVia: "WALLET_ONLY",
+          amountZar: payable,
+          ...(split
+            ? {
+                paymentMode: split.mode,
+                depositPaidZar: split.depositPaidZar,
+                cashDueZar: split.cashDueZar,
+              }
+            : {}),
+        },
+      };
+      const acceptedAlert: AdminAlertEventInput = {
+        eventType: "PARCEL_ORDER_ACCEPTED",
+        aggregateReference: `parcel-accepted:${order.id}`,
+        title: `Parcel automatically accepted (${order.orderNumber})`,
+        summary:
+          split?.adminAcceptedSummary ??
+          `Wallet payment ${publicReference} verified in ledger; parcel moved to CONFIRMED.`,
+        adminPath: `/admin/orders/${order.id}`,
+        relatedOrderId: order.id,
+        metadata: {
+          orderNumber: order.orderNumber,
+          paymentReference: publicReference,
+          ...(split
+            ? {
+                paymentMode: split.mode,
+                depositPaidZar: split.depositPaidZar,
+                cashDueZar: split.cashDueZar,
+              }
+            : {}),
+        },
+      };
+      await recordAdminAlertIntentInTx(tx, paidAlert);
+      await recordAdminAlertIntentInTx(tx, acceptedAlert);
+      input.onAdminAlert?.(paidAlert);
+      input.onAdminAlert?.(acceptedAlert);
+    }
 
     return toPaymentSummaryDto(payment);
   }

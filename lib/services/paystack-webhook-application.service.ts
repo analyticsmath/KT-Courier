@@ -47,6 +47,7 @@ import {
   recordAdminAlertIntentInTx,
   type AdminAlertEventInput,
 } from "@/lib/notifications/admin-alert-dispatch.service";
+import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
 
 export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
 export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
@@ -1087,6 +1088,14 @@ export async function applyPaystackWebhookEvent(
           freshPayment.subjectType === "MARKETPLACE_CHECKOUT")
       ) {
         const isCourier = freshPayment.subjectType === "COURIER_ORDER";
+        const split =
+          isCourier && freshPayment.orderId
+            ? await describeCourierOrderPaymentSplitFromDb(
+                tx,
+                freshPayment.orderId,
+                freshPayment.publicReference,
+              ).catch(() => null)
+            : null;
         const refId = isCourier
           ? (freshPayment.orderId ?? freshPayment.publicReference)
           : (freshPayment.marketplaceCheckoutId ?? freshPayment.publicReference);
@@ -1094,9 +1103,11 @@ export async function applyPaystackWebhookEvent(
           eventType: isCourier ? "PARCEL_ORDER_PAID" : "MARKETPLACE_ORDER_PAID",
           aggregateReference: `${isCourier ? "parcel" : "marketplace"}:${refId}`,
           title: isCourier
-            ? `Parcel order paid (${freshPayment.publicReference})`
+            ? (split?.adminPaidTitle ?? `Parcel order paid (${freshPayment.publicReference})`)
             : `Store marketplace order paid (${freshPayment.publicReference})`,
-          summary: `Paystack verified payment of R${freshPayment.amount.toFixed(2)}.`,
+          summary: isCourier
+            ? (split?.adminPaidSummary ?? `Paystack verified payment of R${freshPayment.amount.toFixed(2)}.`)
+            : `Paystack verified payment of R${freshPayment.amount.toFixed(2)}.`,
           adminPath: isCourier && freshPayment.orderId
             ? `/admin/orders/${freshPayment.orderId}`
             : "/admin/orders",
@@ -1105,6 +1116,13 @@ export async function applyPaystackWebhookEvent(
             paymentReference: freshPayment.publicReference,
             subjectType: freshPayment.subjectType,
             amountZar: freshPayment.amount.toFixed(2),
+            ...(split
+              ? {
+                  paymentMode: split.mode,
+                  depositPaidZar: split.depositPaidZar,
+                  cashDueZar: split.cashDueZar,
+                }
+              : {}),
           },
         };
         await recordAdminAlertIntentInTx(tx, postCommitAdminAlert);

@@ -42,7 +42,7 @@ export function DailyCashReconciliation({ overview }: { overview: Overview }) {
                 <td className="px-4 py-3"><Link href={"/admin/drivers/" + encodeURIComponent(row.id)} className="font-semibold underline">{row.name}</Link><span className="block text-xs text-[var(--kt-text-soft)]">{row.driverCode} · {row.status}</span></td>
                 <td className="px-4 py-3 tabular-nums">R {row.held}</td>
                 <td className="px-4 py-3 tabular-nums">R {row.reserved} reserved / R {row.limit} limit{row.atLimit && <strong className="block text-xs text-[var(--kt-red)]">At limit</strong>}</td>
-                <td className="px-4 py-3 tabular-nums">R {row.overnightOutstanding}<span className="block text-xs">{row.overnightOrderCount} orders</span></td>
+                <td className="px-4 py-3 tabular-nums">R {row.overnightOutstanding}<span className="block text-xs">{row.overnightOrderCount} orders</span>{row.overnightOrderCount > 0 && <strong className="block text-xs text-[var(--kt-red)]">New COD blocked (overdue SLA)</strong>}</td>
                 <td className="px-4 py-3 tabular-nums">R {row.pendingDepositAmount}<span className="block text-xs">{row.pendingDepositCount} submissions</span></td>
               </tr>,
             )}

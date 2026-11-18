@@ -22,6 +22,10 @@ import {
   resolveWalletSpendBreakdown,
   spendWalletForParcelOrderWithinTransaction,
 } from "./wallet-spending.service";
+import {
+  emitAdminAlertNonBlocking,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 const SUCCEEDED_STATUS = "SUCCEEDED" as const;
 
@@ -104,9 +108,11 @@ export async function prepareOrderPayment(
 
   const preparationIntent = buildCanonicalOrderPaymentPreparationIntent(subject, parsed.data.walletAmount);
   const requestHash = preparationIntent.requestHash;
+  const postCommitAlerts: AdminAlertEventInput[] = [];
 
   try {
-    return await withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
+    const prepared = await withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
+      postCommitAlerts.length = 0;
       const existing = await tx.payment.findUnique({
         where: { creationIdempotencyKey: parsed.data.idempotencyKey },
         include: PAYMENT_SUMMARY_INCLUDE,
@@ -126,6 +132,9 @@ export async function prepareOrderPayment(
           walletAmount: parsed.data.walletAmount,
           explicitStoreId,
           preparationIntent,
+          onAdminAlert: (alert) => {
+            postCommitAlerts.push(alert);
+          },
         });
         if (walletPayment) return walletPayment;
       }
@@ -198,6 +207,10 @@ export async function prepareOrderPayment(
       });
       return toPaymentSummaryDto(payment);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
+    for (const alert of postCommitAlerts) {
+      void emitAdminAlertNonBlocking(alert);
+    }
+    return prepared;
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const replay = await replayAfterUniqueRace(parsed.data.idempotencyKey, preparationIntent);

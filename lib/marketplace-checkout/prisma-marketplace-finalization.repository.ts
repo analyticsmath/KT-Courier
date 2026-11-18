@@ -8,6 +8,7 @@ import { createTransactionContext } from "@/lib/db/transaction-context";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { postPlatformSubsidyJournalInTx } from "@/lib/promotions/platform-subsidy-ledger.service";
 import { commitMarketplacePromotionRedemptions } from "@/lib/promotions/promotion-redemption.service";
+import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
 import type { PromotionEvaluationResult } from "@/lib/promotions/promotion-evaluation.service";
 import type { MarketplaceFinalizationRepository, MarketplacePaidLine, MarketplacePaidStoreGroup, PaidMarketplaceCheckout } from "@/lib/marketplace-checkout/marketplace-checkout-finalization.service";
 
@@ -131,6 +132,19 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
           if (evidence?.type === "FIRST_STORE_WELCOME") {
             if (!new Prisma.Decimal(evidence.discountAmount ?? -1).equals(promoDiscount)) throw new Error("Welcome promotion evidence does not match the paid order.");
             await postPlatformSubsidyJournalInTx(db, { orderId: created.id, orderPublicReference: created.publicReference, amount: promoDiscount });
+            await recordAdminAlertIntentInTx(db, {
+              eventType: "COUPON_PROMOTION_REDEEMED",
+              aggregateReference: `promo-welcome:${created.id}`,
+              adminPath: "/admin/promotions",
+              title: `First-store welcome promotion redeemed (${created.publicReference})`,
+              summary: `Paid marketplace order ${created.publicReference} redeemed welcome promotion for R${promoDiscount.toFixed(2)}.`,
+              metadata: {
+                promotionType: "FIRST_STORE_WELCOME",
+                marketplaceOrderId: created.id,
+                orderPublicReference: created.publicReference,
+                discountZar: promoDiscount.toFixed(2),
+              },
+            });
           } else {
             const applied = evidence?.evidence?.applied;
             if (!Array.isArray(applied) || !applied.length) throw new Error("Promotion review evidence is unavailable.");

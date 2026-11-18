@@ -33,6 +33,7 @@ import {
   type AdminAlertEventInput,
 } from "@/lib/notifications/admin-alert-dispatch.service";
 import { appendCourierPaymentFailedInTx } from "@/lib/services/notification-events.service";
+import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
 import type { PaymentReconciliationReasonCode, PaymentState } from "@/lib/payments/types";
 
 export type PaystackVerifyRecoveryOutcome =
@@ -686,17 +687,35 @@ export async function recoverPaystackAttemptViaVerify(input: {
           );
 
           if (freshPayment.subjectType === "COURIER_ORDER") {
+            const split = freshPayment.orderId
+              ? await describeCourierOrderPaymentSplitFromDb(
+                  tx,
+                  freshPayment.orderId,
+                  freshPayment.publicReference,
+                ).catch(() => null)
+              : null;
             postCommitAlert = {
               eventType: "PARCEL_ORDER_PAID",
               aggregateReference: `parcel:${freshPayment.orderId ?? freshPayment.publicReference}`,
-              title: `Parcel order paid (${freshPayment.publicReference})`,
-              summary: `Paystack Verify API confirmed R${freshPayment.amount.toFixed(2)}.`,
+              title:
+                split?.adminPaidTitle ??
+                `Parcel order paid (${freshPayment.publicReference})`,
+              summary:
+                split?.adminPaidSummary ??
+                `Paystack Verify API confirmed R${freshPayment.amount.toFixed(2)}.`,
               adminPath: freshPayment.orderId ? `/admin/orders/${freshPayment.orderId}` : "/admin/orders",
               relatedOrderId: freshPayment.orderId ?? undefined,
               metadata: {
                 paymentReference: freshPayment.publicReference,
                 verifiedVia: "PAYSTACK_VERIFY_API",
                 amountZar: freshPayment.amount.toFixed(2),
+                ...(split
+                  ? {
+                      paymentMode: split.mode,
+                      depositPaidZar: split.depositPaidZar,
+                      cashDueZar: split.cashDueZar,
+                    }
+                  : {}),
               },
             };
             await recordAdminAlertIntentInTx(tx, postCommitAlert);

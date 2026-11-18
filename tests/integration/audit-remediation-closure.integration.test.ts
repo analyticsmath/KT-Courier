@@ -1,0 +1,1388 @@
+import { createHmac, randomInt, randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma } from "@/lib/db/prisma";
+import { OrderAssignmentStatus, OrderStatus, UserRole, UserStatus } from "@/types/db";
+import { ADMIN_ALERT_EVENT_TYPES } from "@/lib/settings/admin-alert-recipient-policy";
+import {
+  dispatchAdminAlertsForEvent,
+  retryPendingAdminAlertDeliveries,
+} from "@/lib/notifications/admin-alert-dispatch.service";
+import type { NotificationProvider } from "@/lib/notifications/providers";
+import { POST as resendWebhookPost } from "@/app/api/webhooks/resend/route";
+import { updateSettingValue } from "@/lib/services/admin-settings.service";
+import {
+  prepareRequiredDomainNotifications,
+  reviewRequiredDomainNotification,
+} from "@/lib/notifications/required-domain-configuration";
+import { consumeCustomerOrderNotifications } from "@/lib/notifications/customer-order-publication";
+import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
+import { createProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
+import { recoverPaystackAttemptViaVerify } from "@/lib/services/paystack-verify-recovery.service";
+import {
+  applyPaystackWebhookEventsBatch,
+  ingestPaystackWebhook,
+} from "@/lib/services/paystack-webhook-application.service";
+import { createApprovedDriverEvidence } from "./phase7-5-fixtures";
+import { createOrder } from "@/lib/services/orders.service";
+import { createPublicQuote } from "@/lib/client-platform/delivery.service";
+import {
+  savePaymentConfiguration,
+  approvePaymentConfiguration,
+} from "@/lib/client-platform/payment-configuration.service";
+import {
+  ensureWalletForOwner,
+  ensureLedgerAccount,
+} from "@/lib/services/wallet-account.service";
+import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import {
+  driverCashSummary,
+  reviewDriverDeposit,
+  submitDriverDeposit,
+} from "@/lib/client-platform/driver-cash.service";
+import { recordCashCollection } from "@/lib/services/cash-on-delivery.service";
+import {
+  acceptDispatchAssignment,
+  offerAssignment,
+} from "@/lib/services/dispatch-assignment.service";
+import { DriverCashRemittanceOverdueError } from "@/lib/services/driver-cash-capacity.service";
+import { computeDriverCashRemittanceDueAt } from "@/lib/services/driver-cash-overdue-policy";
+import { executeRegisteredProcessor } from "@/lib/processors/processor-service";
+import { scanUnassignedCourierOrdersBatch } from "@/lib/services/unassigned-order-escalation.service";
+import { creditCustomerWalletBySuperAdmin } from "@/lib/services/admin-customer-wallet-grant.service";
+import { createRefundRequest } from "@/lib/services/refund-request.service";
+import { approveRefund } from "@/lib/services/refund-finance-review.service";
+import { completeRefundToCustomerWallet } from "@/lib/services/refund-wallet-completion.service";
+import { openRefundReconciliationCase } from "@/lib/services/refund-provider-execution.service";
+import { adjustCustomerLoyaltyPoints } from "@/lib/rewards/customer-loyalty-admin.service";
+import { redeemCustomerLoyaltyPoints } from "@/lib/rewards/customer-loyalty-redemption.service";
+import { reconcileCompletedParcelLoyalty } from "@/lib/rewards/customer-parcel-loyalty.service";
+import { awardVerifiedOrdinaryReferral } from "@/lib/rewards/ordinary-referral-award.service";
+import { DeliveryConfigurationSchema } from "@/lib/client-platform/contracts";
+import { PaystackAdapter } from "@/lib/payments/providers/paystack/paystack-adapter";
+import type { PaystackClient } from "@/lib/payments/providers/paystack/paystack-client";
+import type { PaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => ({ value: "c".repeat(64) }),
+    set: vi.fn(),
+  }),
+}));
+
+vi.mock("@/lib/notifications/production-readiness", () => ({
+  NOTIFICATION_PRODUCTION_VALIDATION_APPROVED: true,
+  assertNotificationProductionReady: () => {},
+}));
+
+vi.mock("@/lib/maps/geocode.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/maps/geocode.service")>();
+  return {
+    ...actual,
+    geocodeSouthAfricanAddress: vi.fn(async (addr: { city?: string | null }) => {
+      if ((addr.city ?? "").toLowerCase().includes("pretoria")) {
+        return { latitude: -25.7479, longitude: 28.2293 };
+      }
+      return { latitude: -26.2041, longitude: 28.0473 };
+    }),
+    reverseGeocodeSouthAfricanProvince: vi.fn(async () => "Gauteng" as const),
+  };
+});
+
+vi.mock("@/lib/maps/routes.service", () => ({
+  calculateRoute: vi.fn(async () => ({
+    ok: true as const,
+    route: {
+      distanceMeters: 12000,
+      durationSeconds: 900,
+      provider: "TEST_ROUTE",
+      routeSummary: "Johannesburg -> Pretoria",
+    },
+  })),
+}));
+
+function mockPaystackRegistry(
+  capturedRef?: { value?: string },
+  opts?: { production?: boolean },
+): PaymentProviderRegistry {
+  const mockClient = {
+    initializeTransaction: async (input: { reference: string }) => {
+      if (capturedRef) capturedRef.value = input.reference;
+      return {
+        authorization_url: "https://checkout.paystack.com/audit-disposable-session",
+        access_code: "access_audit_disposable",
+        reference: input.reference,
+      };
+    },
+  } as unknown as PaystackClient;
+  const isProd = opts?.production === true;
+  const adapter = new PaystackAdapter(
+    {
+      mode: isProd ? "live" : "test",
+      environment: isProd ? "production" : "sandbox",
+      secretKey: isProd ? "sk_live_audit_disposable_0000" : "sk_test_audit_disposable_0000",
+      appOrigin: "http://127.0.0.1:3000",
+      apiBaseUrl: "https://api.paystack.co",
+      credentialVersion: isProd ? "live-v1" : "test-v1",
+      checkoutAuditVersion: "paystack-redirect-v1",
+      configurationFingerprint: isProd ? "paystack-v1:production" : "paystack-v1:sandbox",
+      eftChannelEnabled: false,
+    },
+    mockClient,
+  );
+  return {
+    getAdapter: () => adapter,
+  } as unknown as PaymentProviderRegistry;
+}
+
+function signSvixWebhook(secretRaw: string, svixId: string, svixTimestamp: string, payload: string): string {
+  const secretBytes = Buffer.from(secretRaw.replace(/^whsec_/, ""), "base64");
+  const digest = createHmac("sha256", secretBytes)
+    .update(`${svixId}.${svixTimestamp}.${payload}`)
+    .digest("base64");
+  return `v1,${digest}`;
+}
+
+describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers)", () => {
+  const prefix = `aud${randomUUID().replace(/-/g, "").slice(0, 8)}`;
+  const svixSecret = `whsec_${Buffer.from("kt-courier-audit-resend-webhook-key-32").toString("base64")}`;
+  let customerUser!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let customerUser2!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let adminUser!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let foreignAdminUser!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let settingsAdminUser!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let superAdminUser!: { id: string; email: string; name: string; role: UserRole; status: UserStatus };
+  let gautengRegion!: { id: string; name: string };
+  const deliveryServiceKey = `CLIENT_${prefix.toUpperCase()}`;
+  let createdRuleId: string | null = null;
+  let createdServiceId: string | null = null;
+  const suspendedInvalidServiceIds: string[] = [];
+  const createdPolicyIds: string[] = [];
+  const createdOrderIds: string[] = [];
+  let intentSnapshot = new Set<string>();
+  let routeVersionSnapshot = new Set<string>();
+  let prevRecipientSetting: { value: Prisma.InputJsonValue | typeof Prisma.JsonNull } | null = null;
+  let prevBankSetting: { value: Prisma.InputJsonValue | typeof Prisma.JsonNull } | null = null;
+  let prevLoyaltyConvSetting: { value: Prisma.InputJsonValue | typeof Prisma.JsonNull } | null = null;
+  let prevReferralIssuingSetting: { value: Prisma.InputJsonValue | typeof Prisma.JsonNull } | null = null;
+
+  beforeEach(() => {
+    vi.stubEnv("PAYMENT_APP_ORIGIN", "http://127.0.0.1:3000");
+    vi.stubEnv("REFUNDS_PRODUCTION_ACTIVATED", "true");
+    vi.stubEnv("NOTIFICATION_PRODUCTION_VALIDATION_APPROVED", "true");
+    vi.stubEnv("RESEND_WEBHOOK_SECRET", svixSecret);
+  });
+
+  beforeAll(async () => {
+    const url = new URL(process.env.DATABASE_URL ?? "postgres://localhost/absent");
+    if (
+      process.env.NODE_ENV === "production" ||
+      process.env.KT_ALLOW_ISOLATED_POSTGRES_TESTS !== "1" ||
+      url.pathname !== "/kt_launch_test" ||
+      !["localhost", "127.0.0.1"].includes(url.hostname)
+    ) {
+      throw new Error("Disposable closure database required.");
+    }
+
+    const [existingRecips, existingBank, existingLoyalty, existingReferral, intentRows, routeVersionRows] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: "notifications.admin_alert_recipients" }, select: { value: true } }),
+      prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true } }),
+      prisma.systemSetting.findUnique({ where: { key: "loyalty.conversion_enabled" }, select: { value: true } }),
+      prisma.systemSetting.findUnique({ where: { key: "referral.reward_issuing_enabled" }, select: { value: true } }),
+      prisma.notificationEventIntent.findMany({ select: { id: true } }),
+      prisma.notificationEventRouteVersion.findMany({ select: { id: true } }),
+    ]);
+    intentSnapshot = new Set(intentRows.map((row) => row.id));
+    routeVersionSnapshot = new Set(routeVersionRows.map((row) => row.id));
+
+    // Mark any un-dispatched ADMIN_ALERT domain intents left behind by prior suites in
+    // the shared disposable database as dispatched so DEFECT-1 retry tests stay isolated.
+    const priorAdminDomainIntents = await prisma.notificationEventIntent.findMany({
+      where: {
+        sourceAuthority: "ADMIN_ALERT",
+        operationId: { startsWith: "admin-alert:" },
+      },
+    });
+    for (const row of priorAdminDomainIntents) {
+      const p =
+        row.safePayload && typeof row.safePayload === "object" && !Array.isArray(row.safePayload)
+          ? (row.safePayload as Record<string, unknown>)
+          : null;
+      if (p && p.kind === "DOMAIN_EVENT" && !p.dispatchedAt) {
+        await prisma.notificationEventIntent.update({
+          where: { id: row.id },
+          data: {
+            safePayload: {
+              ...p,
+              dispatchedAt: new Date().toISOString(),
+            } as Prisma.InputJsonValue,
+          },
+        });
+      }
+    }
+    if (existingRecips) {
+      prevRecipientSetting = {
+        value: existingRecips.value === null ? Prisma.JsonNull : (existingRecips.value as Prisma.InputJsonValue),
+      };
+    }
+    if (existingBank) {
+      prevBankSetting = {
+        value: existingBank.value === null ? Prisma.JsonNull : (existingBank.value as Prisma.InputJsonValue),
+      };
+    }
+    if (existingLoyalty) {
+      prevLoyaltyConvSetting = {
+        value: existingLoyalty.value === null ? Prisma.JsonNull : (existingLoyalty.value as Prisma.InputJsonValue),
+      };
+    }
+    if (existingReferral) {
+      prevReferralIssuingSetting = {
+        value: existingReferral.value === null ? Prisma.JsonNull : (existingReferral.value as Prisma.InputJsonValue),
+      };
+    }
+
+    const [cust, cust2, adm, foreignAdm, settingsAdm, sup, reg] = await Promise.all([
+      prisma.user.create({
+        data: {
+          email: `${prefix}-cust@example.test`,
+          name: "Audit Customer",
+          role: UserRole.CUSTOMER,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `${prefix}-cust2@example.test`,
+          name: "Audit Referred Customer",
+          role: UserRole.CUSTOMER,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `${prefix}-admin@ktcouriers.co.za`,
+          name: "Audit Admin",
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `${prefix}-foreign-admin@ktcouriers.co.za`,
+          name: "Foreign Admin No Settings",
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `${prefix}-settings-admin@ktcouriers.co.za`,
+          name: "Settings Admin With Perm",
+          role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.user.create({
+        data: {
+          email: `${prefix}-super@ktcouriers.co.za`,
+          name: "Audit SuperAdmin",
+          role: UserRole.SUPER_ADMIN,
+          status: UserStatus.ACTIVE,
+          emailVerifiedAt: new Date(),
+        },
+      }),
+      prisma.deliveryRegion.create({
+        data: {
+          name: `${prefix}-gauteng`,
+          slug: `${prefix}-gauteng`,
+          active: true,
+          pricingEnabled: true,
+          city: "Johannesburg",
+          province: "Gauteng",
+          coverageMode: "RADIUS",
+          centerLat: "-26.1000000",
+          centerLng: "28.1000000",
+          coverageRadiusKm: "150.00",
+          maxDistanceKm: "150.00",
+        },
+      }),
+    ]);
+
+    customerUser = { id: cust.id, email: cust.email, name: cust.name ?? "", role: cust.role, status: cust.status };
+    customerUser2 = { id: cust2.id, email: cust2.email, name: cust2.name ?? "", role: cust2.role, status: cust2.status };
+    adminUser = { id: adm.id, email: adm.email, name: adm.name ?? "", role: adm.role, status: adm.status };
+    foreignAdminUser = { id: foreignAdm.id, email: foreignAdm.email, name: foreignAdm.name ?? "", role: foreignAdm.role, status: foreignAdm.status };
+    settingsAdminUser = { id: settingsAdm.id, email: settingsAdm.email, name: settingsAdm.name ?? "", role: settingsAdm.role, status: settingsAdm.status };
+    superAdminUser = { id: sup.id, email: sup.email, name: sup.name ?? "", role: sup.role, status: sup.status };
+    gautengRegion = { id: reg.id, name: reg.name };
+
+    await prisma.$transaction(async (tx) => {
+      const pw = await ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }, tx);
+      const clearing = await ensureLedgerAccount({ walletId: pw.id, code: "PLATFORM-CASH-CLEARING-ZAR", purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx);
+      await ensureLedgerAccount({ walletId: pw.id, code: "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR", purpose: "HELD", category: "LIABILITY", currency: "ZAR" }, tx);
+      await ensureLedgerAccount({ walletId: pw.id, code: "PLATFORM-REFUND-HELD-GUEST-ZAR", purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR" }, tx);
+      const equity = await ensureLedgerAccount({ walletId: pw.id, code: "PLATFORM-ADJUSTMENT-ZAR", purpose: "ADJUSTMENT", category: "EQUITY", currency: "ZAR" }, tx);
+      await postLedgerJournalWithinTransaction(tx, {
+        idempotencyKey: `aud-seed-clearing:${prefix}`,
+        type: "GENERAL",
+        currency: "ZAR",
+        sourceReference: `AUDIT_SEED:${prefix}`,
+        memo: "Seed clearing",
+        actor: { kind: "SYSTEM" },
+        entries: [
+          { accountId: clearing.id, direction: "DEBIT", amount: "10000.00", lineCode: "CASH_SEED_DEBIT" },
+          { accountId: equity.id, direction: "CREDIT", amount: "10000.00", lineCode: "EQUITY_SEED_CREDIT" },
+        ],
+      });
+
+      const rule = await tx.pricingRule.create({
+        data: {
+          name: `${prefix}-odd-cent-rule`,
+          type: "FLAT",
+          deliveryType: "PARCEL_DOCUMENT",
+          regionId: reg.id,
+          amount: new Prisma.Decimal("101.01"),
+          baseFee: new Prisma.Decimal("101.01"),
+          perKmRate: new Prisma.Decimal("0.00"),
+          includedDistanceKm: 100,
+          distanceIncrementKm: 1,
+          currency: "ZAR",
+          active: true,
+          revision: 1,
+          allowGlobalFallback: false,
+        },
+      });
+      createdRuleId = rule.id;
+
+      const svc = await tx.deliveryServiceDefinition.create({
+        data: {
+          stableKey: deliveryServiceKey,
+          versionNumber: 1,
+          displayName: `Audit Standard ${prefix}`,
+          status: "ACTIVE",
+          effectiveFrom: new Date(Date.now() - 3600_000),
+          createdByUserId: sup.id,
+          pricingPolicy: {
+            stableKey: deliveryServiceKey,
+            displayName: `Audit Standard ${prefix}`,
+            active: true,
+            turnaround: "1-2 business days",
+            provinces: ["Gauteng"],
+            regionIds: [reg.id],
+            tariffs: {
+              SMALL: { baseFee: "101.01", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+              MEDIUM: { baseFee: "170.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+              LARGE: { baseFee: "240.00", perKmRate: "0.00", maximumWeightKg: null, minimumCharge: null },
+            },
+            expectedVersion: 0,
+            reason: "Audit parcel service",
+          },
+          coveragePolicy: { provinces: ["Gauteng"], regionIds: [reg.id] },
+          slaMetadata: { turnaround: "1-2 business days" },
+        },
+      });
+      createdServiceId = svc.id;
+
+      await tx.parcelProfileVersion.upsert({
+        where: { stableKey_versionNumber: { stableKey: "SMALL", versionNumber: 1 } },
+        create: {
+          stableKey: "SMALL",
+          versionNumber: 1,
+          displayName: "Small",
+          lengthCm: 30,
+          widthCm: 20,
+          heightCm: 10,
+          maximumWeightKg: new Prisma.Decimal("5"),
+          status: "ACTIVE",
+          effectiveFrom: new Date(Date.now() - 60_000),
+          createdByUserId: adm.id,
+        },
+        update: { status: "ACTIVE" },
+      });
+
+      const existingInvalidServices = await tx.deliveryServiceDefinition.findMany({
+        where: { stableKey: { startsWith: "CLIENT_" }, status: "ACTIVE", id: { not: svc.id } },
+        select: { id: true, pricingPolicy: true },
+      });
+      const invalidIds = existingInvalidServices
+        .filter((row) => !DeliveryConfigurationSchema.safeParse(row.pricingPolicy).success)
+        .map((row) => row.id);
+      if (invalidIds.length > 0) {
+        await tx.deliveryServiceDefinition.updateMany({ where: { id: { in: invalidIds } }, data: { status: "RETIRED" } });
+        suspendedInvalidServiceIds.push(...invalidIds);
+      }
+
+      const permKeys = [
+        "orders.read",
+        "orders.status.manage",
+        "dispatch.manage",
+        "payment_policies.manage",
+        "cod_operations.manage",
+        "notifications.audit.read",
+        "notifications.delivery.retry",
+      ];
+      for (const pk of permKeys) {
+        const perm = await tx.permission.upsert({
+          where: { key: pk },
+          update: {},
+          create: { key: pk, name: pk, description: pk, category: "ADMIN" },
+        });
+        for (const role of [UserRole.ADMIN, UserRole.SUPER_ADMIN]) {
+          await tx.rolePermission.upsert({
+            where: { role_permissionId: { role, permissionId: perm.id } },
+            update: {},
+            create: { role, permissionId: perm.id },
+          });
+        }
+      }
+      const settingsPerm = await tx.permission.upsert({
+        where: { key: "settings.update" },
+        update: {},
+        create: { key: "settings.update", name: "settings.update", description: "settings.update", category: "ADMIN" },
+      });
+      await tx.rolePermission.upsert({
+        where: { role_permissionId: { role: UserRole.SUPER_ADMIN, permissionId: settingsPerm.id } },
+        update: {},
+        create: { role: UserRole.SUPER_ADMIN, permissionId: settingsPerm.id },
+      });
+      await tx.userPermission.upsert({
+        where: { userId_permissionId: { userId: settingsAdm.id, permissionId: settingsPerm.id } },
+        update: { effect: "ALLOW" },
+        create: { userId: settingsAdm.id, permissionId: settingsPerm.id, effect: "ALLOW", createdByUserId: sup.id, reason: "Audit settings BOLA check" },
+      });
+      // Explicit deny on foreignAdminUser so even role changes cannot grant settings.update
+      await tx.userPermission.upsert({
+        where: { userId_permissionId: { userId: foreignAdm.id, permissionId: settingsPerm.id } },
+        update: { effect: "DENY" },
+        create: { userId: foreignAdm.id, permissionId: settingsPerm.id, effect: "DENY", createdByUserId: sup.id, reason: "Audit foreign admin deny" },
+      });
+
+      const bankValue = {
+        bankName: "FNB",
+        accountName: "KT Couriers Pty Ltd",
+        accountNumber: "62000000001",
+        branchCode: "250655",
+        referenceHint: "Order ref",
+        handoverEnabled: false,
+        expectedVersion: 1,
+      };
+      await tx.systemSetting.upsert({
+        where: { key: "client_cash_deposit_bank" },
+        update: { value: bankValue },
+        create: { key: "client_cash_deposit_bank", type: "JSON", label: "Cash deposit bank", value: bankValue },
+      });
+      await tx.adminActivityLog.create({
+        data: {
+          actorUserId: adm.id,
+          action: "UPDATE",
+          entityType: "SystemSetting",
+          entityId: "client_cash_deposit_bank",
+          message: "Seeded audit bank instructions",
+        },
+      });
+
+      const digitalPol = await tx.paymentMethodPolicy.create({
+        data: {
+          deliveryServiceId: deliveryServiceKey,
+          orderType: "PARCEL_DOCUMENT",
+          provinceScope: ["Gauteng"],
+          versionNumber: 1,
+          status: "ACTIVE",
+          mode: "DIGITAL",
+          effectiveFrom: new Date(Date.now() - 3600_000),
+          createdByUserId: sup.id,
+        },
+      });
+      createdPolicyIds.push(digitalPol.id);
+    });
+  });
+
+  afterAll(async () => {
+    vi.unstubAllEnvs();
+    // Every row this suite created in the shared disposable database is removed
+    // so later closure files observe the state they would have seen without it.
+    const swallow = () => {};
+    const [allIntents, allRouteVersions] = await Promise.all([
+      prisma.notificationEventIntent.findMany({ select: { id: true, operationId: true } }),
+      prisma.notificationEventRouteVersion.findMany({ select: { id: true } }),
+    ]);
+    const newIntents = allIntents.filter((row) => !intentSnapshot.has(row.id));
+    const newRouteVersionIds = allRouteVersions.map((row) => row.id).filter((id) => !routeVersionSnapshot.has(id));
+    const suiteUserIds = [customerUser, customerUser2, adminUser, foreignAdminUser, settingsAdminUser, superAdminUser]
+      .filter(Boolean)
+      .map((user) => user.id);
+    if (suiteUserIds.length) {
+      await prisma.notificationDelivery.deleteMany({ where: { recipientUserId: { in: suiteUserIds } } }).catch(swallow);
+      await prisma.notificationInboxItem.deleteMany({ where: { ownerUserId: { in: suiteUserIds } } }).catch(swallow);
+      await prisma.notificationRecipient.deleteMany({ where: { subjectUserId: { in: suiteUserIds } } }).catch(swallow);
+      await prisma.notificationMessage.deleteMany({ where: { recipientUserId: { in: suiteUserIds } } }).catch(swallow);
+    }
+    if (newIntents.length) {
+      const receipts = await prisma.notificationSourceReceipt.findMany({
+        where: { sourceEventId: { in: newIntents.map((row) => row.operationId) } },
+        select: { id: true },
+      });
+      if (receipts.length) {
+        await prisma.notificationReconciliationCase.deleteMany({ where: { sourceReceiptId: { in: receipts.map((r) => r.id) } } }).catch(swallow);
+        await prisma.notificationSourceReceipt.deleteMany({ where: { id: { in: receipts.map((r) => r.id) } } }).catch(swallow);
+      }
+      await prisma.notificationEventIntent.deleteMany({ where: { id: { in: newIntents.map((row) => row.id) } } }).catch(swallow);
+    }
+    if (newRouteVersionIds.length) {
+      await prisma.notificationEventRouteVersion.deleteMany({ where: { id: { in: newRouteVersionIds } } }).catch(swallow);
+    }
+    const restoreOrDelete = async (
+      key: string,
+      type: "JSON" | "BOOLEAN",
+      label: string,
+      previous: { value: Prisma.InputJsonValue | typeof Prisma.JsonNull } | null,
+    ) => {
+      if (previous) {
+        await prisma.systemSetting.upsert({
+          where: { key },
+          update: { type, value: previous.value },
+          create: { key, type, label, value: previous.value },
+        });
+      } else {
+        await prisma.systemSetting.deleteMany({ where: { key } });
+      }
+    };
+    await restoreOrDelete("notifications.admin_alert_recipients", "JSON", "Admin alert recipients", prevRecipientSetting);
+    await restoreOrDelete("client_cash_deposit_bank", "JSON", "Cash deposit bank", prevBankSetting);
+    await restoreOrDelete("loyalty.conversion_enabled", "BOOLEAN", "Loyalty wallet conversion", prevLoyaltyConvSetting);
+    await restoreOrDelete("referral.reward_issuing_enabled", "BOOLEAN", "Ordinary referral issuing", prevReferralIssuingSetting);
+    if (gautengRegion?.id) {
+      await prisma.deliveryRegion.updateMany({ where: { id: gautengRegion.id }, data: { active: false, pricingEnabled: false } });
+    }
+    if (createdPolicyIds.length) {
+      await prisma.paymentMethodPolicy.deleteMany({ where: { deliveryServiceId: deliveryServiceKey } });
+    }
+    if (createdServiceId) {
+      await prisma.deliveryServiceDefinition.deleteMany({ where: { id: createdServiceId } }).catch(() => {});
+    }
+    if (createdRuleId) {
+      await prisma.pricingRule.update({ where: { id: createdRuleId }, data: { active: false } }).catch(() => {});
+    }
+  });
+
+  async function setRecipients(value: unknown) {
+    await prisma.systemSetting.upsert({
+      where: { key: "notifications.admin_alert_recipients" },
+      update: { value: value as Prisma.InputJsonValue },
+      create: { key: "notifications.admin_alert_recipients", label: "Admin alert recipients", type: "JSON", value: value as Prisma.InputJsonValue },
+    });
+  }
+
+  async function bookCodOrder(
+    paymentMethod: "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD" | "FULL_COD" = "DEPOSIT_PLUS_COD",
+    payer = customerUser,
+  ) {
+    const publicQuote = await createPublicQuote({
+      serviceKey: deliveryServiceKey,
+      parcelSize: "SMALL",
+      weightKg: "1.5",
+      pickupAddress: { line1: "10 Commissioner Street", suburb: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196" },
+      dropoffAddress: { line1: "250 Paul Kruger Street", suburb: "Hatfield", city: "Pretoria", province: "Gauteng", postalCode: "0028" },
+    });
+    const quoteRow = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: publicQuote.id } });
+    const bookingMeta = (quoteRow.metadata as { bookingInput: { pickupAddress: Record<string, unknown>; dropoffAddress: Record<string, unknown>; actualWeightKg: string } }).bookingInput;
+
+    const order = await prisma.$transaction(async (tx) => {
+      await tx.pricingQuote.update({
+        where: { id: publicQuote.id },
+        data: { ownerId: payer.id, ownerType: "CUSTOMER", storeId: null },
+      });
+      return createOrder(
+        payer,
+        {
+          deliveryType: "PARCEL_DOCUMENT",
+          pickupAddress: bookingMeta.pickupAddress as Parameters<typeof createOrder>[1]["pickupAddress"],
+          dropoffAddress: bookingMeta.dropoffAddress as Parameters<typeof createOrder>[1]["dropoffAddress"],
+          actualWeightKg: bookingMeta.actualWeightKg,
+          pricingQuoteId: publicQuote.id,
+          recipientName: "Split Notify",
+          recipientPhone: "+27821110000",
+          recipientEmail: "split-notify@example.test",
+          parcelCount: 1,
+          paymentMethod,
+        },
+        false,
+        tx,
+      );
+    });
+    createdOrderIds.push(order.id);
+    return order;
+  }
+
+  async function payOrderViaVerify(
+    orderId: string,
+    payer = customerUser,
+    opts?: { walletAmount?: string; viaWebhook?: boolean; production?: boolean },
+  ) {
+    const prep = await prepareOrderPayment(payer, {
+      orderId,
+      idempotencyKey: `aud-prep-${randomUUID()}`,
+      ...(opts?.walletAmount ? { walletAmount: opts.walletAmount } : {}),
+    });
+    const paymentRow = await prisma.payment.findUniqueOrThrow({ where: { publicReference: prep.publicReference } });
+    if (paymentRow.status === "SUCCEEDED") {
+      return { prep, paymentRow, attemptId: null };
+    }
+    const isProd = opts?.production === true;
+    const sess = await createProviderCheckoutSession(
+      { id: payer.id },
+      { paymentId: paymentRow.id, provider: "PAYSTACK", idempotencyKey: `aud-sess-${randomUUID()}` },
+      { registry: mockPaystackRegistry(undefined, { production: isProd }) },
+    );
+    const minor = Math.round(Number(prep.amount) * 100);
+    if (opts?.viaWebhook) {
+      const secretKey = isProd ? "sk_live_audit_disposable_0000" : "sk_test_audit_disposable_0000";
+      const providerId = randomInt(100_000_000, 999_999_999);
+      const rawBody = JSON.stringify({
+        event: "charge.success",
+        data: { id: providerId, reference: sess.attempt.merchantReference, status: "success", amount: minor, currency: "ZAR" },
+      });
+      const signature = createHmac("sha512", secretKey).update(rawBody).digest("hex");
+      await ingestPaystackWebhook({
+        rawBody,
+        signature,
+        secretKey,
+        sourceAddress: isProd ? "52.31.139.75" : undefined,
+        environment: isProd ? "PRODUCTION" : "SANDBOX",
+      });
+      await applyPaystackWebhookEventsBatch({
+        batchSize: 50,
+        secretKey,
+        clientOverride: {
+          verifyTransaction: vi.fn().mockResolvedValue({
+            id: providerId,
+            status: "success",
+            reference: sess.attempt.merchantReference,
+            amount: minor,
+            currency: "ZAR",
+          }),
+        } as never,
+      });
+    } else {
+      await recoverPaystackAttemptViaVerify({
+        attemptId: sess.attempt.id,
+        trigger: "audit_pay_verify",
+        clientOverride: {
+          verifyTransaction: vi.fn().mockResolvedValue({
+            id: 990000 + Math.floor(Math.random() * 10000),
+            status: "success",
+            reference: sess.attempt.merchantReference,
+            amount: minor,
+            currency: "ZAR",
+          }),
+        } as never,
+      });
+    }
+    return { prep, paymentRow: await prisma.payment.findUniqueOrThrow({ where: { id: paymentRow.id } }), attemptId: sess.attempt.id };
+  }
+
+  it("DEFECT-1 (Sec 2 & 3C): enforces retry authority, DB user revocation, settings BOLA, and Svix HMAC Resend webhook receipt lifecycle", async () => {
+    const t = randomUUID().slice(0, 8);
+    const emailDisabled = `disabled-${t}@ktcouriers.co.za`;
+    const emailDeleted = `deleted-${t}@ktcouriers.co.za`;
+    const emailUnsub = `unsub-${t}@ktcouriers.co.za`;
+    const emailRoleChanged = `scope-${t}@ktcouriers.co.za`;
+    const emailSuspendedDb = `suspended-${t}@ktcouriers.co.za`;
+    const emailProviderRecover = `recover-${t}@ktcouriers.co.za`;
+    const emailAlreadyAccepted = `accepted-${t}@ktcouriers.co.za`;
+
+    const suspendedUser = await prisma.user.create({
+      data: {
+        email: emailSuspendedDb,
+        name: "Suspended Admin User",
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    await setRecipients([
+      { email: emailDisabled, label: "Disabled", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailDeleted, label: "Deleted", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailUnsub, label: "Unsub", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailRoleChanged, label: "RoleChanged", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailSuspendedDb, label: "SuspendedDB", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailProviderRecover, label: "Recover", active: true, roleScope: "ALL", events: ["PARCEL_ORDER_PAID"] },
+    ]);
+
+    const sentLog: string[] = [];
+    const providerMsgIds = new Map<string, string>();
+    const okProvider: NotificationProvider = {
+      channel: "EMAIL",
+      name: "resend-stub",
+      async send(msg) {
+        sentLog.push(msg.destination);
+        const id = `re_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+        providerMsgIds.set(msg.destination, id);
+        return { accepted: true, providerMessageReference: id };
+      },
+    };
+    const downProvider: NotificationProvider = {
+      channel: "EMAIL",
+      name: "stub-down",
+      async send() {
+        return { accepted: false, failureClass: "PROVIDER_UNAVAILABLE", safeCode: "DOWN", retryAfterSeconds: 0 };
+      },
+    };
+
+    const refFail = `retry-rev-${t}`;
+    await dispatchAdminAlertsForEvent(
+      {
+        eventType: "PARCEL_ORDER_PAID",
+        aggregateReference: refFail,
+        title: "Paid parcel",
+        summary: "Verify retry authority check.",
+      },
+      { providerOverride: downProvider },
+    );
+
+    await setRecipients([
+      { email: emailAlreadyAccepted, label: "Accepted", active: true, roleScope: "ALL", events: ["PARCEL_ORDER_PAID"] },
+    ]);
+    const refAccepted = `retry-acc-${t}`;
+    await dispatchAdminAlertsForEvent(
+      {
+        eventType: "PARCEL_ORDER_PAID",
+        aggregateReference: refAccepted,
+        title: "Already accepted",
+        summary: "Verify accepted delivery never resends.",
+      },
+      { providerOverride: okProvider },
+    );
+    const recoveredEmailIdAtAcc = providerMsgIds.get(emailAlreadyAccepted)!;
+    sentLog.length = 0;
+
+    // Suspend DB User for emailSuspendedDb & mutate settings concurrently before retry
+    await prisma.user.update({ where: { id: suspendedUser.id }, data: { status: UserStatus.SUSPENDED } });
+    await setRecipients([
+      { email: emailDisabled, label: "Disabled", active: false, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailUnsub, label: "Unsub", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_CANCELLED"] },
+      { email: emailRoleChanged, label: "RoleChanged", active: true, roleScope: "SUPER_ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailSuspendedDb, label: "SuspendedDB", active: true, roleScope: "ADMIN", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailProviderRecover, label: "Recover", active: true, roleScope: "ALL", events: ["PARCEL_ORDER_PAID"] },
+      { email: emailAlreadyAccepted, label: "Accepted", active: true, roleScope: "ALL", events: ["PARCEL_ORDER_PAID"] },
+    ]);
+
+    await retryPendingAdminAlertDeliveries({
+      now: new Date(Date.now() + 600_000),
+      providerOverride: null,
+    });
+    expect(sentLog).toEqual([]);
+
+    await retryPendingAdminAlertDeliveries({
+      now: new Date(Date.now() + 1_200_000),
+      providerOverride: okProvider,
+    });
+    expect(sentLog).toEqual([emailProviderRecover]);
+
+    const deliveryIntents = await prisma.notificationEventIntent.findMany({
+      where: {
+        sourceAuthority: "ADMIN_ALERT",
+        operationId: { startsWith: `admin-alert-delivery:PARCEL_ORDER_PAID:${refFail}:` },
+      },
+    });
+    const statuses = deliveryIntents.map((d) => (d.safePayload as Record<string, unknown>).deliveryStatus);
+    expect(statuses.filter((s) => s === "CANCELLED_BY_POLICY").length).toBe(5);
+    expect(statuses.filter((s) => s === "PROVIDER_ACCEPTED").length).toBe(1);
+
+    // Verify BOLA in updateSettingValue:
+    const deniedNoPerm = await updateSettingValue(foreignAdminUser.id, "notifications.admin_alert_recipients", []);
+    expect("error" in deniedNoPerm).toBe(true);
+
+    // An ADMIN even WITH settings.update cannot modify SUPER_ADMIN or ALL recipient entries
+    const deniedSuperScope = await updateSettingValue(settingsAdminUser.id, "notifications.admin_alert_recipients", [
+      { email: "hijack@ktcouriers.co.za", label: "Hijack", active: true, roleScope: "SUPER_ADMIN", events: ["PARCEL_ORDER_PAID"] },
+    ]);
+    expect("error" in deniedSuperScope).toBe(true);
+
+    // Verify Resend Webhook Svix signature enforcement & DELIVERED / BOUNCED updates
+    const deliverPayload = JSON.stringify({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: providerMsgIds.get(emailProviderRecover), to: [emailProviderRecover] },
+    });
+    const badSigRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: { "svix-id": `msg_${t}_1`, "svix-timestamp": String(Math.floor(Date.now() / 1000)), "svix-signature": "v1,invalid", "x-forwarded-for": "10.0.0.1" },
+      body: deliverPayload,
+    }));
+    expect(badSigRes.status).toBe(401);
+
+    const oldTs = String(Math.floor(Date.now() / 1000) - 600);
+    const staleSigRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: { "svix-id": `msg_${t}_2`, "svix-timestamp": oldTs, "svix-signature": signSvixWebhook(svixSecret, `msg_${t}_2`, oldTs, deliverPayload), "x-forwarded-for": "10.0.0.2" },
+      body: deliverPayload,
+    }));
+    expect(staleSigRes.status).toBe(401);
+
+    const freshTs = String(Math.floor(Date.now() / 1000));
+    const svixId = `msg_${t}_ok`;
+    const okRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixId,
+        "svix-timestamp": freshTs,
+        "svix-signature": signSvixWebhook(svixSecret, svixId, freshTs, deliverPayload),
+        "x-forwarded-for": "10.0.0.3",
+      },
+      body: deliverPayload,
+    }));
+    expect(okRes.status).toBe(200);
+
+    // Replay with same svix-id returns duplicate=true
+    const replayRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixId,
+        "svix-timestamp": freshTs,
+        "svix-signature": signSvixWebhook(svixSecret, svixId, freshTs, deliverPayload),
+        "x-forwarded-for": "10.0.0.4",
+      },
+      body: deliverPayload,
+    }));
+    expect(replayRes.status).toBe(200);
+    expect(await replayRes.json()).toMatchObject({ ok: true, replayed: true });
+
+    const updatedDelivered = deliveryIntents.length
+      ? await prisma.notificationEventIntent.findFirstOrThrow({
+          where: {
+            sourceAuthority: "ADMIN_ALERT",
+            safePayload: { path: ["providerMessageReference"], equals: providerMsgIds.get(emailProviderRecover)! },
+          },
+        })
+      : null;
+    expect((updatedDelivered?.safePayload as Record<string, unknown>)?.deliveryStatus).toBe("DELIVERED");
+    expect((updatedDelivered?.safePayload as Record<string, unknown>)?.inboxDeliveryStatus).toBe("DELIVERED");
+
+    // Bounce updates the already-accepted record
+    const bouncePayload = JSON.stringify({
+      type: "email.bounced",
+      created_at: new Date().toISOString(),
+      data: { email_id: recoveredEmailIdAtAcc, to: [emailAlreadyAccepted] },
+    });
+    const bounceId = `msg_${t}_bounce`;
+    const bounceRes = await resendWebhookPost(new Request("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": bounceId,
+        "svix-timestamp": freshTs,
+        "svix-signature": signSvixWebhook(svixSecret, bounceId, freshTs, bouncePayload),
+        "x-forwarded-for": "10.0.0.5",
+      },
+      body: bouncePayload,
+    }));
+    expect(bounceRes.status).toBe(200);
+    const bouncedRow = await prisma.notificationEventIntent.findFirstOrThrow({
+      where: {
+        sourceAuthority: "ADMIN_ALERT",
+        safePayload: { path: ["providerMessageReference"], equals: recoveredEmailIdAtAcc },
+      },
+    });
+    expect((bouncedRow.safePayload as Record<string, unknown>)?.deliveryStatus).toBe("BOUNCED");
+  });
+
+  it("DEFECT-2 (Sec 3A): records atomic owner alerts across refund, SuperAdmin wallet grant, loyalty, referral, anomaly, and unassigned escalation (zero pre-verification alerts & zero PII)", async () => {
+    const t = randomUUID().slice(0, 8);
+    await setRecipients([
+      {
+        email: superAdminUser.email,
+        label: "SuperAdmin Desk",
+        active: true,
+        roleScope: "SUPER_ADMIN",
+        events: [...ADMIN_ALERT_EVENT_TYPES],
+      },
+    ]);
+
+    // 1. WALLET_CREDIT_ISSUED via SuperAdmin wallet grant
+    const grant = await creditCustomerWalletBySuperAdmin({
+      actorUserId: superAdminUser.id,
+      customerUserId: customerUser.id,
+      amount: "250.00",
+      reason: "Goodwill audit wallet grant",
+      operationId: `aud-grant-${t}`,
+    });
+    expect(grant.status).toBe("CREDITED");
+
+    // 2. LOYALTY_ADJUSTED via admin adjust + wallet conversion, plus negative non-awarded check
+    await adjustCustomerLoyaltyPoints({
+      actorUserId: superAdminUser.id,
+      customerUserId: customerUser.id,
+      deltaPoints: 500n,
+      reason: "Manual audit loyalty bonus",
+    });
+    await prisma.systemSetting.upsert({
+      where: { key: "loyalty.conversion_enabled" },
+      update: { type: "BOOLEAN", value: true },
+      create: { key: "loyalty.conversion_enabled", type: "BOOLEAN", label: "Loyalty conv", value: true },
+    });
+    await redeemCustomerLoyaltyPoints({
+      userId: customerUser.id,
+      operationId: `aud-loy-redeem-${t}`,
+      points: "100",
+    });
+
+    // 3. Paid parcel order -> REFUND_REQUESTED, REFUND_COMPLETED, FINANCE_ANOMALY_ALERT, UNASSIGNED_ORDER_ESCALATED
+    const refundOrder = await bookCodOrder("DIGITAL_ONLY");
+    const { paymentRow } = await payOrderViaVerify(refundOrder.id, customerUser, { viaWebhook: true });
+
+    // Verify UNPAID payment does NOT trigger LOYALTY_ADJUSTED
+    const unpaidOrder = await bookCodOrder("DIGITAL_ONLY");
+    const unpaidPrep = await prepareOrderPayment(customerUser, {
+      orderId: unpaidOrder.id,
+      idempotencyKey: `aud-unpaid-${randomUUID()}`,
+    });
+    const unpaidPay = await prisma.payment.findUniqueOrThrow({ where: { publicReference: unpaidPrep.publicReference } });
+    await expect(reconcileCompletedParcelLoyalty(customerUser.id, unpaidPay.id)).rejects.toThrow();
+
+    // Unassigned SLA escalation on stalled CONFIRMED order vs skipping PENDING unpaid order
+    await prisma.order.update({
+      where: { id: refundOrder.id },
+      data: { updatedAt: new Date(Date.now() - 45 * 60_000) },
+    });
+    await prisma.order.update({
+      where: { id: unpaidOrder.id },
+      data: { updatedAt: new Date(Date.now() - 45 * 60_000) },
+    });
+    const esc = await scanUnassignedCourierOrdersBatch({
+      mode: "APPLY",
+      thresholdMinutes: 15,
+    });
+    expect(esc.escalatedCount).toBeGreaterThanOrEqual(1);
+
+    const unpaidEscIntent = await prisma.notificationEventIntent.findFirst({
+      where: {
+        sourceAuthority: "ADMIN_ALERT",
+        eventType: "UNASSIGNED_ORDER_ESCALATED",
+        aggregateReference: { contains: unpaidOrder.id },
+      },
+    });
+    expect(unpaidEscIntent).toBeNull();
+
+    // Cancel paid order refund flow
+    const refund = await createRefundRequest(
+      {
+        actorUserId: customerUser.id,
+        paymentPublicReference: paymentRow.publicReference,
+        amount: "20.00",
+        method: "CUSTOMER_WALLET",
+        reasonCode: "CUSTOMER_SERVICE_RESOLUTION",
+        customerNote: "Partial goodwill audit refund",
+        operationId: `aud-ref-req-${t}`,
+      },
+      { assertProductionReady: () => {} },
+    );
+    await approveRefund({
+      actorUserId: adminUser.id,
+      publicReference: refund.publicReference,
+      operationId: `aud-ref-app-${t}`,
+    });
+    await completeRefundToCustomerWallet(
+      {
+        actorUserId: superAdminUser.id,
+        publicReference: refund.publicReference,
+        operationId: `aud-ref-comp-${t}`,
+      },
+      { assertProductionReady: () => {} },
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await openRefundReconciliationCase(tx, {
+        refundId: refund.id,
+        refundReference: refund.publicReference,
+        reason: "PROVIDER_QUERY_UNAVAILABLE",
+        safeSummary: "Audit reconciliation anomaly test case",
+      });
+    });
+
+    // 4. REFERRAL_REWARD_AWARDED on verified completed paid order + zero alert when referral ineligible
+    await prisma.systemSetting.upsert({
+      where: { key: "referral.reward_issuing_enabled" },
+      update: { type: "BOOLEAN", value: true },
+      create: { key: "referral.reward_issuing_enabled", type: "BOOLEAN", label: "Referral issuing", value: true },
+    });
+    const refCode = await prisma.referralCode.create({
+      data: {
+        ownerType: "CUSTOMER",
+        ownerId: customerUser.id,
+        code: `AUDREF${t.toUpperCase()}`,
+        isActive: true,
+        metadata: { program: "ORDINARY_REFERRAL_V1" },
+      },
+    });
+    const pendingRef = await prisma.referralEvent.create({
+      data: {
+        referralCodeId: refCode.id,
+        targetUserId: foreignAdminUser.id,
+        targetType: "CUSTOMER",
+        source: "ORDINARY_SIGNUP",
+        status: "PENDING",
+      },
+    });
+    await expect(
+      awardVerifiedOrdinaryReferral({
+        actorUserId: superAdminUser.id,
+        referralEventId: pendingRef.id,
+        operationId: `aud-ref-bad-${t}`,
+      }),
+    ).rejects.toThrow();
+    expect(
+      await prisma.notificationEventIntent.findFirst({
+        where: { sourceAuthority: "ADMIN_ALERT", eventType: "REFERRAL_REWARD_AWARDED", aggregateReference: `referral-award:${pendingRef.id}` },
+      }),
+    ).toBeNull();
+
+    // Attribution must predate the qualifying first paid & completed order
+    const qualifyingRef = await prisma.referralEvent.create({
+      data: {
+        referralCodeId: refCode.id,
+        targetUserId: customerUser2.id,
+        targetType: "CUSTOMER",
+        source: "ORDINARY_SIGNUP",
+        status: "PENDING",
+      },
+    });
+    const refOrder = await bookCodOrder("DIGITAL_ONLY", customerUser2);
+    const refPay = await payOrderViaVerify(refOrder.id, customerUser2, { viaWebhook: true, production: true });
+    await prisma.$transaction([
+      prisma.payment.update({
+        where: { id: refPay.paymentRow.id },
+        data: { reconciliationStatus: "CLEAR" },
+      }),
+      prisma.order.update({ where: { id: refOrder.id }, data: { status: OrderStatus.COMPLETED } }),
+    ]);
+    await awardVerifiedOrdinaryReferral({
+      actorUserId: superAdminUser.id,
+      referralEventId: qualifyingRef.id,
+      operationId: `aud-ref-ok-${t}`,
+    });
+
+    const eventsToVerify = [
+      { type: "WALLET_CREDIT_ISSUED", ref: `wallet-grant:${grant.journalReference}` },
+      { type: "LOYALTY_ADJUSTED", ref: `loyalty-adj:${customerUser.id}:` },
+      { type: "LOYALTY_ADJUSTED", ref: `loyalty-redeem:` },
+      { type: "REFUND_REQUESTED", ref: `refund-req:${refund.publicReference}` },
+      { type: "REFUND_COMPLETED", ref: `refund-comp:${refund.publicReference}` },
+      { type: "FINANCE_ANOMALY_ALERT", ref: `refund-recon:${refund.publicReference}:` },
+      { type: "UNASSIGNED_ORDER_ESCALATED", ref: `unassigned-order:${refundOrder.id}:` },
+      { type: "REFERRAL_REWARD_AWARDED", ref: `referral-award:${qualifyingRef.id}` },
+    ];
+    for (const check of eventsToVerify) {
+      const row = await prisma.notificationEventIntent.findFirst({
+        where: {
+          sourceAuthority: "ADMIN_ALERT",
+          eventType: check.type,
+          aggregateReference: { startsWith: check.ref },
+        },
+      });
+      expect(row, `Expected ADMIN_ALERT domain event ${check.type} (${check.ref})`).not.toBeNull();
+      const rawJson = JSON.stringify(row!.safePayload);
+      expect(rawJson).not.toContain(customerUser.email);
+      expect(rawJson).not.toContain(customerUser2.email);
+      expect(rawJson).not.toContain("+27821110000");
+    }
+  });
+
+  it("DEFECT-3 (Sec 3B): covers 50/50 DEPOSIT_PLUS_COD (odd cent + wallet+Paystack split), FULL_COD, and WALLET_ONLY payment/acceptance notifications with exact DB split copy", async () => {
+    const draft = await savePaymentConfiguration(adminUser, {
+      storeId: null,
+      deliveryServiceId: deliveryServiceKey,
+      provinces: ["Gauteng"],
+      regionId: null,
+      orderId: null,
+      orderType: "PARCEL_DOCUMENT",
+      mode: "DEPOSIT_PLUS_COD",
+      depositPercent: "0.5",
+      maximumCodAmount: "500.00",
+      active: true,
+      expectedVersion: 1,
+      reason: "Odd-cent COD split notification verification",
+    });
+    const approved = await approvePaymentConfiguration(superAdminUser, {
+      policyId: draft.id,
+      expectedVersion: draft.version,
+      remittanceVerified: true,
+      settlementTiming: "Daily bank remittance by end of operating day",
+      reason: "Approve 50/50 split notification test policy",
+    });
+    createdPolicyIds.push(draft.id, approved.id);
+
+    await prisma.$transaction(prepareRequiredDomainNotifications);
+    for (const evType of ["COURIER_PAYMENT_CONFIRMED", "COURIER_ACCEPTED"]) {
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "APPROVE_RECIPIENT_POLICY", `${prefix}-rev1`)).catch(() => {});
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "APPROVE_TEMPLATE", `${prefix}-rev1`)).catch(() => {});
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "PUBLISH_TEMPLATE", `${prefix}-pub1`)).catch(() => {});
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "PREPARE_ROUTE", `${prefix}-rev1`)).catch(() => {});
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "APPROVE_ROUTE", `${prefix}-rev1`)).catch(() => {});
+      await prisma.$transaction((tx) => reviewRequiredDomainNotification(tx, evType, "ACTIVATE_ROUTE", `${prefix}-pub1`)).catch(() => {});
+    }
+
+    // Case A: 50/50 DEPOSIT_PLUS_COD odd-cent R101.01 -> R50.51 deposit + R50.50 cash due
+    const codOrder = await bookCodOrder("DEPOSIT_PLUS_COD");
+    await payOrderViaVerify(codOrder.id);
+
+    // Case B: Full WALLET_ONLY parcel order settlement (credit wallet first so balance >= 101.01)
+    await creditCustomerWalletBySuperAdmin({
+      actorUserId: superAdminUser.id,
+      customerUserId: customerUser.id,
+      amount: "150.00",
+      reason: "Fund full wallet settlement test",
+      operationId: `aud-wal-fund-${randomUUID().slice(0, 8)}`,
+    });
+    const walletOrder = await bookCodOrder("DIGITAL_ONLY");
+    const { paymentRow: walPay } = await payOrderViaVerify(walletOrder.id, customerUser, { walletAmount: "101.01" });
+    expect(walPay.provider).toBe("MANUAL");
+    expect((walPay.metadata as Record<string, unknown>)?.walletSettled).toBe(true);
+    expect(walPay.status).toBe("SUCCEEDED");
+
+    await consumeCustomerOrderNotifications(50);
+
+    async function findCustomerDeliveriesForOrder(orderId: string, recipientUserId: string) {
+      const intents = await prisma.notificationEventIntent.findMany({
+        where: { sourceAuthority: "COURIER_ORDER", aggregateReference: orderId },
+        select: { operationId: true, eventType: true },
+      });
+      const opMap = new Map(intents.map((i) => [i.operationId, i.eventType]));
+      const receipts = intents.length
+        ? await prisma.notificationSourceReceipt.findMany({
+            where: { sourceEventId: { in: intents.map((i) => i.operationId) } },
+            select: { id: true, sourceEventId: true },
+          })
+        : [];
+      const receiptToEvent = new Map(receipts.map((r) => [r.id, opMap.get(r.sourceEventId) ?? ""]));
+      const messages = receipts.length
+        ? await prisma.notificationMessage.findMany({
+            where: { recipientUserId, sourceReceiptId: { in: receipts.map((r) => r.id) } },
+            select: { id: true, sourceReceiptId: true },
+          })
+        : [];
+      const msgToEvent = new Map(messages.map((m) => [m.id, receiptToEvent.get(m.sourceReceiptId) ?? ""]));
+      const deliveries = messages.length
+        ? await prisma.notificationDelivery.findMany({
+            where: { messageId: { in: messages.map((m) => m.id) }, channel: "EMAIL" },
+          })
+        : [];
+      return deliveries.map((d) => ({ ...d, eventType: msgToEvent.get(d.messageId) ?? "" }));
+    }
+
+    const [codMessages, walletMessages, walAdminPaid, walAdminAccepted] = await Promise.all([
+      findCustomerDeliveriesForOrder(codOrder.id, customerUser.id),
+      findCustomerDeliveriesForOrder(walletOrder.id, customerUser.id),
+      prisma.notificationEventIntent.findFirst({
+        where: { sourceAuthority: "ADMIN_ALERT", eventType: "PARCEL_ORDER_PAID", aggregateReference: `parcel:${walletOrder.id}` },
+      }),
+      prisma.notificationEventIntent.findFirst({
+        where: { sourceAuthority: "ADMIN_ALERT", eventType: "PARCEL_ORDER_ACCEPTED", aggregateReference: `parcel-accepted:${walletOrder.id}` },
+      }),
+    ]);
+
+    const paidDelivery = codMessages.find((m) => m.eventType === "COURIER_PAYMENT_CONFIRMED");
+    expect(paidDelivery?.renderedBody).toContain("50.51");
+    expect(paidDelivery?.renderedBody).toContain("50.50");
+    expect(paidDelivery?.renderedBody).toMatch(/deposit.*verified/i);
+    expect(paidDelivery?.renderedBody).toMatch(/cash.*due.*driver.*delivery/i);
+    expect(paidDelivery?.renderedBody).not.toMatch(/fully paid/i);
+    expect(paidDelivery?.renderedBody).not.toMatch(/bank deposit received/i);
+
+    const walPaid = walletMessages.find((m) => m.eventType === "COURIER_PAYMENT_CONFIRMED");
+    const walAcc = walletMessages.find((m) => m.eventType === "COURIER_ACCEPTED");
+    expect(walPaid?.renderedBody).toContain("101.01");
+    expect(walPaid?.renderedBody).not.toMatch(/cash.*due/i);
+    expect(walAcc).toBeDefined();
+    expect(walAdminPaid).not.toBeNull();
+    expect(walAdminAccepted).not.toBeNull();
+
+    // Case C: Hybrid wallet + Paystack 50/50 DEPOSIT_PLUS_COD split (R20.00 wallet + R30.51 Paystack = R50.51 deposit)
+    const hybridCodOrder = await bookCodOrder("DEPOSIT_PLUS_COD");
+    await payOrderViaVerify(hybridCodOrder.id, customerUser, { walletAmount: "20.00" });
+    await consumeCustomerOrderNotifications(50);
+    const hybridMsgs = await findCustomerDeliveriesForOrder(hybridCodOrder.id, customerUser.id);
+    const hybridPaid = hybridMsgs.find((m) => m.eventType === "COURIER_PAYMENT_CONFIRMED");
+    expect(hybridPaid?.renderedBody).toContain("50.51");
+    expect(hybridPaid?.renderedBody).toContain("50.50");
+    expect(hybridPaid?.renderedBody).not.toMatch(/fully paid/i);
+  });
+
+  it("GAP-4 (Sec 4): persists Africa/Johannesburg end-of-day remittanceDueAt, alerts overdue drivers via registered processor, blocks new COD assignments while allowing DIGITAL_ONLY, and clears after independent verification", async () => {
+    const t = randomUUID().slice(0, 6);
+    const driverUser = await prisma.user.create({
+      data: {
+        email: `${prefix}-drv-${t}@example.test`,
+        name: "Overdue Test Driver",
+        role: UserRole.DRIVER,
+        status: UserStatus.ACTIVE,
+        emailVerifiedAt: new Date(),
+      },
+    });
+    const driver = await prisma.driverProfile.create({
+      data: {
+        userId: driverUser.id,
+        driverCode: `DRV-${t.toUpperCase()}`,
+        displayName: "Overdue Driver",
+        active: true,
+        status: "ACTIVE",
+        availability: "AVAILABLE",
+        maxConcurrentAssignments: 3,
+        cashLimitAmount: new Prisma.Decimal("5000.00"),
+      },
+    });
+    await prisma.driverServiceRegion.create({
+      data: { driverProfileId: driver.id, deliveryRegionId: gautengRegion.id, isPrimary: true },
+    });
+    await createApprovedDriverEvidence(driver.id, driverUser.id, `drv-${t}`);
+
+    // Activate FULL_COD for second test order
+    const currentPolicies = await prisma.paymentMethodPolicy.findMany({
+      where: { deliveryServiceId: deliveryServiceKey, orderType: "PARCEL_DOCUMENT" },
+      select: { versionNumber: true },
+    });
+    const nextExpectedVersion = Math.max(0, ...currentPolicies.map((p) => p.versionNumber));
+    const fullCodDraft = await savePaymentConfiguration(adminUser, {
+      storeId: null,
+      deliveryServiceId: deliveryServiceKey,
+      provinces: ["Gauteng"],
+      regionId: null,
+      orderId: null,
+      orderType: "PARCEL_DOCUMENT",
+      mode: "FULL_COD",
+      depositPercent: null,
+      maximumCodAmount: "500.00",
+      active: true,
+      expectedVersion: nextExpectedVersion,
+      reason: "Enable FULL_COD for overdue SLA test",
+    });
+    const fullCodApproved = await approvePaymentConfiguration(superAdminUser, {
+      policyId: fullCodDraft.id,
+      expectedVersion: fullCodDraft.version,
+      remittanceVerified: true,
+      settlementTiming: "Daily bank remittance by end of operating day",
+      reason: "Approve FULL_COD for overdue SLA test",
+    });
+    createdPolicyIds.push(fullCodDraft.id, fullCodApproved.id);
+
+    const firstCod = await bookCodOrder("FULL_COD");
+    await prisma.order.update({ where: { id: firstCod.id }, data: { deliveryRegionId: gautengRegion.id } });
+    const offer1 = await offerAssignment(adminUser.id, firstCod.id, { driverProfileId: driver.id, ttlSeconds: 3600 });
+    await acceptDispatchAssignment(driver.id, offer1.id, { expectedVersion: offer1.version });
+    await prisma.order.update({ where: { id: firstCod.id }, data: { status: OrderStatus.IN_TRANSIT } });
+
+    const collected = await recordCashCollection({
+      orderId: firstCod.id,
+      collectorDriverId: driver.id,
+      actorUserId: driverUser.id,
+      amount: "101.01",
+      operationId: `aud-collect-${t}`,
+    });
+    expect(collected.remittanceDueAt).not.toBeNull();
+    expect(collected.remittanceDueAt!.toISOString()).toBe(
+      computeDriverCashRemittanceDueAt(collected.collectedAt!).toISOString(),
+    );
+    await prisma.$transaction([
+      prisma.orderAssignment.update({
+        where: { id: offer1.id },
+        data: { status: OrderAssignmentStatus.COMPLETED, completedAt: new Date(), activeOrderGuard: null },
+      }),
+      prisma.order.update({
+        where: { id: firstCod.id },
+        data: { status: OrderStatus.DELIVERED, currentDriverProfileId: null },
+      }),
+    ]);
+
+    // Move collection + remittanceDueAt to yesterday SAST (overdue!)
+    const pastCollected = new Date(Date.now() - 36 * 3600_000);
+    await prisma.cashOnDelivery.update({
+      where: { id: collected.id },
+      data: {
+        collectedAt: pastCollected,
+        remittanceDueAt: computeDriverCashRemittanceDueAt(pastCollected),
+      },
+    });
+
+    const summaryOverdue = await driverCashSummary(driverUser.id);
+    expect(summaryOverdue.overdueRemittance.newCodAssignmentsBlocked).toBe(true);
+    expect(summaryOverdue.overdueRemittance.overdueCount).toBe(1);
+    expect(summaryOverdue.overdueRemittance.overdueAmountZar).toBe("101.01");
+
+    // Run registered SLA processor -> emits alert, does NOT reconcile COD or clear custody
+    const slaRun = await executeRegisteredProcessor({
+      name: "monitor-overdue-driver-cash",
+      partition: `test-${randomUUID()}`,
+      mode: "APPLY",
+      operationId: `drv-sla-apply-${randomUUID()}`,
+    });
+    expect(slaRun.success).toBe(true);
+    expect(slaRun.itemsCompleted).toBeGreaterThanOrEqual(1);
+    const codStillCollected = await prisma.cashOnDelivery.findUniqueOrThrow({ where: { id: collected.id } });
+    expect(codStillCollected.status).toBe("COLLECTED");
+
+    // Driver submits deposit (PENDING) — must NOT unblock overdue COD assignments!
+    const proof = await prisma.privateMediaObject.create({
+      data: {
+        publicReference: `PMO-${randomUUID()}`,
+        storageProvider: "S3",
+        storageKey: `audit/proof-${t}.png`,
+        originalFileName: `proof-${t}.png`,
+        declaredMimeType: "image/png",
+        detectedMimeType: "image/png",
+        byteSize: 128,
+        checksum: "a".repeat(64),
+        purpose: "DRIVER_CASH_DEPOSIT_RECEIPT",
+        ownerType: "DRIVER",
+        ownerId: driver.id,
+        status: "READY",
+        createdByUserId: driverUser.id,
+        retentionUntil: new Date(Date.now() + 86_400_000),
+      },
+    });
+    const deposit = await submitDriverDeposit(driverUser.id, {
+      orderId: firstCod.id,
+      amount: "101.01",
+      bankReference: `FNB-${t.toUpperCase()}`,
+      remittanceMethod: "BANK_DEPOSIT",
+      privateMediaReference: proof.publicReference,
+      operationId: `aud-dep-${t}`,
+    });
+
+    // Attempt new COD assignment -> BLOCKED by DriverCashRemittanceOverdueError
+    const blockedCodOrder = await bookCodOrder("FULL_COD");
+    await prisma.order.update({ where: { id: blockedCodOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
+    await expect(
+      offerAssignment(adminUser.id, blockedCodOrder.id, { driverProfileId: driver.id, ttlSeconds: 3600 }),
+    ).rejects.toThrow(DriverCashRemittanceOverdueError);
+
+    // Attempt new paid DIGITAL_ONLY assignment to SAME driver -> ALLOWED!
+    const digitalOrder = await bookCodOrder("DIGITAL_ONLY");
+    await prisma.order.update({ where: { id: digitalOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
+    await payOrderViaVerify(digitalOrder.id);
+    const digitalOffer = await offerAssignment(adminUser.id, digitalOrder.id, { driverProfileId: driver.id, ttlSeconds: 3600 });
+    expect(digitalOffer.driverProfileId).toBe(driver.id);
+
+    // Independent finance confirmation reconciles cash -> UNBLOCKS new COD assignment!
+    await reviewDriverDeposit(superAdminUser, deposit.id, {
+      decision: "CONFIRM",
+      bankReceiptVerified: true,
+      handoverReceived: false,
+      note: "Verified on FNB statement",
+    });
+
+    const summaryCleared = await driverCashSummary(driverUser.id);
+    expect(summaryCleared.overdueRemittance.newCodAssignmentsBlocked).toBe(false);
+    expect(summaryCleared.overdueRemittance.overdueCount).toBe(0);
+
+    const unblockedOffer = await offerAssignment(adminUser.id, blockedCodOrder.id, {
+      driverProfileId: driver.id,
+      ttlSeconds: 3600,
+    });
+    expect(unblockedOffer.driverProfileId).toBe(driver.id);
+  });
+});

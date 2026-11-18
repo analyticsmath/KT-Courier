@@ -741,32 +741,73 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     };
   },
 
+  "monitor-overdue-driver-cash": async ({ mode, batchSize }) => {
+    const { scanOverdueDriverCashRemittanceBatch } = await import(
+      "@/lib/services/driver-cash-overdue-sla.service"
+    );
+    const result = await scanOverdueDriverCashRemittanceBatch({
+      mode,
+      batchSize,
+    });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsClaimed,
+      itemsCompleted: result.itemsCompleted,
+      itemsSkipped: result.itemsSkipped,
+      itemsRetried: result.itemsRetried,
+      itemsReconciled: result.itemsReconciled,
+      safeSummary: result.safeSummary,
+    };
+  },
+
+  "escalate-unassigned-courier-orders": async ({ mode, batchSize }) => {
+    const { scanUnassignedCourierOrdersBatch } = await import(
+      "@/lib/services/unassigned-order-escalation.service"
+    );
+    const result = await scanUnassignedCourierOrdersBatch({
+      mode,
+      batchSize,
+    });
+    return {
+      itemsExamined: result.itemsExamined,
+      itemsClaimed: result.itemsClaimed,
+      itemsCompleted: result.itemsCompleted,
+      itemsSkipped: result.itemsSkipped,
+      itemsRetried: result.itemsRetried,
+      itemsReconciled: result.itemsReconciled,
+      safeSummary: result.safeSummary,
+    };
+  },
+
   "deliver-notifications": async ({ mode, batchSize }) => {
     const { consumeCustomerOrderNotifications, listPendingCustomerOrderIntents } = await import("@/lib/notifications/customer-order-publication");
+    const { hasPendingAdminAlertWork, retryPendingAdminAlertDeliveries } = await import("@/lib/notifications/admin-alert-dispatch.service");
     const queuedCount = await prisma.notificationDelivery.count({ where: { status: "QUEUED" } });
     const sourceCount = (await listPendingCustomerOrderIntents(batchSize)).length;
+    const hasAdminWork = await hasPendingAdminAlertWork(prisma);
     if (mode === "DRY_RUN") {
       return {
-        itemsExamined: queuedCount + sourceCount,
+        itemsExamined: queuedCount + sourceCount + (hasAdminWork ? 1 : 0),
         itemsClaimed: 0,
         itemsCompleted: 0,
-        itemsSkipped: queuedCount + sourceCount,
+        itemsSkipped: queuedCount + sourceCount + (hasAdminWork ? 1 : 0),
         itemsRetried: 0,
         itemsReconciled: 0,
-        safeSummary: `[DRY_RUN] Evaluated ${sourceCount} eligible customer events and ${queuedCount} queued deliveries; 0 dispatched.`,
+        safeSummary: `[DRY_RUN] Evaluated ${sourceCount} eligible customer events, ${queuedCount} queued deliveries${hasAdminWork ? ", and pending admin alerts" : ""}; 0 dispatched.`,
       };
     }
     const publication = await consumeCustomerOrderNotifications(batchSize);
     const { deliverQueuedEmails } = await import("@/lib/notifications/queued-email-delivery");
     const delivery = await deliverQueuedEmails(batchSize);
+    const adminRetries = await retryPendingAdminAlertDeliveries({ limit: Math.min(batchSize, 50) });
     return {
-      itemsExamined: publication.itemsExamined + delivery.itemsExamined,
-      itemsClaimed: publication.itemsClaimed + delivery.itemsClaimed,
-      itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted,
-      itemsSkipped: publication.itemsSkipped + delivery.itemsSkipped,
-      itemsRetried: publication.itemsRetried + delivery.itemsRetried,
+      itemsExamined: publication.itemsExamined + delivery.itemsExamined + adminRetries.checked,
+      itemsClaimed: publication.itemsClaimed + delivery.itemsClaimed + adminRetries.checked,
+      itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted + adminRetries.sent,
+      itemsSkipped: publication.itemsSkipped + delivery.itemsSkipped + adminRetries.cancelledByPolicy,
+      itemsRetried: publication.itemsRetried + delivery.itemsRetried + adminRetries.failed,
       itemsReconciled: publication.itemsReconciled + delivery.itemsReconciled,
-      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${publication.itemsReconciled + delivery.itemsReconciled} require review.`,
+      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${adminRetries.sent} admin alerts sent (${adminRetries.cancelledByPolicy} cancelled by policy); ${publication.itemsReconciled + delivery.itemsReconciled} require review.`,
     };
   },
 };

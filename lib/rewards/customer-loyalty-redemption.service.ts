@@ -6,6 +6,11 @@ import { loadCustomerRewardPolicy } from "@/lib/rewards/customer-reward-configur
 import { loyaltyWalletConversion } from "@/lib/rewards/customer-reward-policy";
 import { ensureWalletForOwnerInTx, ensureLedgerAccountInTx } from "@/lib/services/wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import {
+  emitAdminAlertNonBlocking,
+  recordAdminAlertIntentInTx,
+  type AdminAlertEventInput,
+} from "@/lib/notifications/admin-alert-dispatch.service";
 
 export class CustomerLoyaltyRedemptionError extends Error {
   constructor(
@@ -43,7 +48,9 @@ export async function redeemCustomerLoyaltyPoints(input: Readonly<{
   }
   if (!input.userId.trim()) throw new CustomerLoyaltyRedemptionError("INELIGIBLE", "An active customer is required.");
 
-  return withLedgerRetry(() => prisma.$transaction(async tx => {
+  let pendingAlert: AdminAlertEventInput | null = null;
+  const result = await withLedgerRetry(() => prisma.$transaction(async tx => {
+    pendingAlert = null;
     const locked = await tx.$queryRaw<Array<{ id: string }>>(
       Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${input.userId} FOR UPDATE`,
     );
@@ -129,6 +136,22 @@ export async function redeemCustomerLoyaltyPoints(input: Readonly<{
         journalId: journal.id,
       },
     });
+    pendingAlert = {
+      eventType: "LOYALTY_ADJUSTED",
+      aggregateReference: `loyalty-redeem:${receipt.id}`,
+      adminPath: "/admin/users",
+      title: `Loyalty converted to wallet (-${requested.toString()} pts → R${conversion.walletCreditZar})`,
+      summary: `Customer converted ${requested.toString()} loyalty points into R${conversion.walletCreditZar} nonwithdrawable wallet credit.`,
+      metadata: {
+        redemptionId: receipt.id,
+        customerUserId: input.userId,
+        pointsRedeemed: requested.toString(),
+        walletCreditZar: conversion.walletCreditZar,
+        journalId: journal.id,
+        source: "LOYALTY_WALLET_CONVERSION",
+      },
+    };
+    await recordAdminAlertIntentInTx(tx, pendingAlert);
     return {
       status: "REDEEMED" as const, redemptionId: receipt.id,
       pointsRedeemed: requested.toString(),
@@ -137,4 +160,8 @@ export async function redeemCustomerLoyaltyPoints(input: Readonly<{
       journalId: journal.id,
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 15_000 }));
+  if (pendingAlert && result.status === "REDEEMED") {
+    void emitAdminAlertNonBlocking(pendingAlert);
+  }
+  return result;
 }

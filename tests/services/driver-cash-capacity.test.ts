@@ -6,7 +6,7 @@ function fixture(options: { held?: string; amount?: string; prior?: string; limi
   const cod = options.hasCod === false ? null : { cashObligation: new Prisma.Decimal(options.amount ?? "125.00"), cashCollected: new Prisma.Decimal(0), status: "READY_FOR_COLLECTION" };
   const tx = {
     $queryRaw: vi.fn().mockResolvedValue([{ id: "driver" }]),
-    cashOnDelivery: { findUnique: vi.fn().mockResolvedValue(cod) },
+    cashOnDelivery: { findUnique: vi.fn().mockResolvedValue(cod), findMany: vi.fn().mockResolvedValue([]) },
     driverProfile: { findUnique: vi.fn().mockResolvedValue({ cashLimitAmount: new Prisma.Decimal(options.limit ?? "1000.00") }) },
     ledgerAccount: { aggregate: vi.fn().mockResolvedValue({ _sum: { currentBalance: new Prisma.Decimal(options.held ?? "0") } }) },
     orderAssignment: { findMany: vi.fn().mockResolvedValue(options.prior ? [{ order: { cashOnDelivery: { cashObligation: new Prisma.Decimal(options.prior), cashCollected: new Prisma.Decimal(0), status: "READY_FOR_COLLECTION" } } }] : []) },

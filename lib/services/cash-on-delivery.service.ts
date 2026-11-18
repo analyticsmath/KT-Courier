@@ -1,5 +1,6 @@
 import { isHighRiskCashPolicyEvidence } from "@/lib/settings/high-risk-region-policy";
 import { assertDriverCashCapacityForCollection } from "@/lib/services/driver-cash-capacity.service";
+import { computeDriverCashRemittanceDueAt } from "@/lib/services/driver-cash-overdue-policy";
 import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -101,7 +102,8 @@ async function verifiedWalletDepositContribution(
   if (
     !journal || journal.currency !== "ZAR" ||
     journal.idempotencyKey !== `wallet-consume:paystack:wallet-consume:${payment.publicReference}` ||
-    journal.sourceReference !== `WALLET_CONSUME:${payment.publicReference}` ||
+    typeof journal.sourceReference !== "string" ||
+    journal.sourceReference.toUpperCase() !== `WALLET_CONSUME:${payment.publicReference}`.toUpperCase() ||
     !journal.totalDebits.equals(amount) || !journal.totalCredits.equals(amount) ||
     journal.reversalOfJournalId || journal.reversalJournal ||
     evidence.category !== "WALLET_SPEND_CONSUMPTION" ||
@@ -220,7 +222,9 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
     await assertDriverCashCapacityForCollection(tx, input.collectorDriverId, input.orderId, amount);
     const accounts = await custodyAccounts(input.collectorDriverId, tx);
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
-    return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt: new Date(), collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });
+    const collectedAt = new Date();
+    const remittanceDueAt = computeDriverCashRemittanceDueAt(collectedAt);
+    return tx.cashOnDelivery.update({ where: { id: cod.id }, data: { cashCollected: { increment: amount }, status: "COLLECTED", collectorDriverId: input.collectorDriverId, collectedAt, remittanceDueAt, collectionOperationId: input.operationId, collectionRequestHash: requestHash, collectionJournalId: journal.id, version: { increment: 1 }, events: { create: { operationId: `collection:${input.operationId}`, requestHash, eventType: "COLLECTED", actorUserId: input.actorUserId } } } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   try {
     return await withLedgerRetry(run);

@@ -22,7 +22,16 @@ export const ADMIN_ALERT_EVENT_TYPES = [
   "DRIVER_CASH_DEPOSIT_SUBMITTED",
   "COD_REMITTANCE_RECONCILED",
   "COD_RECONCILIATION_DISCREPANCY",
+  "DRIVER_CASH_REMITTANCE_OVERDUE",
   "WITHDRAWAL_REQUESTED",
+  "REFUND_REQUESTED",
+  "REFUND_COMPLETED",
+  "WALLET_CREDIT_ISSUED",
+  "LOYALTY_ADJUSTED",
+  "REFERRAL_REWARD_AWARDED",
+  "COUPON_PROMOTION_REDEEMED",
+  "UNASSIGNED_ORDER_ESCALATED",
+  "FINANCE_ANOMALY_ALERT",
 ] as const;
 
 export type AdminAlertEventType = (typeof ADMIN_ALERT_EVENT_TYPES)[number];
@@ -170,7 +179,16 @@ export const ADMIN_ALERT_EVENT_ADMIN_LINKS: Readonly<Record<AdminAlertEventType,
   DRIVER_CASH_DEPOSIT_SUBMITTED: "/admin/cash-deposits",
   COD_REMITTANCE_RECONCILED: "/admin/cash-deposits",
   COD_RECONCILIATION_DISCREPANCY: "/admin/cash-deposits",
+  DRIVER_CASH_REMITTANCE_OVERDUE: "/admin/cash-deposits",
   WITHDRAWAL_REQUESTED: "/admin/withdrawals",
+  REFUND_REQUESTED: "/admin/refunds",
+  REFUND_COMPLETED: "/admin/refunds",
+  WALLET_CREDIT_ISSUED: "/admin/users",
+  LOYALTY_ADJUSTED: "/admin/users",
+  REFERRAL_REWARD_AWARDED: "/admin/finance",
+  COUPON_PROMOTION_REDEEMED: "/admin/promotions",
+  UNASSIGNED_ORDER_ESCALATED: "/admin/dispatch",
+  FINANCE_ANOMALY_ALERT: "/admin/reconciliation",
 };
 
 export const ADMIN_ALERT_EVENT_LABELS: Readonly<Record<AdminAlertEventType, string>> = {
@@ -197,7 +215,16 @@ export const ADMIN_ALERT_EVENT_LABELS: Readonly<Record<AdminAlertEventType, stri
   DRIVER_CASH_DEPOSIT_SUBMITTED: "Driver cash deposit submitted",
   COD_REMITTANCE_RECONCILED: "COD bank remittance reconciled",
   COD_RECONCILIATION_DISCREPANCY: "COD cash discrepancy / exception",
+  DRIVER_CASH_REMITTANCE_OVERDUE: "Overdue driver cash remittance",
   WITHDRAWAL_REQUESTED: "Withdrawal requested",
+  REFUND_REQUESTED: "Refund requested",
+  REFUND_COMPLETED: "Refund completed",
+  WALLET_CREDIT_ISSUED: "Customer wallet credit issued",
+  LOYALTY_ADJUSTED: "Loyalty points adjusted or redeemed",
+  REFERRAL_REWARD_AWARDED: "Referral reward awarded",
+  COUPON_PROMOTION_REDEEMED: "Coupon or promotion redeemed",
+  UNASSIGNED_ORDER_ESCALATED: "Unassigned parcel escalation",
+  FINANCE_ANOMALY_ALERT: "Finance or reconciliation anomaly",
 };
 
 export function getAdminAlertAdminPath(eventType: AdminAlertEventType): string {

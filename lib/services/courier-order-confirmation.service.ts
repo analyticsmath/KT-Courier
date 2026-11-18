@@ -7,6 +7,7 @@ import {
   appendCourierPaymentConfirmedInTx,
 } from "@/lib/services/notification-events.service";
 import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
+import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
 
 /**
  * Called only after the provider's signed payment and exact amount have been
@@ -54,25 +55,55 @@ export async function confirmVerifiedCourierOrderWithinTransaction(
   });
 
   if (order.orderNumber) {
+    const split = await describeCourierOrderPaymentSplitFromDb(
+      tx,
+      payment.orderId,
+      payment.publicReference,
+    ).catch(() => null);
     await appendCourierPaymentConfirmedInTx(tx, {
       id: payment.orderId,
       orderNumber: order.orderNumber,
       paymentReference: payment.publicReference,
+      ...(split
+        ? {
+            paymentMode: split.mode,
+            depositPaidZar: split.depositPaidZar,
+            cashDueZar: split.cashDueZar,
+            walletPaidZar: split.walletPaidZar,
+            providerPaidZar: split.providerPaidZar,
+          }
+        : {}),
     });
     await appendCourierOrderAcceptedInTx(tx, {
       id: payment.orderId,
       orderNumber: order.orderNumber,
+      ...(split
+        ? {
+            paymentMode: split.mode,
+            depositPaidZar: split.depositPaidZar,
+            cashDueZar: split.cashDueZar,
+          }
+        : {}),
     });
     await recordAdminAlertIntentInTx(tx, {
       eventType: "PARCEL_ORDER_ACCEPTED",
       aggregateReference: `parcel-accepted:${payment.orderId}`,
       title: `Parcel automatically accepted (${order.orderNumber})`,
-      summary: `Payment ${payment.publicReference} verified in ledger; parcel moved to CONFIRMED.`,
+      summary:
+        split?.adminAcceptedSummary ??
+        `Payment ${payment.publicReference} verified in ledger; parcel moved to CONFIRMED.`,
       adminPath: `/admin/orders/${payment.orderId}`,
       relatedOrderId: payment.orderId,
       metadata: {
         orderNumber: order.orderNumber,
         paymentReference: payment.publicReference,
+        ...(split
+          ? {
+              paymentMode: split.mode,
+              depositPaidZar: split.depositPaidZar,
+              cashDueZar: split.cashDueZar,
+            }
+          : {}),
       },
     });
   }
