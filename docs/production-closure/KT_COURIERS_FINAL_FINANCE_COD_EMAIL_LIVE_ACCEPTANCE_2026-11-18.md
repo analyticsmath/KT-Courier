@@ -4,6 +4,7 @@
 **Repository:** [`analyticsmath/KT-Courier`](https://github.com/analyticsmath/KT-Courier)  
 **Branch:** `main` (fast-forward only)  
 **Audited Baseline SHA:** `313be5e73dd8d6b34362df19e96851dcedb8f906`  
+**Final Verified Production Main SHA:** `0a0f3ea9bbbb019c737bdd40edff71862e2d7a83`  
 **Deployed Production Migration Added:** `20261118020000_driver_cash_remittance_due_at` (`129` total active migrations: `1` baseline + `128` incremental)  
 
 > [!IMPORTANT]
@@ -110,16 +111,24 @@ This targeted closure closes the four independent audit gaps identified on basel
 | Strict BOLA PostgreSQL Matrix | `npm run test:integration:bola-authority` | **Passed** (`1 / 1` file, `10 / 10` tests) |
 | Historical 62->129 Migration Proof | `npm run test:integration:migration-upgrade` | **Passed** (`62` historical + `67` forward = `129` migrations) |
 | Disaster Recovery Drill | `npm run recovery:drill` | **Passed** (`dumpRestore: PASS`, `historicalUpgrade: PASS`, `fixtureCountsAndHashes: MATCH`, `ledgerInvariants: PASS`) |
-| Local `tsc --noEmit` / `npm run build` | Exceeded 7.7 GB Windows host virtual commit cap alongside Docker VM | Deferred to GitHub Actions `CI` (`quality`) and `Engineering Certification` (`quality` + `browser`) on push |
+| Remote CI Verification (`0a0f3ea9`) | `gh run view 44410720083` | **Passed** (`10 / 10` executed jobs passed, incl. `quality` [typecheck + `next build`], `container-build`, `docker-runtime`, `cross-module`, `ledger`, `dispatch`, `pricing`, `migration-smoke`) |
+| Remote Engineering Certification (`0a0f3ea9`) | `gh run view 44410719876` | **Passed** (`26 / 26` executed jobs passed, incl. `quality`, `browser` [38m22s Playwright matrix], `recovery`, `redis-and-recovery`, and all `20 / 20` PostgreSQL isolation suites) |
 
 ---
 
 ## 5. Live Infrastructure Observations & Operator Checklist (`OWNER_ACTION_REQUIRED`)
 
-- **Live Production Probes Prior to Push (`LIVE_OBSERVED`):**
-  - `GET https://www.ktcouriers.com/api/health` -> `200 OK` (`{"status":"ok","service":"kt-couriers",...}`)
-  - `GET https://www.ktcouriers.com/api/ready` -> `200 OK` (`{"status":"ready","database":"reachable","redis":{"configured":true,"connected":true,"status":"HEALTHY"}}`)
-  - Railway project `KT Courier Production` (`e9554aaa-1b53-4595-8731-e8c2885ac594`) environment `production`: `web`, `operations`, `query-storefront-categories`, `Postgres`, and `Redis` online with zero runtime failures; `RESEND_WEBHOOK_SECRET` not yet defined in Railway `web` variables.
+- **Live Production Deployments Verified on Final SHA `0a0f3ea9bbbb019c737bdd40edff71862e2d7a83` (`LIVE_OBSERVED`):**
+  - **Vercel Production Deployment:** `READY` (Deployment ID `4uHfg3YgbS7QRhEmJLZAUDmrxkZW`, Status `success`) serving `ktcouriers.com` and `www.ktcouriers.com`.
+  - **Railway Service `web` (`55254aaf-3719-4da9-a5b6-9214417101c6`):** `SUCCESS` / Online (Deployment ID `46df5f66-13f8-4c1c-816f-2cec1c52226d`) serving `web-production-9f8bb.up.railway.app`. Migration `20261118020000_driver_cash_remittance_due_at` applied and verified.
+  - **Railway Service `operations` (`9a65e5a8-9327-43bc-a1ab-c50e9a5b4f1a`):** `SUCCESS` / Online (Deployment ID `e6be82e8-9865-4a77-85e7-9b891ca276b9`) running production loop with 32 registered processors.
+  - **Railway Service `query-storefront-categories` (`fdd13e91-dffa-400e-9a44-ae2d1f891ff0`):** `SUCCESS` / Online (Deployment ID `981bcb13-5c82-43fd-85cd-9d9e0a8d06a5`).
+  - **Railway Database & Cache:** PostgreSQL and Redis instances Online, healthy, reachable.
+  - **Live HTTP Health Probes:**
+    - `curl.exe -s -i https://www.ktcouriers.com/api/health` -> HTTP `200 OK` (`{"status":"ok","service":"kt-couriers","timestamp":"..."}`)
+    - `curl.exe -s -i https://www.ktcouriers.com/api/ready` -> HTTP `200 OK` (`{"status":"ready","database":"reachable","redis":{"configured":true,"connected":true,"status":"HEALTHY"}}`)
+    - `curl.exe -s -i https://web-production-9f8bb.up.railway.app/api/health` -> HTTP `200 OK`
+    - `curl.exe -s -i https://web-production-9f8bb.up.railway.app/api/ready` -> HTTP `200 OK`
 - **Required Owner / SuperAdmin Activation Steps (`OWNER_ACTION_REQUIRED`):**
   1. **Register Resend Webhook & Secret:** In Resend Webhooks, add endpoint `https://www.ktcouriers.com/api/webhooks/resend` subscribing to `email.sent`, `email.delivered`, `email.delivery_delayed`, `email.bounced`, and `email.complained`, then set `RESEND_WEBHOOK_SECRET` on the Railway `web` production service.
   2. **Review Admin/SuperAdmin Recipient Subscriptions (`/admin/notifications/alerts`):** Verify real verified Admin/SuperAdmin email addresses are subscribed across the expanded `33` event types (including `REFUND_REQUESTED`, `REFUND_COMPLETED`, `WALLET_CREDIT_ISSUED`, `LOYALTY_ADJUSTED`, `REFERRAL_REWARD_AWARDED`, `COUPON_PROMOTION_REDEEMED`, `UNASSIGNED_ORDER_ESCALATED`, `DRIVER_CASH_REMITTANCE_OVERDUE`, and `FINANCE_ANOMALY_ALERT`) and that any retired/suspended admins are removed cleanly.
