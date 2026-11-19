@@ -155,7 +155,7 @@ export function isStoreOnboardingOwnerOfferPrepared(
       ["PENDING", "UNDER_REVIEW"].includes(offer.productModerationStatus)) ||
       (["APPROVED", "ACTIVE"].includes(offer.productStatus) &&
         offer.productModerationStatus === "APPROVED"));
-  const offerSubmitted = ["SUBMITTED", "ACTIVE"].includes(offer.offerStatus);
+  const offerSubmitted = offer.offerStatus === "SUBMITTED";
   const requiredQuantity = Math.max(1, Math.ceil(offer.minimumQuantity));
   const stockCanFulfil =
     offer.hasInventoryItem &&
@@ -823,7 +823,7 @@ export async function getStoreOnboardingByStoreId(
         variant: { select: { status: true } },
         priceVersions: {
           where: {
-            status: { in: ["DRAFT", "ACTIVE"] },
+            status: "DRAFT",
             currency: "ZAR",
             amount: { gt: 0 },
             effectiveFrom: { lte: now },
