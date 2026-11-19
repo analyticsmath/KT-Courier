@@ -74,8 +74,8 @@ function cleanHostBuildEnvironment() {
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",
     KT_NEXT_BUILD_CPUS: "1",
-    KT_NEXT_BUILD_HEAP_MB: "4096",
-    NODE_OPTIONS: "--max-old-space-size=4096",
+    KT_NEXT_BUILD_HEAP_MB: "3500",
+    NODE_OPTIONS: "--max-old-space-size=3500 --max-semi-space-size=16",
     NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     KT_E2E_GEOCODE_FIXTURES: JSON.stringify({
       "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 },
