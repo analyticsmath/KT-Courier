@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { getRepeatDeliveryPrefill } from "@/lib/services/orders.service";
 import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
 import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
 
 export const metadata: Metadata = { title: "New store delivery" };
 
@@ -19,7 +20,7 @@ export default async function StoreNewDeliveryPage({
   searchParams: Promise<{ repeatFrom?: string; storeId?: string }>;
 }) {
   const { repeatFrom, storeId } = await searchParams;
-  await requireBusinessPage("/store/new-delivery", storeId);
+  const access = await requireBusinessPage("/store/new-delivery", storeId);
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const [pickupState, repeatPrefill] = await Promise.all([
@@ -81,9 +82,11 @@ export default async function StoreNewDeliveryPage({
         <section role="alert" className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm text-[var(--kt-ink-navy)]">
           <h2 className="font-semibold">Verify your store collection address to request a delivery</h2>
           <p>Delivery quotations must collect from the store’s saved, mapped pickup location. Confirm the street, suburb, four-digit postcode and map pin in your store profile first. Your store account and existing orders remain unchanged.</p>
-          <Link href="/store/profile#pickup-address" className="inline-flex rounded-lg border border-[var(--kt-border-strong)] bg-white px-4 py-2 font-semibold underline">
-            Configure verified store pickup
-          </Link>
+          {access.owner || membershipAllows(access.permissions, "settings") ? (
+            <Link href={`/store/pickup-address?storeId=${encodeURIComponent(access.store.id)}`} className="inline-flex rounded-lg border border-[var(--kt-border-strong)] bg-white px-4 py-2 font-semibold underline">
+              Configure verified store pickup
+            </Link>
+          ) : <p>Ask the store owner or an employee with settings access to update the collection address.</p>}
         </section>
       ) : (
         <PublicDeliveryQuoteForm

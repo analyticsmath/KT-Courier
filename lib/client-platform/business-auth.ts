@@ -4,13 +4,13 @@ import { storeAccess } from "./store-access";
 import { membershipAllows, moduleForStorePath } from "./store-permissions";
 import { json, failure } from "./api";
 import { PlatformError } from "./contracts";
-export async function requireBusinessApi(path: string) {
+export async function requireBusinessApi(path: string, explicitStoreId?: string | null) {
   const user = await getCurrentUser();
   if (!user) return json({ error: "Authentication required." }, 401);
   if (user.status !== "ACTIVE" || !["CUSTOMER", "STORE"].includes(user.role))
     return json({ error: "An active business account is required." }, 403);
   try {
-    const a = await storeAccess(user.id);
+    const a = await storeAccess(user.id, undefined, explicitStoreId);
     if (!a.owner && !membershipAllows(a.permissions, moduleForStorePath(path)))
       throw new PlatformError(
         "STORE_ACCESS_DENIED",

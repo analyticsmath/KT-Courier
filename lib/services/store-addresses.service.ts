@@ -150,8 +150,9 @@ export function hasStorePickupLocationChanged(
 export async function upsertStorePickupAddress(
   userId: string,
   input: StorePickupAddressInput,
+  explicitStoreId?: string | null,
 ): Promise<SavedAddressDto | null> {
-  const store = (await storeAccess(userId, "settings")).store;
+  const store = (await storeAccess(userId, "settings", explicitStoreId)).store;
 
   if (!store) return null;
 
