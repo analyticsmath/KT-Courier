@@ -59,6 +59,8 @@ describe("store courier pickup and explicit suburb compatibility", () => {
     expect(() => assertStoreParcelPickupMatches({ ...pickup, line2: "Johannesburg Central", suburb: undefined }, legacy)).not.toThrow();
     const previous = { ...legacy, id: "pickup1", latitude: new Prisma.Decimal(pickup.latitude), longitude: new Prisma.Decimal(pickup.longitude) };
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Johannesburg Central" })).toBe(false);
+    expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: null, suburb: "Johannesburg Central" })).toBe(false);
+    expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Unit 4", suburb: "Johannesburg Central" })).toBe(true);
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Johannesburg Central", suburb: "Rosebank" })).toBe(true);
   });
 });

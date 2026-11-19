@@ -70,7 +70,9 @@ const approvedCheckoutEvidence = Prisma.sql`
     WHERE pickup."id" = cert."pickupAddressId"
       AND pickup."storeId" = store."id"
       AND pickup."type" = 'PICKUP'
-      AND pickup."id" = COALESCE(store."defaultPickupAddressId", pickup."id")
+      -- The certificate binds a verified, store-owned PICKUP by exact ID and
+      -- fingerprint. A stale legacy default pointer cannot invalidate a
+      -- separately certified complete saved pickup (see selectStorePickupCandidate).
       AND BTRIM(COALESCE(pickup."line1", '')) <> ''
       AND BTRIM(COALESCE(NULLIF(BTRIM(pickup."suburb"), ''), pickup."line2", '')) <> ''
       AND BTRIM(COALESCE(pickup."city", '')) <> ''
