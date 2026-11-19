@@ -73,6 +73,7 @@ function createAddressData(storeId: string, input: StorePickupAddressInput) {
     contactPhone: input.contactPhone ?? null,
     line1: input.line1,
     line2: input.line2 ?? null,
+    suburb: input.suburb ?? null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -94,6 +95,7 @@ function updateAddressData(input: StorePickupAddressInput) {
     contactPhone: input.contactPhone ?? null,
     line1: input.line1,
     line2: input.line2 ?? null,
+    suburb: input.suburb ?? null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -124,7 +126,7 @@ function storeAddressData(input: StorePickupAddressInput) {
  * Changing only contact instructions must not unnecessarily delist a store.
  */
 export function hasStorePickupLocationChanged(
-  previous: Pick<Address, "line1" | "line2" | "city" | "province" | "postalCode" | "country" | "placeId" | "latitude" | "longitude"> | null,
+  previous: Pick<Address, "line1" | "line2" | "suburb" | "city" | "province" | "postalCode" | "country" | "placeId" | "latitude" | "longitude"> | null,
   next: StorePickupAddressInput,
 ): boolean {
   if (!previous) return true;
@@ -132,6 +134,9 @@ export function hasStorePickupLocationChanged(
   for (const field of ["line1", "line2", "city", "province", "postalCode", "country", "placeId"] as const) {
     if (normalized(previous[field]) !== normalized(next[field] ?? (field === "country" ? "South Africa" : ""))) return true;
   }
+  // Legacy pickup records held the suburb in line2. Migrating that unchanged
+  // location to the explicit suburb field must not revoke a live certificate.
+  if (normalized(previous.suburb ?? previous.line2) !== normalized(next.suburb ?? next.line2)) return true;
   return Number(previous.latitude) !== next.latitude || Number(previous.longitude) !== next.longitude;
 }
 

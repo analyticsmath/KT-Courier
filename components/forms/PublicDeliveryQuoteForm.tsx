@@ -121,7 +121,7 @@ export function PublicDeliveryQuoteForm({
   const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [pickup, setPickup] = useState<Address>(
-    prefill?.pickupAddress ?? defaultPickup ?? {},
+    business ? defaultPickup ?? {} : prefill?.pickupAddress ?? defaultPickup ?? {},
   );
   const [dropoff, setDropoff] = useState<Address>(
     prefill?.dropoffAddress ?? {},
@@ -178,20 +178,27 @@ export function PublicDeliveryQuoteForm({
     return () => { live = false; };
   }, [reference, catalogRevision, bookingOnly]);
   const address = (f: FormData, p: string, selected: Address) => {
-    const suburb = String(f.get(`${p}-suburb`) ?? selected.suburb ?? "").trim();
+    // Store quotes must use the server-supplied saved pickup, never an
+    // editable address or a pickup copied from a previous delivery.
+    const source = business && p === "pickup" ? defaultPickup ?? {} : selected;
+    const read = (field: "line1" | "city" | "province" | "postalCode") =>
+      business && p === "pickup"
+        ? String(source[field] ?? "")
+        : String(f.get(`${p}-${field}`) ?? "");
+    const suburb = business && p === "pickup"
+      ? String(source.suburb ?? source.line2 ?? "").trim()
+      : String(f.get(`${p}-suburb`) ?? selected.suburb ?? "").trim();
     return {
-      line1: String(f.get(`${p}-line1`)),
-      ...(selected.line2 ? { line2: selected.line2 } : {}),
+      line1: read("line1"),
+      ...(source.line2 ? { line2: source.line2 } : {}),
       ...(suburb ? { suburb } : {}),
-      city: String(f.get(`${p}-city`)),
-      province: String(f.get(`${p}-province`)),
-      ...(f.get(`${p}-postalCode`)
-        ? { postalCode: String(f.get(`${p}-postalCode`)) }
-        : {}),
-      // Google Places confirms this selection on the client; the server
-      // resolves the Place ID independently. Never price from browser lat/lng.
-      ...(selected.placeId && typeof selected.latitude === "number" && typeof selected.longitude === "number"
-        ? { placeId: selected.placeId, latitude: selected.latitude, longitude: selected.longitude }
+      city: read("city"),
+      province: read("province"),
+      ...(read("postalCode") ? { postalCode: read("postalCode") } : {}),
+      // The server re-resolves the selected Place ID independently.
+      // Coordinates received from the browser never establish authority.
+      ...(source.placeId && typeof source.latitude === "number" && typeof source.longitude === "number"
+        ? { placeId: source.placeId, latitude: source.latitude, longitude: source.longitude }
         : {}),
     };
   };
@@ -234,6 +241,19 @@ export function PublicDeliveryQuoteForm({
     value: Address,
     setValue: (v: Address) => void,
   ) {
+    if (business && prefix === "pickup") {
+      return (
+        <fieldset className="space-y-4" data-testid="store-verified-pickup">
+          <legend className="mb-4 font-semibold">{title}</legend>
+          <div className="rounded-xl border border-[var(--kt-border-strong)] bg-white p-4 text-sm">
+            <p className="font-semibold">Saved, verified store collection address</p>
+            <p className="mt-2">{[value.line1, value.suburb ?? value.line2, value.city, value.province, value.postalCode].filter(Boolean).join(", ")}</p>
+            <p className="mt-2">For security, this address is fixed for the quotation. Update your store profile to change the collection location. A location change may require checkout recertification.</p>
+            <Link href="/store/profile#pickup-address" className="mt-2 inline-block font-semibold underline">Manage store pickup</Link>
+          </div>
+        </fieldset>
+      );
+    }
     return (
       <fieldset className="space-y-4">
         <legend className="mb-4 font-semibold">{title}</legend>
@@ -329,7 +349,7 @@ export function PublicDeliveryQuoteForm({
           Get a new delivery quote
         </Link>
       )}
-      {error && (
+      {bookingOnly && error && (
         <div className="space-y-2" aria-live="polite">
           <p role="alert">{error}</p>
           {errorCode === "ADDRESS_UNRESOLVED" && (
@@ -435,6 +455,19 @@ export function PublicDeliveryQuoteForm({
         >
           Calculate delivery price
         </Button>
+        {error && (
+          <div id="quote-error" role="alert" aria-live="assertive" className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+            <p className="font-semibold">Delivery quotation could not be completed</p>
+            <p>{error}</p>
+            {(errorCode === "STORE_PICKUP_CHANGED" || errorCode === "STORE_PICKUP_NOT_CONFIGURED") && business && (
+              <p>Store collection addresses must be verified separately. <Link href="/store/profile#pickup-address" className="font-semibold underline">Confirm your saved store pickup</Link> and then request another quote.</p>
+            )}
+            {(errorCode === "COVERAGE_UNAVAILABLE" || errorCode === "COVERAGE_DISTANCE_EXCEEDED") && (
+              <p>Only active delivery areas and supported routes can be quoted. <Link href="/coverage-areas" className="underline">Check delivery coverage</Link> or contact operations.</p>
+            )}
+            {errorCode === "ADDRESS_UNRESOLVED" && <p>Select a precise destination street and map pin before retrying.</p>}
+          </div>
+        )}
       </form>}
       {quote && (
         <section className={bookingOnly

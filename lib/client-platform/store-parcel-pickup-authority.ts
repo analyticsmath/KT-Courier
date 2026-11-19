@@ -1,7 +1,7 @@
 import { PlatformError } from "./contracts";
 import { completeStorePickupAddress, type StorePickupAddressCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 
-type QuotePickup = Readonly<{ line1?: string | null; line2?: string | null; city?: string | null; province?: string | null; postalCode?: string | null; placeId?: string | null }>;
+type QuotePickup = Readonly<{ line1?: string | null; line2?: string | null; suburb?: string | null; city?: string | null; province?: string | null; postalCode?: string | null; placeId?: string | null }>;
 
 /** A merchant outbound parcel must collect at its saved, mapped, store-owned
  * collection location, resolved by getStorePickupAddressForStore(storeId).
@@ -24,6 +24,7 @@ export function assertStoreParcelPickupMatches(
     requested.placeId !== saved.placeId ||
     normalized(requested.line1) !== normalized(saved.line1) ||
     normalized(requested.line2) !== normalized(saved.line2) ||
+    normalized(requested.suburb ?? requested.line2) !== normalized(saved.suburb ?? saved.line2) ||
     normalized(requested.city) !== normalized(saved.city) ||
     normalized(requested.province) !== normalized(saved.province) ||
     normalized(requested.postalCode) !== normalized(saved.postalCode)

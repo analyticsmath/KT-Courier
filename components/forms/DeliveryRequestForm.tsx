@@ -51,6 +51,7 @@ export interface DefaultPickupAddress {
   contactPhone?: string;
   line1?: string;
   line2?: string | null;
+  suburb?: string | null;
   city?: string;
   province?: string | null;
   postalCode?: string | null;
