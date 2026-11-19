@@ -180,7 +180,7 @@ export function PublicDeliveryQuoteForm({
   const address = (f: FormData, p: string, selected: Address) => {
     // Store quotes must use the server-supplied saved pickup, never an
     // editable address or a pickup copied from a previous delivery.
-    const source = business && p === "pickup" ? defaultPickup ?? {} : selected;
+    const source: Address = business && p === "pickup" ? defaultPickup ?? {} : selected;
     const read = (field: "line1" | "city" | "province" | "postalCode") =>
       business && p === "pickup"
         ? String(source[field] ?? "")
@@ -246,7 +246,7 @@ export function PublicDeliveryQuoteForm({
         <fieldset className="space-y-4" data-testid="store-verified-pickup">
           <legend className="mb-4 font-semibold">{title}</legend>
           <div className="rounded-xl border border-[var(--kt-border-strong)] bg-white p-4 text-sm">
-            <p className="font-semibold">Saved, verified store collection address</p>
+            <p className="font-semibold">Saved, mapped store collection address</p>
             <p className="mt-2">{[value.line1, value.suburb ?? value.line2, value.city, value.province, value.postalCode].filter(Boolean).join(", ")}</p>
             <p className="mt-2">For security, this address is fixed for the quotation. Update your store profile to change the collection location. A location change may require checkout recertification.</p>
             <Link href="/store/profile#pickup-address" className="mt-2 inline-block font-semibold underline">Manage store pickup</Link>

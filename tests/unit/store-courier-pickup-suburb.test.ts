@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Prisma } from "@prisma/client";
 import { StorePickupAddressSchema } from "@/lib/validation/address-book";
 import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
@@ -37,7 +38,7 @@ describe("store courier pickup and explicit suburb compatibility", () => {
     const legacy = { ...pickup, suburb: null, line2: "Johannesburg Central", type: "PICKUP" };
     expect(completeStorePickupAddress(legacy)).toBe(true);
     expect(() => assertStoreParcelPickupMatches({ ...pickup, line2: "Johannesburg Central", suburb: undefined }, legacy)).not.toThrow();
-    const previous = { ...legacy, id: "pickup1" };
+    const previous = { ...legacy, id: "pickup1", latitude: new Prisma.Decimal(pickup.latitude), longitude: new Prisma.Decimal(pickup.longitude) };
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Johannesburg Central" })).toBe(false);
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Johannesburg Central", suburb: "Rosebank" })).toBe(true);
   });
