@@ -72,7 +72,7 @@ const approvedCheckoutEvidence = Prisma.sql`
       AND pickup."type" = 'PICKUP'
       AND pickup."id" = COALESCE(store."defaultPickupAddressId", pickup."id")
       AND BTRIM(COALESCE(pickup."line1", '')) <> ''
-      AND BTRIM(COALESCE(pickup."line2", '')) <> ''
+      AND BTRIM(COALESCE(NULLIF(BTRIM(pickup."suburb"), ''), pickup."line2", '')) <> ''
       AND BTRIM(COALESCE(pickup."city", '')) <> ''
       AND BTRIM(COALESCE(pickup."province", '')) <> ''
       AND BTRIM(COALESCE(pickup."postalCode", '')) <> ''
@@ -88,7 +88,7 @@ const approvedCheckoutEvidence = Prisma.sql`
               '{"storeId":', to_json(pickup."storeId")::text,
               ',"addressId":', to_json(pickup."id")::text,
               ',"street":', to_json(lower(regexp_replace(btrim(coalesce(pickup."line1", '')), '[[:space:]]+', ' ', 'g')))::text,
-              ',"suburb":', to_json(lower(regexp_replace(btrim(coalesce(pickup."line2", '')), '[[:space:]]+', ' ', 'g')))::text,
+              ',"suburb":', to_json(lower(regexp_replace(btrim(coalesce(NULLIF(btrim(pickup."suburb"), ''), pickup."line2", '')), '[[:space:]]+', ' ', 'g')))::text,
               ',"city":', to_json(lower(regexp_replace(btrim(coalesce(pickup."city", '')), '[[:space:]]+', ' ', 'g')))::text,
               ',"province":', to_json(lower(regexp_replace(btrim(coalesce(pickup."province", '')), '[[:space:]]+', ' ', 'g')))::text,
               ',"postcode":', to_json(lower(regexp_replace(btrim(coalesce(pickup."postalCode", '')), '[[:space:]]+', ' ', 'g')))::text,

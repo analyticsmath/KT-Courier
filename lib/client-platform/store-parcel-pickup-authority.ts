@@ -24,7 +24,7 @@ export function assertStoreParcelPickupMatches(
     requested.placeId !== saved.placeId ||
     normalized(requested.line1) !== normalized(saved.line1) ||
     normalized(requested.line2) !== normalized(saved.line2) ||
-    normalized(requested.suburb ?? requested.line2) !== normalized(saved.suburb ?? saved.line2) ||
+    normalized(requested.suburb?.trim() || requested.line2) !== normalized(saved.suburb?.trim() || saved.line2) ||
     normalized(requested.city) !== normalized(saved.city) ||
     normalized(requested.province) !== normalized(saved.province) ||
     normalized(requested.postalCode) !== normalized(saved.postalCode)

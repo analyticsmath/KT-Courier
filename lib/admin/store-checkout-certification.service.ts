@@ -90,7 +90,7 @@ export function pickupCertificationFingerprint(pickup: StorePickupAddressCandida
   }
   return createHash("sha256").update(JSON.stringify({
     storeId: pickup.storeId, addressId: pickup.id,
-    street: normalize(pickup.line1), suburb: normalize(pickup.line2),
+    street: normalize(pickup.line1), suburb: normalize(pickup.suburb?.trim() || pickup.line2),
     city: normalize(pickup.city), province: normalize(pickup.province),
     postcode: normalize(pickup.postalCode), country: normalize(pickup.country),
     lat: lat.toFixed(7), lng: lng.toFixed(7), placeId: normalize(pickup.placeId),

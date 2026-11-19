@@ -46,6 +46,7 @@ describe("public catalogue reflects current reviewed store checkout authority", 
     expect(sql).toContain('"addressId":');
     expect(sql).toContain('"street":');
     expect(sql).toContain('"suburb":');
+    expect(sql).toContain('pickup."suburb"');
     expect(sql).toContain('"city":');
     expect(sql).toContain('"province":');
     expect(sql).toContain('"postcode":');

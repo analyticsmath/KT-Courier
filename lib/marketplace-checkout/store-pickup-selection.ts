@@ -44,7 +44,7 @@ function hasValidMapMarker(address: StorePickupAddressCandidate): boolean {
 export function completeStorePickupAddress(address: StorePickupAddressCandidate | null | undefined): boolean {
   return Boolean(
     hasCorePickupAddress(address)
-    && ((address?.suburb ?? address?.line2)?.trim().length ?? 0) >= 2
+    && ((address?.suburb?.trim() || address?.line2?.trim())?.length ?? 0) >= 2
     && /^\d{4}$/.test(address?.postalCode?.trim() ?? "")
     && address
     && hasValidMapMarker(address),

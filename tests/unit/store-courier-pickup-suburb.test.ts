@@ -4,6 +4,10 @@ import { StorePickupAddressSchema } from "@/lib/validation/address-book";
 import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
 import { hasStorePickupLocationChanged } from "@/lib/services/store-addresses.service";
+import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
+import { isMerchantPickupEvidenceComplete } from "@/lib/store-presentation/merchant-pickup-evidence";
+import { resolveVerifiedStorePickupCoordinates } from "@/lib/marketplace-checkout/verified-store-pickup-coordinates";
+import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certification.service";
 
 const pickup = {
   line1: "55 Von Wielligh Street",
@@ -23,6 +27,8 @@ describe("store courier pickup and explicit suburb compatibility", () => {
     const parsed = StorePickupAddressSchema.safeParse(pickup);
     expect(parsed.success).toBe(true);
     expect(completeStorePickupAddress({ ...pickup, type: "PICKUP", storeId: "owned-store" })).toBe(true);
+    expect(describeStoreCollectionEvidence(pickup).checkoutPickupConfigured).toBe(true);
+    expect(isMerchantPickupEvidenceComplete(pickup)).toBe(true);
     expect(() => assertStoreParcelPickupMatches(pickup, { ...pickup, type: "PICKUP", storeId: "owned-store" })).not.toThrow();
   });
 
@@ -32,6 +38,19 @@ describe("store courier pickup and explicit suburb compatibility", () => {
     expect(() => assertStoreParcelPickupMatches({ ...pickup, line1: "Other Street" }, saved)).toThrow();
     expect(() => assertStoreParcelPickupMatches({ ...pickup, suburb: "Other Suburb" }, saved)).toThrow();
     expect(() => assertStoreParcelPickupMatches({ ...pickup, placeId: "different_place" }, saved)).toThrow();
+  });
+
+  it("uses the same canonical suburb in fingerprints and verified geocoding", async () => {
+    const canonical = { ...pickup, id: "pickup-1", storeId: "owned-store", type: "PICKUP" };
+    const legacy = { ...canonical, line2: "Johannesburg Central", suburb: null };
+    expect(pickupCertificationFingerprint(canonical)).toBe(pickupCertificationFingerprint(legacy));
+    expect(pickupCertificationFingerprint({ ...canonical, suburb: "Rosebank" })).not.toBe(pickupCertificationFingerprint(legacy));
+    const coords = await resolveVerifiedStorePickupCoordinates(canonical, async input => {
+      expect(input.suburb).toBe("Johannesburg Central");
+      expect(input.line2).toBeUndefined();
+      return { latitude: pickup.latitude, longitude: pickup.longitude };
+    });
+    expect(coords).toEqual({ latitude: pickup.latitude, longitude: pickup.longitude });
   });
 
   it("preserves legacy line2 locality without falsely revoking contact-only pickup edits", () => {

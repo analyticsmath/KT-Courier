@@ -113,7 +113,7 @@ function storeAddressData(input: StorePickupAddressInput) {
     contactName: input.contactName ?? null,
     contactPhone: input.contactPhone ?? null,
     addressLine1: input.line1,
-    addressLine2: input.line2 ?? null,
+    addressLine2: input.suburb?.trim() || input.line2 || null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -136,7 +136,7 @@ export function hasStorePickupLocationChanged(
   }
   // Legacy pickup records held the suburb in line2. Migrating that unchanged
   // location to the explicit suburb field must not revoke a live certificate.
-  if (normalized(previous.suburb ?? previous.line2) !== normalized(next.suburb ?? next.line2)) return true;
+  if (normalized(previous.suburb?.trim() || previous.line2) !== normalized(next.suburb?.trim() || next.line2)) return true;
   return Number(previous.latitude) !== next.latitude || Number(previous.longitude) !== next.longitude;
 }
 

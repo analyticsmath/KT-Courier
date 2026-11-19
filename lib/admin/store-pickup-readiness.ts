@@ -23,7 +23,7 @@ export function describeStoreCollectionEvidence(
   if (!pickup) return { checkoutPickupConfigured: false, missing: ["Saved collection address missing"] };
   const missing: string[] = [];
   if ((pickup.line1?.trim().length ?? 0) < 3) missing.push("Street address missing");
-  if ((pickup.line2?.trim().length ?? 0) < 2) missing.push("Suburb / area missing");
+  if (((pickup.suburb?.trim() || pickup.line2?.trim())?.length ?? 0) < 2) missing.push("Suburb / area missing");
   if ((pickup.city?.trim().length ?? 0) < 2) missing.push("City missing");
   if ((pickup.province?.trim().length ?? 0) < 2) missing.push("Province missing");
   if (!isSouthAfricanCountry(pickup.country)) missing.push("Country not supported");
