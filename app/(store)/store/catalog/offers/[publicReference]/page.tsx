@@ -18,6 +18,10 @@ import { storeCatalogPermission } from "@/lib/catalog/catalog-auth";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { StoreOfferEditor } from "@/components/catalog/StoreOfferEditor";
 import { getStoreVatPricingContext } from "@/lib/catalog/store-vat-context";
+import {
+  storeOfferReviewDescription,
+  storeOfferReviewLabel,
+} from "@/lib/catalog/store-offer-review";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function StoreOfferDetailPage({
@@ -68,6 +72,26 @@ export default async function StoreOfferDetailPage({
       <div className="grid gap-5 lg:grid-cols-2">
         <OperationalPanel title="Offer record" padding="compact">
           <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="font-semibold text-[var(--eo-text-muted)]">
+                Independent review
+              </dt>
+              <dd className="mt-1">
+                <ProtectedStatus
+                  label={storeOfferReviewLabel(
+                    offer.status,
+                    offer.approvedByUserId,
+                  )}
+                />
+                <p className="mt-2 text-xs text-[var(--eo-text-secondary)]">
+                  {storeOfferReviewDescription(
+                    offer.status,
+                    offer.publicationStatus,
+                    offer.approvedByUserId,
+                  )}
+                </p>
+              </dd>
+            </div>
             <div>
               <dt className="font-semibold text-[var(--eo-text-muted)]">
                 Offer state

@@ -26,6 +26,52 @@ export async function findCatalogPackagingDeclaration(offerReference: string, re
     : null;
 }
 
+/** Resolve and validate current seller declarations for the offers shown in a
+ * vendor onboarding projection without loading unrelated stores' settings. */
+export async function listCatalogPackagingForOffers(storeId: string, offerReferences: readonly string[]) {
+  if (offerReferences.length === 0) return [] as PackagingDeclaration[];
+  const references = new Set(offerReferences);
+  const rows = await prisma.systemSetting.findMany({
+    where: { key: { in: offerReferences.map((reference) => PACKAGING_PREFIX + reference) } },
+    select: { key: true, value: true },
+  });
+  const declarations: PackagingDeclaration[] = [];
+  for (const row of rows) {
+    const source = row.value as Partial<PackagingDeclaration> | null;
+    if (
+      !source ||
+      typeof source.offerReference !== "string" ||
+      !references.has(source.offerReference) ||
+      row.key !== PACKAGING_PREFIX + source.offerReference ||
+      source.storeId !== storeId ||
+      typeof source.actorUserId !== "string" ||
+      !source.actorUserId ||
+      typeof source.revision !== "string" ||
+      !source.revision ||
+      typeof source.submittedAt !== "string" ||
+      Number.isNaN(Date.parse(source.submittedAt))
+    ) continue;
+    const measurements = CatalogPackagingSchema.safeParse({
+      lengthCm: source.lengthCm,
+      widthCm: source.widthCm,
+      heightCm: source.heightCm,
+      weightKg: source.weightKg,
+      description: source.description,
+    });
+    if (measurements.success) {
+      declarations.push({
+        ...measurements.data,
+        offerReference: source.offerReference,
+        storeId,
+        actorUserId: source.actorUserId,
+        revision: source.revision,
+        submittedAt: source.submittedAt,
+      });
+    }
+  }
+  return declarations;
+}
+
 export async function saveCatalogPackaging(storeId: string, actorUserId: string, offerReference: string, raw: CatalogPackaging, transaction?: Prisma.TransactionClient) {
   const input = CatalogPackagingSchema.parse(raw);
   const limits = await publicParcelProfiles();

@@ -8,6 +8,7 @@ import {
   type StorePickupAddressCandidate,
 } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { getStoreSellerIdentityState } from "@/lib/services/store-seller-identity.service";
+import { listCatalogPackagingForOffers } from "@/lib/services/catalog-packaging.service";
 import {
   isStoreOperationalPolicyEffective,
   isStorePubliclyCheckoutReady,
@@ -69,6 +70,12 @@ export interface StoreOnboardingProjection {
     activeInventoryLocations: number;
     draftOrActiveProducts: number;
     approvedProducts: number;
+    editableProducts: number;
+    pendingProductReviews: number;
+    editableOffers: number;
+    pendingOfferReviews: number;
+    approvedOffersAwaitingPublication: number;
+    ownerPreparedOffers: number;
     publishedOffers: number;
     sellableOffers: number;
     liveStorefrontProducts: number;
@@ -89,6 +96,12 @@ export interface StoreOnboardingFacts {
   activeInventoryLocations: number;
   draftOrActiveProducts: number;
   approvedProducts: number;
+  editableProducts: number;
+  pendingProductReviews: number;
+  editableOffers: number;
+  pendingOfferReviews: number;
+  approvedOffersAwaitingPublication: number;
+  ownerPreparedOffers: number;
   publishedOffers: number;
   pausedOrOutOfStockOffers: number;
   sellableOffers: number;
@@ -98,6 +111,83 @@ export interface StoreOnboardingFacts {
   certification: PublicStoreCheckoutCertificate | null;
   storefrontPublicStatus: string | null;
   now?: Date;
+}
+
+export interface StoreOnboardingOwnerOfferFacts {
+  isStoreOwnedProduct: boolean;
+  productStatus: string;
+  productModerationStatus: string;
+  productTypeActive: boolean;
+  categoryActive: boolean;
+  variantStatus: string;
+  productMedia: ReadonlyArray<{
+    role: string;
+    variantId: string | null;
+    assetStatus: string;
+    privacyInspectionPassed: boolean;
+    storageConfirmed: boolean;
+    validated: boolean;
+  }>;
+  variantId: string;
+  offerStatus: string;
+  fulfilmentMode: string;
+  minimumQuantity: number;
+  hasCurrentZarPrice: boolean;
+  hasInventoryItem: boolean;
+  inventoryTrackingMode: string | null;
+  allowBackorder: boolean;
+  activeLocationAvailableStock: number;
+  hasPackageDeclaration: boolean;
+}
+
+export function isStoreOnboardingOwnerOfferPrepared(
+  offer: StoreOnboardingOwnerOfferFacts,
+): boolean {
+  if (!Number.isFinite(offer.minimumQuantity) || offer.minimumQuantity <= 0) {
+    return false;
+  }
+  const productSubmittedOrApproved =
+    offer.isStoreOwnedProduct &&
+    offer.productTypeActive &&
+    offer.categoryActive &&
+    offer.variantStatus === "DRAFT" &&
+    ((offer.productStatus === "SUBMITTED" &&
+      ["PENDING", "UNDER_REVIEW"].includes(offer.productModerationStatus)) ||
+      (["APPROVED", "ACTIVE"].includes(offer.productStatus) &&
+        offer.productModerationStatus === "APPROVED"));
+  const offerSubmitted = ["SUBMITTED", "ACTIVE"].includes(offer.offerStatus);
+  const requiredQuantity = Math.max(1, Math.ceil(offer.minimumQuantity));
+  const stockCanFulfil =
+    offer.hasInventoryItem &&
+    (offer.inventoryTrackingMode === "UNTRACKED" ||
+      offer.inventoryTrackingMode === "MADE_TO_ORDER" ||
+      offer.allowBackorder ||
+      offer.activeLocationAvailableStock >= requiredQuantity);
+  const deliveryPackageProvided =
+    offer.fulfilmentMode === "STORE_PICKUP" || offer.hasPackageDeclaration;
+  const hasOnePrimaryProductImage =
+    offer.productMedia.filter(
+      (media) => media.role === "PRIMARY" && media.variantId === null,
+    ).length === 1;
+  const hasPublicationReadyProductMedia =
+    offer.productMedia.length > 0 &&
+    offer.productMedia.every(
+      (media) =>
+        media.assetStatus === "READY" &&
+        media.privacyInspectionPassed &&
+        media.storageConfirmed &&
+        media.validated,
+    );
+
+  return (
+    productSubmittedOrApproved &&
+    offerSubmitted &&
+    offer.hasCurrentZarPrice &&
+    stockCanFulfil &&
+    deliveryPackageProvided &&
+    hasOnePrimaryProductImage &&
+    hasPublicationReadyProductMedia
+  );
 }
 
 const SHOP_STATE_META: Record<
@@ -225,13 +315,18 @@ export function deriveStoreOnboardingProjection(
   if (facts.activeInventoryLocations < 1) {
     ownerActionBlockers.push("Create at least one active inventory stock location.");
   }
-  if (facts.sellableOffers < 1) {
+  if (facts.sellableOffers < 1 && facts.ownerPreparedOffers < 1) {
     if (facts.draftOrActiveProducts < 1) {
       ownerActionBlockers.push("Create your first product with photos, ZAR selling price, opening stock, and package dimensions.");
-    } else if (facts.approvedProducts < 1) {
-      ownerActionBlockers.push("Finish product details/photos and submit your product for catalog moderation review.");
+    } else if (facts.approvedOffersAwaitingPublication > 0) {
+      ownerActionBlockers.push("Complete any remaining seller-controlled stock, current price, and delivery-package details on the independently approved offer. Do not resubmit it; KT Couriers handles publication after readiness checks pass.");
+    } else if (
+      (facts.approvedProducts < 1 && facts.editableProducts > 0) ||
+      facts.editableOffers > 0
+    ) {
+      ownerActionBlockers.push("Finish product details/photos and submit at least one product and offer for independent review.");
     } else {
-      ownerActionBlockers.push("Ensure at least one published offer has active ZAR pricing, positive available stock, and valid parcel packaging.");
+      ownerActionBlockers.push("Complete any missing price, fulfilment stock, required package, or approved product media details for at least one offer. KT Couriers handles independent review and publication after the seller submission is complete.");
     }
   }
 
@@ -242,8 +337,30 @@ export function deriveStoreOnboardingProjection(
   if (!facts.hasApprovedSellerIdentity && facts.sellerIdentityStatus === "PENDING_REVIEW") {
     adminReviewBlockers.push("Independent review of your submitted legal seller identity.");
   }
-  if (facts.draftOrActiveProducts > 0 && facts.approvedProducts < 1) {
-    adminReviewBlockers.push("Catalog moderation & publication approval on submitted products/offers.");
+  if (facts.pendingProductReviews > 0 || facts.pendingOfferReviews > 0) {
+    const pendingReviews = [
+      facts.pendingProductReviews > 0
+        ? facts.pendingProductReviews + " product" + (facts.pendingProductReviews === 1 ? "" : "s")
+        : "",
+      facts.pendingOfferReviews > 0
+        ? facts.pendingOfferReviews + " offer" + (facts.pendingOfferReviews === 1 ? "" : "s")
+        : "",
+    ].filter(Boolean);
+    adminReviewBlockers.push(
+      "Independent catalog review is waiting on submitted " +
+        pendingReviews.join(" and ") +
+        ".",
+    );
+  }
+  if (facts.approvedOffersAwaitingPublication > 0) {
+    const count = facts.approvedOffersAwaitingPublication;
+    adminReviewBlockers.push(
+      "KT Couriers publication is still required for " +
+        count +
+        " independently approved offer" +
+        (count === 1 ? "" : "s") +
+        " after seller readiness checks pass.",
+    );
   }
   if (!facts.hasActiveOperationalPolicy) {
     adminReviewBlockers.push("Active KT Couriers marketplace operational policy assignment.");
@@ -282,10 +399,10 @@ export function deriveStoreOnboardingProjection(
   const stage3Done = facts.sellableOffers > 0 && facts.liveStorefrontProducts > 0;
   const stage3Status: StoreOnboardingStageStatus = stage3Done
     ? "COMPLETE"
-    : facts.draftOrActiveProducts === 0
-      ? "ACTION_REQUIRED"
-      : facts.sellableOffers > 0
-        ? "IN_PROGRESS"
+    : facts.ownerPreparedOffers > 0
+      ? "WAITING_ADMIN"
+      : facts.draftOrActiveProducts === 0
+        ? "ACTION_REQUIRED"
         : facts.approvedProducts > 0
           ? "ACTION_REQUIRED"
           : "IN_PROGRESS";
@@ -376,21 +493,54 @@ export function deriveStoreOnboardingProjection(
       title: "First sellable product, ZAR price, stock & packaging",
       status: stage3Status,
       summary: stage3Done
-        ? `${facts.sellableOffers} sellable offer${facts.sellableOffers === 1 ? "" : "s"} active with stock and packaging verified.`
-        : "Create at least one product with approved media, package dimensions, ZAR price, and available stock > 0.",
+        ? facts.sellableOffers + " sellable offer(s) are active with stock and packaging verified."
+        : facts.ownerPreparedOffers > 0
+          ? "Your product and offer details are submitted. KT Couriers handles independent review, publication, and final checkout certification."
+          : "Complete product media, a current ZAR price, available stock, and required package details before the independent review and publication handoff.",
       items: [
         {
-          label: "Product drafts & catalog approvals",
+          label: "Product moderation",
           done: facts.approvedProducts > 0,
-          detail: `${facts.draftOrActiveProducts} created · ${facts.approvedProducts} approved`,
+          detail:
+            facts.draftOrActiveProducts +
+            " created · " +
+            facts.approvedProducts +
+            " moderation approved · " +
+            facts.pendingProductReviews +
+            " awaiting review · " +
+            facts.editableProducts +
+            " editable draft(s)",
         },
         {
-          label: "Sellable offer (ZAR price + available stock + packaging)",
+          label: "Offer review & publication",
           done: facts.sellableOffers > 0,
           detail:
             facts.sellableOffers > 0
-              ? `${facts.sellableOffers} checkout-ready offer${facts.sellableOffers === 1 ? "" : "s"}`
-              : "Needs published offer with active ZAR price, stock > 0, and parcel dimensions",
+              ? facts.sellableOffers + " published and checkout-ready"
+              : facts.approvedOffersAwaitingPublication > 0
+                ? facts.approvedOffersAwaitingPublication +
+                  " independently approved; awaiting seller readiness checks and KT Couriers publication"
+                : facts.pendingOfferReviews > 0
+                  ? facts.pendingOfferReviews +
+                    " submitted; awaiting independent KT Couriers review"
+                  : "No offer has completed independent review and publication.",
+        },
+        {
+          label: "Seller-supplied offer data",
+          done: facts.ownerPreparedOffers > 0 || facts.sellableOffers > 0,
+          detail:
+            facts.ownerPreparedOffers > 0
+              ? facts.ownerPreparedOffers +
+                " offer(s) have submitted price, stock, and required package details"
+              : "Required price, available stock, and package details are still being completed.",
+        },
+        {
+          label: "Live offer (ZAR price + available stock + packaging)",
+          done: facts.sellableOffers > 0,
+          detail:
+            facts.sellableOffers > 0
+              ? facts.sellableOffers + " checkout-ready offer(s)"
+              : "A reviewed offer must be published and pass current price, stock, and parcel checks.",
         },
         {
           label: "Public storefront projection",
@@ -402,17 +552,25 @@ export function deriveStoreOnboardingProjection(
         },
       ],
       actionLabel:
-        facts.draftOrActiveProducts === 0
-          ? "Add first product"
-          : facts.approvedProducts === 0
-            ? "Manage products"
-            : "Manage offers & stock",
+        facts.ownerPreparedOffers > 0
+          ? "View submitted offers"
+          : facts.draftOrActiveProducts === 0
+            ? "Add first product"
+            : facts.approvedOffersAwaitingPublication > 0
+              ? "Complete approved offer readiness"
+            : facts.editableOffers > 0
+              ? "Manage offer drafts"
+            : facts.approvedProducts > 0
+              ? "Complete offer stock & packaging"
+              : "Manage product drafts",
       actionHref:
         facts.draftOrActiveProducts === 0
           ? "/store/catalog/products/new"
-          : facts.approvedProducts === 0
-            ? "/store/catalog/products"
-            : "/store/catalog/offers",
+          : facts.ownerPreparedOffers > 0 ||
+              facts.editableOffers > 0 ||
+              facts.approvedProducts > 0
+            ? "/store/catalog/offers"
+            : "/store/catalog/products",
     },
     {
       id: "commercial_certification",
@@ -494,14 +652,26 @@ export function deriveStoreOnboardingProjection(
       href: "/store/catalog/products/new",
       actor: "OWNER",
     };
+  } else if (facts.ownerPreparedOffers > 0) {
+    nextAction = {
+      label: "Awaiting KT Couriers review & publication",
+      description:
+        "Your submitted product and offer details meet the seller handoff checks. KT Couriers must complete independent review and listing publication.",
+      href: "/store/catalog/offers",
+      actor: "ADMIN",
+    };
   } else if (facts.sellableOffers === 0) {
     nextAction = {
       label:
-        facts.approvedProducts === 0
+        facts.approvedOffersAwaitingPublication > 0
+          ? "Complete approved offer readiness"
+          : facts.approvedProducts === 0
           ? "Finish & submit product for review"
           : "Activate offer stock & price",
       description:
-        facts.approvedProducts === 0
+        facts.approvedOffersAwaitingPublication > 0
+          ? "Complete any remaining seller-controlled stock, current price, and package details. An approved offer goes to KT Couriers for publication after readiness checks; it does not need to be resubmitted."
+          : facts.approvedProducts === 0
           ? "Confirm product photos, packaging dimensions, and submit your product for moderation."
           : "Verify your offer has active ZAR pricing, positive available stock, and valid packaging.",
       href:
@@ -538,6 +708,12 @@ export function deriveStoreOnboardingProjection(
       activeInventoryLocations: facts.activeInventoryLocations,
       draftOrActiveProducts: facts.draftOrActiveProducts,
       approvedProducts: facts.approvedProducts,
+      editableProducts: facts.editableProducts,
+      pendingProductReviews: facts.pendingProductReviews,
+      editableOffers: facts.editableOffers,
+      pendingOfferReviews: facts.pendingOfferReviews,
+      approvedOffersAwaitingPublication: facts.approvedOffersAwaitingPublication,
+      ownerPreparedOffers: facts.ownerPreparedOffers,
       publishedOffers: facts.publishedOffers,
       sellableOffers: facts.sellableOffers,
       liveStorefrontProducts: facts.liveStorefrontProducts,
@@ -569,6 +745,10 @@ export async function getStoreOnboardingByStoreId(
     activeInventoryLocations,
     draftOrActiveProducts,
     approvedProducts,
+    editableProducts,
+    pendingProductReviews,
+    editableOffers,
+    catalogOfferCandidates,
     publishedOffers,
     pausedOrOutOfStockOffers,
     sellableOffersList,
@@ -584,7 +764,85 @@ export async function getStoreOnboardingByStoreId(
     prisma.inventoryLocation.count({ where: { storeId: store.id, status: "ACTIVE" } }),
     prisma.catalogProduct.count({ where: { sourceStoreId: store.id } }),
     prisma.catalogProduct.count({
-      where: { sourceStoreId: store.id, status: "ACTIVE", moderationStatus: "APPROVED" },
+      where: {
+        sourceStoreId: store.id,
+        status: { in: ["APPROVED", "ACTIVE"] },
+        moderationStatus: "APPROVED",
+      },
+    }),
+    prisma.catalogProduct.count({
+      where: {
+        sourceStoreId: store.id,
+        status: { in: ["DRAFT", "NEEDS_CHANGES"] },
+      },
+    }),
+    prisma.catalogProduct.count({
+      where: {
+        sourceStoreId: store.id,
+        status: "SUBMITTED",
+        moderationStatus: { in: ["PENDING", "UNDER_REVIEW"] },
+      },
+    }),
+    prisma.storeCatalogOffer.count({
+      where: { storeId: store.id, status: { in: ["DRAFT", "NEEDS_CHANGES"] } },
+    }),
+    prisma.storeCatalogOffer.findMany({
+      where: { storeId: store.id, status: { in: ["SUBMITTED", "ACTIVE"] } },
+      select: {
+        publicReference: true,
+        status: true,
+        approvedByUserId: true,
+        publicationStatus: true,
+        variantId: true,
+        fulfilmentMode: true,
+        minimumQuantity: true,
+        product: {
+          select: {
+            scope: true,
+            sourceStoreId: true,
+            status: true,
+            moderationStatus: true,
+            productTypeDefinition: { select: { status: true } },
+            primaryCategory: { select: { status: true } },
+            media: {
+              select: {
+                role: true,
+                variantId: true,
+                asset: {
+                  select: {
+                    status: true,
+                    privacyInspectionPassed: true,
+                    storageConfirmedAt: true,
+                    validatedAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        variant: { select: { status: true } },
+        priceVersions: {
+          where: {
+            status: { in: ["DRAFT", "ACTIVE"] },
+            currency: "ZAR",
+            amount: { gt: 0 },
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+          },
+          select: { id: true },
+          orderBy: [{ versionNumber: "desc" }, { id: "desc" }],
+        },
+        inventoryItem: {
+          select: {
+            trackingMode: true,
+            allowBackorder: true,
+            levels: {
+              where: { location: { status: "ACTIVE" } },
+              select: { available: true },
+            },
+          },
+        },
+      },
     }),
     prisma.storeCatalogOffer.count({
       where: { storeId: store.id, status: "ACTIVE", publicationStatus: "PUBLISHED" },
@@ -654,6 +912,63 @@ export async function getStoreOnboardingByStoreId(
     getGlobalCommercePolicyRevision(prisma),
   ]);
 
+  const packageDeclarations = await listCatalogPackagingForOffers(
+    store.id,
+    catalogOfferCandidates
+      .filter((offer) => offer.fulfilmentMode !== "STORE_PICKUP")
+      .map((offer) => offer.publicReference),
+  );
+  const packageOfferReferences = new Set(
+    packageDeclarations.map((declaration) => declaration.offerReference),
+  );
+
+  const pendingOfferReviews = catalogOfferCandidates.filter(
+    (offer) => offer.status === "SUBMITTED" && !offer.approvedByUserId,
+  ).length;
+  const approvedOffersAwaitingPublication = catalogOfferCandidates.filter(
+    (offer) =>
+      offer.status === "SUBMITTED" &&
+      Boolean(offer.approvedByUserId) &&
+      offer.publicationStatus !== "PUBLISHED",
+  ).length;
+  const ownerPreparedOffers = catalogOfferCandidates.filter((offer) => {
+      const inventory = offer.inventoryItem;
+      return isStoreOnboardingOwnerOfferPrepared({
+        isStoreOwnedProduct:
+          offer.product.scope === "STORE_PRIVATE" &&
+          offer.product.sourceStoreId === store.id,
+        productStatus: offer.product.status,
+        productModerationStatus: offer.product.moderationStatus,
+        productTypeActive: offer.product.productTypeDefinition.status === "ACTIVE",
+        categoryActive: offer.product.primaryCategory.status === "ACTIVE",
+        variantStatus: offer.variant.status,
+        productMedia: offer.product.media.map((media) => ({
+          role: media.role,
+          variantId: media.variantId,
+          assetStatus: media.asset.status,
+          privacyInspectionPassed: media.asset.privacyInspectionPassed,
+          storageConfirmed: media.asset.storageConfirmedAt !== null,
+          validated: media.asset.validatedAt !== null,
+        })),
+        variantId: offer.variantId,
+        offerStatus: offer.status,
+        fulfilmentMode: offer.fulfilmentMode,
+        minimumQuantity: Number(offer.minimumQuantity),
+        hasCurrentZarPrice: offer.priceVersions.length > 0,
+        hasInventoryItem: Boolean(inventory),
+        inventoryTrackingMode: inventory?.trackingMode ?? null,
+        allowBackorder: inventory?.allowBackorder ?? false,
+        activeLocationAvailableStock:
+          inventory?.levels.reduce(
+            (maxAvailable, level) => Math.max(maxAvailable, level.available),
+            0,
+          ) ?? 0,
+        hasPackageDeclaration:
+          offer.fulfilmentMode === "STORE_PICKUP" ||
+          packageOfferReferences.has(offer.publicReference),
+      });
+    }).length;
+
   const pickup = selectStorePickupCandidate(
     store.id,
     store.defaultPickupAddress,
@@ -686,6 +1001,12 @@ export async function getStoreOnboardingByStoreId(
     activeInventoryLocations,
     draftOrActiveProducts,
     approvedProducts,
+    editableProducts,
+    pendingProductReviews,
+    editableOffers,
+    pendingOfferReviews,
+    approvedOffersAwaitingPublication,
+    ownerPreparedOffers,
     publishedOffers,
     pausedOrOutOfStockOffers,
     sellableOffers: sellableOffersList.length,
