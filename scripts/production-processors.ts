@@ -312,7 +312,10 @@ async function main() {
     const { hasPendingAdminAlertWork } = await import(
       "../lib/notifications/admin-alert-dispatch.service"
     );
-    return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } }) || await hasPendingAdminAlertWork(prisma);
+    const { hasPendingResendWebhooksWork } = await import(
+      "../lib/notifications/resend-webhook.service"
+    );
+    return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } }) || await hasPendingAdminAlertWork(prisma) || await hasPendingResendWebhooksWork(prisma);
   }
   while (!stopping) {
     readinessBlockers = [];

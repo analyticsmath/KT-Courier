@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications/admin-alert-dispatch.service";
 import type { NotificationProvider } from "@/lib/notifications/providers";
 import { POST as resendWebhookPost } from "@/app/api/webhooks/resend/route";
+import { recoverPendingResendWebhooks } from "@/lib/notifications/resend-webhook.service";
 import { updateSettingValue } from "@/lib/services/admin-settings.service";
 import {
   prepareRequiredDomainNotifications,
@@ -891,6 +892,375 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       },
     });
     expect((bouncedRow.safePayload as Record<string, unknown>)?.deliveryStatus).toBe("BOUNCED");
+  });
+
+  it("DEFECT-1B: enforces durable, recoverable Resend webhook inbox idempotency across failure modes (a-h) with zero financial journal mutation", async () => {
+    const t = randomUUID().replace(/-/g, "").slice(0, 8);
+    const nowSec = Math.floor(Date.now() / 1000);
+
+    // Track baseline financial record counts
+    const journalCountBefore = await prisma.ledgerJournal.count();
+    const entryCountBefore = await prisma.ledgerEntry.count();
+    const paymentCountBefore = await prisma.payment.count();
+    const refundCountBefore = await prisma.paymentRefund.count();
+    const codCountBefore = await prisma.cashOnDelivery.count();
+
+    // (a) Crash after inbox insert before customer fanout
+    const emailA = `re_a_${t}`;
+    const svixIdA = `msg_${t}_a`;
+    const delA = await prisma.notificationDelivery.create({
+      data: {
+        publicReference: `del-${t}-a`,
+        messageId: `msg-id-${t}-a`,
+        recipientUserId: customerUser.id,
+        channel: "EMAIL",
+        status: "PROVIDER_ACCEPTED",
+        provider: "RESEND_EMAIL",
+        providerMessageReference: emailA,
+        renderedBody: "Order update A",
+      },
+    });
+
+    const bodyA = JSON.stringify({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailA },
+    });
+
+    let failCustLookup = true;
+    const origFindMany = prisma.notificationDelivery.findMany.bind(prisma.notificationDelivery);
+    vi.spyOn(prisma.notificationDelivery, "findMany").mockImplementation(((...args: Parameters<typeof origFindMany>) => {
+      const [filter] = args;
+      if (failCustLookup && filter?.where?.providerMessageReference === emailA) {
+        failCustLookup = false;
+        throw new Error("Simulated worker crash before customer fanout");
+      }
+      return origFindMany(...args);
+    }) as unknown as typeof prisma.notificationDelivery.findMany);
+
+    const crashARes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdA,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdA, String(nowSec), bodyA),
+        "x-forwarded-for": "10.0.1.1",
+      },
+      body: bodyA,
+    }));
+    expect(crashARes.status).toBe(500);
+
+    // Verify inbox record remains in PROCESSING, not prematurely completed
+    const inboxA = await prisma.notificationAuditEvent.findUniqueOrThrow({
+      where: { publicReference: `resend-wh:${svixIdA}` },
+    });
+    expect(inboxA.eventType).toBe("RESEND_WEBHOOK_PROCESSING");
+
+    // Retry succeeds and finishes the projection
+    const retryARes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdA,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdA, String(nowSec), bodyA),
+        "x-forwarded-for": "10.0.1.2",
+      },
+      body: bodyA,
+    }));
+    expect(retryARes.status).toBe(200);
+    const retryAJson = await retryARes.json();
+    expect(retryAJson.ok).toBe(true);
+    expect(retryAJson.replayed).toBe(false);
+
+    const updatedDelA = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delA.id } });
+    expect(updatedDelA.status).toBe("DELIVERED");
+
+    const finalInboxA = await prisma.notificationAuditEvent.findUniqueOrThrow({
+      where: { publicReference: `resend-wh:${svixIdA}` },
+    });
+    expect(finalInboxA.eventType).toBe("RESEND_WEBHOOK_FULLY_APPLIED");
+
+    vi.restoreAllMocks();
+
+    // (b) Crash after customer fanout before admin update
+    const emailB = `re_b_${t}`;
+    const svixIdB = `msg_${t}_b`;
+    const delB = await prisma.notificationDelivery.create({
+      data: {
+        publicReference: `del-${t}-b`,
+        messageId: `msg-id-${t}-b`,
+        recipientUserId: customerUser.id,
+        channel: "EMAIL",
+        status: "PROVIDER_ACCEPTED",
+        provider: "RESEND_EMAIL",
+        providerMessageReference: emailB,
+        renderedBody: "Order update B",
+      },
+    });
+    const intentB = await prisma.notificationEventIntent.create({
+      data: {
+        sourceAuthority: "ADMIN_ALERT",
+        eventType: "PARCEL_ORDER_PAID",
+        aggregateReference: `ref-b-${t}`,
+        operationId: `admin-alert-delivery:PARCEL_ORDER_PAID:test-b-${t}:${adminUser.email}`,
+        safePayload: {
+          kind: "RECIPIENT_DELIVERY",
+          eventType: "PARCEL_ORDER_PAID",
+          providerMessageReference: emailB,
+          deliveryStatus: "PROVIDER_ACCEPTED",
+          inboxDeliveryStatus: "UNKNOWN_PENDING_PROVIDER_RECEIPT",
+          emailLogId: null,
+        },
+      },
+    });
+
+    const bodyB = JSON.stringify({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailB },
+    });
+
+    let failAdminUpdate = true;
+    const origIntentUpdate = prisma.notificationEventIntent.update.bind(prisma.notificationEventIntent);
+    vi.spyOn(prisma.notificationEventIntent, "update").mockImplementation(((...args: Parameters<typeof origIntentUpdate>) => {
+      const [updateArgs] = args;
+      if (failAdminUpdate && updateArgs?.where?.id === intentB.id) {
+        failAdminUpdate = false;
+        throw new Error("Simulated worker crash during admin alert update");
+      }
+      return origIntentUpdate(...args);
+    }) as unknown as typeof prisma.notificationEventIntent.update);
+
+    const crashBRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdB,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdB, String(nowSec), bodyB),
+        "x-forwarded-for": "10.0.1.3",
+      },
+      body: bodyB,
+    }));
+    expect(crashBRes.status).toBe(500);
+
+    // Customer delivery was already applied
+    const partialDelB = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delB.id } });
+    expect(partialDelB.status).toBe("DELIVERED");
+
+    // Retry finishes admin projection without re-throwing or failing on customer receipt
+    const retryBRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdB,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdB, String(nowSec), bodyB),
+        "x-forwarded-for": "10.0.1.4",
+      },
+      body: bodyB,
+    }));
+    expect(retryBRes.status).toBe(200);
+
+    const finalIntentB = await prisma.notificationEventIntent.findUniqueOrThrow({ where: { id: intentB.id } });
+    expect((finalIntentB.safePayload as Record<string, unknown>).deliveryStatus).toBe("DELIVERED");
+
+    vi.restoreAllMocks();
+
+    // (c) Concurrent signed duplicate requests
+    const emailC = `re_c_${t}`;
+    const svixIdC = `msg_${t}_c`;
+    const delC = await prisma.notificationDelivery.create({
+      data: {
+        publicReference: `del-${t}-c`,
+        messageId: `msg-id-${t}-c`,
+        recipientUserId: customerUser.id,
+        channel: "EMAIL",
+        status: "PROVIDER_ACCEPTED",
+        provider: "RESEND_EMAIL",
+        providerMessageReference: emailC,
+        renderedBody: "Order update C",
+      },
+    });
+    const bodyC = JSON.stringify({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailC },
+    });
+
+    const [conc1, conc2] = await Promise.all([
+      resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+        method: "POST",
+        headers: {
+          "svix-id": svixIdC,
+          "svix-timestamp": String(nowSec),
+          "svix-signature": signSvixWebhook(svixSecret, svixIdC, String(nowSec), bodyC),
+          "x-forwarded-for": "10.0.1.5",
+        },
+        body: bodyC,
+      })),
+      resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+        method: "POST",
+        headers: {
+          "svix-id": svixIdC,
+          "svix-timestamp": String(nowSec),
+          "svix-signature": signSvixWebhook(svixSecret, svixIdC, String(nowSec), bodyC),
+          "x-forwarded-for": "10.0.1.6",
+        },
+        body: bodyC,
+      })),
+    ]);
+    expect(conc1.status).toBe(200);
+    expect(conc2.status).toBe(200);
+    const json1 = await conc1.json();
+    const json2 = await conc2.json();
+    const nonReplays = [json1, json2].filter((j) => !j.replayed);
+    const replays = [json1, json2].filter((j) => j.replayed);
+    expect(nonReplays.length).toBe(1);
+    expect(replays.length).toBe(1);
+    const updatedDelC = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delC.id } });
+    expect(updatedDelC.status).toBe("DELIVERED");
+
+    // (d) Unmatched provider ID becomes available later
+    const emailD = `re_d_unmatched_${t}`;
+    const svixIdD = `msg_${t}_d`;
+    const bodyD = JSON.stringify({
+      type: "email.delivered",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailD },
+    });
+    const unmatchedRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdD,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdD, String(nowSec), bodyD),
+        "x-forwarded-for": "10.0.1.7",
+      },
+      body: bodyD,
+    }));
+    expect(unmatchedRes.status).toBe(200);
+    const unmatchedJson = await unmatchedRes.json();
+    expect(unmatchedJson.status).toBe("UNMATCHED_PENDING");
+
+    const inboxD = await prisma.notificationAuditEvent.findUniqueOrThrow({
+      where: { publicReference: `resend-wh:${svixIdD}` },
+    });
+    expect(inboxD.eventType).toBe("RESEND_WEBHOOK_UNMATCHED_PENDING");
+
+    // Later: delivery row is committed
+    const delD = await prisma.notificationDelivery.create({
+      data: {
+        publicReference: `del-${t}-d`,
+        messageId: `msg-id-${t}-d`,
+        recipientUserId: customerUser.id,
+        channel: "EMAIL",
+        status: "PROVIDER_ACCEPTED",
+        provider: "RESEND_EMAIL",
+        providerMessageReference: emailD,
+        renderedBody: "Order update D",
+      },
+    });
+
+    // Background processor recovers and reconciles
+    const recoveryResult = await recoverPendingResendWebhooks({
+      db: prisma,
+      limit: 10,
+      now: new Date(Date.now() + 30_000),
+    });
+    expect(recoveryResult.reconciled).toBeGreaterThanOrEqual(1);
+
+    const updatedDelD = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delD.id } });
+    expect(updatedDelD.status).toBe("DELIVERED");
+
+    const resolvedInboxD = await prisma.notificationAuditEvent.findUniqueOrThrow({
+      where: { publicReference: `resend-wh:${svixIdD}` },
+    });
+    expect(resolvedInboxD.eventType).toBe("RESEND_WEBHOOK_FULLY_APPLIED");
+
+    // (e) Conflicting replay body
+    const bodyEConflict = JSON.stringify({
+      type: "email.bounced",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailA },
+    });
+    const conflictRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdA,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdA, String(nowSec), bodyEConflict),
+        "x-forwarded-for": "10.0.1.8",
+      },
+      body: bodyEConflict,
+    }));
+    expect(conflictRes.status).toBe(422);
+
+    // (f) Out-of-order delayed/delivered/bounced statuses
+    const svixIdF = `msg_${t}_f`;
+    const delayedBody = JSON.stringify({
+      type: "email.delivery_delayed",
+      created_at: new Date().toISOString(),
+      data: { email_id: emailA },
+    });
+    const delayedRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdF,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdF, String(nowSec), delayedBody),
+        "x-forwarded-for": "10.0.1.9",
+      },
+      body: delayedBody,
+    }));
+    expect(delayedRes.status).toBe(200);
+    // DELIVERED status is preserved and not rolled back to FAILED_RETRYABLE
+    const preservedDelA = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delA.id } });
+    expect(preservedDelA.status).toBe("DELIVERED");
+
+    // (g) Genuine duplicate after FULLY_APPLIED
+    const dupRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": svixIdA,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": signSvixWebhook(svixSecret, svixIdA, String(nowSec), bodyA),
+        "x-forwarded-for": "10.0.1.10",
+      },
+      body: bodyA,
+    }));
+    expect(dupRes.status).toBe(200);
+    expect(await dupRes.json()).toMatchObject({ ok: true, replayed: true });
+
+    // (h) Invalid and stale signatures
+    const badSigRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": `msg_${t}_bad`,
+        "svix-timestamp": String(nowSec),
+        "svix-signature": "v1,invalidSig",
+        "x-forwarded-for": "10.0.1.11",
+      },
+      body: bodyA,
+    }));
+    expect(badSigRes.status).toBe(401);
+
+    const staleSigRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
+      method: "POST",
+      headers: {
+        "svix-id": `msg_${t}_stale`,
+        "svix-timestamp": String(nowSec - 600),
+        "svix-signature": signSvixWebhook(svixSecret, `msg_${t}_stale`, String(nowSec - 600), bodyA),
+        "x-forwarded-for": "10.0.1.12",
+      },
+      body: bodyA,
+    }));
+    expect(staleSigRes.status).toBe(401);
+
+    // Financial invariant assertion: exactly zero mutations to financial tables
+    expect(await prisma.ledgerJournal.count()).toBe(journalCountBefore);
+    expect(await prisma.ledgerEntry.count()).toBe(entryCountBefore);
+    expect(await prisma.payment.count()).toBe(paymentCountBefore);
+    expect(await prisma.paymentRefund.count()).toBe(refundCountBefore);
+    expect(await prisma.cashOnDelivery.count()).toBe(codCountBefore);
   });
 
   it("DEFECT-2 (Sec 3A): records atomic owner alerts across refund, SuperAdmin wallet grant, loyalty, referral, anomaly, and unassigned escalation (zero pre-verification alerts & zero PII)", async () => {

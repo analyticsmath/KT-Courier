@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       receiptType: outcome.receiptType,
       customerDeliveriesUpdated: outcome.customerDeliveriesUpdated,
       adminAlertsUpdated: outcome.adminAlertsUpdated,
+      status: outcome.status,
     });
   } catch (err) {
     if (err instanceof ResendWebhookError) {

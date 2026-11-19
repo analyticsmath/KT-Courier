@@ -782,32 +782,35 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
   "deliver-notifications": async ({ mode, batchSize }) => {
     const { consumeCustomerOrderNotifications, listPendingCustomerOrderIntents } = await import("@/lib/notifications/customer-order-publication");
     const { hasPendingAdminAlertWork, retryPendingAdminAlertDeliveries } = await import("@/lib/notifications/admin-alert-dispatch.service");
+    const { hasPendingResendWebhooksWork, recoverPendingResendWebhooks } = await import("@/lib/notifications/resend-webhook.service");
     const queuedCount = await prisma.notificationDelivery.count({ where: { status: "QUEUED" } });
     const sourceCount = (await listPendingCustomerOrderIntents(batchSize)).length;
     const hasAdminWork = await hasPendingAdminAlertWork(prisma);
+    const hasWebhookWork = await hasPendingResendWebhooksWork(prisma);
     if (mode === "DRY_RUN") {
       return {
-        itemsExamined: queuedCount + sourceCount + (hasAdminWork ? 1 : 0),
+        itemsExamined: queuedCount + sourceCount + (hasAdminWork ? 1 : 0) + (hasWebhookWork ? 1 : 0),
         itemsClaimed: 0,
         itemsCompleted: 0,
-        itemsSkipped: queuedCount + sourceCount + (hasAdminWork ? 1 : 0),
+        itemsSkipped: queuedCount + sourceCount + (hasAdminWork ? 1 : 0) + (hasWebhookWork ? 1 : 0),
         itemsRetried: 0,
         itemsReconciled: 0,
-        safeSummary: `[DRY_RUN] Evaluated ${sourceCount} eligible customer events, ${queuedCount} queued deliveries${hasAdminWork ? ", and pending admin alerts" : ""}; 0 dispatched.`,
+        safeSummary: `[DRY_RUN] Evaluated ${sourceCount} eligible customer events, ${queuedCount} queued deliveries${hasAdminWork ? ", pending admin alerts" : ""}${hasWebhookWork ? ", and pending Resend webhooks" : ""}; 0 dispatched.`,
       };
     }
     const publication = await consumeCustomerOrderNotifications(batchSize);
     const { deliverQueuedEmails } = await import("@/lib/notifications/queued-email-delivery");
     const delivery = await deliverQueuedEmails(batchSize);
     const adminRetries = await retryPendingAdminAlertDeliveries({ limit: Math.min(batchSize, 50) });
+    const webhookRecovery = await recoverPendingResendWebhooks({ limit: Math.min(batchSize, 50), db: prisma });
     return {
-      itemsExamined: publication.itemsExamined + delivery.itemsExamined + adminRetries.checked,
-      itemsClaimed: publication.itemsClaimed + delivery.itemsClaimed + adminRetries.checked,
-      itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted + adminRetries.sent,
+      itemsExamined: publication.itemsExamined + delivery.itemsExamined + adminRetries.checked + webhookRecovery.examined,
+      itemsClaimed: publication.itemsClaimed + delivery.itemsClaimed + adminRetries.checked + webhookRecovery.examined,
+      itemsCompleted: publication.itemsCompleted + delivery.itemsCompleted + adminRetries.sent + webhookRecovery.reconciled,
       itemsSkipped: publication.itemsSkipped + delivery.itemsSkipped + adminRetries.cancelledByPolicy,
-      itemsRetried: publication.itemsRetried + delivery.itemsRetried + adminRetries.failed,
-      itemsReconciled: publication.itemsReconciled + delivery.itemsReconciled,
-      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${adminRetries.sent} admin alerts sent (${adminRetries.cancelledByPolicy} cancelled by policy); ${publication.itemsReconciled + delivery.itemsReconciled} require review.`,
+      itemsRetried: publication.itemsRetried + delivery.itemsRetried + adminRetries.failed + webhookRecovery.failed,
+      itemsReconciled: publication.itemsReconciled + delivery.itemsReconciled + webhookRecovery.reconciled,
+      safeSummary: `Customer notifications: ${publication.itemsCompleted} published; ${delivery.itemsCompleted} emails accepted; ${adminRetries.sent} admin alerts sent (${adminRetries.cancelledByPolicy} cancelled by policy); ${webhookRecovery.reconciled} webhooks reconciled; ${publication.itemsReconciled + delivery.itemsReconciled} require review.`,
     };
   },
 };
