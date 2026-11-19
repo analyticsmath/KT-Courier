@@ -19,6 +19,7 @@ import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getAdminOrderDetail } from "@/lib/services/admin-orders.service";
 import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
+import { getAdminCodDeliveryReadiness } from "@/lib/services/admin-cod-delivery-readiness.service";
 import { listAdminDeliveryEvidence } from "@/lib/services/admin-delivery-evidence.service";
 import { listAdminHandoverEmailEvidence } from "@/lib/services/admin-handover-email-evidence.service";
 import { getOrderActiveAssignment, getOrderAssignmentHistory } from "@/lib/services/admin-dispatch.service";
@@ -45,8 +46,8 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   // This page already requires ORDERS_READ. Restrict gallery reads to
   // order-owned delivery-proof objects at the private-media boundary.
-  const [deliveryEvidence, handoverEmails, paymentReadiness] = await Promise.all([
-    listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id), getCourierPaymentReadiness(id),
+  const [deliveryEvidence, handoverEmails, paymentReadiness, codReadiness] = await Promise.all([
+    listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id), getCourierPaymentReadiness(id), getAdminCodDeliveryReadiness(user, id),
   ]);
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
@@ -76,6 +77,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div><dt>Dispatch eligibility</dt><dd>{paymentReadiness.dispatchEligible ? "Payment requirement satisfied" : "Blocked until verified"}</dd></div>
           </dl>
         </OperationalPanel>
+        {codReadiness ? <OperationalPanel title="Cash collection" description="Cash exposure remains outstanding until recorded and reconciled.">
+          <dl className="eo-definition-list mt-3">
+            <div><dt>COD reference</dt><dd>{codReadiness.reference}</dd></div>
+            <div><dt>Digital deposit paid / required</dt><dd>ZAR {codReadiness.digitalPaid} / {codReadiness.digitalRequired}</dd></div>
+            <div><dt>Cash collected / required</dt><dd>ZAR {codReadiness.cashCollected} / {codReadiness.cashObligation}</dd></div>
+            <div><dt>Cash outstanding</dt><dd>ZAR {codReadiness.cashOutstanding}</dd></div>
+            <div><dt>Driver reference</dt><dd>{codReadiness.driverId ?? "No driver recorded"}</dd></div>
+            <div><dt>Collection state</dt><dd>{codReadiness.status.replaceAll("_", " ")}</dd></div>
+          </dl>
+          <Link className="eo-inline-action mt-3" href="/admin/cash-deposits">Review cash reconciliation</Link>
+        </OperationalPanel> : null}
         <OperationalPanel title="Administrative state" tone="subtle"><dl className="eo-definition-list"><div><dt>Source</dt><dd>{order.source}</dd></div><div><dt>Region</dt><dd>{order.deliveryRegionName ?? "Not matched"}</dd></div><div><dt>Scheduled</dt><dd>{order.scheduledFor ? formatDateTime(order.scheduledFor) : "Not scheduled"}</dd></div>{order.paymentDueAt ? <div><dt>Payment deadline</dt><dd>{formatDateTime(order.paymentDueAt)}</dd></div> : null}</dl></OperationalPanel>
       </>}
     >
