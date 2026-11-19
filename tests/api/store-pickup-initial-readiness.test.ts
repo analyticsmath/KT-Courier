@@ -18,7 +18,7 @@ vi.mock("@/lib/admin/store-pickup-preflight.service", () => ({
   getStorePickupOperationalPreflight: mocks.preflight,
 }));
 
-import { GET, PATCH } from "@/app/api/store/pickup-address/route";
+import { GET, PATCH, POST } from "@/app/api/store/pickup-address/route";
 
 const store = { store: { id: "seller-123" }, pickupAddress: { line1: "12 Commerce St" } };
 const report = {
@@ -75,6 +75,15 @@ describe("merchant collection address visibility before an edit", () => {
     const request = new NextRequest("http://localhost/api/store/pickup-address?storeId=another-store", { method: "PATCH" });
     expect((await PATCH(request)).status).toBe(403);
     expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("preserves the selected store through the POST alias", async () => {
+    const body = { line1: "10 Main Road", suburb: "Sandton", city: "Johannesburg", province: "Gauteng", postalCode: "2196", country: "South Africa", latitude: -26.1, longitude: 28.05 };
+    const request = new NextRequest("http://localhost/api/store/pickup-address?storeId=seller-123", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    expect((await POST(request)).status).toBe(200);
+    expect(mocks.business).toHaveBeenCalledOnce();
+    expect(mocks.business).toHaveBeenCalledWith("/api/store/pickup-address", "seller-123");
+    expect(mocks.save).toHaveBeenCalledWith("store-owner-1", expect.objectContaining(body), "seller-123");
   });
 
   it("does not manufacture checkout readiness when mapping/region checks fail", async () => {

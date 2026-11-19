@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 describe("merchant collection save never implies live checkout", () => {
   it("executes an independent server-side preflight after saving without undoing a committed pickup", () => {
     const handler = readFileSync("app/api/store/pickup-address/route.ts", "utf8");
-    expect(handler).toContain("await upsertStorePickupAddress(user.id, parsed.data)");
+    expect(handler).toContain("await upsertStorePickupAddress(user.id, parsed.data, storeId)");
     expect(handler).toContain("await getStorePickupOperationalPreflight(savedState.store.id)");
     expect(handler).toContain("return ok({ pickupAddress, readiness })");
     expect(handler).not.toMatch(/await setStoreStatus\(/);

@@ -90,7 +90,5 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
-  if (workspaceDenied) return workspaceDenied;
   return PATCH(req);
 }
