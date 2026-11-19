@@ -253,6 +253,7 @@ export async function reconcileCashCollection(input: { orderId: string; actorUse
       if (prior.cashOnDeliveryId !== cod.id || prior.requestHash !== requestHash || prior.collectorDriverId !== cod.collectorDriverId || prior.reconciledByUserId !== input.actorUserId) throw new CashOnDeliveryError("COD_RECONCILIATION_CONFLICT", "Remittance operation conflicts with its immutable receipt.");
       return cod;
     }
+    if (cod.reconciliationStatus === "PHYSICAL_DELIVERY_REVIEW_PENDING") throw new CashOnDeliveryError("COD_REVIEW_REQUIRED", "Complete the independent physical-delivery review before cash reconciliation.");
     if (cod.reconciliationJournalId || cod.suspenseJournalId) throw new CashOnDeliveryError("COD_ALREADY_RECONCILED", "COD collection is already reconciled.");
     if (cod.status !== "COLLECTED") throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled from current state.");
     if (received.greaterThan(cod.cashCollected)) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Received remittance cannot exceed collected cash.");
@@ -433,6 +434,7 @@ export async function assertCashReadyForDeliveryWithinTransaction(tx: Prisma.Tra
   const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "orderId" = ${orderId} FOR UPDATE`);
   if (!rows.length) return;
   const cod = await tx.cashOnDelivery.findUnique({ where: { orderId } });
+  if (cod?.reconciliationStatus === "PHYSICAL_DELIVERY_REVIEW_PENDING") throw new CashOnDeliveryError("COD_REVIEW_REQUIRED", "Complete the independent physical-delivery review before delivery completion.");
   if (!cod || !cod.digitalPaid.equals(cod.digitalRequired) || !cod.cashCollected.equals(cod.cashObligation) || cod.collectorDriverId !== driverProfileId || !["COLLECTED", "RECONCILED", "UNDER_RECONCILIATION"].includes(cod.status)) {
     throw new CashOnDeliveryError("COD_COLLECTION_REQUIRED", "Record the exact required cash and verified online deposit before completing this delivery.");
   }

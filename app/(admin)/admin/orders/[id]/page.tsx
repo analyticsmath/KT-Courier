@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrderStatusUpdate } from "@/components/admin/AdminOrderStatusUpdate";
 import { AdminManualDelivery } from "@/components/admin/AdminManualDelivery";
+import { CodDeliveryExceptionAction } from "@/components/admin/CodDeliveryExceptionAction";
 import { isDeliveryAttemptEligible } from "@/lib/constants/delivery";
 import { DispatchDriverReadiness } from "@/components/admin/DispatchDriverReadiness";
 import { AdminAssignmentActions } from "@/components/protected-v2/admin/AdminAssignmentActions";
@@ -86,7 +87,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             <div><dt>Driver reference</dt><dd>{codReadiness.driverId ?? "No driver recorded"}</dd></div>
             <div><dt>Collection state</dt><dd>{codReadiness.status.replaceAll("_", " ")}</dd></div>
           </dl>
+          <p className="mt-3 text-sm">Physical delivery review: {codReadiness.reviewStatus.replaceAll("_", " ")}</p>
+          {codReadiness.reviewStatus === "PHYSICAL_DELIVERY_REVIEW_PENDING" && codReadiness.evidenceReference ? <p className="mt-2 text-sm">Evidence for review: {codReadiness.evidenceReference}. Open the matching private evidence in the delivery evidence section below.</p> : null}
           <Link className="eo-inline-action mt-3" href="/admin/cash-deposits">Review cash reconciliation</Link>
+          {codReadiness.reviewStatus === "PHYSICAL_DELIVERY_REVIEW_PENDING" ? (
+            codReadiness.reportedBy === user.id ? <p className="mt-3 text-sm">A different authorized cash reviewer must review this report.</p> : <CodDeliveryExceptionAction orderId={id} mode="review" evidence={[]} />
+          ) : canManageStatus && isDeliveryAttemptEligible(order.status) && codReadiness.status === "READY_FOR_COLLECTION" && codReadiness.cashOutstanding !== "0.00" && codReadiness.reviewStatus !== "PHYSICAL_DELIVERY_VERIFIED" ? <CodDeliveryExceptionAction orderId={id} mode="report" evidence={deliveryEvidence.map(item => ({ reference: item.reference, label: item.driver }))} /> : null}
         </OperationalPanel> : null}
         <OperationalPanel title="Administrative state" tone="subtle"><dl className="eo-definition-list"><div><dt>Source</dt><dd>{order.source}</dd></div><div><dt>Region</dt><dd>{order.deliveryRegionName ?? "Not matched"}</dd></div><div><dt>Scheduled</dt><dd>{order.scheduledFor ? formatDateTime(order.scheduledFor) : "Not scheduled"}</dd></div>{order.paymentDueAt ? <div><dt>Payment deadline</dt><dd>{formatDateTime(order.paymentDueAt)}</dd></div> : null}</dl></OperationalPanel>
       </>}

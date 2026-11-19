@@ -42,9 +42,10 @@ import {
   reviewDriverDeposit,
   submitDriverDeposit,
 } from "@/lib/client-platform/driver-cash.service";
-import { recordCashCollection } from "@/lib/services/cash-on-delivery.service";
+import { recordCashCollection, reconcileCashCollection } from "@/lib/services/cash-on-delivery.service";
 import { adminManualDeliveryComplete } from "@/lib/services/delivery-execution.service";
 import { updateAdminOrderStatus } from "@/lib/services/admin-orders.service";
+import { reportCodPhysicalDeliveryException, reviewCodPhysicalDeliveryException } from "@/lib/services/cod-physical-delivery-exception.service";
 import {
   acceptDispatchAssignment,
   offerAssignment,
@@ -1669,6 +1670,32 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     expect(await prisma.orderAssignment.findUniqueOrThrow({ where: { id: offer1.id } })).toEqual(beforeAssignment);
     expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
     expect(await prisma.ledgerJournal.count()).toBe(journals);
+
+    await expect(reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-no-evidence-${t}`, reason: "No evidence" })).rejects.toMatchObject({ code: "EVIDENCE_REQUIRED" });
+    const evidenceRef = `POD-${randomUUID()}`;
+    const mediaRef = `PMO-${randomUUID()}`;
+    await prisma.privateMediaObject.create({ data: { publicReference: mediaRef, ownerType: "PROOF_OF_DELIVERY", ownerId: firstCod.id, purpose: "POD_EVIDENCE", status: "READY", storageProvider: "LOCAL", storageKey: `disposable/${mediaRef}`, originalFileName: "evidence.png", declaredMimeType: "image/png", detectedMimeType: "image/png", byteSize: 12, checksum: "a".repeat(64), createdByUserId: driverUser.id } });
+    await prisma.deliveryProofEvidence.create({ data: { publicReference: evidenceRef, orderId: firstCod.id, assignmentId: offer1.id, driverProfileId: driver.id, createdByUserId: driverUser.id, storageProvider: "LOCAL", storageReference: mediaRef, contentType: "image/png", byteSize: 12, privateVisibility: true, status: "READY", validatedAt: new Date() } });
+    const report = await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef });
+    expect(report).toMatchObject({ status: "REVIEW_PENDING", cashOutstanding: "101.01" });
+    expect(await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef })).toEqual(report);
+    await expect(reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Changed report", evidenceReference: evidenceRef })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(reviewCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-self-review-${t}`, decision: "VERIFY", reason: "Review" })).rejects.toMatchObject({ code: "INDEPENDENT_REVIEW_REQUIRED" });
+    await prisma.privateMediaObject.update({ where: { publicReference: mediaRef }, data: { status: "QUARANTINED" } });
+    await expect(reviewCodPhysicalDeliveryException(adminUser, firstCod.id, { operationId: `physical-review-${t}`, decision: "VERIFY", reason: "Independent review of delivery evidence" })).rejects.toMatchObject({ code: "EVIDENCE_REQUIRED" });
+    await prisma.privateMediaObject.update({ where: { publicReference: mediaRef }, data: { status: "READY" } });
+    expect(await prisma.ledgerJournal.count()).toBe(journals);
+    expect((await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: firstCod.id } })).cashCollected.toFixed(2)).toBe("0.00");
+    await recordCashCollection({ orderId: firstCod.id, collectorDriverId: driver.id, actorUserId: driverUser.id, amount: "101.01", operationId: `aud-collect-${t}` });
+    expect(await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef })).toEqual(report);
+    await expect(reconcileCashCollection({ orderId: firstCod.id, actorUserId: adminUser.id, receivedAmount: "101.01", operationId: `pending-review-reconcile-${t}` })).rejects.toMatchObject({ code: "COD_REVIEW_REQUIRED" });
+    expect(await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Review still pending" })).toMatchObject({ ok: false, code: "COD_REVIEW_REQUIRED" });
+    const review = await reviewCodPhysicalDeliveryException(adminUser, firstCod.id, { operationId: `physical-review-${t}`, decision: "VERIFY", reason: "Independent review of delivery evidence" });
+    expect(review).toMatchObject({ status: "VERIFIED_CASH_COLLECTED", cashOutstanding: "0.00" });
+    expect(await reviewCodPhysicalDeliveryException(adminUser, firstCod.id, { operationId: `physical-review-${t}`, decision: "VERIFY", reason: "Independent review of delivery evidence" })).toEqual(review);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: firstCod.id } })).status).toBe("IN_TRANSIT");
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
+    expect(await prisma.ledgerJournal.count()).toBe(journals + 1);
 
     const collected = await recordCashCollection({
       orderId: firstCod.id,

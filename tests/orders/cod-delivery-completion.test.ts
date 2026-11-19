@@ -36,6 +36,10 @@ describe("COD completion money checks", () => {
       assertCashReadyForDeliveryWithinTransaction(tx, "order", "driver"),
     ).resolves.toBeUndefined();
   });
+  it("holds completed cash delivery until the physical-delivery report is independently reviewed", async () => {
+    db.cashOnDelivery.findUnique.mockResolvedValue({ ...complete, reconciliationStatus: "PHYSICAL_DELIVERY_REVIEW_PENDING" });
+    await expect(assertCashReadyForDeliveryWithinTransaction(tx, "order", "driver")).rejects.toMatchObject({ code: "COD_REVIEW_REQUIRED" });
+  });
   it("rejects a missing or reversed collection journal", async () => {
     db.ledgerJournal.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ reversalJournal: { id: "reversal" } });
     await expect(assertCashReadyForDeliveryWithinTransaction(tx, "order", "driver")).rejects.toMatchObject({ code: "COD_COLLECTION_REQUIRED" });

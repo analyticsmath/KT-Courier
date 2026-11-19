@@ -15,6 +15,6 @@ it("does not read cash details without the cash operations permission", async ()
 });
 it("shows exact paid deposit and outstanding cash for authorized operations", async () => {
   mocks.allowed.mockResolvedValue(true);
-  mocks.find.mockResolvedValue({ publicReference: "COD-1", status: "READY_FOR_COLLECTION", digitalRequired: new Prisma.Decimal("50.50"), digitalPaid: new Prisma.Decimal("50.50"), cashObligation: new Prisma.Decimal("50.51"), cashCollected: new Prisma.Decimal("10.01"), collectorDriverId: null, order: { currentDriverProfileId: "driver-1" } });
-  expect(await getAdminCodDeliveryReadiness(admin, "order")).toEqual({ reference: "COD-1", status: "READY_FOR_COLLECTION", digitalRequired: "50.50", digitalPaid: "50.50", cashObligation: "50.51", cashCollected: "10.01", cashOutstanding: "40.50", driverId: "driver-1" });
+  mocks.find.mockResolvedValue({ publicReference: "COD-1", status: "READY_FOR_COLLECTION", reconciliationStatus: "PHYSICAL_DELIVERY_REVIEW_PENDING", events: [{ actorUserId: "reporter", safeEvidence: { evidenceReference: "POD-proof" } }], digitalRequired: new Prisma.Decimal("50.50"), digitalPaid: new Prisma.Decimal("50.50"), cashObligation: new Prisma.Decimal("50.51"), cashCollected: new Prisma.Decimal("10.01"), collectorDriverId: null, order: { currentDriverProfileId: "driver-1" } });
+  expect(await getAdminCodDeliveryReadiness(admin, "order")).toEqual({ reference: "COD-1", status: "READY_FOR_COLLECTION", digitalRequired: "50.50", digitalPaid: "50.50", cashObligation: "50.51", cashCollected: "10.01", cashOutstanding: "40.50", driverId: "driver-1", reviewStatus: "PHYSICAL_DELIVERY_REVIEW_PENDING", reportedBy: "reporter", evidenceReference: "POD-proof" });
 });

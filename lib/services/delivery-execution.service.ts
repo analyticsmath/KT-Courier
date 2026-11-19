@@ -513,6 +513,7 @@ export async function completeDelivery(
       if (replay && current) { await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay); return { ok: true, assignment: toDeliveryAssignmentDto(current), operationResult: replay }; }
     }
     if (error instanceof DriverOperationError) return { ok: false, error: error.message };
+    if (error instanceof CashOnDeliveryError) return { ok: false, error: error.message };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }

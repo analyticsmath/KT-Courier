@@ -49,6 +49,7 @@ export default defineConfig({
         /trusted-parcel-classification\.spec\.ts/,
         /driver-canonical-delivery\.spec\.ts/,
         /cod-custody-remittance\.spec\.ts/,
+        /cod-physical-exception\.spec\.ts/,
         /catalog-inventory-upload\.spec\.ts/,
         /catalog-product-import\.spec\.ts/,
         /anonymous-courier-quote\.spec\.ts/,

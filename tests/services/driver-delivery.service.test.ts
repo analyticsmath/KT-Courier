@@ -322,6 +322,13 @@ describe("driver delivery service status flows", () => {
     );
   });
 
+  it("returns an actionable refusal when COD review is pending", async () => {
+    txMock.$queryRaw.mockImplementation(async (query) => String(query?.sql ?? query).includes("CashOnDelivery") ? [{ id: "cod" }] : [{ id: "order-1" }]);
+    txMock.cashOnDelivery.findUnique.mockResolvedValue({ reconciliationStatus: "PHYSICAL_DELIVERY_REVIEW_PENDING" });
+    await expect(completeDelivery("assignment-1", "driver-profile-1", "driver-user-1", { operationId: "op-review-pending", assignmentVersion: 1, otpCode: "123456", recipientName: "Recipient", driverNote: "Review pending", confirmDelivery: true })).resolves.toMatchObject({ ok: false, error: expect.stringContaining("independent") });
+    expect(verifyDeliveryOtpInTxMock).not.toHaveBeenCalled();
+  });
+
   it("does not transition delivery when OTP verification fails", async () => {
     prismaMock.orderAssignment.findFirst.mockResolvedValueOnce(
       assignment(OrderStatus.IN_TRANSIT),
