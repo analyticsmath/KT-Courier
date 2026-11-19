@@ -44,6 +44,7 @@ import {
 } from "@/lib/client-platform/driver-cash.service";
 import { recordCashCollection } from "@/lib/services/cash-on-delivery.service";
 import { adminManualDeliveryComplete } from "@/lib/services/delivery-execution.service";
+import { updateAdminOrderStatus } from "@/lib/services/admin-orders.service";
 import {
   acceptDispatchAssignment,
   offerAssignment,
@@ -1656,6 +1657,11 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     const beforeAssignment = await prisma.orderAssignment.findUniqueOrThrow({ where: { id: offer1.id } });
     const proofCount = await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } });
     const journals = await prisma.ledgerJournal.count();
+    const statusBypass = await updateAdminOrderStatus(adminUser, firstCod.id, { status: OrderStatus.DELIVERED, internalNote: "Attempt generic status bypass" });
+    expect(statusBypass).toMatchObject({ error: expect.stringContaining("delivery") });
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: firstCod.id } })).status).toBe("IN_TRANSIT");
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
+    expect(await prisma.ledgerJournal.count()).toBe(journals);
     const manual = await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Disposable manual delivery guard test" });
     expect(manual).toMatchObject({ ok: false, code: "COD_COLLECTION_REQUIRED" });
     expect((await prisma.order.findUniqueOrThrow({ where: { id: firstCod.id } })).status).toBe("IN_TRANSIT");

@@ -33,7 +33,8 @@ export function AdminOrderStatusUpdate({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const validTransitions = (VALID_STATUS_TRANSITIONS[currentStatus] ?? []) as OrderStatus[];
+  // Delivery completion uses the separate proof-backed action on this page.
+  const validTransitions = (VALID_STATUS_TRANSITIONS[currentStatus] ?? []).filter(status => status !== "DELIVERED") as OrderStatus[];
 
   if (validTransitions.length === 0) {
     return (

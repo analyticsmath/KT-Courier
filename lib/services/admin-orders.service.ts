@@ -162,6 +162,12 @@ export async function updateAdminOrderStatus(
     return { order: toAdminOrderDetailDto(order) };
   }
 
+  // Delivery has its own proof, assignment and COD financial authority.
+  // A generic status change must never bypass that transactional workflow.
+  if (input.status === OrderStatus.DELIVERED) {
+    return { error: "Confirm delivery using the delivery proof action so cash and proof can be verified.", reasonCode: "DELIVERY_PROOF_REQUIRED" };
+  }
+
   let updated: AdminOrderStatusUpdateOrder;
   try {
     updated = await prisma.$transaction(async (tx) => {
