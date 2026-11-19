@@ -197,8 +197,12 @@ export function PublicDeliveryQuoteForm({
       ...(read("postalCode") ? { postalCode: read("postalCode") } : {}),
       // The server re-resolves the selected Place ID independently.
       // Coordinates received from the browser never establish authority.
-      ...(source.placeId && typeof source.latitude === "number" && typeof source.longitude === "number"
-        ? { placeId: source.placeId, latitude: source.latitude, longitude: source.longitude }
+      ...(typeof source.latitude === "number" && typeof source.longitude === "number"
+        ? {
+            ...(source.placeId ? { placeId: source.placeId } : {}),
+            latitude: source.latitude,
+            longitude: source.longitude,
+          }
         : {}),
     };
   };
