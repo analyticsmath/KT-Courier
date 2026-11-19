@@ -49,6 +49,7 @@ files.push("tests/integration/l01-l02-coverage-and-suburb.integration.test.ts");
 files.push("tests/integration/client-contract-gaps-postgres.integration.test.ts");
 files.push("tests/integration/courier-payment-cod-expiry-closure.integration.test.ts");
 files.push("tests/integration/audit-remediation-closure.integration.test.ts");
+files.push("tests/integration/resend-lease-race-postgres.integration.test.ts");
 const selection = process.argv.slice(2);
 if (selection.length && (selection.length !== 1 || !["--verified-consumer-regression", "--authority-regressions", "--onboarding-regressions", "--wallet-split-regression"].includes(selection[0]))) throw new Error("Unsupported closure regression selection.");
 const selectedFiles = selection[0] === "--verified-consumer-regression" ? ["tests/integration/verified-payment-consumer-concurrency.integration.test.ts"] : selection[0] === "--authority-regressions" ? ["tests/integration/catalog-permission-bootstrap-postgres.integration.test.ts", "tests/integration/paystack-webhook-concurrency.integration.test.ts", "tests/integration/business-support-denial.integration.test.ts"] : selection[0] === "--onboarding-regressions" ? ["tests/integration/driver-registration-code.integration.test.ts"] : selection[0] === "--wallet-split-regression" ? ["tests/integration/parcel-wallet-split-retry-postgres.integration.test.ts", "tests/integration/store-go-live-certification.integration.test.ts", "tests/integration/store-live-two-reviewer.integration.test.ts"] : files;

@@ -3811,7 +3811,7 @@
       ],
       "requiredPermissions": [
         "orders.read",
-        "orders.update"
+        "orders.status.manage"
       ],
       "rateLimitingApplied": true,
       "idempotencyEnforced": false,

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminOrderStatusUpdate } from "@/components/admin/AdminOrderStatusUpdate";
+import { AdminManualDelivery } from "@/components/admin/AdminManualDelivery";
+import { isDeliveryAttemptEligible } from "@/lib/constants/delivery";
 import { DispatchDriverReadiness } from "@/components/admin/DispatchDriverReadiness";
 import { AdminAssignmentActions } from "@/components/protected-v2/admin/AdminAssignmentActions";
 import { CourierTrackingMap } from "@/components/maps/CourierTrackingMap";
@@ -155,6 +157,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
 
         <OperationalPanel title="Administrative action" description="Only permissions resolved on the server are shown. State changes wait for canonical server confirmation.">
           {canManageStatus ? <AdminOrderStatusUpdate orderId={id} currentStatus={order.status} paymentReadiness={paymentReadiness} /> : <ProtectedState kind="restricted" title="Read-only operational access" description="This administrator can review the order but does not have the state-transition permission." />}
+          {canManageStatus && isDeliveryAttemptEligible(order.status) ? <AdminManualDelivery orderId={id} /> : null}
         </OperationalPanel>
 
         <OperationalPanel title="History" description="Chronological events from the existing order and operational event authorities.">

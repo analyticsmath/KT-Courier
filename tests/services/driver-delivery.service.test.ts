@@ -287,6 +287,9 @@ describe("driver delivery service status flows", () => {
     );
 
     expect(result.ok).toBe(true);
+    // Order and COD must be locked in the same order as administrative completion.
+    const firstLock = txMock.$queryRaw.mock.calls[0]?.[0] as unknown as TemplateStringsArray;
+    expect(Array.isArray(firstLock) && firstLock.join("")).toContain('FROM "Order"');
     expect(verifyDeliveryOtpInTxMock).toHaveBeenCalledWith(
       txMock,
       "order-1",

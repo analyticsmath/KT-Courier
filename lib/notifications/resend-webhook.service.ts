@@ -1,13 +1,22 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { createNotificationAuthority } from "./authority";
 import { applyResendWebhookEventToAdminAlerts } from "./admin-alert-dispatch.service";
 
 const RESEND_WEBHOOK_MAX_AGE_SECONDS = 300;
 const LEASE_DURATION_MS = 30_000;
 const MAX_UNMATCHED_ATTEMPTS = 5;
+
+function ownedLease(publicReference: string, leaseToken: string | null | undefined) {
+  if (!leaseToken) throw new ResendWebhookError("WEBHOOK_IN_PROGRESS", 503, "Webhook processing lease is unavailable.");
+  return { publicReference, eventType: "RESEND_WEBHOOK_PROCESSING", safeEvidence: { path: ["leaseToken"], equals: leaseToken } };
+}
+
+function requireOwnedUpdate(result: { count: number }) {
+  if (result.count !== 1) throw new ResendWebhookError("WEBHOOK_IN_PROGRESS", 503, "Webhook processing lease has changed; retry safely.");
+}
 
 const ResendWebhookEventSchema = z.object({
   type: z.enum([
@@ -294,15 +303,14 @@ export async function processResendWebhook(input: Readonly<{
     try {
       await db.notificationAuditEvent.updateMany({
         where: {
-          publicReference: dedupePublicRef,
-          eventType: "RESEND_WEBHOOK_PROCESSING",
+          ...ownedLease(dedupePublicRef, currentEvidence!.leaseToken),
         },
         data: {
           safeEvidence: {
             ...currentEvidence!,
             leaseToken: null,
             leaseExpiresAt: null,
-            lastError: err instanceof Error ? err.message : String(err),
+            lastError: "PROJECTION_FAILED",
           } as unknown as Prisma.InputJsonValue,
         },
       });
@@ -420,6 +428,7 @@ async function resolveExistingInboxRecord(input: {
           where: {
             publicReference,
             eventType: row.eventType,
+            safeEvidence: { equals: row.safeEvidence === null ? Prisma.DbNull : row.safeEvidence },
           },
           data: {
             eventType: "RESEND_WEBHOOK_PROCESSING",
@@ -471,8 +480,28 @@ async function executeProjections(input: {
   adminAlertsUpdated: number;
   status: "FULLY_APPLIED" | "UNMATCHED_PENDING" | "RECONCILIATION_REQUIRED";
 }> {
+  return input.db.$transaction(async tx => {
+    await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "NotificationAuditEvent" WHERE "publicReference" = ${input.dedupePublicRef} FOR UPDATE`);
+    const row = await tx.notificationAuditEvent.findUnique({ where: { publicReference: input.dedupePublicRef } });
+    const current = row?.safeEvidence as Partial<ResendWebhookSafeEvidence> | null;
+    const expiry = current?.leaseExpiresAt ? Date.parse(current.leaseExpiresAt) : NaN;
+    if (row?.eventType !== "RESEND_WEBHOOK_PROCESSING" || !input.evidence.leaseToken || current?.leaseToken !== input.evidence.leaseToken || !Number.isFinite(expiry) || expiry <= Math.max(input.nowMs, Date.now())) throw new ResendWebhookError("WEBHOOK_IN_PROGRESS", 503, "Webhook processing lease has changed or expired; retry safely.");
+    // Existing projection services use $transaction for their own DB-only
+    // writes. Reuse this transaction while the inbox lease row remains locked.
+    const transactionDb = new Proxy(tx, { get(target, property) {
+      if (property === "$transaction") return async (operations: Promise<unknown>[] | ((client: typeof tx) => Promise<unknown>)) => typeof operations === "function" ? operations(tx) : Promise.all(operations);
+      return Reflect.get(target, property);
+    } }) as unknown as typeof prisma;
+    return executeProjectionsLocked({ ...input, db: transactionDb });
+  }, { timeout: 30_000 });
+}
+
+async function executeProjectionsLocked(input: {
+  db: typeof prisma; svixId: string; emailId: string; receiptType: ResendWebhookReceiptType; eventType: string; occurredAt: Date; dedupePublicRef: string; evidence: ResendWebhookSafeEvidence; nowMs: number;
+}): Promise<{ replayed: boolean; svixId: string; emailId: string; receiptType: ResendWebhookReceiptType; customerDeliveriesUpdated: number; adminAlertsUpdated: number; status: "FULLY_APPLIED" | "UNMATCHED_PENDING" | "RECONCILIATION_REQUIRED" }> {
   const { db, svixId, emailId, receiptType, eventType, occurredAt, dedupePublicRef, nowMs } = input;
   let evidence = input.evidence;
+  const leaseToken = evidence.leaseToken;
 
   // 1. Discover matching customer email deliveries
   const deliveries = await db.notificationDelivery.findMany({
@@ -503,7 +532,10 @@ async function executeProjections(input: {
 
     if (attemptCount >= MAX_UNMATCHED_ATTEMPTS) {
       // Reached maximum attempts: escalate to reconciliation queue
-      await db.notificationReconciliationCase.upsert({
+      await db.$transaction(async tx => {
+      const fenced = await tx.notificationAuditEvent.updateMany({ where: ownedLease(dedupePublicRef, leaseToken), data: { eventType: "RESEND_WEBHOOK_RECONCILIATION_REQUIRED", safeEvidence: { ...evidence, leaseToken: null, leaseExpiresAt: null, terminalReason: "MAX_UNMATCHED_ATTEMPTS_EXCEEDED" } as unknown as Prisma.InputJsonValue } });
+      requireOwnedUpdate(fenced);
+      await tx.notificationReconciliationCase.upsert({
         where: { publicReference: `rec:resend-unmatched:${svixId}` },
         update: {
           lastObservedAt: new Date(nowMs),
@@ -524,23 +556,6 @@ async function executeProjections(input: {
           },
         },
       });
-
-      evidence = {
-        ...evidence,
-        leaseToken: null,
-        leaseExpiresAt: null,
-        terminalReason: "MAX_UNMATCHED_ATTEMPTS_EXCEEDED",
-      };
-
-      await db.notificationAuditEvent.updateMany({
-        where: {
-          publicReference: dedupePublicRef,
-          eventType: "RESEND_WEBHOOK_PROCESSING",
-        },
-        data: {
-          eventType: "RESEND_WEBHOOK_RECONCILIATION_REQUIRED",
-          safeEvidence: evidence as unknown as Prisma.InputJsonValue,
-        },
       });
 
       return {
@@ -566,16 +581,14 @@ async function executeProjections(input: {
       leaseExpiresAt: null,
     };
 
-    await db.notificationAuditEvent.updateMany({
-      where: {
-        publicReference: dedupePublicRef,
-        eventType: "RESEND_WEBHOOK_PROCESSING",
-      },
+    const pendingUpdate = await db.notificationAuditEvent.updateMany({
+      where: ownedLease(dedupePublicRef, leaseToken),
       data: {
         eventType: "RESEND_WEBHOOK_UNMATCHED_PENDING",
         safeEvidence: evidence as unknown as Prisma.InputJsonValue,
       },
     });
+    requireOwnedUpdate(pendingUpdate);
 
     return {
       replayed: false,
@@ -613,11 +626,8 @@ async function executeProjections(input: {
     }
 
     if (customerDeliveriesUpdated > 0) {
-      await db.notificationAuditEvent.updateMany({
-        where: {
-          publicReference: dedupePublicRef,
-          eventType: "RESEND_WEBHOOK_PROCESSING",
-        },
+      const checkpoint = await db.notificationAuditEvent.updateMany({
+        where: ownedLease(dedupePublicRef, leaseToken),
         data: {
           safeEvidence: {
             ...evidence,
@@ -626,6 +636,7 @@ async function executeProjections(input: {
           } as unknown as Prisma.InputJsonValue,
         },
       });
+      requireOwnedUpdate(checkpoint);
     }
   }
 
@@ -652,16 +663,14 @@ async function executeProjections(input: {
     nextAttemptAt: null,
   };
 
-  await db.notificationAuditEvent.updateMany({
-    where: {
-      publicReference: dedupePublicRef,
-      eventType: "RESEND_WEBHOOK_PROCESSING",
-    },
+  const completed = await db.notificationAuditEvent.updateMany({
+    where: ownedLease(dedupePublicRef, leaseToken),
     data: {
       eventType: "RESEND_WEBHOOK_FULLY_APPLIED",
       safeEvidence: finalEvidence as unknown as Prisma.InputJsonValue,
     },
   });
+  requireOwnedUpdate(completed);
 
   return {
     replayed: false,
@@ -684,88 +693,98 @@ export async function recoverPendingResendWebhooks(options?: {
   const now = options?.now ?? new Date();
   const limit = Math.max(1, Math.min(options?.limit ?? 50, 200));
 
-  // Find candidate audit events: UNMATCHED_PENDING or stale PROCESSING
-  const candidates = await db.notificationAuditEvent.findMany({
-    where: {
-      eventType: {
-        in: ["RESEND_WEBHOOK_UNMATCHED_PENDING", "RESEND_WEBHOOK_PROCESSING"],
-      },
-    },
-    orderBy: { createdAt: "asc" },
-    take: limit * 2,
-  });
-
   let examined = 0;
   let reconciled = 0;
   let failed = 0;
+  let cursor: string | undefined;
+  const pageSize = limit * 2;
 
-  for (const candidate of candidates) {
-    if (examined >= limit) break;
-    const evidence = (candidate.safeEvidence as Partial<ResendWebhookSafeEvidence>) ?? {};
-
-    // Check if not yet due
-    if (evidence.nextAttemptAt && new Date(evidence.nextAttemptAt) > now) {
-      continue;
-    }
-
-    // For PROCESSING events, check if lease has expired
-    if (candidate.eventType === "RESEND_WEBHOOK_PROCESSING") {
-      const leaseExpiresAtMs = evidence.leaseExpiresAt
-        ? new Date(evidence.leaseExpiresAt).getTime()
-        : 0;
-      if (leaseExpiresAtMs > now.getTime()) {
-        continue; // Active lease
-      }
-    }
-
-    examined += 1;
-
-    // Acquire lease
-    const newLeaseToken = randomUUID();
-    const newLeaseExpiresAt = new Date(now.getTime() + LEASE_DURATION_MS).toISOString();
-    const nextEvidence: ResendWebhookSafeEvidence = {
-      ...(evidence as ResendWebhookSafeEvidence),
-      leaseToken: newLeaseToken,
-      leaseExpiresAt: newLeaseExpiresAt,
-      attemptCount: (evidence.attemptCount ?? 1) + 1,
-    };
-
-    const cas = await db.notificationAuditEvent.updateMany({
+  // Scan past active leases and backoff periods, so old future work cannot
+  // indefinitely hide newer events that are ready for recovery.
+  while (examined < limit) {
+    const candidates = await db.notificationAuditEvent.findMany({
       where: {
-        publicReference: candidate.publicReference,
-        eventType: candidate.eventType,
+        eventType: {
+          in: ["RESEND_WEBHOOK_UNMATCHED_PENDING", "RESEND_WEBHOOK_PROCESSING"],
+        },
       },
-      data: {
-        eventType: "RESEND_WEBHOOK_PROCESSING",
-        safeEvidence: nextEvidence as unknown as Prisma.InputJsonValue,
-      },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      take: pageSize,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
+    if (candidates.length === 0) break;
+    cursor = candidates[candidates.length - 1].id;
 
-    if (cas.count === 0) {
-      continue; // Won by another worker
-    }
+    for (const candidate of candidates) {
+      if (examined >= limit) break;
+      const evidence = (candidate.safeEvidence as Partial<ResendWebhookSafeEvidence>) ?? {};
 
-    try {
-      const outcome = await executeProjections({
-        db,
-        svixId: evidence.svixId ?? candidate.publicReference.replace(/^resend-wh:/, ""),
-        emailId: candidate.entityReference ?? evidence.emailId ?? "",
-        receiptType: (evidence.receiptType as ResendWebhookReceiptType) ?? "DELIVERED",
-        eventType: evidence.webhookEventType ?? "email.delivered",
-        occurredAt: evidence.occurredAt ? new Date(evidence.occurredAt) : now,
-        dedupePublicRef: candidate.publicReference,
-        evidence: nextEvidence,
-        nowMs: now.getTime(),
+      // Check if not yet due
+      if (evidence.nextAttemptAt && new Date(evidence.nextAttemptAt) > now) {
+        continue;
+      }
+
+      // For PROCESSING events, check if lease has expired
+      if (candidate.eventType === "RESEND_WEBHOOK_PROCESSING") {
+        const leaseExpiresAtMs = evidence.leaseExpiresAt
+          ? new Date(evidence.leaseExpiresAt).getTime()
+          : 0;
+        if (leaseExpiresAtMs > now.getTime()) {
+          continue; // Active lease
+        }
+      }
+
+      examined += 1;
+
+      // Acquire lease
+      const newLeaseToken = randomUUID();
+      const newLeaseExpiresAt = new Date(now.getTime() + LEASE_DURATION_MS).toISOString();
+      const nextEvidence: ResendWebhookSafeEvidence = {
+        ...(evidence as ResendWebhookSafeEvidence),
+        leaseToken: newLeaseToken,
+        leaseExpiresAt: newLeaseExpiresAt,
+        attemptCount: (evidence.attemptCount ?? 1) + 1,
+      };
+
+      const cas = await db.notificationAuditEvent.updateMany({
+        where: {
+          publicReference: candidate.publicReference,
+          eventType: candidate.eventType,
+          safeEvidence: { equals: candidate.safeEvidence === null ? Prisma.DbNull : candidate.safeEvidence },
+        },
+        data: {
+          eventType: "RESEND_WEBHOOK_PROCESSING",
+          safeEvidence: nextEvidence as unknown as Prisma.InputJsonValue,
+        },
       });
 
-      if (outcome.status === "FULLY_APPLIED") {
-        reconciled += 1;
-      } else if (outcome.status === "RECONCILIATION_REQUIRED") {
+      if (cas.count === 0) {
+        continue; // Won by another worker
+      }
+
+      try {
+        const outcome = await executeProjections({
+          db,
+          svixId: evidence.svixId ?? candidate.publicReference.replace(/^resend-wh:/, ""),
+          emailId: candidate.entityReference ?? evidence.emailId ?? "",
+          receiptType: (evidence.receiptType as ResendWebhookReceiptType) ?? "DELIVERED",
+          eventType: evidence.webhookEventType ?? "email.delivered",
+          occurredAt: evidence.occurredAt ? new Date(evidence.occurredAt) : now,
+          dedupePublicRef: candidate.publicReference,
+          evidence: nextEvidence,
+          nowMs: now.getTime(),
+        });
+
+        if (outcome.status === "FULLY_APPLIED") {
+          reconciled += 1;
+        } else if (outcome.status === "RECONCILIATION_REQUIRED") {
+          failed += 1;
+        }
+      } catch {
         failed += 1;
       }
-    } catch {
-      failed += 1;
     }
+    if (candidates.length < pageSize) break;
   }
 
   return { examined, reconciled, failed };

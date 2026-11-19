@@ -1,7 +1,8 @@
 import { DriverOperationError } from "@/lib/driver-operations/errors";
 import { publicDeliveryCompletionNote } from "@/lib/driver-operations/delivery-public-note";
 import { assertDriverReplayAuthority } from "@/lib/driver-operations/replay-authority";
-import { assertCashReadyForDeliveryWithinTransaction } from "./cash-on-delivery.service";
+import { assertCashReadyForDeliveryWithinTransaction, CashOnDeliveryError } from "./cash-on-delivery.service";
+import { withLedgerRetry } from "@/lib/ledger/retry";
 import { prisma } from "@/lib/db/prisma";
 import {
   OrderAssignmentStatus,
@@ -12,12 +13,12 @@ import {
   ProofOfDeliveryMethod,
   UserRole,
 } from "@/types/db";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { sanitizeLogContext } from "@/lib/observability/logger";
 import type { StartDeliveryInput, CompleteDeliveryInput, DeliveryAttemptedInput, DeliveryFailedInput } from "@/lib/validation/delivery";
 import { toDeliveryAssignmentDto, type DeliveryAssignmentDto, type DeliveryWorkbenchSummary } from "@/lib/dto/delivery.dto";
 import { isDeliveryEligible, isDeliveryAttemptEligible } from "@/lib/constants/delivery";
 import { verifyDeliveryOtpInTx } from "./delivery-otp.service";
-import { recordAdminActivity } from "./admin-activity.service";
 import type { AdminManualDeliveryInput } from "@/lib/validation/delivery";
 import { OrderTransitionError } from "@/lib/orders/order-state-machine";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
@@ -351,7 +352,10 @@ export async function completeDelivery(
   const deliveredAt = new Date();
 
   try {
-    const outcome = await prisma.$transaction(async (tx) => {
+    const outcome = await withLedgerRetry(() => prisma.$transaction(async (tx) => {
+      // Match administrative completion and cancellation: lock the order
+      // before acquiring the COD row, preventing a cross-path deadlock.
+      await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${order.id} FOR UPDATE`;
       await createOperationReceiptInTx(tx, { operationId: input.operationId, payload: input, orderId: order.id, assignmentId, driverProfileId, type: "DELIVERY_COMPLETE" });
       await assertDriverDeliveryResponsibilitiesInTx(tx, { assignmentId });
       await assertCashReadyForDeliveryWithinTransaction(tx, order.id, driverProfileId);
@@ -500,7 +504,7 @@ export async function completeDelivery(
         previousStatus: OrderAssignmentStatus.ACCEPTED,
         newStatus: OrderAssignmentStatus.COMPLETED,
       });
-    });
+    }));
     if (outcome?.otpRejected) return { ok: false, error: outcome.otpRejected };
   } catch (error) {
     if (isOperationReceiptConflict(error)) {
@@ -773,7 +777,7 @@ export async function adminManualDeliveryComplete(
   adminUserId: string,
   adminRole: UserRole,
   input: AdminManualDeliveryInput
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true } | { ok: false; error: string; code?: string }> {
   if (adminRole !== UserRole.ADMIN && adminRole !== UserRole.SUPER_ADMIN) {
     return { ok: false, error: "Admin access is required for manual delivery override." };
   }
@@ -798,16 +802,24 @@ export async function adminManualDeliveryComplete(
     return { ok: false, error: `Cannot manually complete delivery from status: ${order.status}.` };
   }
 
-  const statusBefore = order.status;
-  const statusAfter = OrderStatus.DELIVERED;
-
   const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : new Date();
-  const activeAssignment = order.assignments[0] ?? null;
-  const driverProfileId = activeAssignment?.driverProfile?.id ?? null;
-  const assignmentId = activeAssignment?.id ?? null;
 
   try {
-    await prisma.$transaction(async (tx) => {
+    await withLedgerRetry(() => prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
+      const locked = await tx.order.findUnique({ where: { id: orderId }, include: { assignments: { where: { status: OrderAssignmentStatus.ACCEPTED }, include: { driverProfile: { select: { id: true } } } } } });
+      if (!locked) throw new OrderTransitionError("Order not found.");
+      if (!isDeliveryAttemptEligible(locked.status)) throw new OrderTransitionError(`Cannot manually complete delivery from status: ${locked.status}.`);
+      const activeAssignment = locked.assignments[0] ?? null;
+      if (activeAssignment) {
+        await tx.$queryRaw`SELECT "id" FROM "OrderAssignment" WHERE "id" = ${activeAssignment.id} FOR UPDATE`;
+      }
+      const driverProfileId = activeAssignment?.driverProfile?.id ?? null;
+      const assignmentId = activeAssignment?.id ?? null;
+      if (activeAssignment && locked.currentDriverProfileId !== driverProfileId) throw new OrderTransitionError("The accepted assignment is no longer the current driver.");
+      await assertCashReadyForDeliveryWithinTransaction(tx, orderId, driverProfileId ?? "");
+      const statusBefore = locked.status;
+      const statusAfter = OrderStatus.DELIVERED;
       await tx.proofOfDelivery.create({
         data: {
           orderId,
@@ -875,23 +887,16 @@ export async function adminManualDeliveryComplete(
         operationId: `admin-delivery-complete:${orderId}:${deliveredAt.toISOString()}`,
         actorUserId: adminUserId,
       });
-    });
+      await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: "STATUS_CHANGE", entityType: "Order", entityId: orderId, message: `Manually confirmed delivery for order ${locked.orderNumber}.`, metadata: sanitizeLogContext({ reason: input.reason }) as Prisma.InputJsonValue } });
+    }, { isolationLevel: "Serializable" }));
   } catch (error) {
     if (error instanceof DriverOperationError) return { ok: false, error: error.message };
+    if (error instanceof CashOnDeliveryError) return { ok: false, error: error.message, code: error.code };
     if (error instanceof OrderTransitionError) {
       return { ok: false, error: error.message };
     }
     throw error;
   }
-
-  await recordAdminActivity({
-    actorUserId: adminUserId,
-    action: "STATUS_CHANGE",
-    entityType: "Order",
-    entityId: orderId,
-    message: `Manually confirmed delivery for order ${order.orderNumber}.`,
-    metadata: { reason: input.reason, recipientName: input.recipientName },
-  });
 
   return { ok: true };
 }

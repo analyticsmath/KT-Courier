@@ -43,6 +43,7 @@ import {
   submitDriverDeposit,
 } from "@/lib/client-platform/driver-cash.service";
 import { recordCashCollection } from "@/lib/services/cash-on-delivery.service";
+import { adminManualDeliveryComplete } from "@/lib/services/delivery-execution.service";
 import {
   acceptDispatchAssignment,
   offerAssignment,
@@ -927,16 +928,8 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       data: { email_id: emailA },
     });
 
-    let failCustLookup = true;
-    const origFindMany = prisma.notificationDelivery.findMany.bind(prisma.notificationDelivery);
-    vi.spyOn(prisma.notificationDelivery, "findMany").mockImplementation(((...args: Parameters<typeof origFindMany>) => {
-      const [filter] = args;
-      if (failCustLookup && filter?.where?.providerMessageReference === emailA) {
-        failCustLookup = false;
-        throw new Error("Simulated worker crash before customer fanout");
-      }
-      return origFindMany(...args);
-    }) as unknown as typeof prisma.notificationDelivery.findMany);
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION test_resend_customer_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '${delA.id}' THEN RAISE EXCEPTION 'Simulated customer projection failure'; END IF; RETURN NEW; END; $$`);
+    await prisma.$executeRawUnsafe('CREATE TRIGGER test_resend_customer_failure BEFORE UPDATE ON "NotificationDelivery" FOR EACH ROW EXECUTE FUNCTION test_resend_customer_failure()');
 
     const crashARes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
@@ -949,6 +942,8 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       body: bodyA,
     }));
     expect(crashARes.status).toBe(500);
+    await prisma.$executeRawUnsafe('DROP TRIGGER test_resend_customer_failure ON "NotificationDelivery"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION test_resend_customer_failure()');
 
     // Verify inbox record remains in PROCESSING, not prematurely completed
     const inboxA = await prisma.notificationAuditEvent.findUniqueOrThrow({
@@ -1020,16 +1015,8 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       data: { email_id: emailB },
     });
 
-    let failAdminUpdate = true;
-    const origIntentUpdate = prisma.notificationEventIntent.update.bind(prisma.notificationEventIntent);
-    vi.spyOn(prisma.notificationEventIntent, "update").mockImplementation(((...args: Parameters<typeof origIntentUpdate>) => {
-      const [updateArgs] = args;
-      if (failAdminUpdate && updateArgs?.where?.id === intentB.id) {
-        failAdminUpdate = false;
-        throw new Error("Simulated worker crash during admin alert update");
-      }
-      return origIntentUpdate(...args);
-    }) as unknown as typeof prisma.notificationEventIntent.update);
+    await prisma.$executeRawUnsafe(`CREATE FUNCTION test_resend_admin_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.id = '${intentB.id}' THEN RAISE EXCEPTION 'Simulated admin projection failure'; END IF; RETURN NEW; END; $$`);
+    await prisma.$executeRawUnsafe('CREATE TRIGGER test_resend_admin_failure BEFORE UPDATE ON "NotificationEventIntent" FOR EACH ROW EXECUTE FUNCTION test_resend_admin_failure()');
 
     const crashBRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
       method: "POST",
@@ -1042,10 +1029,12 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       body: bodyB,
     }));
     expect(crashBRes.status).toBe(500);
+    await prisma.$executeRawUnsafe('DROP TRIGGER test_resend_admin_failure ON "NotificationEventIntent"');
+    await prisma.$executeRawUnsafe('DROP FUNCTION test_resend_admin_failure()');
 
-    // Customer delivery was already applied
+    // Customer and admin projections roll back together on a failed update.
     const partialDelB = await prisma.notificationDelivery.findUniqueOrThrow({ where: { id: delB.id } });
-    expect(partialDelB.status).toBe("DELIVERED");
+    expect(partialDelB.status).toBe("PROVIDER_ACCEPTED");
 
     // Retry finishes admin projection without re-throwing or failing on customer receipt
     const retryBRes = await resendWebhookPost(new NextRequest("http://127.0.0.1/api/webhooks/resend", {
@@ -1501,6 +1490,22 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     // Case A: 50/50 DEPOSIT_PLUS_COD odd-cent R101.01 -> R50.51 deposit + R50.50 cash due
     const codOrder = await bookCodOrder("DEPOSIT_PLUS_COD");
     await payOrderViaVerify(codOrder.id);
+    const guardDriverUser = await prisma.user.create({ data: { email: `${prefix}-manual-guard-${randomUUID()}@example.test`, role: UserRole.DRIVER, status: UserStatus.ACTIVE, emailVerifiedAt: new Date() } });
+    const guardDriver = await prisma.driverProfile.create({ data: { userId: guardDriverUser.id, driverCode: `MG-${randomUUID().slice(0, 12)}`, active: true, status: "ACTIVE", availability: "AVAILABLE", maxConcurrentAssignments: 1, cashLimitAmount: new Prisma.Decimal("5000.00") } });
+    await prisma.driverServiceRegion.create({ data: { driverProfileId: guardDriver.id, deliveryRegionId: gautengRegion.id, isPrimary: true } });
+    await createApprovedDriverEvidence(guardDriver.id, guardDriverUser.id, `manual-guard-${randomUUID()}`);
+    await prisma.order.update({ where: { id: codOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
+    const guardOffer = await offerAssignment(adminUser.id, codOrder.id, { driverProfileId: guardDriver.id });
+    await acceptDispatchAssignment(guardDriver.id, guardOffer.id, { expectedVersion: guardOffer.version });
+    await prisma.order.update({ where: { id: codOrder.id }, data: { status: OrderStatus.IN_TRANSIT } });
+    const depositCodBefore = await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: codOrder.id } });
+    expect(depositCodBefore.digitalPaid.equals(depositCodBefore.digitalRequired)).toBe(true);
+    expect(depositCodBefore.cashCollected.isZero()).toBe(true);
+    const depositProofs = await prisma.proofOfDelivery.count({ where: { orderId: codOrder.id } });
+    expect(await adminManualDeliveryComplete(codOrder.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Disposable deposit COD guard test" })).toMatchObject({ ok: false });
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: codOrder.id } })).status).toBe("IN_TRANSIT");
+    expect(await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: codOrder.id } })).toEqual(depositCodBefore);
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: codOrder.id } })).toBe(depositProofs);
 
     // Case B: Full WALLET_ONLY parcel order settlement (credit wallet first so balance >= 101.01)
     await creditCustomerWalletBySuperAdmin({
@@ -1647,6 +1652,18 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     await acceptDispatchAssignment(driver.id, offer1.id, { expectedVersion: offer1.version });
     await prisma.order.update({ where: { id: firstCod.id }, data: { status: OrderStatus.IN_TRANSIT } });
 
+    const beforeManual = await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: firstCod.id } });
+    const beforeAssignment = await prisma.orderAssignment.findUniqueOrThrow({ where: { id: offer1.id } });
+    const proofCount = await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } });
+    const journals = await prisma.ledgerJournal.count();
+    const manual = await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Disposable manual delivery guard test" });
+    expect(manual).toMatchObject({ ok: false, code: "COD_COLLECTION_REQUIRED" });
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: firstCod.id } })).status).toBe("IN_TRANSIT");
+    expect(await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: firstCod.id } })).toEqual(beforeManual);
+    expect(await prisma.orderAssignment.findUniqueOrThrow({ where: { id: offer1.id } })).toEqual(beforeAssignment);
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
+    expect(await prisma.ledgerJournal.count()).toBe(journals);
+
     const collected = await recordCashCollection({
       orderId: firstCod.id,
       collectorDriverId: driver.id,
@@ -1658,16 +1675,20 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     expect(collected.remittanceDueAt!.toISOString()).toBe(
       computeDriverCashRemittanceDueAt(collected.collectedAt!).toISOString(),
     );
-    await prisma.$transaction([
-      prisma.orderAssignment.update({
-        where: { id: offer1.id },
-        data: { status: OrderAssignmentStatus.COMPLETED, completedAt: new Date(), activeOrderGuard: null },
-      }),
-      prisma.order.update({
-        where: { id: firstCod.id },
-        data: { status: OrderStatus.DELIVERED, currentDriverProfileId: null },
-      }),
-    ]);
+    await prisma.cashOnDelivery.update({ where: { id: collected.id }, data: { collectorDriverId: "foreign-driver" } });
+    expect(await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Disposable wrong collector check" })).toMatchObject({ ok: false, code: "COD_COLLECTION_REQUIRED" });
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
+    await prisma.cashOnDelivery.update({ where: { id: collected.id }, data: { collectorDriverId: driver.id } });
+    await prisma.cashOnDelivery.update({ where: { id: collected.id }, data: { collectionJournalId: null } });
+    expect(await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Disposable missing cash evidence check" })).toMatchObject({ ok: false, code: "COD_COLLECTION_REQUIRED" });
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount);
+    await prisma.cashOnDelivery.update({ where: { id: collected.id }, data: { collectionJournalId: collected.collectionJournalId } });
+    const completion = () => adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Verified collected cash and recipient delivery" });
+    const completed = await Promise.all([completion(), completion()]);
+    expect(completed.filter(result => result.ok), JSON.stringify(completed)).toHaveLength(1);
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: firstCod.id } })).status).toBe("DELIVERED");
+    expect(await prisma.proofOfDelivery.count({ where: { orderId: firstCod.id } })).toBe(proofCount + 1);
+    expect(await prisma.adminActivityLog.count({ where: { entityType: "Order", entityId: firstCod.id, actorUserId: adminUser.id, action: "STATUS_CHANGE" } })).toBe(1);
 
     // Move collection + remittanceDueAt to yesterday SAST (overdue!)
     const pastCollected = new Date(Date.now() - 36 * 3600_000);
@@ -1738,6 +1759,10 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     const digitalOffer = await offerAssignment(adminUser.id, digitalOrder.id, { driverProfileId: driver.id });
     expect(digitalOffer.status).toBe(OrderAssignmentStatus.ASSIGNED);
     expect((await prisma.orderAssignment.findUniqueOrThrow({ where: { id: digitalOffer.id } })).driverProfileId).toBe(driver.id);
+    await acceptDispatchAssignment(driver.id, digitalOffer.id, { expectedVersion: digitalOffer.version });
+    await prisma.order.update({ where: { id: digitalOrder.id }, data: { status: OrderStatus.IN_TRANSIT } });
+    expect(await adminManualDeliveryComplete(digitalOrder.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Verified digital delivery correction" })).toEqual({ ok: true });
+    expect((await prisma.order.findUniqueOrThrow({ where: { id: digitalOrder.id } })).status).toBe("DELIVERED");
 
     // Independent finance confirmation reconciles cash -> UNBLOCKS new COD assignment!
     await reviewDriverDeposit(superAdminUser, deposit.id, {

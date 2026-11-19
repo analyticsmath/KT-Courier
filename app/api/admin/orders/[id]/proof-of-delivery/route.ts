@@ -40,7 +40,7 @@ export async function POST(
   const rl = await checkIpRateLimit(req, `admin:delivery:manual:${ip}`, RATE_LIMITS.ADMIN_DELIVERY_MANUAL);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSeconds);
 
-  const auth = await requireAdminApiPermission(PERMISSIONS.ORDERS_UPDATE, {
+  const auth = await requireAdminApiPermission(PERMISSIONS.ORDERS_STATUS_MANAGE, {
     request: req,
   });
   if (auth.response) return auth.response;
@@ -67,7 +67,7 @@ export async function POST(
 
   try {
     const result = await adminManualDeliveryComplete(orderId, user.id, user.role, parsed.data);
-    if (!result.ok) return conflict(result.error);
+    if (!result.ok) return result.code ? Response.json({ error: result.error, code: result.code }, { status: 409 }) : conflict(result.error);
     return ok({ delivered: true });
   } catch (err) {
     console.error("[admin/orders/[id]/proof-of-delivery POST]", err);

@@ -52,6 +52,8 @@ function createMockDatabase() {
         const row = auditEvents.get(where.publicReference);
         if (!row) return { count: 0 };
         if (where.eventType && row.eventType !== where.eventType) return { count: 0 };
+        if (where.safeEvidence?.path && row.safeEvidence?.[where.safeEvidence.path[0]] !== where.safeEvidence.equals) return { count: 0 };
+        if (where.safeEvidence?.equals && !where.safeEvidence?.path && JSON.stringify(row.safeEvidence) !== JSON.stringify(where.safeEvidence.equals)) return { count: 0 };
         Object.assign(row, data);
         return { count: 1 };
       }),
@@ -124,6 +126,7 @@ function createMockDatabase() {
         return created;
       }),
     },
+    $queryRaw: vi.fn(async () => []),
     $transaction: vi.fn(async (ops: any) => {
       if (Array.isArray(ops)) return Promise.all(ops);
       if (typeof ops === "function") return ops(db);
