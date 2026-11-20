@@ -52,4 +52,10 @@ describe("dedicated quote-to-booking handoff", () => {
     expect(parcelBookingStepHref("quote/x&continue=https://attacker.test"))
       .toBe("/quote/book?reference=quote%2Fx%26continue%3Dhttps%3A%2F%2Fattacker.test");
   });
+  it("preserves the selected store as an encoded parameter only in the store workspace", () => {
+    expect(parcelBookingStepHref("quote_test_123", true, "store/2&other=1"))
+      .toBe("/quote/book?reference=quote_test_123&workspace=store&storeId=store%2F2%26other%3D1");
+    expect(parcelBookingStepHref("quote_test_123", false, "store-2"))
+      .toBe("/quote/book?reference=quote_test_123");
+  });
 });

@@ -16,13 +16,13 @@ export const metadata = publicPageMetadata({
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ reference?: string; workspace?: string }>;
+  searchParams: Promise<{ reference?: string; workspace?: string; storeId?: string }>;
 }) {
   const [u, p] = await Promise.all([getCurrentUser(), searchParams]);
   // Backwards compatible with quote links issued before the dedicated booking
   // page. Authenticated customers never return to the long quote form.
   if (p.reference && (u?.role === "CUSTOMER" || u?.role === "STORE")) {
-    redirect(parcelBookingStepHref(p.reference, u.role === "STORE" || p.workspace === "store"));
+    redirect(parcelBookingStepHref(p.reference, u.role === "STORE" || p.workspace === "store", p.storeId));
   }
   const [savedAddresses, pickupState] = await Promise.all([
     u?.role === "CUSTOMER" ? listCustomerAddresses(u.id).catch(() => []) : Promise.resolve([]),
@@ -78,6 +78,7 @@ export default async function Page({
             <PublicDeliveryQuoteForm
               signedIn={u?.role === "CUSTOMER" || u?.role === "STORE"}
               business={u?.role === "STORE"}
+              storeContextId={pickupState?.store.id ?? null}
               reference={p.reference}
               savedAddresses={savedAddresses}
               defaultPickup={defaultPickupAddress}

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
 import type { AddressDto } from "@/lib/maps/google-maps.types";
 import Link from "next/link";
@@ -89,10 +89,10 @@ export function PublicDeliveryQuoteForm({
     setMethods(null);
     setMethodError("");
   };
-  const storeWorkspaceHeaders: Record<string, string> = {
+  const storeWorkspaceHeaders = useMemo<Record<string, string>>(() => ({
     ...(business ? { "X-KT-Workspace": "STORE" } : {}),
     ...(storeContextId ? { "X-KT-Store-Id": storeContextId } : {}),
-  };
+  }), [business, storeContextId]);
   useEffect(() => {
     if (!quote || !signedIn) return;
     const controller = new AbortController();
@@ -116,7 +116,7 @@ export function PublicDeliveryQuoteForm({
           );
       });
     return () => controller.abort();
-  }, [quote, signedIn, business, methodRevision]);
+  }, [quote, signedIn, storeWorkspaceHeaders, methodRevision]);
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -166,7 +166,7 @@ export function PublicDeliveryQuoteForm({
       if (live) setCatalogLoading(false);
     });
     if (reference)
-      fetch(`/api/public/delivery-quotes/${reference}`)
+      fetch(`/api/public/delivery-quotes/${reference}`, { headers: storeWorkspaceHeaders })
         .then(async (r) => {
           const v = await r.json();
           if (!r.ok) throw Error(v.error);
@@ -176,7 +176,7 @@ export function PublicDeliveryQuoteForm({
           if (live) setError(e instanceof Error ? e.message : "Could not load this quote.");
         });
     return () => { live = false; };
-  }, [reference, catalogRevision, bookingOnly]);
+  }, [reference, catalogRevision, bookingOnly, storeWorkspaceHeaders]);
   const address = (f: FormData, p: string, selected: Address) => {
     // Store quotes must use the server-supplied saved pickup, never an
     // editable address or a pickup copied from a previous delivery.
@@ -645,15 +645,15 @@ export function PublicDeliveryQuoteForm({
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               {signedIn ? (
-                <Button href={parcelBookingStepHref(quote.id, business)}>
+                <Button href={parcelBookingStepHref(quote.id, business, storeContextId)}>
                   Continue to delivery details
                 </Button>
               ) : (
                 <>
-                  <Button href={`/login?returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business))}`}>
+                  <Button href={`/login?returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business, storeContextId))}`}>
                     Sign in to book
                   </Button>
-                  <Link className="rounded-xl border border-[var(--kt-border-strong)] px-5 py-3 text-sm font-semibold underline underline-offset-4" href={`/signup?role=customer&returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business))}`}>
+                  <Link className="rounded-xl border border-[var(--kt-border-strong)] px-5 py-3 text-sm font-semibold underline underline-offset-4" href={`/signup?role=customer&returnUrl=${encodeURIComponent(parcelBookingStepHref(quote.id, business, storeContextId))}`}>
                     Create an account to book
                   </Link>
                 </>

@@ -16,6 +16,7 @@ import { requireParcelProfile } from "@/lib/commercial/parcel-profiles";
 import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
 import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 import { recoverCommittedParcelBooking } from "@/lib/client-platform/parcel-booking-recovery";
+import { assertQuoteStoreScope } from "@/lib/client-platform/parcel-quote-store-scope";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -57,6 +58,7 @@ export async function POST(
       }
       throw cause;
     }
+    assertQuoteStoreScope(quote.storeId, store?.id ?? null);
     const parcel = quote.ruleSnapshot as { parcelSize: string; parcelProfileId?: string };
     const profile = await requireParcelProfile(parcel.parcelSize, String((quote.metadata as { bookingInput?: { actualWeightKg?: string } }).bookingInput?.actualWeightKg ?? "0"));
     if (profile.id !== parcel.parcelProfileId) throw new PlatformError("PARCEL_PROFILE_CHANGED", "Parcel acceptance limits changed. Request a new quote.", 409);
@@ -107,7 +109,7 @@ export async function POST(
     try {
       order = await prisma.$transaction(async tx => {
         const claimed = await tx.pricingQuote.updateMany({
-          where: { id, ownerId: quote.ownerId, status: "ACTIVE", expiresAt: { gt: new Date() }, calculationVersion: "client-delivery-v1" },
+          where: { id, ownerId: quote.ownerId, storeId: quote.storeId, status: "ACTIVE", expiresAt: { gt: new Date() }, calculationVersion: "client-delivery-v1" },
           data: { ownerId: user.id, ownerType: business ? "STORE" : "CUSTOMER", storeId: store?.id ?? null },
         });
         if (claimed.count !== 1) throw new PlatformError("QUOTE_EXPIRED", "Request a new quote before booking.", 409);

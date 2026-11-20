@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { readPublicQuote } from "@/lib/client-platform/delivery.service";
 import { storeAccess } from "@/lib/client-platform/store-access";
 import { resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
+import { assertQuoteStoreScope } from "@/lib/client-platform/parcel-quote-store-scope";
+import { PlatformError } from "@/lib/client-platform/contracts";
 import {
   resolvePaymentBreakdown,
   PaymentPolicyError,
@@ -22,6 +24,9 @@ export async function GET(
     return json({ error: "Sign in to view payment methods." }, 401);
   try {
     const q = await readPublicQuote((await c.params).id, u.id);
+    if (q.storeId && !["CUSTOMER", "STORE"].includes(u.role)) {
+      throw new PlatformError("STORE_ACCESS_DENIED", "An authorized business account is required.", 403);
+    }
     const methods = [
       {
         mode: "DIGITAL_ONLY",
@@ -40,6 +45,7 @@ export async function GET(
       const store = business
         ? (await storeAccess(u.id, "deliveries", resolveExplicitStoreContextId(req))).store
         : null;
+      assertQuoteStoreScope(q.storeId, store?.id ?? null);
       const rule = q.ruleSnapshot as {
           serviceKey?: string;
           configurationId?: string;

@@ -21,7 +21,7 @@ export default async function CompleteParcelBookingPage({
 }) {
   const { reference, workspace, storeId } = await searchParams;
   if (!reference || !/^[A-Za-z0-9_-]{8,128}$/.test(reference)) redirect("/quote");
-  const bookingHref = parcelBookingStepHref(reference, workspace === "store");
+  const bookingHref = parcelBookingStepHref(reference, workspace === "store", storeId);
   const user = await getCurrentUser();
   if (!user) redirect(`/login?returnUrl=${encodeURIComponent(bookingHref)}`);
   if (user.role !== "CUSTOMER" && user.role !== "STORE") redirect("/account");

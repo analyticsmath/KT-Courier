@@ -315,6 +315,7 @@ export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerTy
     data: {
       ownerType: "CUSTOMER",
       ownerId: owner!,
+      storeId: scope?.ownerType === "STORE" ? scope.ownerId : null,
       deliveryType: bookingInput.deliveryType,
       currency: "ZAR",
       calculationVersion: VERSION,

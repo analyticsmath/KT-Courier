@@ -19,7 +19,7 @@ describe("quote, sign-in and booking are distinct accessible steps", () => {
   });
 
   it("sends both login and signup back to contact entry, not the long quotation page", () => {
-    expect(quoteForm).toContain("encodeURIComponent(parcelBookingStepHref(quote.id, business))");
+    expect(quoteForm).toContain("encodeURIComponent(parcelBookingStepHref(quote.id, business, storeContextId))");
     expect(quoteForm).toContain("/signup?role=customer&returnUrl=");
     expect(quoteForm).toContain("!bookingOnly && <form onSubmit={estimate}");
     expect(quoteForm).toContain("bookingOnly && signedIn");
