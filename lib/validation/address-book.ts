@@ -71,7 +71,7 @@ export const StoreSignupLocationSchema = AddressInputSchema.extend({
 export const StorePickupAddressSchema = AddressInputSchema.extend({
   ...savedNullableFields,
   line1: z.string().trim().min(3, "Collection street address is required").max(200),
-  line2: z.string().trim().min(2, "Collection suburb or area is required").max(120),
+  line2: z.string().trim().max(120).nullable().optional(),
   city: z.string().trim().min(2, "Collection city is required").max(100),
   province: z.string().trim().min(2, "Collection province is required").max(100),
   country: z.string().trim().refine(
@@ -84,6 +84,9 @@ export const StorePickupAddressSchema = AddressInputSchema.extend({
   label: labelField,
 }).superRefine((value, ctx) => {
   validateCoordinatePair(value, ctx);
+  if (!(value.suburb?.trim() || value.line2?.trim())) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["suburb"], message: "Confirm the store collection suburb or area" });
+  }
   if (value.latitude === 0 && value.longitude === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["latitude"], message: "Select a precise collection point on the map" });
   }

@@ -111,9 +111,11 @@ export function StoreCheckoutCertificationPanel({
         setProofPriceRef(null);
         setStages([]);
       }
-      setNotice(action !== "approve"
-        ? "Evidence recorded. A different authorized administrator must independently inspect and approve it."
-        : "Independent certification approved. Store activation remains a separate authorized action.");
+      setNotice(action === "prepare"
+        ? "Manual evidence recorded for reference only. Run the real-source checkout capability proof before requesting approval."
+        : action === "prepare_preflight"
+          ? "Capability proof recorded. A different authorized administrator must independently inspect and approve it."
+          : "Independent certification approved. Store activation remains a separate authorized action.");
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to update certification.");
@@ -125,9 +127,14 @@ export function StoreCheckoutCertificationPanel({
   return (
     <div className="space-y-5">
       <p className="text-sm leading-6">
-        This approval must reference actual isolated-staging route evidence and a completed,
-        verified payment/order receipt for this store. Document the destination and courier service.
-        Never use an unapproved real-money charge to create test evidence.
+        Once the store is ready, run the real-source checkout capability proof below. It checks
+        the store’s current configuration and eligible offer without retaining a test order.
+        A different authorized administrator then reviews and approves the proof. This capability
+        check is not a real payment or a completed delivery.
+      </p>
+      <p className="text-sm leading-6">
+        The manual staging evidence fields are optional reference material and cannot by themselves
+        be approved for a live storefront. Never use an unapproved real-money charge as test evidence.
       </p>
       <dl className="grid gap-3 sm:grid-cols-2 text-sm">
         <div><dt>Certification status</dt><dd className="font-bold">{status.replaceAll("_", " ")}</dd></div>
@@ -202,7 +209,10 @@ export function StoreCheckoutCertificationPanel({
           </div>
         </form>
       ) : null}
-      {status === "PENDING_REVIEW" ? (
+      {status === "PENDING_REVIEW" && evidenceType !== "REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF" ? (
+        <p role="status" className="text-sm">This evidence cannot be approved for a live storefront. Run the real-source checkout capability proof and submit it for review.</p>
+      ) : null}
+      {status === "PENDING_REVIEW" && evidenceType === "REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF" ? (
         <Button type="button" variant="secondary" disabled={busy} loading={busy} onClick={() => void submit("approve")}>
           Approve independently reviewed staging evidence
         </Button>

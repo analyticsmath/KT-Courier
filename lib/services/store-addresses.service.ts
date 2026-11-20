@@ -73,6 +73,7 @@ function createAddressData(storeId: string, input: StorePickupAddressInput) {
     contactPhone: input.contactPhone ?? null,
     line1: input.line1,
     line2: input.line2 ?? null,
+    suburb: input.suburb ?? null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -94,6 +95,7 @@ function updateAddressData(input: StorePickupAddressInput) {
     contactPhone: input.contactPhone ?? null,
     line1: input.line1,
     line2: input.line2 ?? null,
+    suburb: input.suburb ?? null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -111,7 +113,7 @@ function storeAddressData(input: StorePickupAddressInput) {
     contactName: input.contactName ?? null,
     contactPhone: input.contactPhone ?? null,
     addressLine1: input.line1,
-    addressLine2: input.line2 ?? null,
+    addressLine2: input.suburb?.trim() || input.line2 || null,
     city: input.city ?? null,
     province: input.province ?? null,
     postalCode: input.postalCode ?? null,
@@ -124,22 +126,33 @@ function storeAddressData(input: StorePickupAddressInput) {
  * Changing only contact instructions must not unnecessarily delist a store.
  */
 export function hasStorePickupLocationChanged(
-  previous: Pick<Address, "line1" | "line2" | "city" | "province" | "postalCode" | "country" | "placeId" | "latitude" | "longitude"> | null,
+  previous: Pick<Address, "line1" | "line2" | "suburb" | "city" | "province" | "postalCode" | "country" | "placeId" | "latitude" | "longitude"> | null,
   next: StorePickupAddressInput,
 ): boolean {
   if (!previous) return true;
   const normalized = (value: string | null | undefined) => (value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-ZA");
-  for (const field of ["line1", "line2", "city", "province", "postalCode", "country", "placeId"] as const) {
+  for (const field of ["line1", "city", "province", "postalCode", "country", "placeId"] as const) {
     if (normalized(previous[field]) !== normalized(next[field] ?? (field === "country" ? "South Africa" : ""))) return true;
   }
+  // A legacy pickup used line2 for suburb. A new address can use a dedicated
+  // suburb with a separate unit/line2. Moving the *same* suburb to its canonical
+  // field (including a temporarily duplicated legacy line2) does not move the
+  // physical pickup and must not revoke a valid checkout certificate.
+  const oldSuburb = normalized(previous.suburb?.trim() || previous.line2);
+  const newSuburb = normalized(next.suburb?.trim() || next.line2);
+  if (oldSuburb !== newSuburb) return true;
+  const oldUnit = previous.suburb?.trim() && normalized(previous.line2) !== oldSuburb ? normalized(previous.line2) : "";
+  const newUnit = next.suburb?.trim() && normalized(next.line2) !== newSuburb ? normalized(next.line2) : "";
+  if (oldUnit !== newUnit) return true;
   return Number(previous.latitude) !== next.latitude || Number(previous.longitude) !== next.longitude;
 }
 
 export async function upsertStorePickupAddress(
   userId: string,
   input: StorePickupAddressInput,
+  explicitStoreId?: string | null,
 ): Promise<SavedAddressDto | null> {
-  const store = (await storeAccess(userId, "settings")).store;
+  const store = (await storeAccess(userId, "settings", explicitStoreId)).store;
 
   if (!store) return null;
 

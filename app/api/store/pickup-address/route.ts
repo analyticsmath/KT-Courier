@@ -13,14 +13,15 @@ import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { getStorePickupOperationalPreflight } from "@/lib/admin/store-pickup-preflight.service";
 
 
-export async function GET() {
-  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
+export async function GET(req?: NextRequest) {
+  const storeId = req?.nextUrl.searchParams.get("storeId")?.trim() || undefined;
+  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address", storeId);
   if (workspaceDenied) return workspaceDenied;
   const user = await getCurrentUser();
   if (!user) return unauthorized();
 
   try {
-    const state = await getStorePickupAddress(user.id);
+    const state = storeId ? await getStorePickupAddress(user.id, "settings", storeId) : await getStorePickupAddress(user.id);
     if (!state) return notFound("Store not found.");
     // Sellers need the same explicit checkout blockers on first page load,
     // not only after editing a pickup. Read-only provider failures must never
@@ -38,7 +39,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
+  const storeId = req.nextUrl.searchParams.get("storeId")?.trim() || undefined;
+  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address", storeId);
   if (workspaceDenied) return workspaceDenied;
   const originFailure = await enforceSameOriginRequest(req);
   if (originFailure) return originFailure;
@@ -69,14 +71,14 @@ export async function PATCH(req: NextRequest) {
   }
 
   try {
-    const pickupAddress = await upsertStorePickupAddress(user.id, parsed.data);
+    const pickupAddress = await upsertStorePickupAddress(user.id, parsed.data, storeId);
     if (!pickupAddress) return notFound("Store not found.");
     // A saved address is not evidence of a usable delivery route. Return
     // immediate, read-only pickup-area diagnostics for the merchant without
     // failing an already committed save if the mapping provider is down.
     let readiness = null;
     try {
-      const savedState = await getStorePickupAddress(user.id, "settings");
+      const savedState = await getStorePickupAddress(user.id, "settings", storeId);
       if (savedState) readiness = await getStorePickupOperationalPreflight(savedState.store.id);
     } catch {
       // Report unknown readiness instead of claiming the store is Live.
@@ -88,7 +90,5 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const workspaceDenied = await requireBusinessApi("/api/store/pickup-address");
-  if (workspaceDenied) return workspaceDenied;
   return PATCH(req);
 }

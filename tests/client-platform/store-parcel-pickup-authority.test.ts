@@ -27,6 +27,17 @@ describe("merchant outbound parcel collection authority", () => {
     expect(() => assertStoreParcelPickupMatches({ ...saved, placeId: "another-place" }, saved))
       .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
   });
+  it("accepts a saved mapped pickup without a Place ID only when its marker matches", () => {
+    const noPlace = { ...saved, placeId: null };
+    const requested = { ...saved, placeId: null };
+    expect(() => assertStoreParcelPickupMatches(requested, noPlace)).not.toThrow();
+    expect(() => assertStoreParcelPickupMatches({ ...requested, latitude: -25 }, noPlace))
+      .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
+    expect(() => assertStoreParcelPickupMatches({ ...requested, placeId: "forged-place" }, noPlace))
+      .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
+    expect(() => assertStoreParcelPickupMatches({ ...requested, latitude: null }, noPlace))
+      .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
+  });
   it("accepts inconsequential case and whitespace normalization", () => {
     expect(() => assertStoreParcelPickupMatches({ ...saved, line1: " 11  MAIN STREET " }, saved)).not.toThrow();
   });

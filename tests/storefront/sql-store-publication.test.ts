@@ -17,6 +17,7 @@ describe("public catalogue reflects current reviewed store checkout authority", 
     expect(sql).toContain('cert."routeEvidenceDigest"');
     expect(sql).toContain('cert."checkoutEvidenceDigest"');
     expect(sql).toContain('pickup."storeId" = store."id"');
+    expect(sql).not.toContain('pickup."id" = COALESCE(store."defaultPickupAddressId"');
     expect(sql).toContain("pickup.\"type\" = 'PICKUP'");
     expect(sql).toContain('cert."pickupFingerprint"');
     expect(sql).toContain('"StoreSellerLegalIdentity"');
@@ -46,6 +47,7 @@ describe("public catalogue reflects current reviewed store checkout authority", 
     expect(sql).toContain('"addressId":');
     expect(sql).toContain('"street":');
     expect(sql).toContain('"suburb":');
+    expect(sql).toContain('pickup."suburb"');
     expect(sql).toContain('"city":');
     expect(sql).toContain('"province":');
     expect(sql).toContain('"postcode":');

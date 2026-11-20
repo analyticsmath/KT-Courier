@@ -11,6 +11,7 @@ import {
 } from "@/components/protected-v2/store/StoreCatalogNavigation";
 import { getCurrentStoreForCatalogPage } from "@/lib/services/catalog-page.service";
 import { listStoreCatalogOffers } from "@/lib/services/store-offer.service";
+import { storeOfferReviewLabel } from "@/lib/catalog/store-offer-review";
 
 export default async function StoreCatalogOffersPage() {
   await requireBusinessPage("/store/catalog/offers");
@@ -65,6 +66,29 @@ export default async function StoreCatalogOffersPage() {
               priority: "secondary",
               cell: ({ offer }) => (
                 <ProtectedStatus label={offer.status.replaceAll("_", " ")} />
+              ),
+            },
+            {
+              id: "review",
+              header: "Independent review",
+              priority: "secondary",
+              cell: ({ offer }) => (
+                <ProtectedStatus
+                  label={storeOfferReviewLabel(
+                    offer.status,
+                    offer.approvedByUserId,
+                  )}
+                />
+              ),
+            },
+            {
+              id: "publication",
+              header: "Publication",
+              priority: "optional",
+              cell: ({ offer }) => (
+                <ProtectedStatus
+                  label={offer.publicationStatus.replaceAll("_", " ")}
+                />
               ),
             },
             {

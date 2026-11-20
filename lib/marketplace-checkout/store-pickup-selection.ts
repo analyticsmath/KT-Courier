@@ -9,6 +9,7 @@ export type StorePickupAddressCandidate = Readonly<{
   isDefault?: boolean | null;
   line1?: string | null;
   line2?: string | null;
+  suburb?: string | null;
   city?: string | null;
   province?: string | null;
   postalCode?: string | null;
@@ -43,7 +44,7 @@ function hasValidMapMarker(address: StorePickupAddressCandidate): boolean {
 export function completeStorePickupAddress(address: StorePickupAddressCandidate | null | undefined): boolean {
   return Boolean(
     hasCorePickupAddress(address)
-    && (address?.line2?.trim().length ?? 0) >= 2
+    && ((address?.suburb?.trim() || address?.line2?.trim())?.length ?? 0) >= 2
     && /^\d{4}$/.test(address?.postalCode?.trim() ?? "")
     && address
     && hasValidMapMarker(address),

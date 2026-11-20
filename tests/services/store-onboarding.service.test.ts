@@ -4,6 +4,8 @@ import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-pr
 import type { StorePickupAddressCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
 import {
   deriveStoreOnboardingProjection,
+  isStoreOnboardingOwnerOfferPrepared,
+  type StoreOnboardingOwnerOfferFacts,
   type StoreOnboardingFacts,
 } from "@/lib/services/store-onboarding.service";
 
@@ -40,6 +42,12 @@ const baseFacts = (
   activeInventoryLocations: 0,
   draftOrActiveProducts: 0,
   approvedProducts: 0,
+  editableProducts: 0,
+  pendingProductReviews: 0,
+  editableOffers: 0,
+  pendingOfferReviews: 0,
+  approvedOffersAwaitingPublication: 0,
+  ownerPreparedOffers: 0,
   publishedOffers: 0,
   pausedOrOutOfStockOffers: 0,
   sellableOffers: 0,
@@ -197,5 +205,130 @@ describe("store onboarding 5-state projection", () => {
       baseFacts({ storeStatus: "SUSPENDED" }),
     );
     expect(suspended.shopState).toBe("SHOP_PAUSED");
+  });
+
+  it("separates approved draft products from published storefront listings", () => {
+    const result = deriveStoreOnboardingProjection(
+      baseFacts({
+        storeStatus: "ACTIVE",
+        hasApprovedSellerIdentity: true,
+        sellerIdentityStatus: "APPROVED",
+        pickup: validPickup,
+        activeInventoryLocations: 1,
+        draftOrActiveProducts: 3,
+        approvedProducts: 1,
+        editableProducts: 2,
+        approvedOffersAwaitingPublication: 1,
+      }),
+    );
+
+    expect(result.ownerActionBlockers).toHaveLength(1);
+    expect(result.ownerActionBlockers[0]).not.toContain("submit at least one");
+    expect(result.ownerActionBlockers[0]).toContain("Do not resubmit it");
+    expect(result.adminReviewBlockers.join(" ")).toContain(
+      "independently approved offer",
+    );
+    expect(result.adminReviewBlockers.join(" ")).not.toContain(
+      "Catalog moderation & publication approval",
+    );
+    expect(result.nextAction.actor).toBe("OWNER");
+  });
+
+  it("hands a seller-ready submitted offer to KT review instead of asking the owner to repeat work", () => {
+    const result = deriveStoreOnboardingProjection(
+      baseFacts({
+        storeStatus: "ACTIVE",
+        hasApprovedSellerIdentity: true,
+        sellerIdentityStatus: "APPROVED",
+        pickup: validPickup,
+        activeInventoryLocations: 1,
+        draftOrActiveProducts: 1,
+        pendingOfferReviews: 1,
+        ownerPreparedOffers: 1,
+      }),
+    );
+
+    expect(result.ownerActionBlockers).toEqual([]);
+    expect(result.nextAction.actor).toBe("ADMIN");
+    expect(result.nextAction.label).toContain("KT Couriers review");
+    expect(result.adminReviewBlockers.join(" ")).toContain(
+      "Independent catalog review",
+    );
+    expect(result.stages.find((stage) => stage.id === "first_product")?.status).toBe(
+      "WAITING_ADMIN",
+    );
+  });
+});
+
+const preparedOfferFacts = (
+  overrides: Partial<StoreOnboardingOwnerOfferFacts> = {},
+): StoreOnboardingOwnerOfferFacts => ({
+  isStoreOwnedProduct: true,
+  productStatus: "APPROVED",
+  productModerationStatus: "APPROVED",
+  productTypeActive: true,
+  categoryActive: true,
+  variantStatus: "DRAFT",
+  productMedia: [
+    {
+      role: "PRIMARY",
+      variantId: null,
+      assetStatus: "READY",
+      privacyInspectionPassed: true,
+      storageConfirmed: true,
+      validated: true,
+    },
+  ],
+  variantId: "variant-1",
+  offerStatus: "SUBMITTED",
+  fulfilmentMode: "COURIER_DELIVERY",
+  minimumQuantity: 1,
+  hasCurrentZarPrice: true,
+  hasInventoryItem: true,
+  inventoryTrackingMode: "TRACKED",
+  allowBackorder: false,
+  activeLocationAvailableStock: 3,
+  hasPackageDeclaration: true,
+  ...overrides,
+});
+
+describe("seller offer handoff readiness", () => {
+  it("accepts complete seller evidence for independent KT review and publication", () => {
+    expect(isStoreOnboardingOwnerOfferPrepared(preparedOfferFacts())).toBe(true);
+  });
+
+  it("requires publication-grade media, usable stock, price, and delivery package", () => {
+    expect(
+      isStoreOnboardingOwnerOfferPrepared(
+        preparedOfferFacts({ activeLocationAvailableStock: 0 }),
+      ),
+    ).toBe(false);
+    expect(
+      isStoreOnboardingOwnerOfferPrepared(
+        preparedOfferFacts({ hasPackageDeclaration: false }),
+      ),
+    ).toBe(false);
+    expect(
+      isStoreOnboardingOwnerOfferPrepared(
+        preparedOfferFacts({ hasCurrentZarPrice: false }),
+      ),
+    ).toBe(false);
+    expect(
+      isStoreOnboardingOwnerOfferPrepared(
+        preparedOfferFacts({
+          productMedia: [
+            {
+              ...preparedOfferFacts().productMedia[0]!,
+              role: "GALLERY",
+            },
+          ],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isStoreOnboardingOwnerOfferPrepared(
+        preparedOfferFacts({ isStoreOwnedProduct: false }),
+      ),
+    ).toBe(false);
   });
 });

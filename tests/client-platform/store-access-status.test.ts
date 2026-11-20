@@ -24,4 +24,14 @@ describe("owned store status restrictions", () => {
     db.store.findMany.mockResolvedValue([{ id: "store-one", status: "PENDING" }]);
     await expect(storeAccess("owner-one", "settings")).resolves.toMatchObject({ store: { id: "store-one" }, owner: true });
   });
+  it("limits explicit pickup settings access to the selected authorized store", async () => {
+    db.store.findMany.mockResolvedValue([]);
+    db.storeEmployeeMembership.findMany.mockResolvedValue([
+      { storeId: "store-one", store: { id: "store-one", status: "ACTIVE" }, permissions: ["settings"] },
+      { storeId: "store-two", store: { id: "store-two", status: "ACTIVE" }, permissions: ["deliveries"] },
+    ]);
+    await expect(storeAccess("employee", "settings", "store-one")).resolves.toMatchObject({ store: { id: "store-one" }, owner: false });
+    await expect(storeAccess("employee", "settings", "store-two")).rejects.toMatchObject({ code: "STORE_ACCESS_DENIED" });
+    await expect(storeAccess("employee", "settings", "store-three")).rejects.toMatchObject({ code: "STORE_ACCESS_DENIED" });
+  });
 });

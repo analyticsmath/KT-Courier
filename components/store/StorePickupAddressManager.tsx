@@ -48,6 +48,7 @@ function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
     placeId: address.placeId,
     line1: address.line1,
     line2: address.line2,
+    suburb: address.suburb ?? address.line2,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,
@@ -66,6 +67,7 @@ function legacyToValue(address?: LegacyPickupAddress): AddressAutocompleteValue 
     placeId: null,
     line1: address.line1,
     line2: address.line2 ?? null,
+    suburb: address.line2 ?? null,
     city: address.city ?? null,
     province: address.province ?? null,
     postalCode: address.postalCode ?? null,
@@ -150,8 +152,8 @@ export function StorePickupAddressManager({
       setSaving(false);
       return;
     }
-    if (!form.address.line2?.trim()) {
-      setFieldErrors({ line2: "Enter the pickup suburb or area." });
+    if (!form.address.suburb?.trim() && !form.address.line2?.trim()) {
+      setError("Confirm the store pickup suburb or area on the mapped address before saving.");
       setSaving(false);
       return;
     }
@@ -174,6 +176,7 @@ export function StorePickupAddressManager({
       contactPhone: form.contactPhone.trim() || null,
       line1: form.address.line1.trim(),
       line2: form.address.line2,
+      suburb: form.address.suburb?.trim() || form.address.line2?.trim() || null,
       city: form.address.city,
       province: form.address.province,
       postalCode: form.address.postalCode,

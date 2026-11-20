@@ -3,7 +3,7 @@ import { CatalogPackagingSchema } from "@/lib/validation/catalog-packaging";
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), create: vi.fn() }));
 vi.mock("@/lib/commercial/parcel-profiles", () => ({ publicParcelProfiles: async () => [{ lengthCm: 70, widthCm: 50, heightCm: 50, maximumWeightKg: 30 }] }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { systemSetting: { findUnique: mocks.findUnique, findMany: mocks.findMany } } }));
-import { saveCatalogPackaging, findCatalogPackagingDeclaration, listCatalogPackagingPage } from "@/lib/services/catalog-packaging.service";
+import { saveCatalogPackaging, findCatalogPackagingDeclaration, listCatalogPackagingForOffers, listCatalogPackagingPage } from "@/lib/services/catalog-packaging.service";
 const input = { lengthCm: 20, widthCm: 15, heightCm: 5, weightKg: 1.2, description: "One sealed package including protective padding." };
 beforeEach(() => vi.clearAllMocks());
 describe("vendor package evidence", () => {
@@ -17,6 +17,19 @@ describe("vendor package evidence", () => {
     await expect(findCatalogPackagingDeclaration(declaration.offerReference, declaration.revision)).resolves.toBeNull();
     mocks.findUnique.mockResolvedValue({ value: { ...declaration, weightKg: -10 } });
     await expect(findCatalogPackagingDeclaration(declaration.offerReference, declaration.revision)).resolves.toBeNull();
+  });
+  it("batch-resolves only valid packaging declarations owned by the target store", async () => {
+    const valid = { ...input, offerReference: "CO-valid", storeId: "store-a", actorUserId: "vendor-a", revision: "rev-a", submittedAt: "2026-10-25T08:00:00.000Z" };
+    mocks.findMany.mockResolvedValue([
+      { key: "vendor_catalog_packaging:CO-valid", value: valid },
+      { key: "vendor_catalog_packaging:CO-foreign", value: { ...valid, offerReference: "CO-foreign", storeId: "store-b" } },
+      { key: "vendor_catalog_packaging:CO-invalid", value: { ...valid, offerReference: "CO-invalid", weightKg: -1 } },
+    ]);
+    await expect(listCatalogPackagingForOffers("store-a", ["CO-valid", "CO-foreign", "CO-invalid"])).resolves.toEqual([valid]);
+    expect(mocks.findMany).toHaveBeenCalledWith({
+      where: { key: { in: ["vendor_catalog_packaging:CO-valid", "vendor_catalog_packaging:CO-foreign", "vendor_catalog_packaging:CO-invalid"] } },
+      select: { key: true, value: true },
+    });
   });
   it("paginates vendor submissions so older submissions remain discoverable", async () => {
     const pages = Array.from({ length: 101 }, (_, index) => ({

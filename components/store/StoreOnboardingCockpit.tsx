@@ -111,7 +111,7 @@ export function StoreOnboardingCockpit({
         <MetricTile
           label="Products drafted"
           value={onboarding.metrics.draftOrActiveProducts}
-          description={`${onboarding.metrics.approvedProducts} moderation approved`}
+          description={`${onboarding.metrics.approvedProducts} approved · ${onboarding.metrics.pendingProductReviews} awaiting review`}
         />
         <MetricTile
           tone="citrus"

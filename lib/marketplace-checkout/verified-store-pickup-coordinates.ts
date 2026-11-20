@@ -4,6 +4,7 @@ import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
 export type StoredMerchantPickup = Readonly<{
   line1?: string | null;
   line2?: string | null;
+  suburb?: string | null;
   city?: string | null;
   province?: string | null;
   country?: string | null;
@@ -25,12 +26,13 @@ export async function resolveVerifiedStorePickupCoordinates(
 ): Promise<VerifiedStorePickupCoordinates | null> {
   const line1 = pickup?.line1?.trim();
   const line2 = pickup?.line2?.trim();
+  const suburb = pickup?.suburb?.trim() || line2;
   const city = pickup?.city?.trim();
   const province = pickup?.province?.trim();
   const postalCode = pickup?.postalCode?.trim();
   if (
     !line1 || line1.length < 3
-    || !line2 || line2.length < 2
+    || !suburb || suburb.length < 2
     || !city || city.length < 2
     || !province || province.length < 2
     || pickup?.country?.trim().toLowerCase() !== "south africa"
@@ -50,12 +52,12 @@ export async function resolveVerifiedStorePickupCoordinates(
 
   const address: GeocodableSouthAfricanAddress = {
     line1,
-    line2,
+    ...(line2 ? { line2 } : {}),
     city,
     province,
     postalCode,
     country: "South Africa",
-    suburb: line2,
+    suburb,
     requireSuburbAndPostalMatch: true,
     latitude,
     longitude,
