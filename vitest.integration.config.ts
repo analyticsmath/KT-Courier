@@ -11,5 +11,7 @@ export default defineConfig({
     restoreMocks: true,
     fileParallelism: false,
     maxWorkers: 1,
+    // Real PostgreSQL workflows include migrations, ledger writes and retries.
+    testTimeout: 60_000,
   },
 });

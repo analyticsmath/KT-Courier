@@ -1589,7 +1589,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     expect(hybridPaid?.renderedBody).toContain("50.51");
     expect(hybridPaid?.renderedBody).toContain("50.50");
     expect(hybridPaid?.renderedBody).not.toMatch(/fully paid/i);
-  }, 60_000);
+  });
 
   it("GAP-4 (Sec 4): persists Africa/Johannesburg end-of-day remittanceDueAt, alerts overdue drivers via registered processor, blocks new COD assignments while allowing DIGITAL_ONLY, and clears after independent verification", async () => {
     const t = randomUUID().slice(0, 6);
@@ -1814,5 +1814,5 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     });
     expect(unblockedOffer.status).toBe(OrderAssignmentStatus.ASSIGNED);
     expect((await prisma.orderAssignment.findUniqueOrThrow({ where: { id: unblockedOffer.id } })).driverProfileId).toBe(driver.id);
-  }, 60_000);
+  });
 });
