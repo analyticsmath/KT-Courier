@@ -40,7 +40,7 @@ for (const width of [1440, 390]) test(`store saved pin to parcel booking at ${wi
   const failed = await failedResponse;
   expect(failed.status(), await failed.text()).toBe(422);
   expect(await failed.json()).toMatchObject({ code: "ADDRESS_UNRESOLVED" });
-  await expect(page.getByRole("alert")).toContainText("Delivery location could not be independently verified");
+  await expect(page.locator("#quote-error")).toContainText("Delivery location could not be independently verified");
   await destination.getByLabel("Street address", { exact: true }).fill("77 Juta Street");
   const quoteResponse = page.waitForResponse(response => response.url().endsWith("/api/public/delivery-quotes") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Calculate delivery price" }).click();
