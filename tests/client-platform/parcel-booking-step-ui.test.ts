@@ -11,7 +11,7 @@ describe("quote, sign-in and booking are distinct accessible steps", () => {
     expect(bookingPage).toContain("getCurrentUser()");
     expect(bookingPage).toContain("business={business}");
     expect(bookingPage).toContain('workspace === "store"');
-    expect(bookingPage).toContain('getStorePickupAddress(user.id, "deliveries")');
+    expect(bookingPage).toContain('getStorePickupAddress(user.id, "deliveries", selectedStoreId)');
     expect(bookingPage).toContain("bookingOnly");
     expect(bookingPage).toContain("reference={reference}");
     expect(bookingPage).toContain('aria-current="step"');

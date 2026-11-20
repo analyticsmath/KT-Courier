@@ -6,3 +6,9 @@ export function assertQuoteStoreScope(quoteStoreId: string | null, selectedStore
     throw new PlatformError("QUOTE_WORKSPACE_MISMATCH", "This quote belongs to a different business workspace. Request a new quote.", 409);
   }
 }
+
+/** The persisted scope is authoritative; legacy quotes need an explicit choice. */
+export function resolveBookingStoreId(quoteStoreId: string | null, selectedStoreId: string | null): string | null {
+  if (quoteStoreId && selectedStoreId) assertQuoteStoreScope(quoteStoreId, selectedStoreId);
+  return quoteStoreId ?? selectedStoreId;
+}

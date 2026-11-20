@@ -5,6 +5,12 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { PublicDeliveryQuoteForm } from "@/components/forms/PublicDeliveryQuoteForm";
 import { parcelBookingStepHref } from "@/lib/client-platform/parcel-booking-navigation";
 import { getStorePickupAddress } from "@/lib/services/store-addresses.service";
+import { readPublicQuote } from "@/lib/client-platform/delivery.service";
+import { resolveBookingStoreId } from "@/lib/client-platform/parcel-quote-store-scope";
+import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
+import { membershipAllows } from "@/lib/client-platform/store-permissions";
+import { prisma } from "@/lib/db/prisma";
+import { PlatformError } from "@/lib/client-platform/contracts";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
@@ -24,18 +30,48 @@ export default async function CompleteParcelBookingPage({
   const bookingHref = parcelBookingStepHref(reference, workspace === "store", storeId);
   const user = await getCurrentUser();
   if (!user) redirect(`/login?returnUrl=${encodeURIComponent(bookingHref)}`);
+  if (user.status !== "ACTIVE") redirect("/account");
   if (user.role !== "CUSTOMER" && user.role !== "STORE") redirect("/account");
-  const business = user.role === "STORE" || workspace === "store";
+  const quote = await readPublicQuote(reference, user.id).catch((error: unknown) => {
+    if (error instanceof PlatformError && ["QUOTE_NOT_FOUND", "QUOTE_EXPIRED"].includes(error.code)) return null;
+    throw error;
+  });
+  const business = user.role === "STORE" || workspace === "store" || Boolean(quote?.storeId);
+  if (business && !quote) return <main className="mx-auto max-w-3xl p-6"><h1 className="text-2xl font-bold">Quote unavailable</h1><p>This quote may have expired or may belong to another session. Start a new delivery quote.</p><Link href="/store/new-delivery" className="underline">Start a new quote</Link></main>;
+  if (business && quote && !quote.storeId && quote.ownerId === user.id) return <main className="mx-auto max-w-3xl space-y-4 p-6"><h1 className="text-2xl font-bold">A new business quote is needed</h1><p>This quote belongs to a personal account and cannot be moved to a business. Request a new quote from the business workspace.</p><Link href="/store/new-delivery" className="underline">Start a new quote</Link></main>;
+  let selectedStoreId: string | null = null;
+  try {
+    selectedStoreId = business ? resolveBookingStoreId(quote?.storeId ?? null, storeId ?? null) : null;
+  } catch {
+    return <main className="mx-auto max-w-3xl p-6"><h1 className="text-2xl font-bold">Business does not match this quote</h1><p>Return to the business that created the quote, or request a new quote.</p><Link href="/store/new-delivery" className="underline">Start a new quote</Link></main>;
+  }
+  if (business && !selectedStoreId) {
+    const [owned, memberships] = await Promise.all([
+      prisma.store.findMany({ where: { ownerUserId: user.id, status: { notIn: ["SUSPENDED", "DISABLED"] } }, select: { id: true, name: true }, take: 10, orderBy: { name: "asc" } }),
+      prisma.storeEmployeeMembership.findMany({ where: { userId: user.id, status: "ACTIVE", store: { status: "ACTIVE" } }, select: { permissions: true, store: { select: { id: true, name: true } } }, take: 10 }),
+    ]);
+    const stores = [...new Map([...owned, ...memberships.filter(m => membershipAllows(m.permissions, "deliveries")).map(m => m.store)].map(s => [s.id, s])).values()];
+    return <main className="mx-auto max-w-3xl space-y-4 p-6"><h1 className="text-2xl font-bold">Choose a business for this quote</h1><p>This older quote did not record a business. Choose the business whose saved collection address matches the quote. The address and your access will be checked again before booking.</p><ul className="space-y-3">{stores.map(store => <li key={store.id}><Link className="underline" href={parcelBookingStepHref(reference, true, store.id)}>{store.name}</Link></li>)}</ul><p>If the collection address has changed, request a new quote from that business.</p></main>;
+  }
   // Store staff may have a CUSTOMER primary role but a verified business
   // workspace membership. Never silently switch their shipment to CUSTOMER.
   const storePickup = business
     ? await (
-        storeId
-          ? getStorePickupAddress(user.id, "deliveries", storeId)
-          : getStorePickupAddress(user.id, "deliveries")
-      ).catch(() => null)
+        getStorePickupAddress(user.id, "deliveries", selectedStoreId)
+      ).catch((error: unknown) => {
+        if (error instanceof PlatformError) return null;
+        throw error;
+      })
     : null;
-  if (business && !storePickup) redirect("/store/workspace");
+  if (business && !storePickup) return <main className="mx-auto max-w-3xl space-y-4 p-6"><h1 className="text-2xl font-bold">Business access unavailable</h1><p>Check that you have delivery access to this business and that it is not suspended.</p>{!quote?.storeId && <Link className="underline" href={parcelBookingStepHref(reference, true)}>Choose another business</Link>}</main>;
+  if (business && quote && !quote.storeId && storePickup) {
+    const pickup = (quote.metadata as { bookingInput?: { pickupAddress?: Parameters<typeof assertStoreParcelPickupMatches>[0] } } | null)?.bookingInput?.pickupAddress ?? {};
+    try { assertStoreParcelPickupMatches(pickup, storePickup.pickupAddress); }
+    catch (error) {
+      if (!(error instanceof PlatformError)) throw error;
+      return <main className="mx-auto max-w-3xl space-y-4 p-6"><h1 className="text-2xl font-bold">A new quote is needed</h1><p>This older quote does not match the selected business’s current verified collection address. Request a new quote for this business.</p><Link className="underline" href={`/store/new-delivery?storeId=${encodeURIComponent(storePickup.store.id)}`}>Start a new quote</Link></main>;
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 text-[var(--kt-brand-navy)] sm:px-6 sm:py-12" id="main-content">
