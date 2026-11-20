@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { prisma } from "@/lib/db/prisma";
 import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
 import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
@@ -32,6 +34,14 @@ for (const width of [1440, 390]) test(`store saved pin to parcel booking at ${wi
   await page.getByLabel("Delivery service").selectOption("CLIENT_ECONOMY");
   await page.getByLabel("Parcel size", { exact: true }).selectOption("MEDIUM");
   await page.getByLabel("Weight (kg)").fill("15");
+  await destination.getByLabel("Street address", { exact: true }).fill("99 Unverified Road");
+  const failedResponse = page.waitForResponse(response => response.url().endsWith("/api/public/delivery-quotes") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Calculate delivery price" }).click();
+  const failed = await failedResponse;
+  expect(failed.status(), await failed.text()).toBe(422);
+  expect(await failed.json()).toMatchObject({ code: "ADDRESS_UNRESOLVED" });
+  await expect(page.getByRole("alert")).toContainText("Delivery location could not be independently verified");
+  await destination.getByLabel("Street address", { exact: true }).fill("77 Juta Street");
   const quoteResponse = page.waitForResponse(response => response.url().endsWith("/api/public/delivery-quotes") && response.request().method() === "POST");
   await page.getByRole("button", { name: "Calculate delivery price" }).click();
   const quoted = await quoteResponse;
@@ -42,6 +52,13 @@ for (const width of [1440, 390]) test(`store saved pin to parcel booking at ${wi
   expect(quote.ownerId).toMatch(/^guest:/);
   expect(quote.total.toFixed(2)).toBe(dto.total);
   expect(quote.metadata).toMatchObject({ storePickupAtQuote: { line1: "10 E2E Pickup Road", latitude: -26.2041, longitude: 28.0473 } });
+  const storeHeaders = { "X-KT-Workspace": "STORE", "X-KT-Store-Id": store.id };
+  const loaded = await page.request.get(`/api/public/delivery-quotes/${dto.id}`, { headers: storeHeaders });
+  expect(loaded.status()).toBe(200);
+  expect((await loaded.json()).total).toBe(dto.total);
+  const methods = await page.request.get(`/api/public/delivery-quotes/${dto.id}/payment-methods`, { headers: storeHeaders });
+  expect(methods.status()).toBe(200);
+  expect((await methods.json()).methods).toEqual(expect.arrayContaining([expect.objectContaining({ mode: "DIGITAL_ONLY" })]));
   const otherStore = await prisma.store.findUniqueOrThrow({ where: { slug: "e2e-other-store" } });
   const wrongStore = await page.request.get(`/api/public/delivery-quotes/${dto.id}`, { headers: { "X-KT-Workspace": "STORE", "X-KT-Store-Id": otherStore.id } });
   expect(wrongStore.status()).toBe(409);
@@ -60,7 +77,10 @@ for (const width of [1440, 390]) test(`store saved pin to parcel booking at ${wi
   await page.getByRole("link", { name: "Continue to delivery details" }).click();
   await expect(page).toHaveURL(new RegExp(`storeId=${store.id}`));
   await expect(page.getByRole("heading", { name: "Complete your delivery" })).toBeVisible();
-  await info.attach(`store-quote-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  const screenshotDirectory = path.resolve("output/production-closure/store-parcel-browser");
+  await mkdir(screenshotDirectory, { recursive: true });
+  const screenshot = await page.screenshot({ fullPage: true, path: path.join(screenshotDirectory, `store-quote-${width}.png`) });
+  await info.attach(`store-quote-${width}`, { body: screenshot, contentType: "image/png" });
   for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Sender email for pickup code", "sender@example.test"], ["Recipient name", "Disposable recipient"], ["Recipient email for delivery code", "recipient@example.test"], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
   await page.getByLabel("Future collection (optional)").fill(new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16));
   const bookedResponse = page.waitForResponse(response => response.url().endsWith(`/api/public/delivery-quotes/${dto.id}/book`) && response.request().method() === "POST");
