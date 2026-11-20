@@ -327,6 +327,16 @@ export async function completeDelivery(
   driverUserId: string,
   input: CompleteDeliveryInput
 ): Promise<{ ok: true; assignment: DeliveryAssignmentDto; operationResult?: DriverOperationSnapshot } | { ok: false; error: string }> {
+  // A concurrent identical command may commit after the first receipt lookup
+  // but before the assignment eligibility read. Recheck the immutable receipt
+  // and its actor binding before treating the changed state as a rejection.
+  async function completedReplay() {
+    const receipt = await findOperationReplay(input.operationId, input);
+    if (!receipt) return null;
+    await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, receipt);
+    const current = await prisma.orderAssignment.findFirst({ where: { id: assignmentId, driverProfileId }, include: DELIVERY_ASSIGNMENT_INCLUDE });
+    return current ? { ok: true as const, assignment: toDeliveryAssignmentDto(current), operationResult: receipt } : null;
+  }
   try {
     const replayResult = await findOperationReplay(input.operationId, input);
     if (replayResult) {
@@ -336,12 +346,18 @@ export async function completeDelivery(
     }
     await assertAcceptedCurrentDriver(assignmentId, driverProfileId, input.assignmentVersion);
   } catch (error) {
+    try { const replay = await completedReplay(); if (replay) return replay; }
+    catch (replayError) { return { ok: false, error: replayError instanceof Error ? replayError.message : "Delivery operation was rejected." }; }
     return { ok: false, error: error instanceof Error ? error.message : "Delivery operation was rejected." };
   }
   const check = await assertDeliveryEligibility(assignmentId, driverProfileId, {
     allowAttempted: true,
   });
-  if (!check.ok || !check.assignment) return { ok: false, error: check.error! };
+  if (!check.ok || !check.assignment) {
+    try { const replay = await completedReplay(); if (replay) return replay; }
+    catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Delivery operation was rejected." }; }
+    return { ok: false, error: check.error! };
+  }
 
   const assignment = check.assignment;
   const order = assignment.order;

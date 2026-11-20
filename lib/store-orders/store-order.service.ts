@@ -5,6 +5,7 @@ import { storeAccess } from "@/lib/client-platform/store-access";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { withLedgerRetry } from "@/lib/ledger/retry";
 import { resolveMarketplaceCartLine } from "@/lib/marketplace-checkout/cart.service";
 import { hashMarketplaceGuestSecret, verifyMarketplaceGuestSecret } from "@/lib/marketplace-checkout/tokens";
 import { frozenRefundAllocation, promotionLineRefund, assertSubstitutionPriceCap, cents, money } from "@/lib/store-orders/allocation";
@@ -563,7 +564,7 @@ export async function requestMarketplaceStoreOrderCancellation(input: Readonly<{
 
 export async function startStoreOrderPreparation(input: Readonly<{ storeOrderReference: string; actorUserId: string; operationId: string; requestHash: string; testApproval?: TestApproval }>) {
   assertStoreOrderProductionReady("PREPARATION", input.testApproval); checkOperation({ operationId: input.operationId, hash: input.requestHash });
-  return transaction(async (tx) => {
+  return withLedgerRetry(() => transaction(async (tx) => {
     const order = await authorize(tx, input.storeOrderReference, input.actorUserId, "store_orders.prepare");
     const prior = await replay(tx, order.id, input.operationId, input.requestHash); if (prior) return prior;
     assertStoreOrder(order.acceptanceStatus === "ACCEPTED", "STORE_ORDER_PREPARATION_INVALID", "Preparation requires accepted order evidence.");
@@ -573,7 +574,7 @@ export async function startStoreOrderPreparation(input: Readonly<{ storeOrderRef
     await history(tx, { storeOrderId: order.id, operationId: input.operationId, eventType: "PREPARATION_STARTED", actorUserId: input.actorUserId, evidence: response });
     await receipt(tx, { storeOrderId: order.id, operationId: input.operationId, hash: input.requestHash, type: "PREPARATION_START", response });
     return { ...response, replayed: false };
-  });
+  }));
 }
 
 export async function updateStoreOrderPreparationTime(input: Readonly<{ storeOrderReference: string; actorUserId: string; preparationMinutes: number; reasonCode: string; operationId: string; requestHash: string; testApproval?: TestApproval }>) {
