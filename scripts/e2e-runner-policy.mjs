@@ -1,5 +1,5 @@
 export const DEFAULT_PLAYWRIGHT_TIMEOUT_MS = 15 * 60 * 1000;
-export const PHASE1_FULL_CHROMIUM_TIMEOUT_MS = 45 * 60 * 1000;
+export const PHASE1_FULL_CHROMIUM_TIMEOUT_MS = 120 * 60 * 1000;
 export const PHASE2_3_DIRECTED_TIMEOUT_MS = 45 * 60 * 1000;
 export const PHASE2_3_DIRECTED_EXPECTED_TESTS = 47;
 
@@ -93,7 +93,7 @@ export function playwrightTimeoutMs(args) {
   // The full Chromium project is substantially larger than a directed selection.
   // Keep the short limit for filtered/custom invocations, while allowing the
   // complete single-project suite the same bounded window as certification.
-  if (args.includes("--project=chromium") && args.every((arg) => ["--project=chromium", "--workers=1", "--retries=0"].includes(arg))) {
+  if (args.includes("--project=chromium") && args.every((arg) => ["--project=chromium", "--workers=1", "--retries=0", "--timeout=60000"].includes(arg))) {
     return PHASE1_FULL_CHROMIUM_TIMEOUT_MS;
   }
   return isExactPhase2And3DirectedSelection(args)

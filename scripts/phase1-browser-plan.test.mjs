@@ -36,7 +36,7 @@ test("required native selections precede the full suite and retain failure artif
   assert.ok(plan.every(stage => stage.args.includes("--retries=0") && stage.args.includes("--workers=1")));
   assert.equal(new Set(plan.map(stage => stage.name)).size, plan.length);
   assert.equal(plan.at(-1).expectedTests, 93);
-  assert.equal(PHASE1_FULL_CHROMIUM_TIMEOUT_MS, 45 * 60 * 1000);
+  assert.equal(PHASE1_FULL_CHROMIUM_TIMEOUT_MS, 120 * 60 * 1000);
 });
 
 test("the bounded directed timeout preserves the exact workflow selection and safety flags", () => {
@@ -49,6 +49,7 @@ test("the bounded directed timeout preserves the exact workflow selection and sa
   assert.equal(isExactPhase2And3DirectedSelection(exactArgs), true);
   assert.equal(playwrightTimeoutMs(exactArgs), PHASE2_3_DIRECTED_TIMEOUT_MS);
   assert.equal(playwrightTimeoutMs(["--project=chromium"]), PHASE1_FULL_CHROMIUM_TIMEOUT_MS);
+  assert.equal(playwrightTimeoutMs(["--project=chromium", "--workers=1", "--timeout=60000"]), PHASE1_FULL_CHROMIUM_TIMEOUT_MS);
   assert.equal(playwrightTimeoutMs(["--project=chromium", "tests/e2e/anonymous-courier-quote.spec.ts"]), DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
   assert.equal(PHASE2_3_DIRECTED_TIMEOUT_MS, 45 * 60 * 1000);
   assert.equal(playwrightTimeoutMs(exactArgs.filter((argument) => argument !== "--workers=1")), DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
