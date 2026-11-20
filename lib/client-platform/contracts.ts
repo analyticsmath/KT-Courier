@@ -74,7 +74,7 @@ export const DeliveryConfigurationSchema = z
           });
   });
 export type DeliveryConfiguration = z.infer<typeof DeliveryConfigurationSchema>;
-export const QuoteAddressSchema = z
+const QuoteAddressFields = z
   .object({
     line1: z.string().trim().min(5).max(250),
     line2: z.string().trim().max(150).optional(),
@@ -88,9 +88,11 @@ export const QuoteAddressSchema = z
     latitude: z.number().finite().min(-90).max(90).optional(),
     longitude: z.number().finite().min(-180).max(180).optional(),
   })
-  .strict()
-  .refine(a => a.placeId ? a.latitude !== undefined && a.longitude !== undefined : a.latitude === undefined && a.longitude === undefined,
-    "Selected locations require a Google Place ID and both coordinates.");
+  .strict();
+export const QuoteAddressSchema = QuoteAddressFields.refine(a => a.placeId ? a.latitude !== undefined && a.longitude !== undefined : a.latitude === undefined && a.longitude === undefined,
+  "Selected locations require a Google Place ID and both coordinates.");
+const StorePickupQuoteAddressSchema = QuoteAddressFields.refine(a => (a.latitude === undefined) === (a.longitude === undefined) && (!a.placeId || a.latitude !== undefined),
+  "Selected locations require both coordinates; a Place ID also requires a marker.");
 export const PublicQuoteSchema = z
   .object({
     serviceKey: z.string().regex(/^CLIENT_[A-Z0-9_]{2,40}$/),
@@ -104,6 +106,7 @@ export const PublicQuoteSchema = z
   })
   .strict();
 export type PublicQuoteInput = z.infer<typeof PublicQuoteSchema>;
+export const StorePublicQuoteSchema = PublicQuoteSchema.safeExtend({ pickupAddress: StorePickupQuoteAddressSchema });
 export const QuoteBookingSchema = z
   .object({
     pickupContactName: z.string().trim().min(2).max(150),

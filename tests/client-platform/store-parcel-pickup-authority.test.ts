@@ -27,6 +27,10 @@ describe("merchant outbound parcel collection authority", () => {
     expect(() => assertStoreParcelPickupMatches({ ...saved, placeId: "another-place" }, saved))
       .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
   });
+  it("detects a moved saved pin even when its Place ID did not change", () => {
+    expect(() => assertStoreParcelPickupMatches(saved, { ...saved, latitude: saved.latitude + 0.001 }, { requireExactMarker: true }))
+      .toThrowError(expect.objectContaining({ code: "STORE_PICKUP_CHANGED" }));
+  });
   it("accepts a saved mapped pickup without a Place ID only when its marker matches", () => {
     const noPlace = { ...saved, placeId: null };
     const requested = { ...saved, placeId: null };

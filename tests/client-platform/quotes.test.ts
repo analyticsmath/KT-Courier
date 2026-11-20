@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   personalizedDeliveryRate: { findMany: vi.fn() },
   commercialSurcharge: { findMany: vi.fn() },
   pricingQuote: { create: vi.fn(), findFirst: vi.fn() },
+  storePickup: vi.fn(),
   adminActivityLog: { create: vi.fn() },
   $transaction: vi.fn(),
   $executeRaw: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock("@/lib/maps/routes.service", () => ({ calculateRoute: mocks.route }));
 vi.mock("@/lib/pricing/config", () => ({
   getPricingConfiguration: mocks.config,
 }));
+vi.mock("@/lib/services/store-addresses.service", () => ({ getStorePickupAddressForStore: mocks.storePickup }));
 import {
   createPublicQuote,
   readPublicQuote,
@@ -40,6 +42,7 @@ import {
 } from "@/lib/client-platform/delivery.service";
 import {
   PublicQuoteSchema,
+  StorePublicQuoteSchema,
   DeliveryConfigurationSchema,
 } from "@/lib/client-platform/contracts";
 import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
@@ -104,6 +107,22 @@ beforeEach(() => {
   mocks.$transaction.mockImplementation(async (callback) => callback(mocks));
 });
 describe("anonymous client delivery quotations", () => {
+  it("accepts a complete saved map pin without a Place ID for server verification", () => {
+    const savedPin = { ...address, latitude: -26.145, longitude: 28.044 };
+    expect(StorePublicQuoteSchema.safeParse({ ...input, pickupAddress: savedPin }).success).toBe(true);
+    expect(PublicQuoteSchema.safeParse({ ...input, pickupAddress: savedPin }).success).toBe(false);
+    expect(StorePublicQuoteSchema.safeParse({ ...input, pickupAddress: { ...address, latitude: -26.145 } }).success).toBe(false);
+    expect(StorePublicQuoteSchema.safeParse({ ...input, pickupAddress: { ...address, placeId: "place-verified" } }).success).toBe(false);
+  });
+  it("retains the store's original saved marker independently of geocoder geometry", async () => {
+    const pickup = { ...address, line2: "Rosebank", suburb: "Rosebank", postalCode: "2196", latitude: -26.145, longitude: 28.044 };
+    mocks.storePickup.mockResolvedValue({ pickupAddress: { ...pickup, id: "pickup", storeId: "store-a", type: "PICKUP", country: "South Africa", placeId: null } });
+    mocks.geocode.mockResolvedValue({ latitude: -26.1455, longitude: 28.0445 });
+    await createPublicQuote({ ...input, pickupAddress: pickup }, { ownerType: "STORE", ownerId: "store-a" });
+    const data = mocks.pricingQuote.create.mock.calls[0][0].data;
+    expect(data.metadata.storePickupAtQuote).toMatchObject(pickup);
+    expect(data.metadata.bookingInput.pickupAddress.latitude).toBe(-26.1455);
+  });
   it("quotes province-wide routes without treating an absent city-distance cap as zero", async () => {
     mocks.deliveryRegion.findMany.mockResolvedValue([{ id: "region-a", coverageMode: "PROVINCE", province: "Gauteng", highRiskSurcharge: new Prisma.Decimal(0), pricingEnabled: true, maxDistanceKm: null }]);
     mocks.route.mockResolvedValue({ ok: true, route: { distanceMeters: 180000, durationSeconds: 10800, provider: "GOOGLE_ROUTES", routeSummary: "Verified province-wide road route" } });

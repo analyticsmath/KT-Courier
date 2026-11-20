@@ -51,6 +51,12 @@ describe("quotes verify a browser-selected Google Place server-side", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [exactPlace] })));
     expect(await geocodeSouthAfricanAddress({ ...selected, latitude: -26.1, longitude: 28.1 }, config)).toBeNull();
   });
+  it("independently checks a street-address marker when no Place ID exists", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [{ ...exactPlace, types: ["street_address"] }] })));
+    const saved = { ...selected, city: "Pretoria", placeId: undefined };
+    expect(await geocodeSouthAfricanAddress(saved, config)).toEqual({ latitude: -25.73, longitude: 28.28 });
+    expect(await geocodeSouthAfricanAddress({ ...saved, latitude: -26.1 }, config)).toBeNull();
+  });
 
   it("rejects an address whose place ID resolves into another province or country", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ status: "OK", results: [{ ...exactPlace,

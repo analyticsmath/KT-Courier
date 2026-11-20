@@ -10,6 +10,7 @@ type QuotePickup = Readonly<{ line1?: string | null; line2?: string | null; subu
 export function assertStoreParcelPickupMatches(
   requested: QuotePickup,
   saved: StorePickupAddressCandidate | null | undefined,
+  options?: { requireExactMarker?: boolean },
 ): void {
   if (!completeStorePickupAddress(saved) || saved?.type !== "PICKUP") {
     throw new PlatformError(
@@ -28,6 +29,7 @@ export function assertStoreParcelPickupMatches(
     && Math.abs(requested.latitude - Number(saved.latitude)) <= 0.00001
     && Math.abs(requested.longitude - Number(saved.longitude)) <= 0.00001;
   if (
+    (options?.requireExactMarker && !markerMatches) ||
     (saved.placeId
       ? requested.placeId !== saved.placeId
       : Boolean(requested.placeId) || !markerMatches) ||

@@ -134,7 +134,7 @@ export async function saveDeliveryConfiguration(
 export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerType:"CUSTOMER"|"STORE";ownerId:string}|null = null) {
   if (scope?.ownerType === "STORE") {
     const pickup = await getStorePickupAddressForStore(scope.ownerId);
-    assertStoreParcelPickupMatches(input.pickupAddress, pickup?.pickupAddress);
+    assertStoreParcelPickupMatches(input.pickupAddress, pickup?.pickupAddress, { requireExactMarker: true });
   }
   const parcelProfile = await requireParcelProfile(input.parcelSize, input.weightKg);
   const selected = (await deliveryCatalog()).find(
@@ -343,6 +343,7 @@ export async function createPublicQuote(input: PublicQuoteInput, scope: {ownerTy
         serviceName: selected.displayName,
         turnaround: selected.turnaround,
         bookingInput,
+        ...(scope?.ownerType === "STORE" ? { storePickupAtQuote: input.pickupAddress } : {}),
         routeSummary: route.route.routeSummary,
         commercialSurcharges: commercialSurchargeSnapshot(configuredSurcharges),
         personalizedRateApplied: Boolean(personalRate),

@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { PublicQuoteSchema } from "@/lib/client-platform/contracts";
+import { PublicQuoteSchema, StorePublicQuoteSchema } from "@/lib/client-platform/contracts";
 import {
   deliveryCatalog,
   createPublicQuote,
@@ -18,12 +18,6 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await mutation(req, "public-delivery-quote");
   if ("response" in body) return body.response;
-  const input = PublicQuoteSchema.safeParse(body.body);
-  if (!input.success)
-    return json(
-      { error: "Provide valid addresses, parcel size, weight and service." },
-      422,
-    );
   try {
     // Customer/store identity comes from the authenticated session, never a
     // client-supplied account or store ID. Guests always see public tariffs.
@@ -35,6 +29,8 @@ export async function POST(req: NextRequest) {
     } else if(user?.status==="ACTIVE" && user.role==="CUSTOMER") {
       scope={ownerType:"CUSTOMER",ownerId:user.id};
     }
+    const input = (scope?.ownerType === "STORE" ? StorePublicQuoteSchema : PublicQuoteSchema).safeParse(body.body);
+    if (!input.success) return json({ error: "Provide valid addresses, parcel size, weight and service." }, 422);
     return json(await createPublicQuote(input.data,scope), 201);
   } catch (e) {
     return failure(e);

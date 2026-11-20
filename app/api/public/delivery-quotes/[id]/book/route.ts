@@ -82,9 +82,11 @@ export async function POST(
     if (store) {
       const savedPickup = await getStorePickupAddressForStore(store.id);
       const quotePickup = (quote.metadata as {
+        storePickupAtQuote?: { line1?: string; line2?: string; suburb?: string; city?: string; province?: string; postalCode?: string; placeId?: string; latitude?: number; longitude?: number };
         bookingInput?: { pickupAddress?: { line1?: string; line2?: string; city?: string; province?: string; postalCode?: string; placeId?: string } }
-      }).bookingInput?.pickupAddress ?? {};
-      assertStoreParcelPickupMatches(quotePickup, savedPickup?.pickupAddress);
+      });
+      const pickupEvidence = quotePickup.storePickupAtQuote ?? quotePickup.bookingInput?.pickupAddress ?? {};
+      assertStoreParcelPickupMatches(pickupEvidence, savedPickup?.pickupAddress, { requireExactMarker: Boolean(quotePickup.storePickupAtQuote) });
     }
     const negotiated=(quote.ruleSnapshot as {personalizedRate?:{ownerType?:string;ownerId?:string}}).personalizedRate;
     if(negotiated && (
