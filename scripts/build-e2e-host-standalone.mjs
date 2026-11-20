@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
 import { disposableProviderEnvironment } from "./e2e-runner-policy.mjs";
+import { resolveHostHeapMb } from "./e2e-host-memory.mjs";
 
 const cwd = process.cwd();
 const startedAtMs = Date.now();
@@ -41,6 +42,7 @@ function ensureSuccessful(result, label) {
 }
 
 function cleanHostBuildEnvironment() {
+  const heapMb = resolveHostHeapMb(process.env.KT_E2E_HOST_HEAP_MB);
   const hostKeys = process.platform === "win32"
     ? ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "ProgramFiles", "ComSpec"]
     : ["PATH", "HOME", "TMPDIR", "TMP", "TEMP"];
@@ -74,8 +76,8 @@ function cleanHostBuildEnvironment() {
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_E2E_DETERMINISTIC_COORDINATES: "true",
     KT_NEXT_BUILD_CPUS: "1",
-    KT_NEXT_BUILD_HEAP_MB: "2500",
-    NODE_OPTIONS: "--max-old-space-size=2500 --max-semi-space-size=16",
+    KT_NEXT_BUILD_HEAP_MB: String(heapMb),
+    NODE_OPTIONS: `--max-old-space-size=${heapMb} --max-semi-space-size=16`,
     NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     KT_E2E_GEOCODE_FIXTURES: JSON.stringify({
       "45 Commission St, Central, Johannesburg, Gauteng, 2001, South Africa": { latitude: -26.2041, longitude: 28.0473 },
