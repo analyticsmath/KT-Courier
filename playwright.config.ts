@@ -53,6 +53,7 @@ export default defineConfig({
         /catalog-inventory-upload\.spec\.ts/,
         /catalog-product-import\.spec\.ts/,
         /anonymous-courier-quote\.spec\.ts/,
+        /store-parcel-quote\.spec\.ts/,
         /customer-identity-lifecycle\.spec\.ts/,
         /store-order-positive-substitution\.spec\.ts/,
         /storefront-admin\.spec\.ts/,

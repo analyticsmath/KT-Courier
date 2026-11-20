@@ -1,0 +1,82 @@
+import { expect, test } from "@playwright/test";
+import { prisma } from "@/lib/db/prisma";
+import { INITIAL_DELIVERY } from "@/lib/client-platform/initial-delivery";
+import { assertDisposablePaystackAcceptance } from "@/lib/testing/disposable-paystack-policy";
+import { login } from "./fixtures/auth";
+
+for (const width of [1440, 390]) test(`store saved pin to parcel booking at ${width}px`, async ({ page, browser }, info) => {
+  assertDisposablePaystackAcceptance();
+  await page.setViewportSize({ width, height: 900 });
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: "e2e-store@ktcouriers.local" } });
+  const store = await prisma.store.findUniqueOrThrow({ where: { slug: "e2e-store" }, include: { defaultPickupAddress: true } });
+  expect(store.ownerUserId).toBe(owner.id);
+  expect(store.defaultPickupAddress?.placeId).toBeNull();
+  const config = INITIAL_DELIVERY.find(item => item.stableKey === "CLIENT_ECONOMY")!;
+  const active = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: config.stableKey, status: "ACTIVE" } });
+  if (!active) {
+    const latest = await prisma.deliveryServiceDefinition.findFirst({ where: { stableKey: config.stableKey }, orderBy: { versionNumber: "desc" } });
+    await prisma.deliveryServiceDefinition.create({ data: { stableKey: config.stableKey, versionNumber: (latest?.versionNumber ?? 0) + 1, displayName: config.displayName, status: "ACTIVE", effectiveFrom: new Date(Date.now() - 60_000), createdByUserId: owner.id, pricingPolicy: config, coveragePolicy: { provinces: config.provinces, regionIds: [] }, slaMetadata: { turnaround: config.turnaround } } });
+  }
+  const medium = await prisma.parcelProfileVersion.findFirst({ where: { stableKey: "MEDIUM", status: "ACTIVE" } });
+  if (!medium) await prisma.parcelProfileVersion.create({ data: { stableKey: "MEDIUM", versionNumber: 1, displayName: "Medium", lengthCm: 50, widthCm: 35, heightCm: 25, maximumWeightKg: 15, status: "ACTIVE", effectiveFrom: new Date(Date.now() - 60_000), createdByUserId: owner.id } });
+
+  await login(page, owner.email);
+  await page.goto(`/store/new-delivery?storeId=${encodeURIComponent(store.id)}`);
+  await expect(page.getByTestId("store-verified-pickup")).toContainText("10 E2E Pickup Road");
+  const destination = page.getByRole("group", { name: "Delivery address", exact: true });
+  await destination.getByLabel("Street address", { exact: true }).fill("77 Juta Street");
+  await destination.getByLabel("Suburb / area", { exact: true }).fill("Central");
+  await destination.getByLabel("City", { exact: true }).fill("Johannesburg");
+  await destination.getByLabel("Postal code", { exact: true }).fill("2001");
+  await destination.getByLabel("Province", { exact: true }).selectOption("Gauteng");
+  await page.getByLabel("Delivery service").selectOption("CLIENT_ECONOMY");
+  await page.getByLabel("Parcel size", { exact: true }).selectOption("MEDIUM");
+  await page.getByLabel("Weight (kg)").fill("15");
+  const quoteResponse = page.waitForResponse(response => response.url().endsWith("/api/public/delivery-quotes") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Calculate delivery price" }).click();
+  const quoted = await quoteResponse;
+  expect(quoted.status(), await quoted.text()).toBe(201);
+  const dto = await quoted.json();
+  const quote = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: dto.id } });
+  expect(quote.storeId).toBe(store.id);
+  expect(quote.ownerId).toMatch(/^guest:/);
+  expect(quote.total.toFixed(2)).toBe(dto.total);
+  expect(quote.metadata).toMatchObject({ storePickupAtQuote: { line1: "10 E2E Pickup Road", latitude: -26.2041, longitude: 28.0473 } });
+  const otherStore = await prisma.store.findUniqueOrThrow({ where: { slug: "e2e-other-store" } });
+  const wrongStore = await page.request.get(`/api/public/delivery-quotes/${dto.id}`, { headers: { "X-KT-Workspace": "STORE", "X-KT-Store-Id": otherStore.id } });
+  expect(wrongStore.status()).toBe(409);
+  expect(await wrongStore.json()).toMatchObject({ code: "QUOTE_WORKSPACE_MISMATCH" });
+  const stranger = await browser.newContext({ baseURL: process.env.E2E_BASE_URL });
+  try { expect((await stranger.request.get(`/api/public/delivery-quotes/${dto.id}`, { headers: { "X-KT-Workspace": "STORE", "X-KT-Store-Id": store.id } })).status()).toBe(404); }
+  finally { await stranger.close(); }
+  const pickupId = store.defaultPickupAddress!.id;
+  await prisma.address.update({ where: { id: pickupId }, data: { latitude: -26.2051 } });
+  try {
+    const stale = await page.request.post(`/api/public/delivery-quotes/${dto.id}/book`, { headers: { origin: process.env.E2E_BASE_URL!, "X-KT-Workspace": "STORE", "X-KT-Store-Id": store.id }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: "sender@example.test", recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: "recipient@example.test", paymentMethod: "DIGITAL_ONLY" } });
+    expect(stale.status(), await stale.text()).toBe(409);
+    expect(await stale.json()).toMatchObject({ code: "STORE_PICKUP_CHANGED" });
+    expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);
+  } finally { await prisma.address.update({ where: { id: pickupId }, data: { latitude: -26.2041 } }); }
+  await page.getByRole("link", { name: "Continue to delivery details" }).click();
+  await expect(page).toHaveURL(new RegExp(`storeId=${store.id}`));
+  await expect(page.getByRole("heading", { name: "Complete your delivery" })).toBeVisible();
+  await info.attach(`store-quote-${width}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  for (const [label, value] of [["Sender name", "Disposable sender"], ["Sender phone", "+27820000000"], ["Sender email for pickup code", "sender@example.test"], ["Recipient name", "Disposable recipient"], ["Recipient email for delivery code", "recipient@example.test"], ["Recipient phone", "+27820000001"]]) await page.getByLabel(label, { exact: true }).fill(value);
+  await page.getByLabel("Future collection (optional)").fill(new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16));
+  const bookedResponse = page.waitForResponse(response => response.url().endsWith(`/api/public/delivery-quotes/${dto.id}/book`) && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Book and continue to card payment" }).click();
+  const booked = await bookedResponse;
+  expect(booked.status(), await booked.text()).toBe(201);
+  const order = await booked.json();
+  const saved = await prisma.order.findUniqueOrThrow({ where: { id: order.id } });
+  expect(saved.storeId).toBe(store.id);
+  expect(saved.pricingQuoteId).toBe(dto.id);
+  expect(saved.status).toBe("PENDING");
+  expect(saved.scheduledFor?.toISOString()).toBe(booked.request().postDataJSON().scheduledFor);
+  expect(await prisma.payment.count({ where: { orderId: order.id, status: "SUCCEEDED" } })).toBe(0);
+  await expect(page).toHaveURL(new RegExp(`/orders/${encodeURIComponent(order.orderNumber)}/payment$`));
+  const replay = await page.request.post(`/api/public/delivery-quotes/${dto.id}/book`, { headers: { origin: process.env.E2E_BASE_URL!, "X-KT-Workspace": "STORE", "X-KT-Store-Id": store.id }, data: booked.request().postDataJSON() });
+  expect(replay.status(), await replay.text()).toBe(200);
+  expect((await replay.json()).id).toBe(order.id);
+  expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(1);
+});
