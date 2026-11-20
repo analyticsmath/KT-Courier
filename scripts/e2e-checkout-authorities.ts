@@ -98,7 +98,9 @@ export async function createDisposableCheckoutAuthorities() {
       proofOfferReference: slug === "e2e-store" ? "CO-E2E64GB" : "CO-RESIDUAL-one",
       proofPriceVersionReference: slug === "e2e-store" ? "prc_64gb" : "PRICE-RESIDUAL-one",
       preparedByUserId: maker.id, approvedByUserId: checker.id,
-      status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 3_600_000),
+      // The full isolated browser suite may run for two hours, plus setup.
+      // Keep only these synthetic certificates valid for that bounded run.
+      status: "APPROVED", approvedAt: new Date(), expiresAt: new Date(Date.now() + 4 * 3_600_000),
       reviewNote: "Synthetic isolated browser certificate only, not a real route or payment acceptance.",
     } });
     if (typeof (prisma as { storefrontStoreDocument?: { upsert?: unknown } }).storefrontStoreDocument?.upsert === "function") {

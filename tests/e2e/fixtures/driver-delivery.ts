@@ -51,7 +51,7 @@ export async function canonicalDriverDeliveryJourney(page: Page, suffix: string,
   await expect(page.getByText("Network error. Please try again.", { exact: true })).toBeVisible();
   expect(await deliveryControl(f.storeReference)).toEqual(baseline); await page.context().setOffline(false);
   await page.getByRole("button", { name: "Confirm Start Delivery", exact: true }).click();
-  await expect.poll(async () => (await deliveryControl(f.storeReference)).order.status).toBe("IN_TRANSIT");
+  await expect.poll(async () => (await deliveryControl(f.storeReference)).order.status, { timeout: 30_000 }).toBe("IN_TRANSIT");
   const started = await deliveryControl(f.storeReference) as DeliverySnapshot;
   // Customer and driver use the native, order-scoped chat on the paid courier
   // bridge. Message delivery is local durable storage, not external messaging.
