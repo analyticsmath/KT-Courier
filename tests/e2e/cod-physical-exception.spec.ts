@@ -7,7 +7,9 @@ import { login } from "./fixtures/auth";
 test("independently reviews a reported COD delivery without recording cash", async ({ page }) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 390, height: 900 });
-  const fixture = await codBooking(page, "390");
+  // The other COD browser scenarios retain their assigned drivers; use the
+  // dedicated exception fixture so capacity is independent of test order.
+  const fixture = await codBooking(page, "shortage");
   await verifyCodDeposit(page, fixture);
   await codTransit(fixture);
   const assignment = await prisma.orderAssignment.findFirstOrThrow({ where: { orderId: fixture.order.id, status: "ACCEPTED" } });
