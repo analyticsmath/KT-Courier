@@ -56,4 +56,9 @@ test("independently reviews a reported COD delivery without recording cash", asy
     "COD_UNCOLLECTED_SHORTAGE_RECEIVABLE",
     "COD_UNCOLLECTED_SHORTAGE_SUSPENSE",
   ]);
+  const accounts = await prisma.ledgerAccount.findMany({ where: { id: { in: shortageJournal.entries.map(entry => entry.accountId) } }, select: { purpose: true, category: true } });
+  expect(accounts).toEqual(expect.arrayContaining([
+    { purpose: "COD_UNCOLLECTED_RECEIVABLE", category: "ASSET" },
+    { purpose: "COD_UNCOLLECTED_SUSPENSE", category: "LIABILITY" },
+  ]));
 });

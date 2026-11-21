@@ -21,16 +21,23 @@ for (const width of [1440, 390]) test(`distinct finance actors complete wallet o
     const response = await responsePromise; expect(response.status(), await response.text()).toBe(200); await page.reload();
   }
   const approved = await refundControl(reference); expect(approved.refunds[0].status).toBe("APPROVED");
-  await expect(page.getByText("Refund completion is inactive pending consolidated validation approval.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Complete wallet credit", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await testInfo.attach(`finance-refund-approved-${width}`, { body: await page.screenshot({ fullPage: true, path: testInfo.outputPath(`finance-refund-approved-${width}.png`) }), contentType: "image/png" });
-  expect((await page.request.post(`/api/admin/refunds/${refund.id}/complete-wallet`, { data: { operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(503);
+  expect((await page.request.post(`/api/admin/refunds/${refund.id}/complete-wallet`, { data: { operationId: crypto.randomUUID() }, headers: { origin: new URL(page.url()).origin } })).status()).toBe(403);
   expect((await refundControl(reference)).payment).toEqual(approved.payment);
-  const completed = await refundControl(reference, "complete-wallet", { reference: refund.reference });
+  await login(page, "e2e-editorial-reviewer@ktcouriers.local");
+  await page.goto(`/admin/refunds/${refund.id}`);
+  const completionResponse = page.waitForResponse(r => r.url().endsWith(`/api/admin/refunds/${refund.id}/complete-wallet`) && r.request().method() === "POST");
+  await page.getByRole("button", { name: "Complete wallet credit", exact: true }).click();
+  const completion = await completionResponse; expect(completion.status(), await completion.text()).toBe(200);
+  const completed = await refundControl(reference);
   expect(completed.refunds[0].status).toBe("SUCCEEDED"); expect(completed.payment).toMatchObject({ reserved: "0.00", refunded: "25.00", status: "SUCCEEDED" });
   expect(balance(completed, "CUSTOMER_WALLET_AVAILABLE")).toBe("25.00"); expect(balance(completed, "CUSTOMER_REFUND_HELD")).toBe("0.00");
   assertBalancedRefundJournal(completed.refunds[0].completion, "REFUND_WALLET_CREDIT", "25.00");
-  expect((await refundControl(reference, "complete-wallet", { reference: refund.reference })).refunds).toEqual(completed.refunds);
+  const completionBody = completion.request().postDataJSON();
+  expect((await page.request.post(`/api/admin/refunds/${refund.id}/complete-wallet`, { data: completionBody, headers: { origin: new URL(page.url()).origin } })).status()).toBe(200);
+  expect((await refundControl(reference)).refunds).toEqual(completed.refunds);
   await login(page, `e2e-paystack-finance-${width}@ktcouriers.local`); await page.goto("/account/wallet");
   await expect(page.getByRole("heading", { name: "Wallet", exact: true })).toBeVisible();
   const wallet = await page.request.get("/api/customer-wallet"); expect(wallet.status()).toBe(200); expect((await wallet.json()).wallet).toMatchObject({ availableBalance: "25.00", refundHeldBalance: "0.00", spendingEnabled: true });

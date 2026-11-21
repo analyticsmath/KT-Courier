@@ -39,7 +39,7 @@ async function ensureShortageReceivableAccounts(tx: Prisma.TransactionClient) {
       {
         walletId: platformWallet.id,
         code: COD_UNCOLLECTED_RECEIVABLE_ACCOUNT_CODE,
-        purpose: "SUSPENSE",
+        purpose: "COD_UNCOLLECTED_RECEIVABLE",
         category: "ASSET",
         currency: "ZAR",
       },
@@ -49,7 +49,7 @@ async function ensureShortageReceivableAccounts(tx: Prisma.TransactionClient) {
       {
         walletId: platformWallet.id,
         code: COD_UNCOLLECTED_SUSPENSE_ACCOUNT_CODE,
-        purpose: "SUSPENSE",
+        purpose: "COD_UNCOLLECTED_SUSPENSE",
         category: "LIABILITY",
         currency: "ZAR",
       },

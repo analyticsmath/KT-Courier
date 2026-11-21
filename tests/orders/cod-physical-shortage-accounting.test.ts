@@ -148,6 +148,8 @@ describe("COD Physical Delivery Uncollected Shortage Accounting (C07)", () => {
     });
 
     expect(mocks.postLedgerJournalWithinTransaction).toHaveBeenCalledTimes(1);
+    expect(mocks.ensureLedgerAccount).toHaveBeenCalledWith(expect.objectContaining({ code: COD_UNCOLLECTED_RECEIVABLE_ACCOUNT_CODE, purpose: "COD_UNCOLLECTED_RECEIVABLE", category: "ASSET" }), mocks.tx);
+    expect(mocks.ensureLedgerAccount).toHaveBeenCalledWith(expect.objectContaining({ code: COD_UNCOLLECTED_SUSPENSE_ACCOUNT_CODE, purpose: "COD_UNCOLLECTED_SUSPENSE", category: "LIABILITY" }), mocks.tx);
     const call = mocks.postLedgerJournalWithinTransaction.mock.calls[0][1];
     expect(call).toMatchObject({
       idempotencyKey: "cod-physical-shortage:cod-1",
