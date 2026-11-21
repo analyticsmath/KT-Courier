@@ -716,21 +716,8 @@ describe("Phase C domain closure on isolated PostgreSQL (CR-129..155)", { timeou
       where: { id: order.id },
       data: { status: OrderStatus.CANCELLED },
     });
-    // Honest activation gate remains closed by default until production validation is approved
-    await expect(
-      createRefundRequest({
-        actorUserId: customer.id,
-        paymentPublicReference: payment.publicReference,
-        amount: "50.00",
-        method: "CUSTOMER_WALLET",
-        reasonCode: "CUSTOMER_SERVICE_RESOLUTION",
-        customerNote: "Customer cancelled before collection",
-        operationId: `refdc-gated-${tag}`,
-      }),
-    ).rejects.toMatchObject({ code: "REFUND_PRODUCTION_NOT_READY" });
-
-    const refund = await createRefundRequest(
-      {
+    // Wallet refunds remain available for existing liabilities with commerce off.
+    const request = {
         actorUserId: customer.id,
         paymentPublicReference: payment.publicReference,
         amount: "50.00",
@@ -738,9 +725,9 @@ describe("Phase C domain closure on isolated PostgreSQL (CR-129..155)", { timeou
         reasonCode: "CUSTOMER_SERVICE_RESOLUTION",
         customerNote: "Customer cancelled before collection",
         operationId: `refdc-req-${tag}`,
-      },
-      { assertProductionReady: () => {} },
-    );
+    } as const;
+    const refund = await createRefundRequest(request);
+    expect((await createRefundRequest(request)).id).toBe(refund.id);
     await beginRefundReview({
       actorUserId: reviewerA.id,
       publicReference: refund.publicReference,

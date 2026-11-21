@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { evaluateMarketplaceCheckoutPublicGate } from "@/lib/marketplace-checkout/production-lock";
 import {
   marketplaceCategoryHref,
   marketplaceListingHref,
@@ -188,6 +189,6 @@ describe("R23 marketplace route activation", () => {
     expect(checkoutLock).toMatch(
       /MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/,
     );
-    expect(checkoutLock).toContain("CHECKOUT_PUBLIC_DISABLED");
+    expect(evaluateMarketplaceCheckoutPublicGate({ NODE_ENV: "production", KT_COMMERCE_ENABLED: "false" })).toEqual({ enabled: false, blockReason: "CHECKOUT_PUBLIC_DISABLED" });
   });
 });

@@ -1,19 +1,26 @@
 import { Prisma } from '@prisma/client';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { applyPromotionRefundAdjustment, type PromotionRefundContext, type PromotionRefundResult } from '@/lib/promotions/promotion-refund.service';
-import { PromotionsProductionLockedError } from '@/lib/promotions/production-lock';
+import { assertPromotionsProductionReady, PromotionsProductionLockedError } from '@/lib/promotions/production-lock';
 import { calculateRefundAllocations } from '@/lib/promotions/promotion-refund-policy';
 
 describe('promotion-refund service', () => {
-  it('applyPromotionRefundAdjustment throws PromotionsProductionLockedError', async () => {
+  it('denies new issuance but permits cleanup, which still requires a matching adjustment', async () => {
     const input: PromotionRefundContext = { refundId: "refund-1", storeOrderId: "store-order-1", lineReference: "line-1", refundProportion: new Prisma.Decimal(1), lineTotal: new Prisma.Decimal("1.00"), frozenPromotionAllocations: [], redemptionId: "redemption-1", operationId: "operation-1", requestHash: "hash-1" };
     const env = process.env as Record<string, string | undefined>;
-    const prev = env.NODE_ENV;
+    const prev = { NODE_ENV: env.NODE_ENV, KT_COMMERCE_ENABLED: env.KT_COMMERCE_ENABLED };
     try {
       env.NODE_ENV = 'production';
-      await expect(applyPromotionRefundAdjustment(input, {} as Prisma.TransactionClient)).rejects.toThrow(PromotionsProductionLockedError);
+      env.KT_COMMERCE_ENABLED = 'false';
+      expect(() => assertPromotionsProductionReady('RESERVATION')).toThrow(PromotionsProductionLockedError);
+      for (const operation of ['RELEASE', 'REVERSAL', 'RECONCILIATION'] as const) expect(() => assertPromotionsProductionReady(operation)).not.toThrow();
+      const tx = { $queryRaw: vi.fn().mockResolvedValue([]), marketplaceStoreOrderAdjustment: { findFirst: vi.fn().mockResolvedValue(null) } };
+      await expect(applyPromotionRefundAdjustment(input, tx as unknown as Prisma.TransactionClient)).rejects.toThrow('A matching approved store adjustment and refund are required.');
     } finally {
-      env.NODE_ENV = prev;
+      for (const [key, value] of Object.entries(prev)) {
+        if (value === undefined) delete env[key];
+        else env[key] = value;
+      }
     }
   });
 

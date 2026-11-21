@@ -8,6 +8,8 @@ describe("read-only store collection address readiness", () => {
     expect(describeStoreCollectionEvidence(null)).toEqual({
       checkoutPickupConfigured: false,
       missing: ["Saved collection address missing"],
+      resolvedSuburb: null,
+      usesLegacyLine2Suburb: false,
     });
   });
 
@@ -15,6 +17,8 @@ describe("read-only store collection address readiness", () => {
     expect(describeStoreCollectionEvidence({ ...completePickup, line2: "", postalCode: "", latitude: null, longitude: null })).toEqual({
       checkoutPickupConfigured: false,
       missing: ["Suburb / area missing", "Postal code missing", "Map coordinates missing"],
+      resolvedSuburb: null,
+      usesLegacyLine2Suburb: false,
     });
   });
 
@@ -22,16 +26,32 @@ describe("read-only store collection address readiness", () => {
     expect(describeStoreCollectionEvidence({ ...completePickup, latitude: { toString: () => "-26.2041" }, longitude: { toString: () => "28.0473" } })).toEqual({
       checkoutPickupConfigured: true,
       missing: [],
+      resolvedSuburb: "Sandton",
+      usesLegacyLine2Suburb: true,
     });
   });
 
   it("recognizes existing ZA/RSA/ZAF merchant country values without inventing coverage", () => {
     for (const country of ["ZA", " rsa ", "ZAF", "south africa"]) {
       expect(describeStoreCollectionEvidence({ ...completePickup, country })).toEqual({
-        checkoutPickupConfigured: true, missing: [],
+        checkoutPickupConfigured: true, missing: [], resolvedSuburb: "Sandton", usesLegacyLine2Suburb: true,
       });
     }
     expect(describeStoreCollectionEvidence({ ...completePickup, country: "US" }).missing).toContain("Country not supported");
+  });
+
+  it("accepts historical suburbs but never mistakes unit identifiers for one", () => {
+    expect(describeStoreCollectionEvidence({ ...completePickup, line2: "  Sandton  " })).toEqual({
+      checkoutPickupConfigured: true, missing: [], resolvedSuburb: "Sandton", usesLegacyLine2Suburb: true,
+    });
+    for (const line2 of ["Unit 4", "Apt 2", "Suite 3", "Block A", "123", "42B"]) {
+      expect(describeStoreCollectionEvidence({ ...completePickup, line2 })).toEqual({
+        checkoutPickupConfigured: false, missing: ["Suburb / area missing"], resolvedSuburb: null, usesLegacyLine2Suburb: false,
+      });
+    }
+    expect(describeStoreCollectionEvidence({ ...completePickup, line2: "Unit 4", suburb: "Rosebank" })).toEqual({
+      checkoutPickupConfigured: true, missing: [], resolvedSuburb: "Rosebank", usesLegacyLine2Suburb: false,
+    });
   });
 
   it("rejects invalid or unmapped coordinates as setup evidence", () => {

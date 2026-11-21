@@ -13,13 +13,12 @@ describe("signed Paystack source → canonical refund PostgreSQL authority", () 
     await withCanonicalBrowser(async page => {
       const f = await canonicalRefundSource(page, "pg-refund-wallet");
       const request = { actorUserId: f.owner, paymentPublicReference: f.payment.publicReference, amount: "25.00", method: "CUSTOMER_WALLET" as const, reasonCode: "CUSTOMER_SERVICE_RESOLUTION" as const, operationId: refundOperation("wallet-request") };
-      await expect(createRefundRequest(request)).rejects.toMatchObject({ code: "REFUND_PRODUCTION_NOT_READY" });
-      const refund = await createRefundRequest(request, f.dependencies);
+      const refund = await createRefundRequest(request);
       let state = await protectedRefundState(f.payment.id);
       assertJournalMoney(state.refunds[0].reserveLedgerJournal, "REFUND_RESERVE", "25.00");
       expect(state.payment.totalRefundReservedAmount.toFixed(2)).toBe("25.00");
       const frozen = state;
-      expect((await createRefundRequest(request, f.dependencies)).id).toBe(refund.id);
+      expect((await createRefundRequest(request)).id).toBe(refund.id);
       await expect(createRefundRequest({ ...request, amount: "26.00" }, f.dependencies)).rejects.toMatchObject({ code: "REFUND_IDEMPOTENCY_CONFLICT" });
       await expect(createRefundRequest({ ...request, actorUserId: f.foreign.id }, f.dependencies)).rejects.toMatchObject({ code: "REFUND_IDEMPOTENCY_CONFLICT" });
       await expect(cancelRefundRequest({ actorUserId: f.foreign.id, publicReference: refund.publicReference, operationId: refundOperation("foreign-cancel") })).rejects.toMatchObject({ code: "REFUND_FORBIDDEN" });
@@ -29,8 +28,7 @@ describe("signed Paystack source → canonical refund PostgreSQL authority", () 
       await approveRefund({ actorUserId: f.approver.id, publicReference: refund.publicReference, operationId: refundOperation("approve") });
       const completion = { actorUserId: f.processor.id, publicReference: refund.publicReference, operationId: refundOperation("wallet-complete") };
       await expect(completeRefundToCustomerWallet({ ...completion, actorUserId: f.approver.id }, f.dependencies)).rejects.toMatchObject({ code: "REFUND_DUAL_CONTROL_REQUIRED" });
-      await expect(completeRefundToCustomerWallet(completion)).rejects.toMatchObject({ code: "REFUND_PRODUCTION_NOT_READY" });
-      await Promise.all([completeRefundToCustomerWallet(completion, f.dependencies), completeRefundToCustomerWallet(completion, f.dependencies)]);
+      await Promise.all([completeRefundToCustomerWallet(completion), completeRefundToCustomerWallet(completion)]);
       state = await protectedRefundState(f.payment.id);
       assertJournalMoney(state.refunds[0].completionLedgerJournal, "REFUND_WALLET_CREDIT", "25.00");
       expect(state.payment.totalRefundedAmount.toFixed(2)).toBe("25.00");

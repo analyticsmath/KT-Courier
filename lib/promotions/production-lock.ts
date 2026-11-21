@@ -23,6 +23,9 @@ import { resolveCommerceSwitch } from "@/lib/runtime/commerce-switch";
  * - Release/reversal/reconciliation of already-committed promotion reservations
  *   remains allowed when `KT_COMMERCE_ENABLED=false` so refunds and cancellations
  *   never strand existing liabilities.
+ * - Narrow production exception: conflicting canonical and legacy switch values
+ *   block new promotion operations until configuration is reconciled, even if
+ *   the canonical switch requests activation. Liability cleanup stays allowed.
  */
 export const PROMOTIONS_PRODUCTION_VALIDATION_APPROVED = true as const;
 export const PROMOTIONS_PRODUCTION_BLOCK_REASON = "COMMERCE_DISABLED_BY_GLOBAL_SWITCH" as const;

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { evaluateMarketplaceCheckoutPublicGate } from "@/lib/marketplace-checkout/production-lock";
 
 const root = process.cwd();
 const source = (file: string) => readFileSync(path.join(root, file), "utf8");
@@ -73,7 +74,7 @@ describe("R23 public marketplace experience", () => {
     expect(checkoutLock).toMatch(
       /MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED\s*=\s*true/,
     );
-    expect(checkoutLock).toContain("CHECKOUT_PUBLIC_DISABLED");
+    expect(evaluateMarketplaceCheckoutPublicGate({ NODE_ENV: "production", KT_COMMERCE_ENABLED: "false" })).toEqual({ enabled: false, blockReason: "CHECKOUT_PUBLIC_DISABLED" });
     expect(cart).toContain("MarketplaceUnavailable");
     expect(checkout).toContain("MarketplaceUnavailable");
   });

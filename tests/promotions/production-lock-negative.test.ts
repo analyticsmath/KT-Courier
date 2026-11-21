@@ -97,6 +97,9 @@ describe("Promotions Production Lock — Comprehensive Negative & Proof Suite", 
       approved: false,
       reason: "CONFLICTING_COMMERCE_SWITCH_DEFINITIONS",
     });
+    for (const operation of ["RELEASE", "REVERSAL", "RECONCILIATION"] as const) {
+      expect(evaluatePromotionsReleaseGate(conflictingEnv, operation)).toEqual({ approved: true, reason: null });
+    }
   });
 
   it("fails closed if live Paystack credentials exist regardless of test flags", () => {
