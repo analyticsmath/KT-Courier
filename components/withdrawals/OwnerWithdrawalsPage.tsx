@@ -25,7 +25,11 @@ export default async function WithdrawalsPage({ searchParams, ownerRole, basePat
   const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
   const [overview, withdrawals] = await Promise.all([getOwnerWithdrawalOverview(user.id), listOwnerWithdrawals(user.id, { page, pageSize: PAGE_SIZE })]);
   const readiness = withdrawalProductionReadiness();
-  const disabledReason = !readiness.productionActive ? "New production withdrawal requests are inactive pending consolidated validation approval." : overview.destinations.length === 0 ? "No active payout destination is available. Contact finance administration." : null;
+  const disabledReason = !readiness.productionActive
+    ? `Earnings payout requests are currently unavailable (${readiness.blockReason ?? "WITHDRAWAL_PAYOUT_DISABLED"}).`
+    : overview.destinations.length === 0
+      ? "No active payout destination is available. Contact finance administration."
+      : null;
   const rows = withdrawals.data.map((withdrawal) => ({ ...withdrawal, id: withdrawal.publicReference }));
   return (
     <CustomerPage eyebrow="Owner funds" title="Withdrawals" description="Request eligible ZAR withdrawals to an approved, masked payout destination." actions={<CustomerAction href={basePath + "/destinations"}>Payout destinations</CustomerAction>}>

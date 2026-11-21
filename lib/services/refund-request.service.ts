@@ -151,7 +151,13 @@ export async function createMarketplaceRefundRequest(input: Readonly<{
   sourceAdjustmentReference?: string;
   operationId: string;
 }>, dependencies: RequestDependencies = {}) {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  const assertReady = dependencies.assertProductionReady ?? (() =>
+    assertRefundProductionActivation(
+      input.method === "ORIGINAL_PAYMENT_METHOD" && !dependencies.providerRegistry
+        ? "EXTERNAL_PROVIDER"
+        : "REQUEST",
+    ));
+  assertReady();
   if (assertMarketplaceRefundRequestMethod(input) === "AUTHENTICATED") {
     return createCustomerRefundRequest({ actorUserId: input.customerUserId!, paymentPublicReference: input.paymentPublicReference, amount: input.amount, method: input.method, reasonCode: input.reasonCode, operationId: input.operationId }, dependencies, input.sourceAdjustmentReference);
   }
@@ -355,7 +361,13 @@ export async function createRefundRequest(input: RefundRequestInput, dependencie
 }
 
 async function createCustomerRefundRequest(input: RefundRequestInput, dependencies: RequestDependencies = {}, sourceAdjustmentReference?: string) {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  const assertReady = dependencies.assertProductionReady ?? (() =>
+    assertRefundProductionActivation(
+      input.method === "ORIGINAL_PAYMENT_METHOD" && !dependencies.providerRegistry
+        ? "EXTERNAL_PROVIDER"
+        : "REQUEST",
+    ));
+  assertReady();
   assertRefundRequestInput(input);
 
   const paymentMeta = await prisma.payment.findUnique({

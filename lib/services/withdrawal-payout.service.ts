@@ -204,7 +204,7 @@ export async function recordWithdrawalPayoutUnknown(input: Readonly<{ actorUserI
 }
 
 export async function completeManualWithdrawalPayout(input: Readonly<{ actorUserId: string; withdrawalPublicReference: string; payoutAttemptPublicReference: string; externalPayoutReference: string; operationId: string; safeEvidenceReference?: string }>) {
-  assertWithdrawalProductionActivation();
+  assertWithdrawalProductionActivation(process.env, "MANUAL_PAYOUT");
   const externalReference = assertExternalPayoutReference(input.externalPayoutReference);
   const completionIdempotencyKey = input.operationId.trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(completionIdempotencyKey)) {

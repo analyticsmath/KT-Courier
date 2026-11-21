@@ -18,6 +18,8 @@
  * 3. Provider Decoupled: Infrastructure classification does not import payment providers.
  */
 
+import { resolveCommerceSwitch } from "./commerce-switch";
+
 export type KtRuntimeEnvironment = "local-demo" | "test" | "staging-demo" | "production";
 
 export type RuntimeClassificationResolution = Readonly<{
@@ -289,6 +291,7 @@ export function isCheckoutExposureAllowed(
 ): boolean {
   const classification = classifyRuntimeEnvironment(source);
   if (!classification.isValid) return false;
+  const commerceRequested = resolveCommerceSwitch(source).globalRequested;
 
   switch (classification.runtime) {
     case "test":
@@ -298,13 +301,13 @@ export function isCheckoutExposureAllowed(
         source.KT_LOCAL_CHECKOUT_VALIDATION === "1" ||
         source.KT_LOCAL_FULL_FLOW === "true" ||
         source.KT_LOCAL_FULL_FLOW === "1" ||
-        source.CHECKOUT_PUBLIC_ENABLED === "true";
+        commerceRequested;
       return localOptIn;
     }
     case "staging-demo":
-      return source.CHECKOUT_PUBLIC_ENABLED === "true";
+      return commerceRequested;
     case "production":
-      return productionApproved && source.CHECKOUT_PUBLIC_ENABLED === "true";
+      return productionApproved && commerceRequested;
   }
 }
 

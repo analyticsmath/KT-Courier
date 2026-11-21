@@ -1,3 +1,5 @@
+import { resolveStorePickupSuburb } from "@/lib/marketplace-checkout/store-pickup-selection";
+
 /** Only an explicitly saved, complete collection point may be described as
  * configured in the vendor dashboard. Business registration addresses are not
  * courier pickup authority. Coverage and checkout are checked separately.
@@ -15,7 +17,8 @@ export type MerchantSavedPickup = Readonly<{
 }>;
 
 export function isMerchantPickupEvidenceComplete(pickup: MerchantSavedPickup | null | undefined): boolean {
-  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || ((pickup.suburb?.trim() || pickup.line2?.trim())?.length ?? 0) < 2 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || pickup.country?.trim().toLowerCase() !== "south africa") return false;
+  const suburb = resolveStorePickupSuburb(pickup);
+  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || (suburb?.length ?? 0) < 2 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || pickup.country?.trim().toLowerCase() !== "south africa") return false;
   if (!/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")) return false;
   const latitude = Number(pickup.latitude);
   const longitude = Number(pickup.longitude);

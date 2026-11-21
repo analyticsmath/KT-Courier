@@ -13,10 +13,12 @@ import { StoreAccountApproval } from "@/components/admin/StoreAccountApproval";
 import { StoreAccountStatusActions } from "@/components/admin/StoreAccountStatusActions";
 import { StoreCheckoutCertificationPanel } from "@/components/admin/StoreCheckoutCertificationPanel";
 import { StorePickupAddressManager } from "@/components/store/StorePickupAddressManager";
+import { StoreRepairCockpit, type StoreRepairGateItem } from "@/components/admin/StoreRepairCockpit";
 import { ProtectedPageFrame } from "@/components/protected-v2/surfaces/ProtectedPageFrame";
 import { ProtectedPageHeader } from "@/components/protected-v2/surfaces/ProtectedPageHeader";
 import { OperationalPanel } from "@/components/protected-v2/surfaces/OperationalPanel";
 import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
+import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
 import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-engine-proof.service";
 
 export const metadata: Metadata = { title: "Vendor account dossier" };
@@ -41,7 +43,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision, activeOperationalPolicy] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
@@ -52,6 +54,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       where: { storeId: id }, select: {
         status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
         preparedByUserId: true, approvedByUserId: true,
+        pickupAddressId: true, pickupFingerprint: true,
         routeEvidenceReference: true, routeEvidenceDigest: true,
         checkoutEvidenceReference: true, checkoutEvidenceDigest: true,
         evidenceType: true, engineProofReference: true, engineProofDigest: true,
@@ -60,10 +63,118 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         proofOfferReference: true, proofPriceVersionReference: true,
       },
     }) : Promise.resolve(null),
-    canUpdate ? getStorePickupAddressForStore(id) : Promise.resolve(null),
+    getStorePickupAddressForStore(id),
     canApprove ? getGlobalCommercePolicyRevision() : Promise.resolve(1),
+    prisma.storeOrderOperationalPolicy.findFirst({
+      where: {
+        status: "ACTIVE",
+        effectiveFrom: { lte: now },
+        OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+      },
+      select: { id: true },
+    }),
   ]);
   const owner = store.ownerUser;
+  const pickupCandidate = pickupState?.pickupAddress ?? null;
+  const hasActiveOperationalPolicy = Boolean(activeOperationalPolicy);
+  const hasActiveCommissionPlan = commissionReadiness?.status === "READY";
+  const hasApprovedSellerIdentity = Boolean(legalSeller);
+
+  const blockers = describeStoreCheckoutBlockers({
+    status: store.status,
+    name: store.name,
+    publishedOfferCount,
+    pickup: pickupCandidate,
+    certification,
+    hasApprovedSellerIdentity,
+    hasActiveOperationalPolicy,
+    hasActiveCommissionPlan,
+    storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 1,
+    currentGlobalPolicyRevision: globalPolicyRevision,
+    now,
+  });
+
+  const isPubliclyVisible = blockers.length === 0;
+
+  const gates: StoreRepairGateItem[] = [
+    {
+      key: "identity",
+      category: "IDENTITY",
+      title: "Seller Legal Identity",
+      ready: hasApprovedSellerIdentity,
+      explanation: hasApprovedSellerIdentity
+        ? `Approved: ${legalSeller?.legalName} (${legalSeller?.registrationReference || "Registered"})`
+        : "Missing approved legal entity verification. Required by South African law prior to public sale.",
+      actionHref: `/admin/stores/${encodeURIComponent(id)}/seller-identity`,
+      actionLabel: "Review Seller Identity",
+    },
+    {
+      key: "collection",
+      category: "COLLECTION",
+      title: "Collection Address & Geocode",
+      ready: Boolean(pickupCandidate && store.pickupReadiness.checkoutPickupConfigured && store.pickupReadiness.missing.length === 0),
+      explanation: store.pickupReadiness.checkoutPickupConfigured && store.pickupReadiness.missing.length === 0
+        ? "Complete address with street, suburb, province, postal code, and geocoded coordinates."
+        : store.pickupReadiness.missing.join("; ") || "Incomplete pickup collection address.",
+      actionHref: "#manage-pickup-address",
+      actionLabel: "Edit Collection Address",
+    },
+    {
+      key: "settlement",
+      category: "SETTLEMENT",
+      title: "Commission Settlement Plan",
+      ready: hasActiveCommissionPlan,
+      explanation: hasActiveCommissionPlan
+        ? `Active approved commission policy (${commissionReadiness?.planReference ?? "standard"})`
+        : "No active approved commission plan. Marketplace settlement cannot compute platform share.",
+      actionHref: commissionReadiness?.planId
+        ? `/admin/commission-plans/${encodeURIComponent(commissionReadiness.planId)}`
+        : `/admin/commission-plans?storeId=${encodeURIComponent(id)}`,
+      actionLabel: "Configure Commission",
+    },
+    {
+      key: "catalog",
+      category: "CATALOG",
+      title: "Sellable Catalog Offers",
+      ready: publishedOfferCount > 0,
+      explanation: publishedOfferCount > 0
+        ? `${publishedOfferCount} active, searchable product offer(s) with valid pricing and inventory.`
+        : "Zero published offers. A store must have at least one sellable offer to appear in storefront.",
+      actionHref: `/admin/stores/${encodeURIComponent(id)}`,
+      actionLabel: "Inspect Catalog",
+    },
+    {
+      key: "policy",
+      category: "POLICY",
+      title: "Operational Policy",
+      ready: hasActiveOperationalPolicy,
+      explanation: hasActiveOperationalPolicy
+        ? "Active platform operational policy recorded and in effect."
+        : "No active StoreOrderOperationalPolicy found for current timestamp.",
+      actionHref: "/admin/policies",
+      actionLabel: "Operational Policies",
+    },
+    {
+      key: "certification",
+      category: "CERTIFICATION",
+      title: "Independent Certification",
+      ready: Boolean(
+        certification?.status === "APPROVED" &&
+        certification.expiresAt > now &&
+        certification.approvedByUserId &&
+        certification.approvedByUserId !== certification.preparedByUserId &&
+        certification.evidenceType === REAL_CHECKOUT_PROOF_EVIDENCE_TYPE &&
+        certification.sourceCommerceReadinessRevision === (store.commerceReadinessRevision ?? 1) &&
+        certification.globalPolicyRevision === globalPolicyRevision
+      ),
+      explanation: certification?.status === "APPROVED" && certification.expiresAt > now
+        ? "Two-reviewer certification approved matching pickup fingerprint and policy revision."
+        : "Pending dual-control review or expired certification.",
+      actionHref: "#checkout-certification",
+      actionLabel: "Certify Checkout",
+    },
+  ];
+
   const summary = vendorReviewChecklist({
     hasOwner: Boolean(owner),
     ownerActive: owner?.status === "ACTIVE",
@@ -77,6 +188,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   return <ProtectedPageFrame>
     <ProtectedPageHeader title={store.name} description={`Vendor account dossier · ${store.status.toLowerCase()} · joined ${date(store.createdAt)}`} />
     <Link href="/admin/stores" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">Back to stores</Link>
+    <StoreRepairCockpit storeId={store.id} storeName={store.name} isPubliclyVisible={isPubliclyVisible} blockers={blockers} gates={gates} />
     <OperationalPanel title="Review before business account approval" description="Business account approval verifies owner registration, verified email, and reachable business contact so the vendor can prepare onboarding. Public shop listing stays closed until seller identity, collection readiness, catalog moderation, and real-source checkout capability certification pass.">
       <div className="grid gap-3 sm:grid-cols-2">
         {summary.map(item => <div key={item.key} className="rounded-lg border p-4">
@@ -116,19 +228,23 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       <Link className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4" href={`/admin/stores/${encodeURIComponent(id)}/readiness`}>Run operational pickup preflight</Link>
     </OperationalPanel>
     {canUpdate && pickupState ? (
-      <OperationalPanel title="Manage collection address" description="Enter the store's confirmed collection address. Changing a live collection point requires fresh route and checkout review.">
-        <StorePickupAddressManager pickupAddress={pickupState.pickupAddress}
-          endpoint={`/api/admin/stores/${encodeURIComponent(id)}/pickup-address`}
-          legacyAddress={{ storeName: store.name, contactName: store.contactName, contactPhone: store.contactPhone,
-            line1: store.addressLine1, line2: store.addressLine2, city: store.city, province: store.province,
-            postalCode: store.postalCode, country: store.country }} />
-      </OperationalPanel>
+      <div id="manage-pickup-address">
+        <OperationalPanel title="Manage collection address" description="Enter the store's confirmed collection address. Changing a live collection point requires fresh route and checkout review.">
+          <StorePickupAddressManager pickupAddress={pickupState.pickupAddress}
+            endpoint={`/api/admin/stores/${encodeURIComponent(id)}/pickup-address`}
+            legacyAddress={{ storeName: store.name, contactName: store.contactName, contactPhone: store.contactPhone,
+              line1: store.addressLine1, line2: store.addressLine2, city: store.city, province: store.province,
+              postalCode: store.postalCode, country: store.country }} />
+        </OperationalPanel>
+      </div>
     ) : null}
     {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
-      <OperationalPanel title="Independent checkout and route certification"
-        description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
-        <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE || certification.sourceCommerceReadinessRevision !== store.commerceReadinessRevision || certification.globalPolicyRevision !== globalPolicyRevision || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") || !certification.proofOfferReference || !certification.proofPriceVersionReference))} />
-      </OperationalPanel>
+      <div id="checkout-certification">
+        <OperationalPanel title="Independent checkout and route certification"
+          description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
+          <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE || certification.sourceCommerceReadinessRevision !== store.commerceReadinessRevision || certification.globalPolicyRevision !== globalPolicyRevision || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") || !certification.proofOfferReference || !certification.proofPriceVersionReference))} />
+        </OperationalPanel>
+      </div>
     ) : null}
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
       <dl className="grid gap-4 sm:grid-cols-2">

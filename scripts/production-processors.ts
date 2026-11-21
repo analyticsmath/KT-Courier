@@ -13,7 +13,9 @@ import {
   hasEnabledCommercialProcessorWork,
   hasEnabledOrdinaryReferralWork,
   hasEnabledPromotionExpiryWork,
+  mergeClusterProcessorHeartbeats,
   productionProcessors,
+  resolveProcessorWorkerIdentity,
   runProductionCycle,
   summarizeProductionCycleReadiness,
   type ProcessorActivationState,
@@ -24,7 +26,7 @@ import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "../lib/developer-a
 import { subscriptionsProductionReady } from "../lib/subscriptions/production-lock";
 import { promotersProductionReady } from "../lib/promoters/production-readiness";
 import { advertisingProductionReady } from "../lib/advertising/production-lock";
-import { PROCESSOR_REGISTRY } from "../lib/processors/processor-registry";
+import { PROCESSOR_REGISTRY, type ProcessorName } from "../lib/processors/processor-registry";
 import { checkMarketplaceStoreOrderInitializationReadiness } from "../lib/processors/marketplace-store-order-readiness";
 import type { ProductionProcessor } from "../lib/processors/production-loop";
 import { createPrismaVerifiedPaymentEventRepository } from "../lib/payments/verified-payment-event-processor.service";
@@ -36,7 +38,7 @@ let stopping = false;
 let lastCycleAt = 0;
 let healthy = false;
 let readinessBlockers: string[] = [];
-let activationGatedProcessors: string[] = [];
+let activationGatedProcessors: ProcessorName[] = [];
 let wake: (() => void) | undefined;
 const lastSuccessAtByProcessor = new Map<string, string>();
 const server = createServer((request, response) => {
@@ -63,6 +65,8 @@ process.on("SIGINT", shutdown);
 
 async function main() {
   let firstCycle = true;
+  let cycleDiscoveredBlockers: string[] = [];
+  const workerId = resolveProcessorWorkerIdentity(process.env);
   const cadenceTracker = createProcessorCadenceTracker();
 
   const initialHeartbeat = await prisma.systemSetting
@@ -131,7 +135,7 @@ async function main() {
           select: { id: true },
         }),
       });
-      readinessBlockers = readiness.blocker ? [readiness.blocker] : [];
+      cycleDiscoveredBlockers = readiness.blocker ? [readiness.blocker] : [];
       return readiness.hasWork;
     }
     if (name === "expire-marketplace-reservations") return !!await prisma.marketplaceInventoryReservation.findFirst({ where: expiredMarketplaceReservationsWhere(), select: { id: true } });
@@ -318,12 +322,12 @@ async function main() {
     return await hasRequiredDomainNotificationWork(prisma) || (await listPendingCustomerOrderIntents(1)).length > 0 || !!await prisma.notificationDelivery.findFirst({ where: emailWorkWhere(), select: { id: true } }) || await hasPendingAdminAlertWork(prisma) || await hasPendingResendWebhooksWork(prisma);
   }
   while (!stopping) {
-    readinessBlockers = [];
+    cycleDiscoveredBlockers = [];
     const results = await runProductionCycle(executeRegisteredProcessor, () => stopping, createProductionCycleWorkCheck(hasWork, firstCycle, cadenceTracker));
     firstCycle = false;
     lastCycleAt = Date.now();
     const cycleIso = new Date(lastCycleAt).toISOString();
-    const cycleReadiness = summarizeProductionCycleReadiness(results, readinessBlockers);
+    const cycleReadiness = summarizeProductionCycleReadiness(results, cycleDiscoveredBlockers);
     healthy = cycleReadiness.healthy;
     readinessBlockers = cycleReadiness.readinessBlockers;
     const activationStates = await Promise.all(results.map(async (result) => {
@@ -344,24 +348,45 @@ async function main() {
     activationGatedProcessors = activationStates
       .filter((entry) => entry.activationState === "ACTIVATION_GATED")
       .map((entry) => entry.name);
+    const releaseSha = process.env.RENDER_GIT_COMMIT ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? null;
+    const workerSnapshot = {
+      workerId,
+      observedAt: cycleIso,
+      healthy,
+      readinessBlockers,
+      releaseSha,
+      activationGatedProcessors,
+      processors: activationStates,
+    };
     try {
-      const value = {
-        observedAt: cycleIso,
-        healthy,
-        readinessBlockers,
-        releaseSha: process.env.RENDER_GIT_COMMIT ?? process.env.RAILWAY_GIT_COMMIT_SHA ?? null,
-        commercialActivationSummary: activationGatedProcessors.length > 0 ? "PARTIAL_ACTIVATION_GATED" : "ALL_PROGRAMS_ACTIVE",
-        activationGatedProcessors,
-        registryCoverage: {
+      await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('production_processor_heartbeat'))`;
+        const existing = await tx.systemSetting.findUnique({
+          where: { key: "production_processor_heartbeat" },
+          select: { value: true },
+        });
+        const merged = mergeClusterProcessorHeartbeats({
+          workerSnapshot,
+          existingClusterHeartbeat: existing?.value,
           totalRegistered: Object.keys(PROCESSOR_REGISTRY).length,
-          scheduledInLoop: productionProcessors.length,
-          delegatedComposite: DELEGATED_COMPOSITE_PROCESSORS,
-        },
-        processors: activationStates,
-      };
-      await prisma.systemSetting.upsert({ where: { key: "production_processor_heartbeat" }, create: { key: "production_processor_heartbeat", label: "Operations processor heartbeat", type: "JSON", value }, update: { value } });
-    } catch { healthy = false; console.error(JSON.stringify({ event: "production_processors.heartbeat_failed", category: "DATABASE_UNAVAILABLE" })); }
-    console.log(JSON.stringify({ event: "production_processors.cycle", healthy, readinessBlockers, activationGatedProcessors, results }));
+        });
+        for (const p of merged.processors) {
+          if (p.lastSuccessAt) lastSuccessAtByProcessor.set(p.name, p.lastSuccessAt);
+        }
+        const workerKey = `production_processor_heartbeat:${workerId}`;
+        await tx.systemSetting.upsert({
+          where: { key: workerKey },
+          create: { key: workerKey, label: `Operations processor heartbeat (${workerId})`, type: "JSON", value: workerSnapshot },
+          update: { value: workerSnapshot },
+        });
+        await tx.systemSetting.upsert({
+          where: { key: "production_processor_heartbeat" },
+          create: { key: "production_processor_heartbeat", label: "Operations processor heartbeat", type: "JSON", value: merged },
+          update: { value: merged },
+        });
+      });
+    } catch { healthy = false; console.error(JSON.stringify({ event: "production_processors.heartbeat_failed", workerId, category: "DATABASE_UNAVAILABLE" })); }
+    console.log(JSON.stringify({ event: "production_processors.cycle", workerId, healthy, readinessBlockers, activationGatedProcessors, results }));
     if (!stopping) await new Promise<void>((resolve) => {
       const timer = setTimeout(() => { wake = undefined; resolve(); }, 30_000);
       wake = () => { clearTimeout(timer); wake = undefined; resolve(); };

@@ -374,18 +374,25 @@ describe("Workstream 3: Loyalty & Promotions Business Logic", () => {
   });
 
   describe("Promotions Release Gate", () => {
-    it("fails closed in production environment without external approval", () => {
+    it("fails closed in production environment without KT_COMMERCE_ENABLED=true", () => {
       const gate = evaluatePromotionsReleaseGate({
         NODE_ENV: "production",
       });
       expect(gate.approved).toBe(false);
-      expect(gate.reason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
+      expect(gate.reason).toBe("COMMERCE_DISABLED_BY_GLOBAL_SWITCH");
 
       expect(() =>
         assertPromotionsProductionReady("CAMPAIGN_ACTIVATE", undefined, {
           NODE_ENV: "production",
         }),
       ).toThrow(PromotionsProductionLockedError);
+
+      expect(
+        evaluatePromotionsReleaseGate({
+          NODE_ENV: "production",
+          KT_COMMERCE_ENABLED: "true",
+        }),
+      ).toEqual({ approved: true, reason: null });
     });
 
     it("allows operations in isolated test environments", () => {

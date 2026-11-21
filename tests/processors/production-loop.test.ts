@@ -7,7 +7,9 @@ import {
   DELEGATED_COMPOSITE_PROCESSORS,
   evaluateCommercialGateState,
   hasEnabledCommercialProcessorWork,
+  mergeClusterProcessorHeartbeats,
   productionProcessors,
+  resolveProcessorWorkerIdentity,
   runProductionCycle,
   summarizeProductionCycleReadiness,
   hasEnabledOrdinaryReferralWork,
@@ -245,6 +247,115 @@ describe("production processor orchestration", () => {
     const res3 = await workCheck("reconcile-expired-dispatch");
     expect(res3).toBe(true);
     expect(hasWork).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not postpone 24-hour unpaid parcel expiry by 5 minutes after an empty check right before deadline (C08)", async () => {
+    let mockTime = 1_000_000;
+    let orderExpired = false;
+    const tracker = createProcessorCadenceTracker(DEFAULT_PRODUCTION_PROCESSOR_CADENCE_MS, () => mockTime);
+    const hasWork = vi.fn(async () => orderExpired);
+    const workCheck = createProductionCycleWorkCheck(hasWork, false, tracker);
+
+    // At 23h 59m 40s (no expired orders yet): returns false WITHOUT starting a 5-min throttle
+    expect(await workCheck("expire-unpaid-courier-orders")).toBe(false);
+    expect(hasWork).toHaveBeenCalledTimes(1);
+
+    // 30s later (order crosses 24h 00m 10s deadline): immediately detects and runs!
+    mockTime += 30_000;
+    orderExpired = true;
+    expect(await workCheck("expire-unpaid-courier-orders")).toBe(true);
+    expect(hasWork).toHaveBeenCalledTimes(2);
+  });
+
+  it("merges competing multi-worker heartbeats (operations vs query-storefront-categories) without clobbering monotonic progress or retry backlogs (C08)", () => {
+    expect(resolveProcessorWorkerIdentity({ RAILWAY_SERVICE_NAME: "query-storefront-categories" })).toBe(
+      "query-storefront-categories",
+    );
+
+    const makeProcessors = (
+      overrides: Partial<Record<(typeof productionProcessors)[number], Partial<{
+        status: "COMPLETED" | "PEER_LEASE" | "FAILED" | "IDLE";
+        itemsCompleted: number;
+        itemsRetried: number;
+        activationState: "ACTIVE" | "ACTIVATION_GATED" | "DISABLED_BY_FLAG";
+        blockerCode: string | null;
+        lastSuccessAt: string | null;
+      }>>>,
+    ) =>
+      productionProcessors.map((name) => ({
+        name,
+        status: "IDLE" as const,
+        itemsCompleted: 0,
+        itemsRetried: 0,
+        activationState: "ACTIVE" as const,
+        blockerCode: null,
+        lastSuccessAt: null,
+        ...(overrides[name] ?? {}),
+      }));
+
+    const workerASnapshot = {
+      workerId: "query-storefront-categories",
+      observedAt: "2026-11-21T10:00:00.000Z",
+      healthy: true,
+      readinessBlockers: [],
+      releaseSha: "f06493ff",
+      activationGatedProcessors: [],
+      processors: makeProcessors({
+        "expire-unpaid-courier-orders": {
+          status: "COMPLETED",
+          itemsCompleted: 3,
+          lastSuccessAt: "2026-11-21T10:00:00.000Z",
+        },
+        "process-ordinary-referral-awards": {
+          activationState: "ACTIVE",
+          blockerCode: null,
+        },
+      }),
+    };
+
+    const firstMerge = mergeClusterProcessorHeartbeats({
+      workerSnapshot: workerASnapshot,
+      totalRegistered: 32,
+    });
+    expect(firstMerge.activeWorkerIds).toEqual(["query-storefront-categories"]);
+
+    // 5 seconds later, competing `operations` worker (with fewer env vars) runs and sees PEER_LEASE / IDLE
+    const workerBSnapshot = {
+      workerId: "operations",
+      observedAt: "2026-11-21T10:00:05.000Z",
+      healthy: true,
+      readinessBlockers: [],
+      releaseSha: "f06493ff",
+      activationGatedProcessors: [],
+      processors: makeProcessors({
+        "expire-unpaid-courier-orders": {
+          status: "PEER_LEASE",
+          itemsCompleted: 0,
+          lastSuccessAt: null,
+        },
+        "process-ordinary-referral-awards": {
+          activationState: "DISABLED_BY_FLAG",
+          blockerCode: "ORDINARY_REFERRAL_WORKFLOW_WORKER_DISABLED",
+        },
+      }),
+    };
+
+    const secondMerge = mergeClusterProcessorHeartbeats({
+      workerSnapshot: workerBSnapshot,
+      existingClusterHeartbeat: firstMerge,
+      totalRegistered: 32,
+    });
+
+    expect(secondMerge.activeWorkerIds).toEqual(["operations", "query-storefront-categories"]);
+    const expiryProc = secondMerge.processors.find((p) => p.name === "expire-unpaid-courier-orders");
+    expect(expiryProc).toMatchObject({
+      status: "COMPLETED",
+      itemsCompleted: 3,
+      lastSuccessAt: "2026-11-21T10:00:00.000Z",
+    });
+    expect(secondMerge.workerDiscrepancies).toContain(
+      "WORKER_ACTIVATION_DRIFT_PROCESS_ORDINARY_REFERRAL_AWARDS",
+    );
   });
 });
 

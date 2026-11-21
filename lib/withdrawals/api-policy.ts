@@ -24,7 +24,7 @@ export function withdrawalApiError(error: unknown): NextResponse {
     case "WITHDRAWAL_PAYOUT_REFERENCE_CONFLICT": return withdrawalNoStoreJson({ error: "Withdrawal request conflicts with its existing operation." }, 409);
     case "WITHDRAWAL_INVALID_STATE":
     case "WITHDRAWAL_RECONCILIATION_REQUIRED": return withdrawalNoStoreJson({ error: "Withdrawal cannot be changed in its current state." }, 409);
-    case "WITHDRAWAL_PRODUCTION_LOCKED": return withdrawalNoStoreJson({ error: "Withdrawal operations are inactive pending consolidated validation approval.", blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }, 503);
+    case "WITHDRAWAL_PRODUCTION_LOCKED": return withdrawalNoStoreJson({ error: error.message || "Earned payout operations are unavailable in the current runtime configuration.", blockReason: "WITHDRAWAL_PAYOUT_DISABLED" }, 503);
     case "WITHDRAWAL_CASH_INSUFFICIENT": return withdrawalNoStoreJson({ error: "Payout cannot be completed because cash clearing is insufficient; reconciliation is required." }, 409);
     case "WITHDRAWAL_DUAL_CONTROL_REQUIRED": return withdrawalNoStoreJson({ error: "This payout action requires a separate authorized finance actor." }, 403);
     case "WITHDRAWAL_OWNER_INELIGIBLE":

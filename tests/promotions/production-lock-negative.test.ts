@@ -31,7 +31,7 @@ describe("Promotions Production Lock — Comprehensive Negative & Proof Suite", 
     expect(isActualProductionInstance(env)).toBe(true);
     const gate = evaluatePromotionsReleaseGate(env);
     expect(gate.approved).toBe(false);
-    expect(gate.reason).toBe(PROMOTIONS_PRODUCTION_BLOCK_REASON);
+    expect(gate.reason).toBe("DATABASE_CLASSIFIED_PRODUCTION_DURING_TEST");
     expect(() => assertPromotionsProductionReady("CAMPAIGN_ACTIVATE", undefined, env)).toThrow(PromotionsProductionLockedError);
   });
 
@@ -60,13 +60,43 @@ describe("Promotions Production Lock — Comprehensive Negative & Proof Suite", 
     expect(() => assertPromotionsProductionReady("FUNDING_JOURNAL", undefined, env)).toThrow(PromotionsProductionLockedError);
   });
 
-  it("denies mistaken testApproval argument in an actual production instance", () => {
+  it("denies mistaken testApproval argument in an actual production instance for commerce creation", () => {
     const env = {
       NODE_ENV: "production",
       DATABASE_URL: prodDbUrl,
     };
     expect(isActualProductionInstance(env)).toBe(true);
-    expect(() => assertPromotionsProductionReady("REVERSAL", { approved: true }, env)).toThrow(PromotionsProductionLockedError);
+    expect(() => assertPromotionsProductionReady("COMMITMENT", { approved: true }, env)).toThrow(PromotionsProductionLockedError);
+  });
+
+  it("allows liability cleanup operations (RELEASE, REVERSAL, RECONCILIATION) even when KT_COMMERCE_ENABLED is false", () => {
+    const env = {
+      NODE_ENV: "production",
+      DATABASE_URL: prodDbUrl,
+      KT_COMMERCE_ENABLED: "false",
+    };
+    expect(() => assertPromotionsProductionReady("RELEASE", undefined, env)).not.toThrow();
+    expect(() => assertPromotionsProductionReady("REVERSAL", undefined, env)).not.toThrow();
+    expect(() => assertPromotionsProductionReady("RECONCILIATION", undefined, env)).not.toThrow();
+  });
+
+  it("enables approved promotions in production ONLY when KT_COMMERCE_ENABLED=true without switch conflict", () => {
+    const enabledEnv = {
+      NODE_ENV: "production",
+      DATABASE_URL: prodDbUrl,
+      KT_COMMERCE_ENABLED: "true",
+    };
+    expect(evaluatePromotionsReleaseGate(enabledEnv, "EVALUATION")).toEqual({ approved: true, reason: null });
+    expect(() => assertPromotionsProductionReady("CAMPAIGN_ACTIVATE", undefined, enabledEnv)).not.toThrow();
+
+    const conflictingEnv = {
+      ...enabledEnv,
+      CHECKOUT_PUBLIC_ENABLED: "false",
+    };
+    expect(evaluatePromotionsReleaseGate(conflictingEnv, "EVALUATION")).toEqual({
+      approved: false,
+      reason: "CONFLICTING_COMMERCE_SWITCH_DEFINITIONS",
+    });
   });
 
   it("fails closed if live Paystack credentials exist regardless of test flags", () => {

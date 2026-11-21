@@ -24,7 +24,7 @@ export async function completeRefundToCustomerWallet(input: Readonly<{
   publicReference: string;
   operationId: string;
 }>, dependencies: Readonly<{ assertProductionReady?: () => void }> = {}) {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  (dependencies.assertProductionReady ?? (() => assertRefundProductionActivation("WALLET_COMPLETION")))();
   const operationId = assertRefundOperationId(input.operationId);
   let pendingAlert: AdminAlertEventInput | null = null;
   const completed = await withLedgerRetry(() => prisma.$transaction(async (tx) => {

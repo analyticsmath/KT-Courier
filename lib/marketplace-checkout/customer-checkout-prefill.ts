@@ -35,6 +35,7 @@ export type CheckoutAddressPrefill = Readonly<{
   instructions: string;
   needsSuburbConfirmation: boolean;
   needsMapLocationConfirmation: boolean;
+  hasSavedCoordinatePinWithoutPlaceId?: boolean;
   mapped: {
     formattedAddress: string;
     placeId: string | null;
@@ -74,18 +75,24 @@ export function customerCheckoutAddressPrefill(
   // Never infer suburb from unit/building (line2); legacy addresses without a
   // trusted suburb or map pin prompt for confirmation in checkout instead.
   const suburb = address.suburb?.trim() ?? "";
-  // Stored data alone never authorizes a route: checkout calls the configured
-  // geocoding/coverage providers again after the customer submits.
-  const mapped = address.placeId
-    && /^[A-Za-z0-9_.:-]{5,240}$/.test(address.placeId)
-    && typeof lat === "number" && typeof lng === "number"
+  const rawPlaceId = address.placeId?.trim() ?? "";
+  const hasValidPlaceId = rawPlaceId.length > 0 && /^[A-Za-z0-9_.:-]{5,240}$/.test(rawPlaceId);
+  const hasMalformedPlaceId = rawPlaceId.length > 0 && !hasValidPlaceId;
+  const hasValidCoordinates =
+    typeof lat === "number" && typeof lng === "number"
     && Number.isFinite(lat) && Number.isFinite(lng)
     && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
-    && (lat !== 0 || lng !== 0)
+    && (lat !== 0 || lng !== 0);
+  // Stored data alone never authorizes a route: checkout calls the configured
+  // geocoding/coverage providers again after the customer submits. When a
+  // saved customer address has valid coordinates without a Place ID, preserve
+  // those saved coordinates in trusted account context so checkout can verify
+  // the marker on submit rather than silently blanking the saved pin.
+  const mapped = hasValidCoordinates && !hasMalformedPlaceId
       ? {
           formattedAddress: address.formattedAddress?.trim()
             || [address.line1, suburb || null, address.city, address.province, address.postalCode, "South Africa"].filter(Boolean).join(", "),
-          placeId: address.placeId,
+          placeId: hasValidPlaceId ? rawPlaceId : null,
           line1: address.line1,
           line2: address.line2,
           suburb: suburb || null,
@@ -107,6 +114,7 @@ export function customerCheckoutAddressPrefill(
     instructions: address.accessNotes ?? "",
     needsSuburbConfirmation: suburb.length === 0,
     needsMapLocationConfirmation: mapped === null,
+    hasSavedCoordinatePinWithoutPlaceId: Boolean(mapped && !hasValidPlaceId),
     mapped,
   };
 }

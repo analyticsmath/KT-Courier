@@ -9,7 +9,11 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import type { SavedAddressDto } from "@/lib/services/customer-addresses.service";
-import { storePickupSetupState } from "@/lib/marketplace-checkout/store-pickup-selection";
+import {
+  isUnitOrBuildingLine2,
+  resolveStorePickupSuburb,
+  storePickupSetupState,
+} from "@/lib/marketplace-checkout/store-pickup-selection";
 import { isMerchantPickupEvidenceComplete } from "@/lib/store-presentation/merchant-pickup-evidence";
 
 interface LegacyPickupAddress {
@@ -39,16 +43,23 @@ interface FormState {
 }
 
 function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
+  const canonicalSuburb = resolveStorePickupSuburb(address);
+  const unitLine2 =
+    address.suburb?.trim()
+      ? address.line2
+      : address.line2 && isUnitOrBuildingLine2(address.line2)
+        ? address.line2
+        : null;
   return {
     formattedAddress:
       address.formattedAddress ??
-      [address.line1, address.line2, address.city, address.province, address.postalCode, address.country]
+      [address.line1, unitLine2, canonicalSuburb, address.city, address.province, address.postalCode, address.country]
         .filter(Boolean)
         .join(", "),
     placeId: address.placeId,
     line1: address.line1,
-    line2: address.line2,
-    suburb: address.suburb ?? address.line2,
+    line2: unitLine2,
+    suburb: canonicalSuburb,
     city: address.city,
     province: address.province,
     postalCode: address.postalCode,
@@ -60,14 +71,16 @@ function addressToValue(address: SavedAddressDto): AddressAutocompleteValue {
 
 function legacyToValue(address?: LegacyPickupAddress): AddressAutocompleteValue | null {
   if (!address?.line1) return null;
+  const legacySuburb = isUnitOrBuildingLine2(address.line2) ? null : (address.line2 ?? null);
+  const legacyUnit = isUnitOrBuildingLine2(address.line2) ? (address.line2 ?? null) : null;
   return {
-    formattedAddress: [address.line1, address.line2, address.city, address.province, address.postalCode, address.country ?? "South Africa"]
+    formattedAddress: [address.line1, legacyUnit, legacySuburb, address.city, address.province, address.postalCode, address.country ?? "South Africa"]
       .filter(Boolean)
       .join(", "),
     placeId: null,
     line1: address.line1,
-    line2: address.line2 ?? null,
-    suburb: address.line2 ?? null,
+    line2: legacyUnit,
+    suburb: legacySuburb,
     city: address.city ?? null,
     province: address.province ?? null,
     postalCode: address.postalCode ?? null,
@@ -88,7 +101,18 @@ function initialForm(address: SavedAddressDto | null, legacy?: LegacyPickupAddre
 }
 
 function displaySummary(address: SavedAddressDto | null, legacy?: LegacyPickupAddress): string {
-  if (address) return [address.line1, address.line2, address.city, address.province, address.postalCode].filter(Boolean).join(", ");
+  if (address) {
+    const resolvedSuburb = resolveStorePickupSuburb(address);
+    const parts = [
+      address.line1,
+      address.line2 && address.line2 !== resolvedSuburb ? address.line2 : null,
+      resolvedSuburb,
+      address.city,
+      address.province,
+      address.postalCode,
+    ];
+    return parts.filter(Boolean).join(", ");
+  }
   if (legacy?.line1) return [legacy.line1, legacy.line2, legacy.city, legacy.province, legacy.postalCode].filter(Boolean).join(", ");
   return "";
 }
@@ -152,7 +176,12 @@ export function StorePickupAddressManager({
       setSaving(false);
       return;
     }
-    if (!form.address.suburb?.trim() && !form.address.line2?.trim()) {
+    const canonicalSuburb = resolveStorePickupSuburb({
+      suburb: form.address.suburb,
+      line2: form.address.line2,
+    });
+    if (!canonicalSuburb || canonicalSuburb.length < 2) {
+      setFieldErrors({ suburb: "Confirm the store pickup suburb or area before saving." });
       setError("Confirm the store pickup suburb or area on the mapped address before saving.");
       setSaving(false);
       return;
@@ -170,13 +199,17 @@ export function StorePickupAddressManager({
       return;
     }
 
+    const normalizedUnit =
+      form.address.line2?.trim() && form.address.line2.trim() !== canonicalSuburb
+        ? form.address.line2.trim()
+        : null;
     const payload = {
       label: form.label.trim() || "Default pickup",
       contactName: form.contactName.trim() || null,
       contactPhone: form.contactPhone.trim() || null,
       line1: form.address.line1.trim(),
-      line2: form.address.line2,
-      suburb: form.address.suburb?.trim() || form.address.line2?.trim() || null,
+      line2: normalizedUnit,
+      suburb: canonicalSuburb,
       city: form.address.city,
       province: form.address.province,
       postalCode: form.address.postalCode,
@@ -338,22 +371,36 @@ export function StorePickupAddressManager({
               onAccessNotesChange={(value) => setForm((currentForm) => ({ ...currentForm, accessNotes: value }))}
               error={fieldErrors.line1 ?? fieldErrors["address.line1"]}
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="store_pickup_suburb">Suburb / area</Label>
+                <Label htmlFor="store_pickup_line2">Unit / suite (optional)</Label>
                 <Input
-                  id="store_pickup_suburb"
+                  id="store_pickup_line2"
                   value={form.address?.line2 ?? ""}
                   onChange={(event) => {
                     const value = event.target.value;
                     setForm((currentForm) => ({ ...currentForm, address: currentForm.address ? { ...currentForm.address, line2: value } : currentForm.address }));
                     setFieldErrors((current) => ({ ...current, line2: "" }));
                   }}
-                  placeholder="e.g. Sandton"
+                  placeholder="e.g. Unit 4"
                   disabled={!form.address}
                   error={fieldErrors.line2}
                 />
-                <p className="mt-1 text-xs text-[var(--kt-text-muted)]">Use access notes for unit, gate or collection instructions.</p>
+              </div>
+              <div>
+                <Label htmlFor="store_pickup_suburb">Suburb / area</Label>
+                <Input
+                  id="store_pickup_suburb"
+                  value={form.address?.suburb ?? ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setForm((currentForm) => ({ ...currentForm, address: currentForm.address ? { ...currentForm.address, suburb: value } : currentForm.address }));
+                    setFieldErrors((current) => ({ ...current, suburb: "" }));
+                  }}
+                  placeholder="e.g. Sandton"
+                  disabled={!form.address}
+                  error={fieldErrors.suburb}
+                />
               </div>
               <div>
                 <Label htmlFor="store_pickup_postal">Postal code</Label>

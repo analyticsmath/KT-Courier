@@ -1,4 +1,5 @@
 import { storeAccess } from "@/lib/client-platform/store-access";
+import { resolveStorePickupSuburb } from "@/lib/marketplace-checkout/store-pickup-selection";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { OrderSource, OrderStatus } from "@/types/db";
@@ -135,8 +136,16 @@ export async function createOrder(
               regionId: quote.destinationRegionId,
               originRegionId: quote.originRegionId,
               destinationRegionId: quote.destinationRegionId,
-              originLocality: { city: input.pickupAddress.city, suburb: input.pickupAddress.suburb ?? input.pickupAddress.line2, province: input.pickupAddress.province },
-              destinationLocality: { city: input.dropoffAddress.city, suburb: input.dropoffAddress.suburb ?? input.dropoffAddress.line2, province: input.dropoffAddress.province },
+              originLocality: {
+                city: input.pickupAddress.city,
+                suburb: resolveStorePickupSuburb(input.pickupAddress),
+                province: input.pickupAddress.province,
+              },
+              destinationLocality: {
+                city: input.dropoffAddress.city,
+                suburb: resolveStorePickupSuburb(input.dropoffAddress),
+                province: input.dropoffAddress.province,
+              },
               authoritativeTotal: quote.total.toFixed(2),
             },
             tx,

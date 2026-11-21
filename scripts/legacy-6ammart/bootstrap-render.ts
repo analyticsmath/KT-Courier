@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { installSystemPermissionDefaults } from "../../lib/auth/permission-bootstrap";
 import { attestDecodedManifest } from "../../lib/migrations/legacy-6ammart/media-attestation";
+import { resolveCommerceSwitch } from "../../lib/runtime/commerce-switch";
 import { decryptSource } from "./source-envelope.mjs";
 
 process.env.NODE_OPTIONS = "--max-old-space-size=192";
@@ -24,7 +25,8 @@ async function main() {
       url.pathname !== "/kt_couriers" || process.env.KT_RENDER_LEGACY_REHEARSAL !== "true") {
     throw new Error("This bootstrap is restricted to the approved Neon preproduction database.");
   }
-  if (process.env.CHECKOUT_PUBLIC_ENABLED !== "false" || process.env.WITHDRAWAL_PAYOUT_ENABLED !== "false") {
+  const commerceSwitch = resolveCommerceSwitch(process.env);
+  if (commerceSwitch.globalRequested || process.env.WITHDRAWAL_PAYOUT_ENABLED !== "false") {
     throw new Error("Checkout and payouts must remain disabled during migration.");
   }
   const bundle = JSON.parse(decryptSource(JSON.parse(await readFile("scripts/legacy-6ammart/render-rehearsal.enc.json", "utf8")), process.env.KT_RENDER_LEGACY_SOURCE_KEY).toString("utf8"));

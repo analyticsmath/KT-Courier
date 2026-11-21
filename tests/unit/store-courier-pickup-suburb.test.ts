@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
 import { StorePickupAddressSchema } from "@/lib/validation/address-book";
-import { completeStorePickupAddress } from "@/lib/marketplace-checkout/store-pickup-selection";
+import {
+  completeStorePickupAddress,
+  isUnitOrBuildingLine2,
+  resolveStorePickupSuburb,
+} from "@/lib/marketplace-checkout/store-pickup-selection";
 import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parcel-pickup-authority";
 import { hasStorePickupLocationChanged } from "@/lib/services/store-addresses.service";
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
@@ -62,5 +66,28 @@ describe("store courier pickup and explicit suburb compatibility", () => {
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: null, suburb: "Johannesburg Central" })).toBe(false);
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Unit 4", suburb: "Johannesburg Central" })).toBe(true);
     expect(hasStorePickupLocationChanged(previous, { ...pickup, line2: "Johannesburg Central", suburb: "Rosebank" })).toBe(true);
+  });
+
+  it("separates unit/building line2 from suburb and refuses unit-only line2 when suburb is missing (C05)", () => {
+    expect(isUnitOrBuildingLine2("Unit 4B")).toBe(true);
+    expect(isUnitOrBuildingLine2("Suite 12")).toBe(true);
+    expect(isUnitOrBuildingLine2("Sandton")).toBe(false);
+
+    const separated = { ...pickup, line2: "Unit 4B", suburb: "Sandton", type: "PICKUP" };
+    expect(resolveStorePickupSuburb(separated)).toBe("Sandton");
+    expect(completeStorePickupAddress(separated)).toBe(true);
+    expect(describeStoreCollectionEvidence(separated)).toMatchObject({
+      checkoutPickupConfigured: true,
+      resolvedSuburb: "Sandton",
+      usesLegacyLine2Suburb: false,
+    });
+
+    const unitOnlyMissingSuburb = { ...pickup, line2: "Unit 4B", suburb: null, type: "PICKUP" };
+    expect(resolveStorePickupSuburb(unitOnlyMissingSuburb)).toBeNull();
+    expect(completeStorePickupAddress(unitOnlyMissingSuburb)).toBe(false);
+    expect(describeStoreCollectionEvidence(unitOnlyMissingSuburb)).toMatchObject({
+      checkoutPickupConfigured: false,
+      missing: ["Suburb / area missing"],
+    });
   });
 });

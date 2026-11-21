@@ -8,7 +8,12 @@ import { assertWithdrawalPolicy } from "@/lib/withdrawals/withdrawal-policy";
 import { withdrawalCreationHash } from "@/lib/withdrawals/withdrawal-idempotency";
 import { withdrawalReservePosting, withdrawalReleasePosting } from "@/lib/withdrawals/withdrawal-ledger-policy";
 import { resolveWithdrawalOwnerForUser } from "@/lib/withdrawals/withdrawal-owner-policy";
-import { assertWithdrawalProductionActivation } from "@/lib/withdrawals/withdrawal-production-readiness";
+import {
+  assertCustomerWalletBankWithdrawalForbidden,
+  assertWithdrawalProductionActivation,
+} from "@/lib/withdrawals/withdrawal-production-readiness";
+import { PROMOTERS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/promoters/production-readiness";
+import { isActualProductionInstance } from "@/lib/promotions/production-lock";
 import { parseWithdrawalAmount } from "@/lib/withdrawals/withdrawal-money-policy";
 import { WithdrawalError } from "@/lib/withdrawals/errors";
 import { withLedgerRetry } from "@/lib/ledger/retry";
@@ -53,6 +58,17 @@ export async function createWithdrawalRequest(input: Readonly<{
   let expectedRequestHash: string | null = null;
   const run = () => prisma.$transaction(async (tx) => {
     const owner = await resolveWithdrawalOwnerForUser(tx, input.actorUserId);
+    assertCustomerWalletBankWithdrawalForbidden(owner.ownerType);
+    if (
+      owner.ownerType === "PROMOTER" &&
+      isActualProductionInstance(process.env) &&
+      !PROMOTERS_PRODUCTION_VALIDATION_APPROVED
+    ) {
+      throw new WithdrawalError(
+        "WITHDRAWAL_PRODUCTION_LOCKED",
+        "Promoter payouts remain locked until promoter programme validation is approved.",
+      );
+    }
     const wallet = await tx.wallet.findUnique({
       where: { ownerType_ownerId_currency: { ownerType: owner.ownerType, ownerId: owner.ownerId, currency: "ZAR" } },
       select: { id: true, status: true },

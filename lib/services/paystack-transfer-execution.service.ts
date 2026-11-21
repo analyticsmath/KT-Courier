@@ -155,7 +155,7 @@ export async function initiatePaystackTransferPayout(
     clientOverride?: PaystackClient;
   }>,
 ) {
-  assertWithdrawalProductionActivation();
+  assertWithdrawalProductionActivation(process.env, "AUTOMATED_TRANSFER");
 
   const operationId = input.operationId.trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/.test(operationId)) {
@@ -1063,7 +1063,7 @@ export async function finalizePaystackTransferOtp(
     clientOverride?: PaystackClient;
   }>,
 ): Promise<{ outcome: "SUCCESS" | "UNKNOWN" | "FAILED"; message: string }> {
-  assertWithdrawalProductionActivation();
+  assertWithdrawalProductionActivation(process.env, "AUTOMATED_TRANSFER");
 
   const otp = input.otp.trim();
   if (!/^\d{4,10}$/.test(otp)) {

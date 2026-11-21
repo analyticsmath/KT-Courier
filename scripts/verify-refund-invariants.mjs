@@ -30,7 +30,13 @@ async function main() {
   if (/availableBalance|pendingBalance|lockedBalance/.test(joined)) failures.push("refund service directly mutates legacy wallet balances");
   if (/provider[_ -]?fee|refund[_ -]?fee/i.test(joined)) failures.push("refund service posts provider fees");
   const readiness = await readFile(new URL("../lib/refunds/refund-production-readiness.ts", import.meta.url), "utf8");
-  if (!/REFUND_PRODUCTION_VALIDATION_APPROVED\s*=\s*false/.test(readiness)) failures.push("production refund lock is not source-false");
+  if (!/evaluateRefundProductionReadiness/.test(readiness) || !/assertRefundProductionActivation/.test(readiness)) {
+    failures.push("risk-scoped refund readiness evaluator missing");
+  }
+  const withdrawalReadiness = await readFile(new URL("../lib/withdrawals/withdrawal-production-readiness.ts", import.meta.url), "utf8");
+  if (!/CUSTOMER_WALLET_BANK_WITHDRAWAL_ALLOWED\s*=\s*false/.test(withdrawalReadiness)) {
+    failures.push("customer wallet bank withdrawal ban is not enforced");
+  }
   if (failures.length) throw new Error(`Refund invariant verification failed: ${failures.join("; ")}.`);
   console.log("Refund invariant verification passed.");
 }

@@ -1,6 +1,7 @@
 import { PaymentError } from "../../errors";
 import type { SafeProviderConfigurationState } from "../provider-config";
 import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
+import { resolveCommerceSwitch } from "@/lib/runtime/commerce-switch";
 
 export const PAYSTACK_PROVIDER_IDENTITY = "South African Paystack Gateway" as const;
 export const PAYSTACK_API_BASE_URL = "https://api.paystack.co" as const;
@@ -192,7 +193,8 @@ export function resolvePaystackConfiguration(
     return Object.freeze({ state: invalidState(environment, "CONFIGURATION_INVALID"), runtime: null });
   }
 
-  const checkoutPublicEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
+  const commerceSwitch = resolveCommerceSwitch(source);
+  const checkoutPublicEnabled = commerceSwitch.globalRequested;
   const productionValidationApproved = isProductionRuntime ? (checkoutPublicEnabled || temporarySandboxRequested) : true;
   const active = rawMode === "test"
     ? (!isProductionRuntime || temporarySandboxRequested)
@@ -269,7 +271,7 @@ export function requireActivePaystackConfiguration(
   if (readiness.reasonCode === "LIVE_CHECKOUT_NOT_AUTHORIZED") {
     throw new PaymentError(
       "PAYMENT_PROVIDER_PRODUCTION_NOT_READY",
-      "Paystack production checkout is unavailable until CHECKOUT_PUBLIC_ENABLED is approved.",
+      "Paystack production checkout is unavailable until KT_COMMERCE_ENABLED is approved.",
     );
   }
   if (readiness.reasonCode === "TEMP_SANDBOX_EXPIRED" || readiness.reasonCode === "PROVIDER_CONFIG_INVALID") {

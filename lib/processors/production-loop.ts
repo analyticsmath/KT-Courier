@@ -169,7 +169,10 @@ export function createProcessorCadenceTracker(
 
 /** Avoid a full empty-queue sweep during worker startup, but let the earning
  * lifecycle make its first cursor pass so persisted cursors can wrap safely.
- * Cadence-configured processors can be throttled via an optional cadence tracker. */
+ * Cadence-configured processors can be throttled via an optional cadence tracker.
+ * `expire-unpaid-courier-orders` only marks its cadence window when eligible
+ * expired work is actually found, so an empty check right before a 24h deadline
+ * never postpones deadline cancellation by 5 minutes. */
 export function createProductionCycleWorkCheck(
   hasWork: WorkCheck,
   firstCycle: boolean,
@@ -177,9 +180,210 @@ export function createProductionCycleWorkCheck(
 ): WorkCheck {
   return async (name) => {
     if (cadenceTracker && !cadenceTracker.isDue(name)) return false;
+    if (firstCycle && name === "process-earning-lifecycle") {
+      cadenceTracker?.markChecked(name);
+      return true;
+    }
+    if (name === "expire-unpaid-courier-orders") {
+      const workFound = await hasWork(name);
+      if (workFound && cadenceTracker) {
+        cadenceTracker.markChecked(name);
+      }
+      return workFound;
+    }
     if (cadenceTracker) cadenceTracker.markChecked(name);
-    if (firstCycle && name === "process-earning-lifecycle") return true;
     return hasWork(name);
+  };
+}
+
+export type ProcessorHeartbeatEntry = Readonly<{
+  name: ProductionProcessor;
+  status: "COMPLETED" | "PEER_LEASE" | "FAILED" | "IDLE";
+  itemsCompleted: number;
+  itemsRetried: number;
+  activationState: ProcessorActivationState;
+  blockerCode: string | null;
+  lastSuccessAt: string | null;
+}>;
+
+export type WorkerProcessorHeartbeatSnapshot = Readonly<{
+  workerId: string;
+  observedAt: string;
+  healthy: boolean;
+  readinessBlockers: readonly string[];
+  releaseSha: string | null;
+  activationGatedProcessors: readonly ImplementedProcessorName[];
+  processors: readonly ProcessorHeartbeatEntry[];
+}>;
+
+export type ClusterProcessorHeartbeatValue = Readonly<{
+  observedAt: string;
+  healthy: boolean;
+  readinessBlockers: readonly string[];
+  releaseSha: string | null;
+  commercialActivationSummary: "PARTIAL_ACTIVATION_GATED" | "ALL_PROGRAMS_ACTIVE";
+  activationGatedProcessors: readonly ImplementedProcessorName[];
+  activeWorkerIds: readonly string[];
+  workerDiscrepancies: readonly string[];
+  workers: Readonly<Record<string, WorkerProcessorHeartbeatSnapshot>>;
+  registryCoverage: Readonly<{
+    totalRegistered: number;
+    scheduledInLoop: number;
+    delegatedComposite: typeof DELEGATED_COMPOSITE_PROCESSORS;
+  }>;
+  processors: readonly ProcessorHeartbeatEntry[];
+}>;
+
+export function resolveProcessorWorkerIdentity(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const raw =
+    source.KT_PROCESSOR_WORKER_ID?.trim() ||
+    source.RAILWAY_SERVICE_NAME?.trim() ||
+    source.RAILWAY_REPLICA_ID?.trim() ||
+    `worker-${process.pid}`;
+  return raw.replace(/[^A-Za-z0-9._:-]/g, "_").slice(0, 80) || "worker-default";
+}
+
+const STATUS_PRIORITY: Readonly<Record<ProcessorHeartbeatEntry["status"], number>> = {
+  FAILED: 4,
+  COMPLETED: 3,
+  PEER_LEASE: 2,
+  IDLE: 1,
+};
+
+/**
+ * Merges a worker's cycle heartbeat into the shared cluster heartbeat without
+ * letting competing workers (e.g. `operations` vs `query-storefront-categories`)
+ * clobber each other's monotonic `lastSuccessAt`, completed counts, retry
+ * backlogs, or readiness blockers.
+ */
+export function mergeClusterProcessorHeartbeats(input: {
+  workerSnapshot: WorkerProcessorHeartbeatSnapshot;
+  existingClusterHeartbeat?: unknown;
+  totalRegistered: number;
+  staleWorkerTtlMs?: number;
+}): ClusterProcessorHeartbeatValue {
+  const staleTtlMs = input.staleWorkerTtlMs ?? 420_000;
+  const nowMs = new Date(input.workerSnapshot.observedAt).getTime();
+  const priorObj =
+    input.existingClusterHeartbeat &&
+    typeof input.existingClusterHeartbeat === "object" &&
+    !Array.isArray(input.existingClusterHeartbeat)
+      ? (input.existingClusterHeartbeat as Record<string, unknown>)
+      : {};
+
+  const priorWorkersRaw =
+    priorObj.workers && typeof priorObj.workers === "object" && !Array.isArray(priorObj.workers)
+      ? (priorObj.workers as Record<string, WorkerProcessorHeartbeatSnapshot>)
+      : {};
+
+  const priorLastSuccess = new Map<string, string>();
+  if (Array.isArray(priorObj.processors)) {
+    for (const p of priorObj.processors as Array<{ name?: string; lastSuccessAt?: string | null }>) {
+      if (p?.name && typeof p.lastSuccessAt === "string") {
+        priorLastSuccess.set(p.name, p.lastSuccessAt);
+      }
+    }
+  }
+
+  const freshWorkers: Record<string, WorkerProcessorHeartbeatSnapshot> = {};
+  for (const [id, snapshot] of Object.entries(priorWorkersRaw)) {
+    if (!snapshot || typeof snapshot.observedAt !== "string") continue;
+    const age = nowMs - new Date(snapshot.observedAt).getTime();
+    if (Number.isFinite(age) && age >= 0 && age < staleTtlMs) {
+      freshWorkers[id] = snapshot;
+    }
+    if (Array.isArray(snapshot?.processors)) {
+      for (const p of snapshot.processors) {
+        if (p?.name && typeof p.lastSuccessAt === "string") {
+          const prev = priorLastSuccess.get(p.name);
+          if (!prev || p.lastSuccessAt > prev) priorLastSuccess.set(p.name, p.lastSuccessAt);
+        }
+      }
+    }
+  }
+  freshWorkers[input.workerSnapshot.workerId] = input.workerSnapshot;
+
+  const activeWorkerList = Object.values(freshWorkers).sort((a, b) =>
+    a.workerId.localeCompare(b.workerId),
+  );
+  const activeWorkerIds = activeWorkerList.map((w) => w.workerId);
+  const workerDiscrepancies: string[] = [];
+
+  const mergedProcessors: ProcessorHeartbeatEntry[] = productionProcessors.map((name) => {
+    const entries = activeWorkerList
+      .map((w) => w.processors.find((p) => p.name === name))
+      .filter((p): p is ProcessorHeartbeatEntry => Boolean(p));
+
+    let bestStatus: ProcessorHeartbeatEntry["status"] = "IDLE";
+    let itemsCompleted = 0;
+    let itemsRetried = 0;
+    let lastSuccessAt: string | null = priorLastSuccess.get(name) ?? null;
+
+    const states = new Set<ProcessorActivationState>();
+    for (const entry of entries) {
+      if (STATUS_PRIORITY[entry.status] > STATUS_PRIORITY[bestStatus]) {
+        bestStatus = entry.status;
+      }
+      itemsCompleted += entry.itemsCompleted;
+      if (entry.itemsRetried > itemsRetried) {
+        itemsRetried = entry.itemsRetried;
+      }
+      if (entry.lastSuccessAt && (!lastSuccessAt || entry.lastSuccessAt > lastSuccessAt)) {
+        lastSuccessAt = entry.lastSuccessAt;
+      }
+      states.add(entry.activationState);
+    }
+
+    if (states.size > 1) {
+      workerDiscrepancies.push(`WORKER_ACTIVATION_DRIFT_${name.replaceAll("-", "_").toUpperCase()}`);
+    }
+
+    // Prefer ACTIVE if any active worker has the capability enabled, else latest worker's state
+    const activeEntry =
+      entries.find((e) => e.activationState === "ACTIVE") ??
+      input.workerSnapshot.processors.find((p) => p.name === name) ??
+      entries[0];
+
+    return {
+      name,
+      status: bestStatus,
+      itemsCompleted,
+      itemsRetried,
+      activationState: activeEntry?.activationState ?? "ACTIVE",
+      blockerCode: activeEntry?.activationState === "ACTIVE" ? null : (activeEntry?.blockerCode ?? null),
+      lastSuccessAt,
+    };
+  });
+
+  const allExplicitBlockers = activeWorkerList.flatMap((w) =>
+    w.readinessBlockers.filter(
+      (code) => !code.startsWith("PROCESSOR_FAILED_") && !code.startsWith("PROCESSOR_RETRY_BACKLOG_"),
+    ),
+  );
+  const clusterReadiness = summarizeProductionCycleReadiness(mergedProcessors, allExplicitBlockers);
+  const activationGatedProcessors = mergedProcessors
+    .filter((entry) => entry.activationState === "ACTIVATION_GATED")
+    .map((entry) => entry.name);
+
+  return {
+    observedAt: input.workerSnapshot.observedAt,
+    healthy: clusterReadiness.healthy,
+    readinessBlockers: clusterReadiness.readinessBlockers,
+    releaseSha: input.workerSnapshot.releaseSha,
+    commercialActivationSummary:
+      activationGatedProcessors.length > 0 ? "PARTIAL_ACTIVATION_GATED" : "ALL_PROGRAMS_ACTIVE",
+    activationGatedProcessors,
+    activeWorkerIds,
+    workerDiscrepancies: [...new Set(workerDiscrepancies)].sort(),
+    workers: freshWorkers,
+    registryCoverage: {
+      totalRegistered: input.totalRegistered,
+      scheduledInLoop: productionProcessors.length,
+      delegatedComposite: DELEGATED_COMPOSITE_PROCESSORS,
+    },
+    processors: mergedProcessors,
   };
 }
 

@@ -197,7 +197,8 @@ export async function geocodeSouthAfricanAddress(
     if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return reject("GEOCODE_PROVINCE_MISMATCH");
     if (address.country && normalizedCity(address.country) !== "south africa") return reject("GEOCODE_COUNTRY_MISMATCH");
     if (address.requireSuburbAndPostalMatch) {
-      const requestedSuburb = normalizedCity(address.suburb ?? address.line2 ?? "");
+      const { resolveStorePickupSuburb } = await import("@/lib/marketplace-checkout/store-pickup-selection");
+      const requestedSuburb = normalizedCity(resolveStorePickupSuburb(address) ?? "");
       const suburbMatches = components.some(component =>
         component.types?.some(type => ["sublocality_level_1", "sublocality_level_2", "sublocality", "neighborhood"].includes(type))
         && normalizedCity(component.long_name ?? "") === requestedSuburb,

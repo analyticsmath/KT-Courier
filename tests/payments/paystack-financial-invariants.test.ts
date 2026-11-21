@@ -263,21 +263,32 @@ describe("Paystack Financial Invariants", () => {
   });
 
   describe("Withdrawal Payout Fail-Closed Readiness Policy", () => {
-    it("keeps production source-locked even when WITHDRAWAL_PAYOUT_ENABLED is explicitly true", () => {
+    it("gates production payouts on WITHDRAWAL_PAYOUT_ENABLED and live transfer credentials while blocking customer bank withdrawals", () => {
       const readinessDisabled = withdrawalProductionReadiness({
         NODE_ENV: "production",
         WITHDRAWAL_PAYOUT_ENABLED: "false",
       });
       expect(readinessDisabled.productionActive).toBe(false);
-      expect(readinessDisabled.blockReason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
+      expect(readinessDisabled.customerBankWithdrawalAllowed).toBe(false);
+      expect(readinessDisabled.blockReason).toBe("WITHDRAWAL_PAYOUT_DISABLED");
 
-      const readinessEnabled = withdrawalProductionReadiness({
+      const readinessEnabledWithoutCreds = withdrawalProductionReadiness({
         NODE_ENV: "production",
         WITHDRAWAL_PAYOUT_ENABLED: "true",
-      });
-      expect(readinessEnabled.productionActive).toBe(false);
-      expect(readinessEnabled.blockReason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
-      expect(readinessEnabled.payoutEnabled).toBe(true);
+      }, "AUTOMATED_TRANSFER");
+      expect(readinessEnabledWithoutCreds.productionActive).toBe(false);
+      expect(readinessEnabledWithoutCreds.payoutEnabled).toBe(true);
+
+      const readinessEnabledWithCreds = withdrawalProductionReadiness({
+        NODE_ENV: "production",
+        WITHDRAWAL_PAYOUT_ENABLED: "true",
+        PAYSTACK_MODE: "live",
+        PAYSTACK_SECRET_KEY: "sk_live_test_fixture_only",
+        PAYMENT_APP_ORIGIN: "https://kt-courier.co.za",
+      }, "AUTOMATED_TRANSFER");
+      expect(readinessEnabledWithCreds.productionActive).toBe(true);
+      expect(readinessEnabledWithCreds.customerBankWithdrawalAllowed).toBe(false);
+      expect(readinessEnabledWithCreds.blockReason).toBeNull();
     });
   });
 

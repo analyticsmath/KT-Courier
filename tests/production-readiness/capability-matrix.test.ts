@@ -94,7 +94,7 @@ describe("Central Read-Only Capability Matrix (F08 / CR-162 / CR-165)", () => {
     const refunds = matrix.find((r) => r.key === "PAYSTACK_REFUNDS_AND_TRANSFERS");
     expect(refunds?.externalEntitlementApproved).toBe(false);
     expect(refunds?.eligibleForLiveUse).toBe(false);
-    expect(refunds?.lastBlockerCode).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
+    expect(refunds?.lastBlockerCode).toBe("PAYSTACK_DISABLED");
 
     const email = matrix.find((r) => r.key === "NOTIFICATIONS_AND_EMAIL");
     expect(email?.runtimeConfigured).toBe(false);
@@ -127,7 +127,7 @@ describe("Central Read-Only Capability Matrix (F08 / CR-162 / CR-165)", () => {
         capability("google_maps_browser", "READY", "CONFIGURED", "Maps ok", "OPERATIONS"),
         capability("google_maps_server", "READY", "CONFIGURED", "Maps ok", "OPERATIONS"),
       ],
-      paystack: paystackState({ configured: true, active: true, environment: "production", blockReason: null, productionValidationApproved: true }),
+      paystack: paystackState({ configured: true, active: true, credentialVersionConfigured: true, environment: "production", errorCategory: "NONE", blockReason: null, productionValidationApproved: true }),
       acceptanceRecords: [makeAcceptance("current_ci_certification"), makeAcceptance("payment_integration_acceptance")],
       heartbeat: healthyHeartbeat,
       storeOrderPolicyActive: true,

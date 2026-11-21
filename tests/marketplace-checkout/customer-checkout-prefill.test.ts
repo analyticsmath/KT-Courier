@@ -51,7 +51,7 @@ describe("same-account marketplace checkout address prefill", () => {
   });
 
   it("never promotes unit/building line2 into suburb when a saved address has no canonical suburb or map pin", () => {
-    expect(customerCheckoutAddressPrefill({ ...address, line2: "Unit 4B", suburb: null, placeId: null })).toMatchObject({
+    expect(customerCheckoutAddressPrefill({ ...address, line2: "Unit 4B", suburb: null, placeId: null, latitude: null, longitude: null })).toMatchObject({
       line2: "Unit 4B",
       suburb: "",
       needsSuburbConfirmation: true,
@@ -60,9 +60,25 @@ describe("same-account marketplace checkout address prefill", () => {
     });
   });
 
+  it("reuses verified saved coordinates when Place ID is missing, without promoting line2 into suburb (C06)", () => {
+    expect(customerCheckoutAddressPrefill({ ...address, line2: "Unit 4B", suburb: "Rosebank", placeId: null })).toMatchObject({
+      line2: "Unit 4B",
+      suburb: "Rosebank",
+      needsSuburbConfirmation: false,
+      needsMapLocationConfirmation: false,
+      hasSavedCoordinatePinWithoutPlaceId: true,
+      mapped: {
+        placeId: null,
+        latitude: -26.2041,
+        longitude: 28.0473,
+        suburb: "Rosebank",
+      },
+    });
+  });
+
   it("never fabricates a map confirmation from manual or stale data", () => {
     for (const override of [
-      { placeId: null },
+      { placeId: "bad" },
       { latitude: null },
       { longitude: null },
       { latitude: 500 },

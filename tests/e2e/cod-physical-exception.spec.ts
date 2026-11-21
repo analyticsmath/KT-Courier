@@ -48,5 +48,12 @@ test("independently reviews a reported COD delivery without recording cash", asy
   expect(after.cod.reconciliationStatus).toBe("PHYSICAL_DELIVERY_VERIFIED");
   expect(after.cod.cashCollected.isZero()).toBe(true);
   expect(after.order.status).toBe("IN_TRANSIT");
-  expect(after.journals).toEqual(before.journals);
+  expect(after.journals).toHaveLength(before.journals.length + 1);
+  const shortageJournal = after.journals[after.journals.length - 1];
+  expect(shortageJournal.totalDebits.equals(after.cod.cashObligation)).toBe(true);
+  expect(shortageJournal.totalCredits.equals(after.cod.cashObligation)).toBe(true);
+  expect(shortageJournal.entries.map((e) => e.lineCode).sort()).toEqual([
+    "COD_UNCOLLECTED_SHORTAGE_RECEIVABLE",
+    "COD_UNCOLLECTED_SHORTAGE_SUSPENSE",
+  ]);
 });

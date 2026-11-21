@@ -371,6 +371,7 @@ export async function updateMarketplaceCheckoutAddress(
     owner: CheckoutOwner;
     operation: CheckoutOperation;
     address: {
+      savedAddressId?: string;
       placeId?: string;
       latitude?: number;
       longitude?: number;
@@ -390,6 +391,49 @@ export async function updateMarketplaceCheckoutAddress(
   validateAddress(input.address);
   // Authorize and reject frozen checkouts before invoking the external maps provider.
   await readMutableCheckout(input, db);
+  if (
+    !input.address.placeId &&
+    (input.address.latitude !== undefined || input.address.longitude !== undefined)
+  ) {
+    // Saved coordinates without a Place ID are accepted only in trusted customer
+    // account context when they match the customer's persisted saved address record.
+    if (input.owner.type !== "CUSTOMER" || !input.address.savedAddressId) {
+      throw new MarketplaceCheckoutError(
+        "CART_LINE_INVALID",
+        "Select the delivery address again to confirm its map location.",
+      );
+    }
+    const saved = await (db as any).address?.findFirst?.({
+      where: {
+        id: input.address.savedAddressId,
+        userId: input.owner.userId,
+        storeId: null,
+      },
+    });
+    const norm = (value: string | null | undefined) =>
+      (value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+    const savedLat = saved?.latitude != null ? Number(saved.latitude) : NaN;
+    const savedLng = saved?.longitude != null ? Number(saved.longitude) : NaN;
+    const markerMatches =
+      Number.isFinite(savedLat) &&
+      Number.isFinite(savedLng) &&
+      input.address.latitude !== undefined &&
+      input.address.longitude !== undefined &&
+      Math.abs(savedLat - input.address.latitude) <= 0.00001 &&
+      Math.abs(savedLng - input.address.longitude) <= 0.00001;
+    if (
+      !saved ||
+      !markerMatches ||
+      norm(saved.line1) !== norm(input.address.line1) ||
+      norm(saved.city) !== norm(input.address.city) ||
+      norm(saved.province) !== norm(input.address.province)
+    ) {
+      throw new MarketplaceCheckoutError(
+        "CART_LINE_INVALID",
+        "The saved address coordinates no longer match the entered street address. Please confirm the map location.",
+      );
+    }
+  }
   let providerUnavailable = false;
   const protectedCoordinates = await geocodeSouthAfricanAddress(input.address, undefined, {
     onFailure: reason => { providerUnavailable = reason === "PROVIDER_UNAVAILABLE"; },

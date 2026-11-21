@@ -40,11 +40,47 @@ function hasValidMapMarker(address: StorePickupAddressCandidate): boolean {
     && (latitude !== 0 || longitude !== 0);
 }
 
+const UNIT_OR_BUILDING_LINE2_PATTERN =
+  /^(?:unit|apt|apartment|suite|ste|shop|flat|room|rm|floor|fl|level|lvl|block|blk|building|bldg|stand|erf|lot|no\.?)(?:\s|$)|^[0-9]+[a-z]?$/i;
+
+export function isUnitOrBuildingLine2(value: string | null | undefined): boolean {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return false;
+  return UNIT_OR_BUILDING_LINE2_PATTERN.test(trimmed);
+}
+
+/**
+ * Resolves the canonical suburb/area for a store pickup address without
+ * conflating apartment/unit/building values in `line2` as a suburb.
+ * Legacy pickups that stored a genuine suburb in `line2` (with empty `suburb`)
+ * remain supported when `line2` is not a unit/building identifier.
+ */
+export function resolveStorePickupSuburb(
+  address: Pick<StorePickupAddressCandidate, "suburb" | "line2"> | null | undefined,
+): string | null {
+  if (!address) return null;
+  const canonical = address.suburb?.trim() ?? "";
+  if (canonical.length > 0) return canonical;
+  const legacyLine2 = address.line2?.trim() ?? "";
+  if (!legacyLine2 || isUnitOrBuildingLine2(legacyLine2)) return null;
+  return legacyLine2;
+}
+
+export function usesLegacyLine2Suburb(
+  address: Pick<StorePickupAddressCandidate, "suburb" | "line2"> | null | undefined,
+): boolean {
+  if (!address) return false;
+  const canonical = address.suburb?.trim() ?? "";
+  if (canonical.length > 0) return false;
+  return Boolean(resolveStorePickupSuburb(address));
+}
+
 /** Suburb/area, postal code and an explicit map marker are required for a merchant pickup. */
 export function completeStorePickupAddress(address: StorePickupAddressCandidate | null | undefined): boolean {
+  const resolvedSuburb = resolveStorePickupSuburb(address);
   return Boolean(
     hasCorePickupAddress(address)
-    && ((address?.suburb?.trim() || address?.line2?.trim())?.length ?? 0) >= 2
+    && (resolvedSuburb?.length ?? 0) >= 2
     && /^\d{4}$/.test(address?.postalCode?.trim() ?? "")
     && address
     && hasValidMapMarker(address),

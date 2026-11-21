@@ -24,11 +24,12 @@ export default async function FinanceWithdrawalDetailPage({ params }: { params: 
     hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.WITHDRAWALS_PROCESS }),
   ]);
   const status = presentR21Status(withdrawal.status);
+  const manualPayoutReadiness = withdrawalProductionReadiness(process.env, "MANUAL_PAYOUT");
 
   return <ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Finance withdrawal" title="Withdrawal" description={withdrawal.publicReference} actions={<ProtectedStatus {...status} />} />
     <OperationalPanel title="Canonical withdrawal evidence" description="The payout destination is masked and completion is controlled solely by the existing server workflow."><dl className="eo-detail-grid"><div><dt>Amount</dt><dd className="font-mono">R {withdrawal.amount} ZAR</dd></div><div><dt>Status</dt><dd><ProtectedStatus {...status} /></dd></div><div><dt>Destination</dt><dd>{withdrawal.destination.maskedLabel}</dd></div><div><dt>Reserve journal</dt><dd>{withdrawal.journals.reserve}</dd></div><div><dt>Release journal</dt><dd>{withdrawal.journals.release ?? "—"}</dd></div><div><dt>Payout journal</dt><dd>{withdrawal.journals.payout ?? "—"}</dd></div></dl></OperationalPanel>
-    {canReview || canApprove || canProcess ? <OperationalPanel title="Canonical controls" description="The server resolved each capability. A maker cannot receive a client-side approval bypass."><FinanceWithdrawalActions id={withdrawal.id} status={withdrawal.status} payoutAttemptReference={current} canReview={canReview} canApprove={canApprove} canProcess={canProcess} completionLocked={!withdrawalProductionReadiness().productionActive} /></OperationalPanel> : null}
+    {canReview || canApprove || canProcess ? <OperationalPanel title="Canonical controls" description="The server resolved each capability. A maker cannot receive a client-side approval bypass."><FinanceWithdrawalActions id={withdrawal.id} status={withdrawal.status} payoutAttemptReference={current} canReview={canReview} canApprove={canApprove} canProcess={canProcess} completionLocked={!manualPayoutReadiness.productionActive} blockReason={manualPayoutReadiness.blockReason} /></OperationalPanel> : null}
     <OperationalPanel title="Immutable history" description="Recorded withdrawal events, ordered by the canonical source."><ActivityTimeline ariaLabel="Withdrawal history" items={withdrawal.history.map((event, index) => ({ id: `${event.createdAt}-${index}`, title: presentR21Status(event.toStatus).label, description: event.reasonCode ?? "Recorded", tone: presentR21Status(event.toStatus).tone }))} /></OperationalPanel>
   </ProtectedPageFrame>;
 }

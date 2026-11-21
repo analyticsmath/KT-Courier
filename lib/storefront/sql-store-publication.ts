@@ -74,7 +74,14 @@ const approvedCheckoutEvidence = Prisma.sql`
       -- fingerprint. A stale legacy default pointer cannot invalidate a
       -- separately certified complete saved pickup (see selectStorePickupCandidate).
       AND BTRIM(COALESCE(pickup."line1", '')) <> ''
-      AND BTRIM(COALESCE(NULLIF(BTRIM(pickup."suburb"), ''), pickup."line2", '')) <> ''
+      AND (
+        NULLIF(BTRIM(pickup."suburb"), '') IS NOT NULL
+        OR (
+          BTRIM(COALESCE(pickup."line2", '')) <> ''
+          AND BTRIM(pickup."line2") !~* '^(?:unit|apt|apartment|suite|ste|shop|flat|room|rm|floor|fl|level|lvl|block|blk|building|bldg|stand|erf|lot|no\.?)(?:\\s|$)'
+          AND BTRIM(pickup."line2") !~* '^[0-9]+[a-z]?$'
+        )
+      )
       AND BTRIM(COALESCE(pickup."city", '')) <> ''
       AND BTRIM(COALESCE(pickup."province", '')) <> ''
       AND BTRIM(COALESCE(pickup."postalCode", '')) <> ''

@@ -1,5 +1,9 @@
 import { PlatformError } from "./contracts";
-import { completeStorePickupAddress, type StorePickupAddressCandidate } from "@/lib/marketplace-checkout/store-pickup-selection";
+import {
+  completeStorePickupAddress,
+  resolveStorePickupSuburb,
+  type StorePickupAddressCandidate,
+} from "@/lib/marketplace-checkout/store-pickup-selection";
 
 type QuotePickup = Readonly<{ line1?: string | null; line2?: string | null; suburb?: string | null; city?: string | null; province?: string | null; postalCode?: string | null; placeId?: string | null; latitude?: number | null; longitude?: number | null }>;
 
@@ -35,7 +39,7 @@ export function assertStoreParcelPickupMatches(
       : Boolean(requested.placeId) || !markerMatches) ||
     normalized(requested.line1) !== normalized(saved.line1) ||
     normalized(requested.line2) !== normalized(saved.line2) ||
-    normalized(requested.suburb?.trim() || requested.line2) !== normalized(saved.suburb?.trim() || saved.line2) ||
+    normalized(requested.suburb?.trim() || resolveStorePickupSuburb(requested)) !== normalized(resolveStorePickupSuburb(saved)) ||
     normalized(requested.city) !== normalized(saved.city) ||
     normalized(requested.province) !== normalized(saved.province) ||
     normalized(requested.postalCode) !== normalized(saved.postalCode)

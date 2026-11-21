@@ -22,6 +22,12 @@ const mocks = vi.hoisted(() => ({
   resolveRecon: vi.fn(),
   recordAlert: vi.fn(),
   emitAlert: vi.fn(),
+  consumeWallet: vi.fn(),
+  settlePaidCancel: vi.fn(),
+  upsertResolution: vi.fn(),
+  revokeDispatch: vi.fn(),
+  cancelCod: vi.fn(),
+  transitionStatus: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
@@ -51,8 +57,24 @@ vi.mock("@/lib/notifications/admin-alert-dispatch.service", () => ({
   recordAdminAlertIntentInTx: mocks.recordAlert,
   emitAdminAlertNonBlocking: mocks.emitAlert,
 }));
+vi.mock("@/lib/services/wallet-spending.service", () => ({
+  consumeWalletSpendWithinTransaction: mocks.consumeWallet,
+}));
+vi.mock("@/lib/orders/parcel-cancellation-coordinator.service", () => ({
+  settlePaidOrderCancellationInTx: mocks.settlePaidCancel,
+  upsertParcelCancellationResolutionInTx: mocks.upsertResolution,
+  revokePendingDispatchOffersInTx: mocks.revokeDispatch,
+  cancelUncollectedCodObligationInTx: mocks.cancelCod,
+  cancellationRequestHash: () => "mock-request-hash",
+}));
+vi.mock("@/lib/services/order-status.service", () => ({
+  transitionOrderStatusInTx: mocks.transitionStatus,
+}));
 
-import { recoverPaystackAttemptViaVerify } from "@/lib/services/paystack-verify-recovery.service";
+import {
+  recoverPaystackAttemptViaVerify,
+  recoverPendingPaystackPaymentForPaymentId,
+} from "@/lib/services/paystack-verify-recovery.service";
 
 describe("Paystack Verify API authoritative recovery (PAY-04..06)", () => {
   const txMock = {
@@ -221,5 +243,215 @@ describe("Paystack Verify API authoritative recovery (PAY-04..06)", () => {
     );
     expect(mocks.postLedger).not.toHaveBeenCalled();
     expect(mocks.confirmCourier).not.toHaveBeenCalled();
+  });
+
+  it("reconciles late provider payment when parcel was cancelled without reviving cancelled order", async () => {
+    // Order was cancelled (e.g. at 24h expiry deadline)
+    mocks.orderFindUnique.mockResolvedValue({
+      id: "ord-1",
+      orderNumber: "KT-001",
+      status: "CANCELLED",
+      storeId: null,
+      customerId: "user-1",
+      parcelCancellationResolution: null,
+    });
+    mocks.settlePaidCancel.mockResolvedValue({
+      walletOwnerType: "CUSTOMER",
+      walletOwnerId: "user-1",
+      walletRefundJournalId: "jrn-refund-1",
+      paymentRefundId: "ref-1",
+    });
+
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999444,
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "customer_status_poll",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(true);
+    expect(res.outcome).toBe("SETTLED_VIA_VERIFY");
+    // Receipt journal is recorded so money is never lost
+    expect(mocks.postLedger).toHaveBeenCalled();
+    // But cancelled courier order is NOT confirmed or revived!
+    expect(mocks.confirmCourier).not.toHaveBeenCalled();
+    // Instead, cancellation settlement and out-of-order reconciliation are executed
+    expect(mocks.settlePaidCancel).toHaveBeenCalled();
+    expect(mocks.upsertResolution).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({
+        orderId: "ord-1",
+        status: "COMPLETED_LATE_PAYMENT_REFUND_INITIATED",
+        resolved: true,
+      }),
+    );
+    expect(mocks.openRecon).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({
+        paymentId: "pay-1",
+        reason: "OUT_OF_ORDER_EVENT",
+        provider: "PAYSTACK",
+      }),
+    );
+  });
+
+  it("consumes wallet split reservation and journals provider payment upon verify success", async () => {
+    const splitPayment = {
+      ...basePayment,
+      amount: new Prisma.Decimal("100.00"),
+      metadata: {
+        walletAmount: "50.00",
+        walletSplit: true,
+        walletOwnerType: "CUSTOMER",
+        walletOwnerId: "user-1",
+      },
+    };
+    const splitAttempt = {
+      ...baseAttempt,
+      amount: new Prisma.Decimal("100.00"),
+      payment: splitPayment,
+    };
+
+    mocks.attemptFindUnique.mockResolvedValue(splitAttempt);
+    mocks.paymentFindUnique.mockResolvedValue(splitPayment);
+    mocks.consumeWallet.mockResolvedValue({ amount: "50.00", journalId: "jrn-wallet-split-1" });
+
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999555,
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 10000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "customer_status_poll",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(true);
+    expect(res.outcome).toBe("SETTLED_VIA_VERIFY");
+    // Consumes reserved customer wallet portion
+    expect(mocks.consumeWallet).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({
+        amount: "50.00",
+        fromReserved: true,
+        owner: { ownerType: "CUSTOMER", ownerId: "user-1" },
+      }),
+    );
+    // Provider portion confirmed in courier order
+    expect(mocks.confirmCourier).toHaveBeenCalled();
+  });
+
+  it("rejects and flags reconciliation for currency mismatch (non-ZAR provider currency)", async () => {
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999666,
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "USD", // Wrong currency!
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "customer_status_poll",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("RECONCILIATION_REQUIRED");
+    expect(mocks.openRecon).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({
+        paymentId: "pay-1",
+        provider: "PAYSTACK",
+        reason: "AMOUNT_MISMATCH",
+      }),
+    );
+    expect(mocks.confirmCourier).not.toHaveBeenCalled();
+    expect(mocks.postLedger).not.toHaveBeenCalled();
+  });
+
+  it("returns ALREADY_SETTLED idempotently when attempt and payment are already settled", async () => {
+    const settledAttempt = {
+      ...baseAttempt,
+      status: "SUCCEEDED",
+    };
+    const settledPayment = {
+      ...basePayment,
+      status: "SUCCEEDED",
+      successLedgerJournalId: "jrn-already-done",
+    };
+    mocks.attemptFindUnique.mockResolvedValue({
+      ...settledAttempt,
+      payment: settledPayment,
+    });
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "customer_status_poll",
+    });
+
+    expect(res.recovered).toBe(true);
+    expect(res.outcome).toBe("ALREADY_SETTLED");
+    expect(mocks.postLedger).not.toHaveBeenCalled();
+    expect(mocks.confirmCourier).not.toHaveBeenCalled();
+  });
+
+  it("recoverPendingPaystackPaymentForPaymentId finds latest unsettled attempt and triggers verify", async () => {
+    mocks.attemptFindFirst.mockResolvedValue({ id: "att-1" });
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999777,
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPendingPaystackPaymentForPaymentId("pay-1", {
+      trigger: "customer_poll",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(true);
+    expect(res.outcome).toBe("SETTLED_VIA_VERIFY");
+    expect(mocks.attemptFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          paymentId: "pay-1",
+          provider: "PAYSTACK",
+          status: { in: ["REQUIRES_ACTION", "PROCESSING", "UNKNOWN"] },
+        }),
+      }),
+    );
+  });
+
+  it("recoverPendingPaystackPaymentForPaymentId returns SKIPPED when no recoverable attempt exists", async () => {
+    mocks.attemptFindFirst.mockResolvedValue(null);
+
+    const res = await recoverPendingPaystackPaymentForPaymentId("pay-1", {
+      trigger: "customer_poll",
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("SKIPPED");
+    expect(res.paymentId).toBe("pay-1");
   });
 });

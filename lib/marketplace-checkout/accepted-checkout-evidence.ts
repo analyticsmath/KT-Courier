@@ -92,7 +92,15 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
         if (plan.mode !== "DIGITAL_ONLY" || !new Prisma.Decimal(plan.cashRequired).isZero()) fail();
         current = digitalMarketplacePaymentPlan(groupNetLiability.toFixed(2));
       } else {
-        const pickup = await db.store.findUnique({ where: { id: group.storeId }, include: { defaultPickupAddress: true } });
+        const storePickup = await db.store.findUnique({
+          where: { id: group.storeId },
+          include: { defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
+        });
+        const { resolveStorePickupSuburb, selectStorePickupAddress } = await import("./store-pickup-selection");
+        const resolvedPickup = storePickup
+          ? selectStorePickupAddress(group.storeId, storePickup.defaultPickupAddress, storePickup.savedAddresses ?? []) ?? storePickup.defaultPickupAddress
+          : null;
+        const pickupSuburb = resolveStorePickupSuburb(resolvedPickup);
         const destination = await db.marketplaceCheckoutAddressSnapshot.findUnique({ where: { id: checkout.addressSnapshotId! } });
         current = await resolveMarketplacePaymentPlan({
           storeId: group.storeId,
@@ -100,9 +108,9 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
           deliveryServiceId: quote.deliveryType,
           deliveryServiceKey: quote.deliveryType,
           regionId: quote.destinationRegionId,
-          originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
+          originLocality: { city: resolvedPickup?.city, suburb: pickupSuburb, province: resolvedPickup?.province },
           destinationLocality: { city: destination?.city, suburb: destination?.suburb, province: destination?.province },
-          provinces: [...new Set([pickup?.defaultPickupAddress?.province, destination?.province].filter((p): p is string => Boolean(p)))],
+          provinces: [...new Set([resolvedPickup?.province, destination?.province].filter((p): p is string => Boolean(p)))],
           total: groupNetLiability.toFixed(2),
           fulfilmentMode: group.fulfilmentMode,
           groupCount: checkout.storeGroups.length,

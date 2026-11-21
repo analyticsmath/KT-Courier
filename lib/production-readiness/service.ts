@@ -14,6 +14,8 @@ import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evi
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
 import { evaluateProcessorEvidence } from "./processor-evidence";
 import { buildCapabilityMatrix } from "./capability-matrix.service";
+import { verifyEnvironmentSchema } from "@/lib/runtime/env-schema-verifier";
+import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 import type { AcceptanceRecord } from "./evidence";
 
 const processorJobs = ["apply-paystack-webhook-events", "consume-verified-payment-events"] as const;
@@ -242,5 +244,55 @@ export async function getProductionReadiness() {
     activePrivacyPolicyCount: typeof activePrivacyPolicyCount === "number" ? activePrivacyPolicyCount : 0,
     referralRewardIssuingEnabled: referralSettingRow?.type === "BOOLEAN" && referralSettingRow.value === true,
   });
-  return { generatedAt: now.toISOString(), status: entries.every((e) => e.status === "READY" || e.status === "DISABLED_BY_POLICY") ? "READY" : "BLOCKED", capabilities: entries, capabilityMatrix };
+
+  const envSchema = verifyEnvironmentSchema(process.env);
+  const commerceActivation = evaluateCommerceActivation(process.env, { paystackStateOverride: paystack });
+
+  const safePrisma = prisma as unknown as {
+    store?: { count?: (args?: unknown) => Promise<number> };
+    driverProfile?: { count?: (args?: unknown) => Promise<number> };
+  };
+  const [totalStoresCount, activeStoresCount, approvedDriversCount] = await Promise.all([
+    safePrisma.store?.count?.().catch(() => null) ?? null,
+    safePrisma.store?.count?.({ where: { status: "ACTIVE" } }).catch(() => null) ?? null,
+    safePrisma.driverProfile?.count?.({ where: { active: true, status: "ACTIVE", onboardingStatus: "APPROVED" } }).catch(() => null) ?? null,
+  ]);
+
+  const codeCapabilities = capabilityMatrix.map((entry) => ({
+    key: entry.key,
+    label: entry.label,
+    sourceImplemented: entry.sourceImplemented,
+    codeStatus: !entry.sourceImplemented
+      ? ("CODE_GAP" as const)
+      : entry.isolatedTestPassSha
+        ? ("IMPLEMENTED_AND_VERIFIED" as const)
+        : ("IMPLEMENTED_IN_SOURCE" as const),
+    isolatedTestPassSha: entry.isolatedTestPassSha,
+  }));
+
+  const entityConfigurationStatus = {
+    storefrontStoresTotal: typeof totalStoresCount === "number" ? totalStoresCount : null,
+    storefrontStoresActive: typeof activeStoresCount === "number" ? activeStoresCount : null,
+    approvedDriversActive: typeof approvedDriversCount === "number" ? approvedDriversCount : null,
+    paymentProviderConfigured: paystack.configured && paystack.active,
+    paymentProviderEnvironment: paystack.environment,
+    repairLinks: [
+      { label: "Store repair cockpit", href: "/admin/stores" },
+      { label: "Driver onboarding", href: "/admin/drivers" },
+      { label: "Provider diagnostics", href: "/admin/integrations" },
+      { label: "Coverage & regions", href: "/admin/regions" },
+      { label: "Courier pricing", href: "/admin/pricing" },
+    ],
+  };
+
+  return {
+    generatedAt: now.toISOString(),
+    status: entries.every((e) => e.status === "READY" || e.status === "DISABLED_BY_POLICY") ? "READY" : "BLOCKED",
+    capabilities: entries,
+    capabilityMatrix,
+    envSchema,
+    commerceActivation,
+    codeCapabilities,
+    entityConfigurationStatus,
+  };
 }

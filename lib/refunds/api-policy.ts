@@ -30,8 +30,8 @@ export function refundApiError(error: unknown): NextResponse {
     case "REFUND_PROVIDER_OUTCOME_UNKNOWN":
     case "REFUND_CONCURRENCY_CONFLICT": return refundNoStoreJson({ error: "Refund cannot be changed in its current state." }, 409);
     case "REFUND_DUAL_CONTROL_REQUIRED": return refundNoStoreJson({ error: "This refund action requires a separate authorized finance actor." }, 403);
-    case "REFUND_PRODUCTION_NOT_READY": return refundNoStoreJson({ error: "Refund operations are inactive pending consolidated validation approval.", blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }, 503);
-    case "REFUND_PROVIDER_NOT_READY": return refundNoStoreJson({ error: "Provider refund execution is inactive pending reviewed production validation.", blockReason: "PAYFAST_REFUNDS_REQUIRE_PRODUCTION_VALIDATION" }, 503);
+    case "REFUND_PRODUCTION_NOT_READY": return refundNoStoreJson({ error: error.message || "Refund execution is unavailable in the current runtime configuration.", blockReason: "REFUND_PROVIDER_NOT_CONFIGURED" }, 503);
+    case "REFUND_PROVIDER_NOT_READY": return refundNoStoreJson({ error: "Provider refund execution requires an eligible paid transaction and active Paystack configuration.", blockReason: "REFUND_PROVIDER_NOT_CONFIGURED" }, 503);
     case "REFUND_CASH_INSUFFICIENT": return refundNoStoreJson({ error: "External refund accounting requires reconciliation because cash clearing is insufficient." }, 409);
     case "REFUND_AMOUNT_EXCEEDS_REMAINING": return refundNoStoreJson({ error: "Refund amount exceeds the remaining refundable amount." }, 422);
     case "REFUND_PROVIDER_UNSUPPORTED": return refundNoStoreJson({ error: "Original-payment-method refund is unavailable; customer-wallet refund may be requested with customer consent." }, 422);

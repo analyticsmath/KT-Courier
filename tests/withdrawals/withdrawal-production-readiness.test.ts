@@ -1,35 +1,84 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  withdrawalProductionReadiness,
+  assertCustomerWalletBankWithdrawalForbidden,
   assertWithdrawalProductionActivation,
-  WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED,
+  CUSTOMER_WALLET_BANK_WITHDRAWAL_ALLOWED,
+  withdrawalProductionReadiness,
   WITHDRAWAL_PRODUCTION_BLOCK_REASON,
+  WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED,
 } from "@/lib/withdrawals/withdrawal-production-readiness";
 
-describe("withdrawal production readiness", () => {
+describe("withdrawal production readiness (risk-scoped C03)", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
-  it.each(["", "production", "e2e"])("production cannot bypass consolidated validation through runtime %s and payout flags", runtime => {
-    const source = { NODE_ENV: "production", KT_RUNTIME_ENV: runtime, WITHDRAWAL_PAYOUT_ENABLED: "true" };
-    expect(withdrawalProductionReadiness(source)).toMatchObject({ productionActive: false, payoutEnabled: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" });
-    expect(() => assertWithdrawalProductionActivation(source)).toThrowError(/locked pending/);
+  it("strictly forbids customer wallet bank withdrawals regardless of flags", () => {
+    expect(CUSTOMER_WALLET_BANK_WITHDRAWAL_ALLOWED).toBe(false);
+    expect(() => assertCustomerWalletBankWithdrawalForbidden("CUSTOMER")).toThrowError(/not permitted/i);
+    expect(() => assertCustomerWalletBankWithdrawalForbidden("DRIVER")).not.toThrow();
+    expect(() => assertCustomerWalletBankWithdrawalForbidden("STORE")).not.toThrow();
   });
-  it("keeps production fail-closed before consolidated validation approval", () => {
-    expect(WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED).toBe(false);
-    expect(WITHDRAWAL_PRODUCTION_BLOCK_REASON).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
 
-    vi.stubEnv("NODE_ENV", "production");
-    const readiness = withdrawalProductionReadiness();
-    expect(readiness.productionActive).toBe(false);
-    expect(readiness.blockReason).toBe("CONSOLIDATED_VALIDATION_NOT_APPROVED");
+  it("requires explicit WITHDRAWAL_PAYOUT_ENABLED=true and live credentials for production earned payouts", () => {
+    expect(WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED).toBe(true);
+    expect(WITHDRAWAL_PRODUCTION_BLOCK_REASON).toBe("WITHDRAWAL_PAYOUT_DISABLED");
 
-    expect(() => assertWithdrawalProductionActivation()).toThrowError(/locked pending/);
+    const disabledInProd = { NODE_ENV: "production", WITHDRAWAL_PAYOUT_ENABLED: "false" };
+    expect(withdrawalProductionReadiness(disabledInProd, "REQUEST")).toMatchObject({
+      productionActive: false,
+      payoutEnabled: false,
+      customerBankWithdrawalAllowed: false,
+      blockReason: "WITHDRAWAL_PAYOUT_DISABLED",
+    });
+    expect(() => assertWithdrawalProductionActivation(disabledInProd, "REQUEST")).toThrowError(/WITHDRAWAL_PAYOUT_DISABLED/);
 
+    const enabledWithoutLiveCreds = { NODE_ENV: "production", WITHDRAWAL_PAYOUT_ENABLED: "true" };
+    expect(withdrawalProductionReadiness(enabledWithoutLiveCreds, "REQUEST")).toMatchObject({
+      productionActive: true,
+      payoutEnabled: true,
+      automatedTransferReady: false,
+    });
+    expect(withdrawalProductionReadiness(enabledWithoutLiveCreds, "AUTOMATED_TRANSFER")).toMatchObject({
+      productionActive: false,
+      automatedTransferReady: false,
+    });
+
+    const enabledWithLiveCreds = {
+      NODE_ENV: "production",
+      WITHDRAWAL_PAYOUT_ENABLED: "true",
+      PAYSTACK_MODE: "live",
+      PAYSTACK_SECRET_KEY: "sk_live_test_only_fixture",
+      PAYMENT_APP_ORIGIN: "https://www.ktcouriers.com",
+    };
+    expect(withdrawalProductionReadiness(enabledWithLiveCreds, "AUTOMATED_TRANSFER")).toMatchObject({
+      productionActive: true,
+      payoutEnabled: true,
+      customerBankWithdrawalAllowed: false,
+      automatedTransferReady: true,
+      blockReason: null,
+    });
+    expect(() => assertWithdrawalProductionActivation(enabledWithLiveCreds, "AUTOMATED_TRANSFER")).not.toThrow();
+  });
+
+  it("blocks payouts during temporary sandbox window in production", () => {
+    const sandboxInProd = {
+      NODE_ENV: "production",
+      WITHDRAWAL_PAYOUT_ENABLED: "true",
+      PAYSTACK_TEMPORARY_SANDBOX_ENABLED: "true",
+    };
+    expect(withdrawalProductionReadiness(sandboxInProd, "REQUEST")).toMatchObject({
+      productionActive: false,
+      blockReason: "PAYOUTS_FORBIDDEN_IN_TEMPORARY_SANDBOX",
+    });
+  });
+
+  it("allows test/development verification without live payout flags", () => {
     vi.stubEnv("NODE_ENV", "development");
-    const devReadiness = withdrawalProductionReadiness();
-    expect(devReadiness.productionActive).toBe(true);
+    expect(withdrawalProductionReadiness()).toMatchObject({
+      productionActive: true,
+      customerBankWithdrawalAllowed: false,
+    });
     expect(() => assertWithdrawalProductionActivation()).not.toThrow();
   });
 });

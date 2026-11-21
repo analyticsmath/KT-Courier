@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import type { CustomerRefundDetailDto, CustomerRefundListItemDto, FinanceRefundListItemDto } from "@/lib/dto/refund.dto";
+import { evaluateRefundProductionReadiness } from "@/lib/refunds/refund-production-readiness";
 import type { RefundMethodCode, RefundReasonCodeValue, RefundStatusCode } from "@/lib/refunds/types";
 import type { z } from "zod";
 import type { AdminRefundListQuerySchema, RefundListQuerySchema, RefundReconciliationListQuerySchema } from "@/lib/validation/refunds";
@@ -48,7 +49,8 @@ function customerItem(value: unknown): CustomerRefundListItemDto {
 
 function customerDetail(value: unknown): CustomerRefundDetailDto {
   const row = value as CustomerRefundRow;
-  return Object.freeze({ ...customerItem(row), customerNote: row.customerNote, progress: Object.freeze(row.statusHistory.map((history) => Object.freeze({ status: history.toStatus, reasonCode: history.reasonCode, createdAt: history.createdAt.toISOString() }))), productionLock: Object.freeze({ active: true as const, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" as const }) });
+  const readiness = evaluateRefundProductionReadiness(process.env, row.method === "ORIGINAL_PAYMENT_METHOD" ? "EXTERNAL_PROVIDER" : "WALLET_COMPLETION");
+  return Object.freeze({ ...customerItem(row), customerNote: row.customerNote, progress: Object.freeze(row.statusHistory.map((history) => Object.freeze({ status: history.toStatus, reasonCode: history.reasonCode, createdAt: history.createdAt.toISOString() }))), productionLock: Object.freeze({ active: !readiness.productionValidationApproved, blockReason: readiness.blockReason }) });
 }
 
 const financeInclude = {
@@ -82,7 +84,10 @@ function financeDetail(value: unknown) {
     approval: Object.freeze({ approvedByUserId: row.approvedByUserId, approvedAt: row.approvedAt?.toISOString() ?? null, completedByUserId: row.completedByUserId, completedAt: row.completedAt?.toISOString() ?? null }),
     history: Object.freeze(row.statusHistory.map((history) => Object.freeze({ fromStatus: history.fromStatus ?? null, toStatus: history.toStatus, actorType: history.actorType ?? null, reasonCode: history.reasonCode, safeMetadata: history.safeMetadata ?? null, createdAt: history.createdAt.toISOString() }))),
     reconciliation: Object.freeze(row.reconciliationCases.map((item) => Object.freeze({ ...item }))),
-    productionLock: Object.freeze({ active: true, blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }),
+    productionLock: (() => {
+      const readiness = evaluateRefundProductionReadiness(process.env, row.method === "ORIGINAL_PAYMENT_METHOD" ? "EXTERNAL_PROVIDER" : "WALLET_COMPLETION");
+      return Object.freeze({ active: !readiness.productionValidationApproved, blockReason: readiness.blockReason });
+    })(),
   });
 }
 

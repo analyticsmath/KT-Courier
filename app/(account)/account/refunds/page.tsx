@@ -4,7 +4,7 @@ import { CustomerPage } from "@/components/protected-v2/customer/CustomerPresent
 import { formatCustomerDateTime, formatCustomerMoney, getCustomerRefundStatus } from "@/lib/customer-presentation/customer-order-presentation";
 import { RefundRequestForm } from "@/components/refunds/RefundRequestForm";
 import { requireAuth } from "@/lib/auth/guards";
-import { REFUND_PRODUCTION_READINESS } from "@/lib/refunds/refund-production-readiness";
+import { evaluateRefundProductionReadiness } from "@/lib/refunds/refund-production-readiness";
 import { listCustomerRefunds } from "@/lib/services/refund-query.service";
 
 const PAGE_SIZE = 20;
@@ -15,7 +15,8 @@ export default async function CustomerRefundsPage({ searchParams }: { searchPara
   const pageValue = Number(query.page);
   const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
   const refunds = await listCustomerRefunds(user.id, { page, pageSize: PAGE_SIZE });
-  const disabledReason = REFUND_PRODUCTION_READINESS.productionValidationApproved ? null : "New refund requests are inactive pending consolidated validation approval. No payment or order status will be changed.";
+  const readiness = evaluateRefundProductionReadiness(process.env, "REQUEST");
+  const disabledReason = readiness.productionValidationApproved ? null : `New refund requests are temporarily unavailable (${readiness.blockReason ?? "RUNTIME_UNAVAILABLE"}). No payment or order status will be changed.`;
   const rows = refunds.data.map((refund) => ({ ...refund, id: refund.publicReference }));
   return (
     <CustomerPage eyebrow="Customer payments" title="Refunds" description="Request and track refunds without exposing provider, ledger, or internal review information.">

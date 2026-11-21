@@ -4,6 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Capability, CapabilityStatus } from "@/lib/production-readiness/contracts";
 import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capability-matrix.service";
+import type { EnvSchemaVerificationReport } from "@/lib/runtime/env-schema-verifier";
+import type { CommerceActivation } from "@/lib/runtime/commerce-activation";
+
+type EntityConfigurationStatus = Readonly<{
+  storefrontStoresTotal: number | null;
+  storefrontStoresActive: number | null;
+  approvedDriversActive: number | null;
+  paymentProviderConfigured: boolean;
+  paymentProviderEnvironment: string;
+  repairLinks: readonly { label: string; href: string }[];
+}>;
 
 type Owner = Capability["owner"];
 const owners: Owner[] = ["ENGINEERING", "OPERATIONS", "FINANCE", "ADMIN_REVIEW", "CLIENT"];
@@ -29,9 +40,15 @@ const readable = (s: string) => s.replaceAll("_", " ").toLowerCase().replace(/^.
 export function ProductionReadinessBoard({
   capabilities,
   capabilityMatrix = [],
+  envSchema,
+  commerceActivation,
+  entityConfigurationStatus,
 }: {
   capabilities: Capability[];
   capabilityMatrix?: readonly CapabilityMatrixEntry[];
+  envSchema?: EnvSchemaVerificationReport;
+  commerceActivation?: CommerceActivation;
+  entityConfigurationStatus?: EntityConfigurationStatus;
 }) {
   const [view, setView] = useState<"ALL" | "BLOCKERS">("ALL");
   const ready = capabilities.filter(c => c.status === "READY").length;
@@ -58,6 +75,98 @@ export function ProductionReadinessBoard({
       </div>)}
     </dl>
     <p className="sr-only">{blocked} launch blockers, {ready} verified ready, {excluded} excluded by policy.</p>
+    {(commerceActivation || envSchema || entityConfigurationStatus) && (
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section aria-labelledby="code-capability-view-heading" className="space-y-3 rounded-xl border border-[var(--kt-border)] bg-white p-5">
+          <h3 id="code-capability-view-heading" className="text-sm font-semibold text-[var(--kt-brand-navy)]">
+            Code capability &amp; global switch posture
+          </h3>
+          <p className="text-xs leading-5 text-[var(--kt-text-soft)]">
+            Software capabilities and sandbox checks are strictly separated from live entity approvals. Secrets are never shown here.
+          </p>
+          {commerceActivation && (
+            <dl className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">KT_COMMERCE_ENABLED</dt>
+                <dd className="font-mono font-semibold text-[var(--kt-brand-navy)]">
+                  {commerceActivation.globalRequested ? "true" : "false"} ({commerceActivation.switchSource})
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Public checkout exposed</dt>
+                <dd className="font-semibold text-[var(--kt-brand-navy)]">
+                  {commerceActivation.publicCheckoutExposed ? "YES" : `NO (${commerceActivation.primaryBlockReason ?? "LOCKED"})`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Paystack mode</dt>
+                <dd className="font-mono font-semibold text-[var(--kt-brand-navy)]">
+                  {commerceActivation.paystackMode} / {commerceActivation.paystackEnvironment}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Customer bank withdrawal</dt>
+                <dd className="font-mono font-semibold text-[#875224]">FORBIDDEN_BY_POLICY</dd>
+              </div>
+            </dl>
+          )}
+          {envSchema && (
+            <div className="rounded-lg bg-[var(--kt-surface-muted)] p-3 text-xs">
+              <div className="flex items-center justify-between font-medium text-[var(--kt-brand-navy)]">
+                <span>Environment schema check ({envSchema.runtime})</span>
+                <span>{envSchema.valid ? "VALID" : `${envSchema.errorCount} ERROR(S)`}</span>
+              </div>
+              {envSchema.checks.filter((c) => c.severity !== "INFO").length > 0 && (
+                <ul className="mt-2 space-y-1 text-[11px] text-[var(--kt-text-soft)]">
+                  {envSchema.checks.filter((c) => c.severity !== "INFO").slice(0, 5).map((item) => (
+                    <li key={`${item.key}-${item.code}`}>
+                      <span className="font-mono font-semibold">{item.key}</span>: {item.code}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </section>
+        {entityConfigurationStatus && (
+          <section aria-labelledby="live-entity-status-heading" className="space-y-3 rounded-xl border border-[var(--kt-border)] bg-white p-5">
+            <h3 id="live-entity-status-heading" className="text-sm font-semibold text-[var(--kt-brand-navy)]">
+              Live entity &amp; external configuration status
+            </h3>
+            <p className="text-xs leading-5 text-[var(--kt-text-soft)]">
+              Real store go-live, driver approvals, banking credentials, and regional tariffs live in operator records and must never be auto-fabricated by code.
+            </p>
+            <dl className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Active stores</dt>
+                <dd className="font-semibold text-[var(--kt-brand-navy)]">
+                  {entityConfigurationStatus.storefrontStoresActive ?? "—"} / {entityConfigurationStatus.storefrontStoresTotal ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Approved active drivers</dt>
+                <dd className="font-semibold text-[var(--kt-brand-navy)]">
+                  {entityConfigurationStatus.approvedDriversActive ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[var(--kt-text-muted)]">Payment gateway</dt>
+                <dd className="font-semibold text-[var(--kt-brand-navy)]">
+                  {entityConfigurationStatus.paymentProviderConfigured ? `Configured (${entityConfigurationStatus.paymentProviderEnvironment})` : "Not configured"}
+                </dd>
+              </div>
+            </dl>
+            <div className="flex flex-wrap gap-3 pt-1 text-xs">
+              {entityConfigurationStatus.repairLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="font-semibold text-[var(--kt-brand-blue)] underline underline-offset-4">
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    )}
     {capabilityMatrix.length > 0 && (
       <section aria-labelledby="capability-matrix-heading" className="space-y-3">
         <div>

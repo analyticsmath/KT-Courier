@@ -285,7 +285,7 @@ export function AddressBookManager({ initialAddresses }: AddressBookManagerProps
                 setForm((current) => ({
                   ...current,
                   address: value,
-                  ...(value?.placeId ? { suburb: value.suburb ?? "" } : {}),
+                  ...(value?.suburb ? { suburb: value.suburb } : value?.placeId ? { suburb: "" } : {}),
                 }))
               }
               contactName={form.contactName}

@@ -311,7 +311,11 @@ export function PublicDeliveryQuoteForm({
               required={key === "line1" || key === "city"}
               maxLength={key === "line1" ? 250 : 100}
               onChange={(e) => {
-                setValue({ ...value, [key]: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null });
+                setValue(
+                  key === "suburb"
+                    ? { ...value, suburb: e.target.value }
+                    : { ...value, [key]: e.target.value, latitude: null, longitude: null, placeId: null, formattedAddress: null },
+                );
                 setQuote(null);
                 setError("");
                 setErrorCode("");

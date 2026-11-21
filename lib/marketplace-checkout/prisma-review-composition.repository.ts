@@ -205,7 +205,15 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
         const reviewedQuote = result.quotes.find(q => q.storeReference === group.storeReference);
         const quote = reviewedQuote ? await db.pricingQuote.findUnique({ where: { id: reviewedQuote.quoteReference } }) : null;
         const scope = await db.marketplaceCheckout.findUnique({ where: { id: checkout.id }, include: { addressSnapshot: true } });
-        const pickup = await db.store.findUnique({ where: { id: stored.storeId }, include: { defaultPickupAddress: true } });
+        const storePickup = await db.store.findUnique({
+          where: { id: stored.storeId },
+          include: { defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
+        });
+        const { resolveStorePickupSuburb, selectStorePickupAddress } = await import("./store-pickup-selection");
+        const resolvedPickup = storePickup
+          ? selectStorePickupAddress(stored.storeId, storePickup.defaultPickupAddress, storePickup.savedAddresses ?? []) ?? storePickup.defaultPickupAddress
+          : null;
+        const pickupSuburb = resolveStorePickupSuburb(resolvedPickup);
         const grossTotal = group.lines.reduce((sum, line) => sum.add(line.lineTotal), new Prisma.Decimal(reviewedQuote?.deliveryFee ?? 0));
         const groupDiscount = groupDiscounts.get(group.storeReference) ?? new Prisma.Decimal(0);
         const netCustomerLiability = Prisma.Decimal.max(0, grossTotal.minus(groupDiscount)).toFixed(2);
@@ -220,9 +228,9 @@ export function createPrismaMarketplaceReviewRepository(database: any = prisma):
             deliveryServiceId: quote?.deliveryType,
             deliveryServiceKey: quote?.deliveryType,
             regionId: quote?.destinationRegionId,
-            originLocality: { city: pickup?.defaultPickupAddress?.city, suburb: pickup?.defaultPickupAddress?.line2, province: pickup?.defaultPickupAddress?.province },
+            originLocality: { city: resolvedPickup?.city, suburb: pickupSuburb, province: resolvedPickup?.province },
             destinationLocality: { city: scope?.addressSnapshot?.city, suburb: scope?.addressSnapshot?.suburb, province: scope?.addressSnapshot?.province },
-            provinces: [...new Set([pickup?.defaultPickupAddress?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))],
+            provinces: [...new Set([resolvedPickup?.province, scope?.addressSnapshot?.province].filter((p): p is string => Boolean(p)))],
             total: netCustomerLiability,
             fulfilmentMode: group.fulfilmentMode,
             groupCount: authority.length,

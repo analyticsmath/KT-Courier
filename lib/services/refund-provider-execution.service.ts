@@ -336,7 +336,7 @@ export async function finalizeProviderRefundAttempt(input: Readonly<{
 }
 
 export async function startProviderRefund(input: Readonly<{ actorUserId: string; publicReference: string; operationId: string }>, dependencies: ExecutionDependencies = {}) {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  (dependencies.assertProductionReady ?? (() => assertRefundProductionActivation(dependencies.registry ? "REQUEST" : "EXTERNAL_PROVIDER")))();
   const operationId = assertRefundOperationId(input.operationId);
   const preflight = await prisma.paymentRefund.findUnique({ where: { publicReference: input.publicReference }, include: { payment: true } });
   if (!preflight || !preflight.payment.provider || !["PAYSTACK", "PAYFAST"].includes(preflight.payment.provider)) {

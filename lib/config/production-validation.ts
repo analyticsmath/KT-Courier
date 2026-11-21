@@ -1,5 +1,6 @@
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
+import { resolveCommerceSwitch } from "@/lib/runtime/commerce-switch";
 import { cloudinaryImageConfig } from "@/lib/media/cloudinary-image-storage";
 
 export type ConfigurationBlock = "STARTUP" | "READINESS" | "NONE";
@@ -89,7 +90,11 @@ export function evaluateProductionConfiguration(
     issues.push(issue("rate_limiting", "DISTRIBUTED_STORE_UNCONFIGURED", "SHARED_RATE_LIMIT_STORE", "READINESS"));
   }
 
-  const checkoutEnabled = source.CHECKOUT_PUBLIC_ENABLED === "true";
+  const commerceSwitch = resolveCommerceSwitch(source);
+  const checkoutEnabled = commerceSwitch.globalRequested;
+  if (commerceSwitch.hasConflictingLegacySwitch) {
+    issues.push(issue("checkout", "CONFLICTING_COMMERCE_SWITCH_DEFINITIONS", "REMOVE_LEGACY_CHECKOUT_PUBLIC_ENABLED_CONFLICT", "READINESS"));
+  }
   const paystack = resolvePaystackConfiguration(source);
   const validTemporarySandbox = source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true" &&
     paystack.state.active && paystack.runtime?.environment === "sandbox";

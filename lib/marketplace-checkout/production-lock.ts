@@ -1,10 +1,8 @@
-import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import {
   isDisposableBrowserValidationAllowed,
-  isLocalCheckoutValidationAllowed,
   isLocalFullFlowAllowed,
 } from "@/lib/testing/safe-postgres-validator";
-import { isCheckoutExposureAllowed } from "@/lib/runtime/deployment-classification";
+import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 import { isActualProductionInstance } from "@/lib/promotions/production-lock";
 
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED =
@@ -38,51 +36,13 @@ export class MarketplaceCheckoutProductionLockedError extends Error {
 export function evaluateMarketplaceCheckoutPublicGate(
   source: Record<string, string | undefined> = process.env,
 ): Readonly<{ enabled: boolean; blockReason: string | null }> {
-  if (
-    isLocalFullFlowAllowed(source as NodeJS.ProcessEnv) ||
-    isDisposableBrowserValidationAllowed(source as NodeJS.ProcessEnv)
-  ) {
-    return Object.freeze({ enabled: true, blockReason: null });
-  }
-
-  // A valid temporary sandbox can expose checkout without opening live money.
-  // Invalid/expired overrides remain closed even if public checkout is enabled.
-  const paystack = resolvePaystackConfiguration(source);
-  const temporaryProductionSandbox = source.PAYSTACK_TEMPORARY_SANDBOX_ENABLED === "true";
-  if (temporaryProductionSandbox && (!paystack.runtime || paystack.runtime.environment !== "sandbox")) {
-    return Object.freeze({ enabled: false, blockReason: "PAYSTACK_SANDBOX_EXPIRED_OR_INVALID" });
-  }
-  if (
-    source.CHECKOUT_PUBLIC_ENABLED !== "true" &&
-    !temporaryProductionSandbox &&
-    !isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv)
-  ) {
-    return Object.freeze({
-      enabled: false,
-      blockReason: "CHECKOUT_PUBLIC_DISABLED",
-    });
-  }
-
-  const isAllowedInPrinciple =
-    temporaryProductionSandbox || isCheckoutExposureAllowed(
-      source,
-      MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED,
-    ) || isLocalCheckoutValidationAllowed(source as NodeJS.ProcessEnv);
-
-  if (!isAllowedInPrinciple) {
-    return Object.freeze({
-      enabled: false,
-      blockReason: MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON,
-    });
-  }
-
-  if (!paystack.runtime || !paystack.state.active) {
-    return Object.freeze({
-      enabled: false,
-      blockReason: paystack.state.blockReason ?? "PAYSTACK_DISABLED",
-    });
-  }
-  return Object.freeze({ enabled: true, blockReason: null });
+  const activation = evaluateCommerceActivation(source);
+  return Object.freeze({
+    enabled: activation.publicCheckoutExposed,
+    blockReason: activation.publicCheckoutExposed
+      ? null
+      : (activation.primaryBlockReason ?? MARKETPLACE_CHECKOUT_PUBLIC_BLOCK_REASON),
+  });
 }
 
 export function assertMarketplaceCheckoutProductionReady(

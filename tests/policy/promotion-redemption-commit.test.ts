@@ -14,8 +14,8 @@ describe('Promotion Redemption Commit', () => {
     expect(() => assertPromotionsProductionReady('COMMITMENT', { approved: true }, { NODE_ENV: 'test', PAYSTACK_MODE: 'test' })).not.toThrow();
   });
 
-  it('throws on RELEASE', () => {
-    expect(() => assertPromotionsProductionReady('RELEASE', undefined, { NODE_ENV: 'production' })).toThrow(PromotionsProductionLockedError);
+  it('allows liability cleanup operation RELEASE even when global commerce switch is off', () => {
+    expect(() => assertPromotionsProductionReady('RELEASE', undefined, { NODE_ENV: 'production' })).not.toThrow();
   });
 
   it('throws on BUDGET_MOVEMENT', () => {

@@ -17,7 +17,7 @@ export type CustomerRefundListItemDto = Readonly<{
 export type CustomerRefundDetailDto = CustomerRefundListItemDto & Readonly<{
   customerNote: string | null;
   progress: readonly Readonly<{ status: RefundStatusCode; reasonCode: string; createdAt: string }>[];
-  productionLock: Readonly<{ active: true; blockReason: "CONSOLIDATED_VALIDATION_NOT_APPROVED" }>;
+  productionLock: Readonly<{ active: boolean; blockReason: string | null }>;
 }>;
 
 export type FinanceRefundListItemDto = Readonly<{

@@ -32,7 +32,7 @@ export async function queryRefundProviderStatus(input: Readonly<{
   refundId: string;
   operationId: string;
 }>, dependencies: Readonly<{ assertProductionReady?: () => void; registry?: RefundProviderRegistry; timeoutMs?: number }> = {}) {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  (dependencies.assertProductionReady ?? (() => assertRefundProductionActivation("RECONCILIATION")))();
   assertRefundOperationId(input.operationId);
   const refund = await prisma.paymentRefund.findUnique({ where: { id: input.refundId }, include: { currentAttempt: true } });
   if (!refund || !refund.currentAttempt || refund.status !== "RECONCILIATION_REQUIRED" || !["UNKNOWN", "NEEDS_ATTENTION"].includes(refund.currentAttempt.status)) throw new RefundError("REFUND_INVALID_STATE", "Refund does not have an unresolved provider outcome to query.");
@@ -74,7 +74,7 @@ export async function pollAndApplyRefundProviderStatus(
   applied: boolean;
   message?: string;
 }> {
-  (dependencies.assertProductionReady ?? assertRefundProductionActivation)();
+  (dependencies.assertProductionReady ?? (() => assertRefundProductionActivation("RECONCILIATION")))();
   const attempt = await prisma.refundExecutionAttempt.findUnique({
     where: { id: input.attemptId },
     include: { refund: true },

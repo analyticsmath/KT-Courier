@@ -15,6 +15,7 @@ import {
   evaluatePaystackEftReadiness,
   resolvePaystackConfiguration,
 } from "@/lib/payments/providers/paystack/paystack-config";
+import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 export async function GET(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -110,7 +111,11 @@ export async function GET(
       }
     }
     // A payable quote does not prove an initialized payment gateway.
-    // Do not advertise card checkout while the configured provider is inactive.
+    // All checkout surfaces share the single canonical evaluateCommerceActivation() authority.
+    const activation = evaluateCommerceActivation(process.env, {
+      parcelPolicyEligible: true,
+      codPolicyEligible: cod.eligible,
+    });
     const paystackResolution = resolvePaystackConfiguration();
     const paystackReadiness = evaluatePaystackCheckoutReadiness(paystackResolution.state, {
       adapterPresent: Boolean(paystackResolution.runtime),
@@ -118,20 +123,52 @@ export async function GET(
       requiredChannel: "card",
     });
     const eftReadiness = evaluatePaystackEftReadiness();
-    const cardConfigured = paystackReadiness.ready;
+    const cardConfigured = activation.parcelCardAllowed && paystackReadiness.ready;
+    const eftConfigured = activation.eftChannelAllowed && eftReadiness.ready;
+    if (
+      activation.runtime === "production" &&
+      !activation.publicCheckoutExposed &&
+      !activation.localValidationBypassActive
+    ) {
+      while (methods.length > 1) methods.pop();
+      cod = {
+        eligible: false,
+        amountDueAtDelivery: q.total.toFixed(2),
+        reasonCode: "COMMERCE_DISABLED",
+        message: "Public checkout is currently unavailable.",
+      };
+    }
     const card = {
       eligible: cardConfigured,
-      reasonCode: paystackReadiness.reasonCode,
+      reasonCode: cardConfigured
+        ? "READY"
+        : (activation.primaryBlockReason ?? paystackReadiness.reasonCode),
       message: cardConfigured ? undefined : "Card checkout is temporarily unavailable. No payment has been started.",
     };
     const eft = {
-      eligible: eftReadiness.ready,
-      reasonCode: eftReadiness.reasonCode,
-      message: eftReadiness.ready
+      eligible: eftConfigured,
+      reasonCode: eftConfigured
+        ? "READY"
+        : (!activation.publicCheckoutExposed
+            ? (activation.primaryBlockReason ?? eftReadiness.reasonCode)
+            : eftReadiness.reasonCode),
+      message: eftConfigured
         ? undefined
         : "Instant EFT is unavailable until the Paystack EFT channel is enabled on this merchant account.",
     };
-    return json({ methods, cod, card, eft });
+    return json({
+      methods,
+      cod,
+      card,
+      eft,
+      commerceActivation: {
+        publicCheckoutExposed: activation.publicCheckoutExposed,
+        parcelCardAllowed: activation.parcelCardAllowed,
+        eftChannelAllowed: activation.eftChannelAllowed,
+        codOffered: activation.codOffered,
+        reasonCodes: activation.reasonCodes,
+      },
+    });
   } catch (e) {
     return failure(e);
   }

@@ -1,9 +1,14 @@
 import type { AcceptanceRecord } from "./evidence";
 import type { Capability } from "./contracts";
 import type { SafeProviderConfigurationState } from "@/lib/payments/providers/provider-config";
-import { REFUND_PRODUCTION_READINESS, REFUND_PRODUCTION_VALIDATION_APPROVED } from "@/lib/refunds/refund-production-readiness";
-import { WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED } from "@/lib/withdrawals/withdrawal-production-readiness";
-import { PROMOTIONS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/promotions/production-lock";
+import { evaluateCommerceActivation, type CommerceActivation } from "@/lib/runtime/commerce-activation";
+import { isPaystackEftChannelApproved } from "@/lib/payments/providers/paystack/paystack-config";
+import { evaluateRefundProductionReadiness } from "@/lib/refunds/refund-production-readiness";
+import {
+  CUSTOMER_WALLET_BANK_WITHDRAWAL_ALLOWED,
+  withdrawalProductionReadiness,
+} from "@/lib/withdrawals/withdrawal-production-readiness";
+import { evaluatePromotionsReleaseGate } from "@/lib/promotions/production-lock";
 import { SUBSCRIPTIONS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/subscriptions/production-lock";
 import { PROMOTERS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/promoters/production-readiness";
 import { ADVERTISING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/advertising/production-lock";
@@ -11,7 +16,6 @@ import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/reporting/produc
 import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "@/lib/developer-api/production-readiness";
 import { DELEGATED_COMPOSITE_PROCESSORS, productionProcessors } from "@/lib/processors/production-loop";
 import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
-import { isDisposableBrowserValidationAllowed, isLocalCheckoutValidationAllowed, isLocalFullFlowAllowed } from "@/lib/testing/safe-postgres-validator";
 
 export type CapabilityMatrixKey =
   | "PAYSTACK_CARD"
@@ -114,23 +118,21 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
   const env = inputs.env ?? process.env;
   const caps = inputs.capabilities;
   const isolatedSha = resolveIsolatedTestPassSha(inputs.acceptanceRecords, inputs.releaseSha);
-  const eftChannelApproved = env.PAYSTACK_EFT_CHANNEL_ENABLED?.trim().toLowerCase() === "true";
+  const activation: CommerceActivation = evaluateCommerceActivation(env, { paystackStateOverride: inputs.paystack });
+  const eftChannelFlagged = isPaystackEftChannelApproved(env);
   const paystackLiveConfigured = inputs.paystack.configured && inputs.paystack.active;
   const paystackLiveProd = paystackLiveConfigured && inputs.paystack.environment === "production";
-  const checkoutAllowedByFlag =
-    isLocalFullFlowAllowed(env as NodeJS.ProcessEnv) ||
-    isDisposableBrowserValidationAllowed(env as NodeJS.ProcessEnv) ||
-    isLocalCheckoutValidationAllowed(env as NodeJS.ProcessEnv) ||
-    env.CHECKOUT_PUBLIC_ENABLED === "true";
-  const checkoutGate =
-    paystackLiveConfigured && checkoutAllowedByFlag
-      ? { enabled: true, blockReason: null as string | null }
-      : {
-          enabled: false,
-          blockReason: !checkoutAllowedByFlag
-            ? "CHECKOUT_PUBLIC_DISABLED"
-            : (inputs.paystack.blockReason ?? "PAYSTACK_DISABLED"),
-        };
+  const checkoutGate = activation.publicCheckoutExposed
+    ? { enabled: true, blockReason: null as string | null }
+    : {
+        enabled: false,
+        blockReason: activation.primaryBlockReason ?? "CHECKOUT_PUBLIC_DISABLED",
+      };
+  const refundExternalReadiness = evaluateRefundProductionReadiness(env, "EXTERNAL_PROVIDER");
+  const payoutTransferReadiness = withdrawalProductionReadiness(env, "AUTOMATED_TRANSFER");
+  const promotionsGate = evaluatePromotionsReleaseGate(env);
+  // Assert invariant that customer wallet bank withdrawals are never surfaced as active.
+  void CUSTOMER_WALLET_BANK_WITHDRAWAL_ALLOWED;
 
   const databaseReady = isReadyCapability(caps, "database");
   const redisReady = isReadyCapability(caps, "redis");
@@ -181,20 +183,22 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
 
   const eftBlocker = !paystackLiveConfigured
     ? (inputs.paystack.blockReason ?? "PAYSTACK_DISABLED")
-    : !eftChannelApproved
-      ? "PAYSTACK_EFT_CHANNEL_UNAPPROVED"
-      : !paystackLiveProd
-        ? "PAYSTACK_NOT_IN_PRODUCTION_MODE"
-        : !paymentAccepted
-          ? "PAYMENT_INTEGRATION_ACCEPTANCE_REQUIRED"
-          : !(webhookHealthy && eventProcessorHealthy)
-            ? "PAYMENT_PROCESSORS_NOT_HEALTHY"
-            : null;
+    : !checkoutGate.enabled
+      ? (checkoutGate.blockReason ?? "CHECKOUT_PUBLIC_DISABLED")
+      : !eftChannelFlagged
+        ? "PAYSTACK_EFT_CHANNEL_UNAPPROVED"
+        : !paystackLiveProd
+          ? "PAYSTACK_NOT_IN_PRODUCTION_MODE"
+          : !paymentAccepted
+            ? "PAYMENT_INTEGRATION_ACCEPTANCE_REQUIRED"
+            : !(webhookHealthy && eventProcessorHealthy)
+              ? "PAYMENT_PROCESSORS_NOT_HEALTHY"
+              : null;
 
-  const refundBlocker = !REFUND_PRODUCTION_VALIDATION_APPROVED
-    ? REFUND_PRODUCTION_READINESS.blockReason
-    : !WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED
-      ? "WITHDRAWAL_CONSOLIDATED_VALIDATION_NOT_APPROVED"
+  const refundBlocker = !refundExternalReadiness.productionValidationApproved
+    ? (refundExternalReadiness.blockReason ?? inputs.paystack.blockReason ?? "REFUND_PROVIDER_NOT_CONFIGURED")
+    : !payoutTransferReadiness.productionActive
+      ? (payoutTransferReadiness.blockReason ?? "WITHDRAWAL_PAYOUT_DISABLED")
       : !paystackLiveProd
         ? "PAYSTACK_NOT_IN_PRODUCTION_MODE"
         : !(refundAccepted && payoutAccepted)
@@ -272,9 +276,9 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       label: "Paystack Hosted EFT Channel",
       sourceImplemented: true,
       isolatedTestPassSha: isolatedSha,
-      runtimeConfigured: paystackLiveConfigured && eftChannelApproved,
-      externalEntitlementApproved: paystackLiveProd && eftChannelApproved && paymentAccepted,
-      adminPolicyEffective: courierServicesReady && coverageReady && eftChannelApproved,
+      runtimeConfigured: paystackLiveConfigured && checkoutGate.enabled && eftChannelFlagged,
+      externalEntitlementApproved: paystackLiveProd && eftChannelFlagged && paymentAccepted,
+      adminPolicyEffective: courierServicesReady && coverageReady && eftChannelFlagged,
       schedulerRegisteredAndHealthy: webhookHealthy && eventProcessorHealthy,
       lastBlockerCode: eftBlocker,
     }),
@@ -283,9 +287,14 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       label: "Paystack Refunds & Transfers",
       sourceImplemented: true,
       isolatedTestPassSha: isolatedSha,
-      runtimeConfigured: paystackLiveConfigured,
-      externalEntitlementApproved: REFUND_PRODUCTION_VALIDATION_APPROVED && WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED && paystackLiveProd && refundAccepted && payoutAccepted,
-      adminPolicyEffective: REFUND_PRODUCTION_VALIDATION_APPROVED && WITHDRAWAL_PRODUCTION_VALIDATION_APPROVED,
+      runtimeConfigured: paystackLiveConfigured && refundExternalReadiness.externalRefundsActive,
+      externalEntitlementApproved:
+        refundExternalReadiness.productionValidationApproved &&
+        payoutTransferReadiness.productionActive &&
+        paystackLiveProd &&
+        refundAccepted &&
+        payoutAccepted,
+      adminPolicyEffective: payoutTransferReadiness.payoutEnabled,
       schedulerRegisteredAndHealthy: isHeartbeatHealthy(inputs.heartbeat, inputs.now, ["scan-refund-reconciliation", "scan-withdrawal-reconciliation", "scan-paystack-transfer-reconciliation"]),
       lastBlockerCode: refundBlocker,
     }),
@@ -327,11 +336,15 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       label: "Welcome R50, Coupons & Cashback",
       sourceImplemented: true,
       isolatedTestPassSha: isolatedSha,
-      runtimeConfigured: databaseReady,
-      externalEntitlementApproved: PROMOTIONS_PRODUCTION_VALIDATION_APPROVED,
-      adminPolicyEffective: PROMOTIONS_PRODUCTION_VALIDATION_APPROVED && env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true",
+      runtimeConfigured: databaseReady && promotionsGate.approved,
+      externalEntitlementApproved: promotionsGate.approved,
+      adminPolicyEffective: promotionsGate.approved && env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true",
       schedulerRegisteredAndHealthy: isHeartbeatHealthy(inputs.heartbeat, inputs.now, ["end-expired-promotions"]),
-      lastBlockerCode: PROMOTIONS_PRODUCTION_VALIDATION_APPROVED ? null : "CONSOLIDATED_VALIDATION_NOT_APPROVED",
+      lastBlockerCode: !promotionsGate.approved
+        ? (promotionsGate.reason ?? "COMMERCE_DISABLED_BY_GLOBAL_SWITCH")
+        : env.KT_PROMOTION_EXPIRY_WORKER_ENABLED !== "true"
+          ? "PROMOTION_EXPIRY_WORKER_DISABLED"
+          : null,
     }),
     buildRow({
       key: "LOYALTY_AND_REFERRALS",

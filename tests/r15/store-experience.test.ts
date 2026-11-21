@@ -167,7 +167,10 @@ describe("R15 store operations experience", () => {
     expect(authoring).toContain("proposedBudgetAmount");
     expect(authoring).toContain("UNDER_REVIEW");
     expect(source("lib/promotions/production-lock.ts")).toContain(
-      "PROMOTIONS_PRODUCTION_VALIDATION_APPROVED = false",
+      "KT_COMMERCE_ENABLED",
+    );
+    expect(source("lib/advertising/production-lock.ts")).toContain(
+      "ADVERTISING_PRODUCTION_VALIDATION_APPROVED = false",
     );
     expect(commercial).not.toMatch(
       /Create Draft|Fund Campaign|Campaign funded successfully|Phase 23/i,

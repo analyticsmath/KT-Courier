@@ -17,6 +17,7 @@ import { assertStoreParcelPickupMatches } from "@/lib/client-platform/store-parc
 import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.service";
 import { recoverCommittedParcelBooking } from "@/lib/client-platform/parcel-booking-recovery";
 import { assertQuoteStoreScope } from "@/lib/client-platform/parcel-quote-store-scope";
+import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -47,6 +48,18 @@ export async function POST(
     // Recovery is read-only, owner-scoped and checks identical booking facts.
     const recovered = await recoverCommittedParcelBooking(replayInput);
     if (recovered) return json(recovered, 200);
+    const activation = evaluateCommerceActivation(process.env);
+    if (
+      !activation.localValidationBypassActive &&
+      ((activation.runtime === "production" && !activation.publicCheckoutExposed) ||
+        (activation.switchSource === "KT_COMMERCE_ENABLED" && !activation.globalRequested))
+    ) {
+      throw new PlatformError(
+        activation.primaryBlockReason ?? "CHECKOUT_PUBLIC_DISABLED",
+        "Public parcel checkout is currently unavailable.",
+        503,
+      );
+    }
     let quote;
     try {
       quote = await readPublicQuote(id, user.id);

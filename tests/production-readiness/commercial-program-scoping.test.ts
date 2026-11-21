@@ -25,9 +25,13 @@ vi.mock("@/lib/health/checks", () => ({
 vi.mock("@/lib/security/integration-registry", () => ({
   getIntegrationRegistry: vi.fn().mockReturnValue([]),
 }));
-vi.mock("@/lib/payments/providers/paystack/paystack-config", () => ({
-  resolvePaystackConfiguration: vi.fn().mockReturnValue({ state: { configured: false, active: false } }),
-}));
+vi.mock("@/lib/payments/providers/paystack/paystack-config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/payments/providers/paystack/paystack-config")>();
+  return {
+    ...actual,
+    resolvePaystackConfiguration: vi.fn().mockReturnValue({ state: { configured: false, active: false, environment: "not-configured" } }),
+  };
+});
 vi.mock("@/lib/commercial/configuration.service", () => ({
   getActiveParcelProfiles: vi.fn().mockResolvedValue([]),
 }));

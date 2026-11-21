@@ -285,7 +285,17 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(mappedAddress?.placeId && mappedAddress.latitude != null && mappedAddress.longitude != null ? { placeId: mappedAddress.placeId, latitude: mappedAddress.latitude, longitude: mappedAddress.longitude } : {}),
+          ...(mappedAddress &&
+          mappedAddress.latitude != null &&
+          mappedAddress.longitude != null &&
+          (mappedAddress.placeId || selectedSavedAddressId)
+            ? {
+                ...(mappedAddress.placeId ? { placeId: mappedAddress.placeId } : {}),
+                ...(selectedSavedAddressId && !mappedAddress.placeId ? { savedAddressId: selectedSavedAddressId } : {}),
+                latitude: mappedAddress.latitude,
+                longitude: mappedAddress.longitude,
+              }
+            : {}),
           recipientName: contactName.trim() || "Recipient",
           line1: addrLine1.trim(),
           line2: addrLine2.trim() || undefined,
@@ -928,9 +938,12 @@ function CheckoutSession({ checkoutRef, eftAvailable }: { checkoutRef: string | 
                       id="addrSuburb"
                       type="text"
                       value={addrSuburb}
-                      onChange={(e) => { setAddrSuburb(e.target.value); setMappedAddress(null); }}
+                      onChange={(e) => {
+                        const nextSuburb = e.target.value;
+                        setAddrSuburb(nextSuburb);
+                        setMappedAddress((prev) => (prev ? { ...prev, suburb: nextSuburb.trim() || null } : null));
+                      }}
                       placeholder="Rosebank"
-
                     />
                   </div>
                 </div>
