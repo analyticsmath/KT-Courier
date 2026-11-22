@@ -33,7 +33,8 @@ export class ProviderAdapterError extends Error {
 
 export function normalizeProviderError(error: unknown): NormalizedProviderError {
   if (error instanceof ProviderAdapterError) return error.normalized;
-  if ((error as { name?: string })?.name === "AbortError") {
+  const errorName = (error as { name?: string })?.name;
+  if (errorName === "AbortError" || errorName === "TimeoutError") {
     return Object.freeze({
       category: "TIMEOUT",
       code: "PROVIDER_CALL_TIMEOUT",

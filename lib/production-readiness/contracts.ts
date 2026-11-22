@@ -9,6 +9,24 @@ export type Capability = {
   evidence?: Record<string, string | number | boolean | null | string[]>;
 };
 
+export const PRODUCTION_READINESS_CAPABILITY_ROUTES: Readonly<Record<string, { href: string; label: string }>> = {
+  cod_policy: { href: "/admin/payment-policies", label: "Payment policies" },
+  cod_remittance: { href: "/admin/cash-deposits", label: "Cash & banking" },
+  operational_coverage: { href: "/admin/regions", label: "Delivery coverage" },
+  courier_services: { href: "/admin/pricing", label: "Courier pricing" },
+  notification_routes: { href: "/admin/notifications", label: "Notification settings" },
+  notification_templates: { href: "/admin/notifications", label: "Notification settings" },
+  payment_provider: { href: "/admin/payment-providers", label: "Provider diagnostics" },
+};
+
+export const PRODUCTION_READINESS_REPAIR_LINKS: readonly { label: string; href: string }[] = [
+  { label: "Store repair cockpit", href: "/admin/stores" },
+  { label: "Driver onboarding", href: "/admin/drivers" },
+  { label: "Provider diagnostics", href: "/admin/payment-providers" },
+  { label: "Coverage & regions", href: "/admin/regions" },
+  { label: "Courier pricing", href: "/admin/pricing" },
+];
+
 export function capability(key: string, status: CapabilityStatus, reasonCode: string, safeSummary: string, owner: Capability["owner"], evidence?: Capability["evidence"]): Capability {
   return { key, status, reasonCode, safeSummary, owner, severity: status === "READY" ? "INFO" : status === "DISABLED_BY_POLICY" ? "WARNING" : "BLOCKER", ...(evidence ? { evidence } : {}) };
 }

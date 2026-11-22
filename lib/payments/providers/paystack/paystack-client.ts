@@ -4,6 +4,28 @@ export const MAX_PAYSTACK_TRANSACTION_CENTS = 1_000_000_000; // R10,000,000.00 c
 const DEFAULT_PAYSTACK_API_TIMEOUT_MS = 20_000;
 const MAX_PAYSTACK_RESPONSE_BYTES = 1_048_576;
 
+const SENSITIVE_MESSAGE_PATTERNS: readonly RegExp[] = [
+  /\bsk_(?:live|test)_[A-Za-z0-9_]+\b/gi,
+  /\bpk_(?:live|test)_[A-Za-z0-9_]+\b/gi,
+  /\bwhsec_[A-Za-z0-9_]+\b/gi,
+  /\bBearer\s+[A-Za-z0-9._-]+\b/gi,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
+];
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function sanitizePaystackErrorMessage(raw: unknown): string {
+  if (typeof raw !== "string") return "Paystack API request failed.";
+  let sanitized = raw.replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s+/g, " ").trim();
+  for (const pattern of SENSITIVE_MESSAGE_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "[REDACTED]");
+  }
+  if (!sanitized) return "Paystack API request failed.";
+  return sanitized.slice(0, 200);
+}
+
 async function readPaystackJson(response: Response): Promise<unknown> {
   if (!response.body) throw new Error("Empty provider response");
   const reader = response.body.getReader();
@@ -343,18 +365,18 @@ export class PaystackClient {
       options.method === "GET" &&
       path.startsWith("/transaction/verify/") &&
       (response.status === 200 || response.status === 404) &&
-      payload && typeof payload === "object" &&
-      (payload as { status?: unknown }).status === false &&
-      typeof (payload as { message?: unknown }).message === "string" &&
+      isPlainObject(payload) &&
+      payload.status === false &&
+      typeof payload.message === "string" &&
       /^transaction (?:reference )?not found[.!]?$/i.test(
-        (payload as { message: string }).message.trim(),
+        payload.message.trim(),
       )
     ) {
       throw new PaymentError("PAYSTACK_TRANSACTION_NOT_FOUND", "Paystack has no transaction for this reference.");
     }
 
-    if (!response.ok || !payload || typeof payload !== "object") {
-      const message = typeof (payload as { message?: unknown })?.message === "string" ? (payload as { message: string }).message : "Paystack API request failed.";
+    if (!response.ok) {
+      const message = sanitizePaystackErrorMessage(isPlainObject(payload) ? payload.message : undefined);
       if (response.status === 401 || response.status === 403) {
         throw new PaymentError("PAYMENT_PROVIDER_AUTHENTICATION_FAILED", "Paystack authentication failed.");
       }
@@ -365,6 +387,10 @@ export class PaystackClient {
         throw new PaymentError("PAYMENT_PROVIDER_UNAVAILABLE", `Paystack server error: ${message}`, true);
       }
       throw new PaymentError("PAYMENT_PROVIDER_REQUEST_INVALID", `Paystack rejected request: ${message}`);
+    }
+
+    if (!isPlainObject(payload)) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack returned a malformed response payload.", true);
     }
 
     return payload as { status: boolean; message: string; data: T };
@@ -395,13 +421,28 @@ export class PaystackClient {
       signal,
     });
 
-    if (!response.status || !response.data?.authorization_url) {
+    if (response.status !== true || !isPlainObject(response.data)) {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack failed to initialize transaction.");
     }
 
-    validatePaystackAuthorizationUrl(response.data.authorization_url);
+    const authorizationUrl = response.data.authorization_url;
+    if (typeof authorizationUrl !== "string" || !authorizationUrl.trim()) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack did not return an authorization URL.");
+    }
+    const validatedUrl = validatePaystackAuthorizationUrl(authorizationUrl);
 
-    return response.data;
+    const responseReference = response.data.reference;
+    if (typeof responseReference !== "string" || !responseReference.trim()) {
+      throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack did not return a transaction reference.");
+    }
+    if (responseReference !== input.reference) {
+      throw new PaymentError("PAYMENT_PROVIDER_REFERENCE_CONFLICT", "Paystack returned a mismatched transaction reference.");
+    }
+
+    return {
+      ...response.data,
+      authorization_url: validatedUrl,
+    };
   }
 
   async verifyTransaction(
@@ -413,7 +454,7 @@ export class PaystackClient {
       { method: "GET", signal },
     );
 
-    if (!response.status || !response.data) {
+    if (response.status !== true || !isPlainObject(response.data)) {
       throw new PaymentError("PAYMENT_PROVIDER_RESPONSE_INVALID", "Paystack transaction verification returned no data.");
     }
 

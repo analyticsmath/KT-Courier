@@ -2,9 +2,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { PaymentError } from "@/lib/payments/errors";
 import { withPaymentDatabaseRetry } from "@/lib/payments/retry";
-import { assertPaymentTransition } from "@/lib/payments/payment-state-machine";
+import { assertPaymentTransition, canTransitionPayment } from "@/lib/payments/payment-state-machine";
 import {
   PaystackClient,
+  sanitizePaystackErrorMessage,
   zarToSubunitCents,
 } from "@/lib/payments/providers/paystack/paystack-client";
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
@@ -83,6 +84,193 @@ function resolveClient(clientOverride?: PaystackClient): PaystackClient | null {
   return null;
 }
 
+const ACTIVE_PENDING_VERIFY_STATUSES = new Set(["ongoing", "pending", "queued", "processing"]);
+const STALE_RECOVERABLE_ATTEMPT_STATUSES = new Set(["RESERVED", "REQUESTING"]);
+const STALE_NOT_FOUND_ELIGIBLE_STATUSES = new Set(["UNKNOWN", "RESERVED", "REQUESTING"]);
+const FAILURE_UPDATABLE_ATTEMPT_STATUSES = new Set([
+  "RESERVED",
+  "REQUESTING",
+  "REQUIRES_ACTION",
+  "PROCESSING",
+  "UNKNOWN",
+]);
+
+async function openPaystackReconciliationRequiredInTx(input: {
+  paymentId: string;
+  orderId: string | null;
+  attemptId: string;
+  reason: PaymentReconciliationReasonCode;
+  safeEvidence: Readonly<Record<string, string | number | boolean | null>>;
+}): Promise<void> {
+  await withPaymentDatabaseRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        if (input.orderId) {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`);
+        }
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${input.paymentId} FOR UPDATE`);
+        await openPaymentReconciliationCaseWithinTransaction(tx, {
+          paymentId: input.paymentId,
+          attemptId: input.attemptId,
+          provider: "PAYSTACK",
+          reason: input.reason,
+          safeEvidence: input.safeEvidence,
+        });
+        await tx.payment.update({
+          where: { id: input.paymentId },
+          data: { reconciliationStatus: "REQUIRED" },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+}
+
+async function recordPaystackAttemptFailureViaVerify(input: {
+  paymentId: string;
+  paymentPublicReference: string;
+  orderId: string | null;
+  attemptId: string;
+  trigger: string;
+  providerStatus: string;
+  failureCategory: "DECLINED" | "MALFORMED_RESPONSE" | "UNKNOWN_OUTCOME";
+  failureCode: string;
+  failureMessage: string;
+  historyReasonCode: string;
+}): Promise<PaystackVerifyRecoveryResult> {
+  const now = new Date();
+  const failResult = await withPaymentDatabaseRetry(() =>
+    prisma.$transaction(
+      async (tx) => {
+        if (input.orderId) {
+          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${input.orderId} FOR UPDATE`);
+        }
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${input.paymentId} FOR UPDATE`);
+        await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PaymentAttempt" WHERE "id" = ${input.attemptId} FOR UPDATE`);
+
+        const [freshPayment, freshAttempt] = await Promise.all([
+          tx.payment.findUnique({ where: { id: input.paymentId } }),
+          tx.paymentAttempt.findUnique({ where: { id: input.attemptId } }),
+        ]);
+        if (
+          !freshPayment ||
+          !freshAttempt ||
+          freshPayment.status === "SUCCEEDED" ||
+          freshPayment.successLedgerJournalId ||
+          freshAttempt.status === "SUCCEEDED"
+        ) {
+          return "ALREADY_SETTLED" as const;
+        }
+        if (FAILURE_UPDATABLE_ATTEMPT_STATUSES.has(freshAttempt.status)) {
+          await tx.paymentAttempt.update({
+            where: { id: freshAttempt.id },
+            data: {
+              status: "FAILED",
+              providerStatusCode: input.providerStatus,
+              completedAt: now,
+              failureCategory: input.failureCategory,
+              failureCode: input.failureCode,
+              failureMessage: sanitizePaystackErrorMessage(input.failureMessage),
+              version: { increment: 1 },
+            },
+          });
+        }
+        if (
+          freshPayment.latestAttemptNumber === freshAttempt.attemptNumber &&
+          canTransitionPayment(freshPayment.status as PaymentState, "FAILED") &&
+          freshPayment.status !== "FAILED"
+        ) {
+          assertPaymentTransition(freshPayment.status as PaymentState, "FAILED");
+          await tx.payment.update({
+            where: { id: freshPayment.id },
+            data: {
+              status: "FAILED",
+              failedAt: now,
+              ...(freshPayment.reconciliationStatus === "REQUIRED"
+                ? { reconciliationStatus: "RESOLVED" as const }
+                : {}),
+              version: { increment: 1 },
+            },
+          });
+          const history = await tx.paymentStatusHistory.create({
+            data: {
+              paymentId: freshPayment.id,
+              attemptId: freshAttempt.id,
+              fromStatus: freshPayment.status,
+              toStatus: "FAILED",
+              reasonCode: input.historyReasonCode,
+              actorType: "PROVIDER",
+              metadata: { trigger: input.trigger, providerStatus: input.providerStatus },
+            },
+          });
+          await tx.notificationEventIntent.upsert({
+            where: { operationId: `payment-status-notification:${history.id}` },
+            update: {},
+            create: {
+              sourceAuthority: "PAYMENT",
+              eventType: "PAYMENT_STATUS_CHANGED",
+              aggregateReference: freshPayment.publicReference,
+              operationId: `payment-status-notification:${history.id}`,
+              safePayload: {
+                sourceEventId: history.id,
+                paymentReference: freshPayment.publicReference,
+                status: "FAILED",
+              },
+            },
+          });
+          if (freshPayment.orderId) {
+            const ord = await tx.order.findUnique({
+              where: { id: freshPayment.orderId },
+              select: { id: true, orderNumber: true },
+            });
+            if (ord?.orderNumber) {
+              await appendCourierPaymentFailedInTx(tx, {
+                orderId: ord.id,
+                orderNumber: ord.orderNumber,
+                historyId: history.id,
+                status: "FAILED",
+              });
+              await recordAdminAlertIntentInTx(tx, {
+                eventType: "PARCEL_PAYMENT_FAILED",
+                aggregateReference: `parcel-pay-failed:${freshPayment.orderId}:${history.id}`,
+                title: `Parcel payment incomplete (${ord.orderNumber})`,
+                summary: `Paystack Verify reported status ${input.providerStatus} for ${freshPayment.publicReference}.`,
+                adminPath: `/admin/orders/${ord.id}`,
+                relatedOrderId: ord.id,
+                metadata: {
+                  paymentReference: freshPayment.publicReference,
+                  providerStatus: input.providerStatus,
+                },
+              });
+            }
+          }
+        } else if (freshPayment.reconciliationStatus === "REQUIRED") {
+          await tx.payment.update({
+            where: { id: freshPayment.id },
+            data: { reconciliationStatus: "RESOLVED" },
+          });
+        }
+        await resolvePaymentReconciliationCasesWithinTransaction(
+          tx,
+          freshPayment.id,
+          freshAttempt.id,
+          "VERIFIED_FAILED",
+        );
+        return "FAILED_VIA_VERIFY" as const;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    ),
+  );
+  return Object.freeze({
+    recovered: failResult === "ALREADY_SETTLED",
+    outcome: failResult,
+    paymentId: input.paymentId,
+    paymentReference: input.paymentPublicReference,
+    attemptId: input.attemptId,
+    ledgerJournalReference: null,
+  });
+}
+
 /**
  * Authoritative recovery for Paystack payments when webhook application is
  * delayed or missing. First replays any pending signature-verified webhook; if
@@ -94,6 +282,9 @@ export async function recoverPaystackAttemptViaVerify(input: {
   attemptId: string;
   trigger: string;
   clientOverride?: PaystackClient;
+  allowStaleNotFound?: boolean;
+  staleCutoff?: Date;
+  expectedEnvironment?: "SANDBOX" | "PRODUCTION";
 }): Promise<PaystackVerifyRecoveryResult> {
   const attempt = await prisma.paymentAttempt.findUnique({
     where: { id: input.attemptId },
@@ -118,6 +309,14 @@ export async function recoverPaystackAttemptViaVerify(input: {
       paymentReference: payment.publicReference,
       attemptId: attempt.id,
       ledgerJournalReference: null,
+    });
+  }
+
+  if (attempt.status === "FAILED" && payment.status === "FAILED" && payment.reconciliationStatus !== "REQUIRED") {
+    return SKIPPED("SKIPPED", {
+      paymentId: payment.id,
+      paymentReference: payment.publicReference,
+      attemptId: attempt.id,
     });
   }
 
@@ -158,9 +357,12 @@ export async function recoverPaystackAttemptViaVerify(input: {
     }
   }
 
+  const staleCutoff = input.staleCutoff ?? new Date(Date.now() - 30 * 60_000);
+  const isStaleAttempt = Boolean(attempt.updatedAt && attempt.updatedAt < staleCutoff);
   const recoverableStatuses = new Set(["REQUIRES_ACTION", "PROCESSING", "UNKNOWN"]);
   const canVerifyUnsettled =
     recoverableStatuses.has(attempt.status) ||
+    (Boolean(input.allowStaleNotFound) && isStaleAttempt && STALE_RECOVERABLE_ATTEMPT_STATUSES.has(attempt.status)) ||
     (payment.reconciliationStatus === "REQUIRED" && !["CANCELLED", "EXPIRED"].includes(attempt.status));
   if (!canVerifyUnsettled) {
     return SKIPPED("SKIPPED", {
@@ -183,7 +385,27 @@ export async function recoverPaystackAttemptViaVerify(input: {
   let verifyData: Awaited<ReturnType<PaystackClient["verifyTransaction"]>>;
   try {
     verifyData = await client.verifyTransaction(attempt.merchantReference);
-  } catch {
+  } catch (error) {
+    const canCloseStaleNotFound =
+      Boolean(input.allowStaleNotFound) &&
+      isStaleAttempt &&
+      STALE_NOT_FOUND_ELIGIBLE_STATUSES.has(attempt.status) &&
+      error instanceof PaymentError &&
+      error.code === "PAYSTACK_TRANSACTION_NOT_FOUND";
+    if (canCloseStaleNotFound) {
+      return recordPaystackAttemptFailureViaVerify({
+        paymentId: payment.id,
+        paymentPublicReference: payment.publicReference,
+        orderId: payment.orderId ?? null,
+        attemptId: attempt.id,
+        trigger: input.trigger,
+        providerStatus: "not_found",
+        failureCategory: attempt.status === "UNKNOWN" ? "MALFORMED_RESPONSE" : "UNKNOWN_OUTCOME",
+        failureCode: "PAYSTACK_TRANSACTION_NOT_FOUND",
+        failureMessage: "Paystack confirmed no transaction exists for this stale uninitialized attempt.",
+        historyReasonCode: "PAYSTACK_VERIFY_NOT_FOUND",
+      });
+    }
     return SKIPPED("PENDING", {
       paymentId: payment.id,
       paymentReference: payment.publicReference,
@@ -196,139 +418,54 @@ export async function recoverPaystackAttemptViaVerify(input: {
     verifyObj && typeof verifyObj.data === "object" && verifyObj.data !== null
       ? (verifyObj.data as Record<string, unknown>)
       : verifyObj;
-  const verifyStatus = typeof data?.status === "string" ? data.status.toLowerCase() : "unknown";
-  const verifyRef = typeof data?.reference === "string" ? data.reference : undefined;
-  const verifyCurrency = typeof data?.currency === "string" ? data.currency : undefined;
+  const verifyStatus = typeof data?.status === "string" ? data.status.trim().toLowerCase() : "";
+  const verifyRef = typeof data?.reference === "string" ? data.reference.trim() : undefined;
+  const verifyCurrency = typeof data?.currency === "string" ? data.currency.trim().toUpperCase() : undefined;
   const verifyAmount = typeof data?.amount === "number" ? data.amount : undefined;
+  const verifyDomain = typeof data?.domain === "string" ? data.domain.trim().toLowerCase() : undefined;
   const providerIdStr =
     data?.id !== undefined && data?.id !== null
       ? String(data.id)
       : (attempt.providerReference ?? attempt.merchantReference);
 
-  // 3. Handle terminal failure/abandonment reported by Paystack
-  if (verifyStatus === "failed" || verifyStatus === "abandoned") {
-    const now = new Date();
-    const failResult = await withPaymentDatabaseRetry(() =>
-      prisma.$transaction(
-        async (tx) => {
-          if (payment.orderId) {
-            await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.orderId} FOR UPDATE`);
-          }
-          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${payment.id} FOR UPDATE`);
-          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "PaymentAttempt" WHERE "id" = ${attempt.id} FOR UPDATE`);
+  const attemptCents = zarToSubunitCents(attempt.amount.toString());
+  const paymentCents = zarToSubunitCents(payment.amount.toString());
+  const attemptCurrency = (attempt as { currency?: string | null }).currency ?? "ZAR";
+  const paymentCurrency = (payment as { currency?: string | null }).currency ?? "ZAR";
+  const expectedEnv = input.expectedEnvironment ?? (attempt as { providerEnvironment?: string | null }).providerEnvironment;
+  const expectedDomain =
+    expectedEnv === "PRODUCTION" ? "live" : expectedEnv === "SANDBOX" ? "test" : null;
 
-          const [freshPayment, freshAttempt] = await Promise.all([
-            tx.payment.findUnique({ where: { id: payment.id } }),
-            tx.paymentAttempt.findUnique({ where: { id: attempt.id } }),
-          ]);
-          if (
-            !freshPayment ||
-            !freshAttempt ||
-            freshPayment.status === "SUCCEEDED" ||
-            freshPayment.successLedgerJournalId ||
-            freshAttempt.status === "SUCCEEDED"
-          ) {
-            return null;
-          }
-          if (["REQUIRES_ACTION", "PROCESSING", "UNKNOWN"].includes(freshAttempt.status)) {
-            await tx.paymentAttempt.update({
-              where: { id: freshAttempt.id },
-              data: {
-                status: "FAILED",
-                providerStatusCode: verifyStatus,
-                completedAt: now,
-                failureCategory: "DECLINED",
-                failureCode: `PAYSTACK_${verifyStatus.toUpperCase()}`,
-                failureMessage:
-                  typeof data?.gateway_response === "string"
-                    ? data.gateway_response.slice(0, 200)
-                    : `Paystack status: ${verifyStatus}`,
-                version: { increment: 1 },
-              },
-            });
-          }
-          if (
-            freshPayment.latestAttemptNumber === freshAttempt.attemptNumber &&
-            ["CREATED", "REQUIRES_ACTION", "PROCESSING", "UNKNOWN"].includes(freshPayment.status)
-          ) {
-            assertPaymentTransition(freshPayment.status as PaymentState, "FAILED");
-            await tx.payment.update({
-              where: { id: freshPayment.id },
-              data: {
-                status: "FAILED",
-                failedAt: now,
-                version: { increment: 1 },
-              },
-            });
-            const history = await tx.paymentStatusHistory.create({
-              data: {
-                paymentId: freshPayment.id,
-                attemptId: freshAttempt.id,
-                fromStatus: freshPayment.status,
-                toStatus: "FAILED",
-                reasonCode: "PAYSTACK_VERIFY_FAILED",
-                actorType: "PROVIDER",
-                metadata: { trigger: input.trigger, providerStatus: verifyStatus },
-              },
-            });
-            await tx.notificationEventIntent.upsert({
-              where: { operationId: `payment-status-notification:${history.id}` },
-              update: {},
-              create: {
-                sourceAuthority: "PAYMENT",
-                eventType: "PAYMENT_STATUS_CHANGED",
-                aggregateReference: freshPayment.publicReference,
-                operationId: `payment-status-notification:${history.id}`,
-                safePayload: {
-                  sourceEventId: history.id,
-                  paymentReference: freshPayment.publicReference,
-                  status: "FAILED",
-                },
-              },
-            });
-            if (freshPayment.orderId) {
-              const ord = await tx.order.findUnique({
-                where: { id: freshPayment.orderId },
-                select: { id: true, orderNumber: true },
-              });
-              if (ord?.orderNumber) {
-                await appendCourierPaymentFailedInTx(tx, {
-                  orderId: ord.id,
-                  orderNumber: ord.orderNumber,
-                  historyId: history.id,
-                  status: "FAILED",
-                });
-                await recordAdminAlertIntentInTx(tx, {
-                  eventType: "PARCEL_PAYMENT_FAILED",
-                  aggregateReference: `parcel-pay-failed:${freshPayment.orderId}:${history.id}`,
-                  title: `Parcel payment incomplete (${ord.orderNumber})`,
-                  summary: `Paystack Verify reported status ${verifyStatus} for ${freshPayment.publicReference}.`,
-                  adminPath: `/admin/orders/${ord.id}`,
-                  relatedOrderId: ord.id,
-                  metadata: {
-                    paymentReference: freshPayment.publicReference,
-                    providerStatus: verifyStatus,
-                  },
-                });
-              }
-            }
-          }
-          return true;
+  const isMerchantMatching = Boolean(verifyRef) && verifyRef === attempt.merchantReference;
+  const isDomainMatching = !expectedDomain || !verifyDomain || verifyDomain === expectedDomain;
+  const isCurrencyMatching =
+    verifyCurrency === "ZAR" && attemptCurrency === "ZAR" && paymentCurrency === "ZAR";
+  const isAmountMatching =
+    attemptCents === paymentCents &&
+    verifyAmount !== undefined &&
+    Number.isSafeInteger(verifyAmount) &&
+    verifyAmount === attemptCents;
+
+  if (ACTIVE_PENDING_VERIFY_STATUSES.has(verifyStatus)) {
+    if (!isMerchantMatching || !isDomainMatching) {
+      await openPaystackReconciliationRequiredInTx({
+        paymentId: payment.id,
+        orderId: payment.orderId ?? null,
+        attemptId: attempt.id,
+        reason: !isMerchantMatching ? "PROVIDER_REFERENCE_CONFLICT" : "MERCHANT_MISMATCH",
+        safeEvidence: {
+          source: "PAYSTACK_VERIFY_API_RECOVERY",
+          trigger: input.trigger,
+          verifiedStatus: verifyStatus,
+          verifiedDomain: verifyDomain ?? "UNKNOWN",
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      ),
-    );
-    return Object.freeze({
-      recovered: !failResult,
-      outcome: failResult ? ("FAILED_VIA_VERIFY" as const) : ("ALREADY_SETTLED" as const),
-      paymentId: payment.id,
-      paymentReference: payment.publicReference,
-      attemptId: attempt.id,
-      ledgerJournalReference: null,
-    });
-  }
-
-  if (verifyStatus !== "success") {
+      });
+      return SKIPPED("RECONCILIATION_REQUIRED", {
+        paymentId: payment.id,
+        paymentReference: payment.publicReference,
+        attemptId: attempt.id,
+      });
+    }
     return SKIPPED("PENDING", {
       paymentId: payment.id,
       paymentReference: payment.publicReference,
@@ -336,46 +473,51 @@ export async function recoverPaystackAttemptViaVerify(input: {
     });
   }
 
-  // 4. Verify strict reference, currency, and exact integer subunit amount
-  const expectedCents = zarToSubunitCents(attempt.amount.toString());
-  const isMerchantMatching = verifyRef === attempt.merchantReference;
-  const isCurrencyZar = verifyCurrency === "ZAR";
-  const isAmountMatching = verifyAmount === expectedCents;
-  const now = new Date();
+  if (verifyStatus === "reversed" || (verifyStatus !== "success" && verifyStatus !== "failed" && verifyStatus !== "abandoned")) {
+    await openPaystackReconciliationRequiredInTx({
+      paymentId: payment.id,
+      orderId: payment.orderId ?? null,
+      attemptId: attempt.id,
+      reason: verifyStatus === "reversed" ? "CONFLICTING_PROVIDER_STATUS" : "UNRECOGNIZED_PROVIDER_STATUS",
+      safeEvidence: {
+        source: "PAYSTACK_VERIFY_API_RECOVERY",
+        trigger: input.trigger,
+        verifiedStatus: verifyStatus || "EMPTY",
+        verifiedDomain: verifyDomain ?? "UNKNOWN",
+      },
+    });
+    return SKIPPED("RECONCILIATION_REQUIRED", {
+      paymentId: payment.id,
+      paymentReference: payment.publicReference,
+      attemptId: attempt.id,
+    });
+  }
 
-  if (!isMerchantMatching || !isCurrencyZar || !isAmountMatching) {
+  // Verify strict reference, domain/environment, currency, and exact integer subunit amount
+  // BEFORE accepting either terminal failure or settlement.
+  if (!isMerchantMatching || !isDomainMatching || !isCurrencyMatching || !isAmountMatching) {
     const reason: PaymentReconciliationReasonCode = !isMerchantMatching
       ? "PROVIDER_REFERENCE_CONFLICT"
-      : "AMOUNT_MISMATCH";
+      : !isDomainMatching
+        ? "MERCHANT_MISMATCH"
+        : "AMOUNT_MISMATCH";
 
-    await withPaymentDatabaseRetry(() =>
-      prisma.$transaction(
-        async (tx) => {
-          if (payment.orderId) {
-            await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Order" WHERE "id" = ${payment.orderId} FOR UPDATE`);
-          }
-          await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${payment.id} FOR UPDATE`);
-          await openPaymentReconciliationCaseWithinTransaction(tx, {
-            paymentId: payment.id,
-            attemptId: attempt.id,
-            provider: "PAYSTACK",
-            reason,
-            safeEvidence: {
-              source: "PAYSTACK_VERIFY_API_RECOVERY",
-              trigger: input.trigger,
-              expectedCents,
-              receivedCents: verifyAmount ?? -1,
-              verifiedCurrency: verifyCurrency ?? "UNKNOWN",
-            },
-          });
-          await tx.payment.update({
-            where: { id: payment.id },
-            data: { reconciliationStatus: "REQUIRED" },
-          });
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      ),
-    );
+    await openPaystackReconciliationRequiredInTx({
+      paymentId: payment.id,
+      orderId: payment.orderId ?? null,
+      attemptId: attempt.id,
+      reason,
+      safeEvidence: {
+        source: "PAYSTACK_VERIFY_API_RECOVERY",
+        trigger: input.trigger,
+        verifiedStatus: verifyStatus,
+        expectedCents: attemptCents,
+        paymentCents,
+        receivedCents: verifyAmount ?? -1,
+        verifiedCurrency: verifyCurrency ?? "UNKNOWN",
+        verifiedDomain: verifyDomain ?? "UNKNOWN",
+      },
+    });
 
     return SKIPPED("RECONCILIATION_REQUIRED", {
       paymentId: payment.id,
@@ -384,7 +526,27 @@ export async function recoverPaystackAttemptViaVerify(input: {
     });
   }
 
-  // 5. Settle inside Serializable tx using exact canonical ledger + confirmation pipeline
+  // 3. Handle verified terminal failure/abandonment reported by Paystack
+  if (verifyStatus === "failed" || verifyStatus === "abandoned") {
+    return recordPaystackAttemptFailureViaVerify({
+      paymentId: payment.id,
+      paymentPublicReference: payment.publicReference,
+      orderId: payment.orderId ?? null,
+      attemptId: attempt.id,
+      trigger: input.trigger,
+      providerStatus: verifyStatus,
+      failureCategory: "DECLINED",
+      failureCode: `PAYSTACK_${verifyStatus.toUpperCase()}`,
+      failureMessage:
+        typeof data?.gateway_response === "string"
+          ? data.gateway_response
+          : `Paystack status: ${verifyStatus}`,
+      historyReasonCode: "PAYSTACK_VERIFY_FAILED",
+    });
+  }
+
+  // 4. Settle verified "success" inside Serializable tx using exact canonical ledger + confirmation pipeline
+  const now = new Date();
   const txResult = await withPaymentDatabaseRetry(() =>
     prisma.$transaction(
       async (tx) => {
@@ -408,7 +570,7 @@ export async function recoverPaystackAttemptViaVerify(input: {
             postCommitAlert: null as AdminAlertEventInput | null,
           };
         }
-        if (freshAttempt.status === "CANCELLED" || freshAttempt.status === "EXPIRED") {
+        if (["CANCELLED", "EXPIRED", "FAILED"].includes(freshAttempt.status)) {
           await openPaymentReconciliationCaseWithinTransaction(tx, {
             paymentId: freshPayment.id,
             attemptId: freshAttempt.id,
@@ -748,7 +910,12 @@ export async function recoverPaystackAttemptViaVerify(input: {
 
 export async function recoverPendingPaystackPaymentForPaymentId(
   paymentId: string,
-  options: { trigger: string; clientOverride?: PaystackClient },
+  options: {
+    trigger: string;
+    clientOverride?: PaystackClient;
+    allowStaleNotFound?: boolean;
+    staleCutoff?: Date;
+  },
 ): Promise<PaystackVerifyRecoveryResult> {
   if (typeof prisma.paymentAttempt?.findFirst !== "function") {
     return SKIPPED("SKIPPED", { paymentId });
@@ -769,5 +936,263 @@ export async function recoverPendingPaystackPaymentForPaymentId(
     attemptId: latestAttempt.id,
     trigger: options.trigger,
     clientOverride: options.clientOverride,
+    allowStaleNotFound: options.allowStaleNotFound,
+    staleCutoff: options.staleCutoff,
+  });
+}
+
+export type StalePaystackReconciliationItemReport = Readonly<{
+  orderNumber: string | null;
+  paymentPublicReference: string;
+  attemptPublicReference: string | null;
+  merchantReference: string;
+  attemptStatus: string;
+  paymentStatus: string;
+  amountZar: string;
+  currency: string;
+  failureCategory: string | null;
+  failureCode: string | null;
+  outcome: PaystackVerifyRecoveryOutcome | "DRY_RUN" | "RECONCILIATION_OPENED";
+  ledgerJournalReference: string | null;
+}>;
+
+export type StalePaystackReconciliationReport = Readonly<{
+  mode: "DRY_RUN" | "APPLY";
+  staleBefore: string;
+  examined: number;
+  settled: number;
+  failed: number;
+  reconciled: number;
+  pending: number;
+  skipped: number;
+  items: readonly StalePaystackReconciliationItemReport[];
+}>;
+
+export type StalePaystackReconciliationCliOptions = Readonly<{
+  mode: "DRY_RUN" | "APPLY";
+  orderNumbers: readonly string[];
+  merchantReferences: readonly string[];
+  paymentPublicReferences: readonly string[];
+  staleMinutes: number;
+  limit: number;
+}>;
+
+export function parseStalePaystackReconciliationArgs(
+  argv: readonly string[],
+): StalePaystackReconciliationCliOptions {
+  let mode: "DRY_RUN" | "APPLY" = "DRY_RUN";
+  const orderNumbers: string[] = [];
+  const merchantReferences: string[] = [];
+  const paymentPublicReferences: string[] = [];
+  let staleMinutes = 30;
+  let limit = 25;
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "--apply") {
+      mode = "APPLY";
+    } else if (arg === "--dry-run") {
+      mode = "DRY_RUN";
+    } else if (arg === "--order" && argv[i + 1]) {
+      orderNumbers.push(argv[i + 1].trim());
+      i += 1;
+    } else if (arg === "--merchant-ref" && argv[i + 1]) {
+      merchantReferences.push(argv[i + 1].trim());
+      i += 1;
+    } else if (arg === "--payment-ref" && argv[i + 1]) {
+      paymentPublicReferences.push(argv[i + 1].trim());
+      i += 1;
+    } else if (arg === "--stale-minutes" && argv[i + 1]) {
+      const parsed = Number.parseInt(argv[i + 1], 10);
+      if (Number.isInteger(parsed) && parsed >= 0) staleMinutes = parsed;
+      i += 1;
+    } else if (arg === "--limit" && argv[i + 1]) {
+      const parsed = Number.parseInt(argv[i + 1], 10);
+      if (Number.isInteger(parsed) && parsed > 0) limit = Math.min(parsed, 100);
+      i += 1;
+    }
+  }
+
+  return Object.freeze({
+    mode,
+    orderNumbers: Object.freeze(orderNumbers.filter(Boolean)),
+    merchantReferences: Object.freeze(merchantReferences.filter(Boolean)),
+    paymentPublicReferences: Object.freeze(paymentPublicReferences.filter(Boolean)),
+    staleMinutes,
+    limit,
+  });
+}
+
+export async function reconcileStalePaystackAttempts(options: {
+  mode: "DRY_RUN" | "APPLY";
+  staleBefore?: Date;
+  limit?: number;
+  orderNumbers?: readonly string[];
+  merchantReferences?: readonly string[];
+  paymentPublicReferences?: readonly string[];
+  trigger?: string;
+  clientOverride?: PaystackClient;
+}): Promise<StalePaystackReconciliationReport> {
+  const staleBefore = options.staleBefore ?? new Date(Date.now() - 30 * 60_000);
+  const take = Math.min(Math.max(options.limit ?? 25, 1), 100);
+  const trigger = options.trigger ?? "stale_paystack_reconciliation";
+
+  const paymentFilter: Prisma.PaymentWhereInput = {
+    ...(options.paymentPublicReferences?.length
+      ? { publicReference: { in: [...options.paymentPublicReferences] } }
+      : {}),
+    ...(options.orderNumbers?.length
+      ? { order: { orderNumber: { in: [...options.orderNumbers] } } }
+      : {}),
+  };
+
+  const candidates = await prisma.paymentAttempt.findMany({
+    where: {
+      provider: "PAYSTACK",
+      ...(options.merchantReferences?.length
+        ? { merchantReference: { in: [...options.merchantReferences] } }
+        : {}),
+      ...(Object.keys(paymentFilter).length > 0 ? { payment: paymentFilter } : {}),
+      OR: [
+        { status: { in: ["UNKNOWN", "RESERVED", "REQUESTING"] }, updatedAt: { lt: staleBefore } },
+        {
+          status: "PROCESSING",
+          updatedAt: { lt: staleBefore },
+          webhookEvents: { none: { providerDataVerified: true } },
+        },
+        {
+          status: "REQUIRES_ACTION",
+          updatedAt: { lt: staleBefore },
+          OR: [{ expiresAt: null }, { expiresAt: { lt: staleBefore } }],
+        },
+        {
+          status: { in: ["REQUIRES_ACTION", "PROCESSING", "UNKNOWN", "RESERVED", "REQUESTING"] },
+          payment: { reconciliationStatus: "REQUIRED" },
+        },
+      ],
+    },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+    take,
+    include: {
+      payment: {
+        include: {
+          order: { select: { orderNumber: true } },
+        },
+      },
+    },
+  });
+
+  const items: StalePaystackReconciliationItemReport[] = [];
+  let settled = 0;
+  let failed = 0;
+  let reconciled = 0;
+  const pending = 0;
+  let skipped = 0;
+
+  for (const attempt of candidates) {
+    const orderNumber = attempt.payment.order?.orderNumber ?? null;
+    const baseItem = {
+      orderNumber,
+      paymentPublicReference: attempt.payment.publicReference,
+      attemptPublicReference: attempt.publicReference ?? null,
+      merchantReference: attempt.merchantReference,
+      attemptStatus: attempt.status,
+      paymentStatus: attempt.payment.status,
+      amountZar: attempt.amount.toFixed(2),
+      currency: attempt.currency,
+      failureCategory: attempt.failureCategory ?? null,
+      failureCode: attempt.failureCode ?? null,
+    };
+
+    if (options.mode === "DRY_RUN") {
+      skipped += 1;
+      items.push({ ...baseItem, outcome: "DRY_RUN", ledgerJournalReference: null });
+      continue;
+    }
+
+    const recovery = await recoverPaystackAttemptViaVerify({
+      attemptId: attempt.id,
+      trigger,
+      clientOverride: options.clientOverride,
+      allowStaleNotFound: true,
+      staleCutoff: staleBefore,
+    });
+
+    if (
+      recovery.outcome === "SETTLED_VIA_VERIFY" ||
+      recovery.outcome === "ALREADY_SETTLED" ||
+      recovery.outcome === "APPLIED_WEBHOOK"
+    ) {
+      settled += 1;
+      items.push({
+        ...baseItem,
+        outcome: recovery.outcome,
+        ledgerJournalReference: recovery.ledgerJournalReference,
+      });
+      continue;
+    }
+
+    if (recovery.outcome === "FAILED_VIA_VERIFY") {
+      failed += 1;
+      items.push({
+        ...baseItem,
+        outcome: recovery.outcome,
+        ledgerJournalReference: null,
+      });
+      continue;
+    }
+
+    if (recovery.outcome === "RECONCILIATION_REQUIRED") {
+      reconciled += 1;
+      items.push({
+        ...baseItem,
+        outcome: recovery.outcome,
+        ledgerJournalReference: null,
+      });
+      continue;
+    }
+
+    if (
+      recovery.outcome === "SKIPPED" ||
+      ["FAILED", "CANCELLED", "EXPIRED"].includes(attempt.payment.status)
+    ) {
+      skipped += 1;
+      items.push({
+        ...baseItem,
+        outcome: recovery.outcome,
+        ledgerJournalReference: null,
+      });
+      continue;
+    }
+
+    await openPaystackReconciliationRequiredInTx({
+      paymentId: attempt.paymentId,
+      orderId: attempt.payment.orderId ?? null,
+      attemptId: attempt.id,
+      reason: "STALE_PROCESSING_ATTEMPT",
+      safeEvidence: {
+        source: trigger,
+        attemptReference: attempt.publicReference ?? attempt.merchantReference,
+        observedStatus: attempt.status,
+      },
+    });
+    reconciled += 1;
+    items.push({
+      ...baseItem,
+      outcome: "RECONCILIATION_OPENED",
+      ledgerJournalReference: null,
+    });
+  }
+
+  return Object.freeze({
+    mode: options.mode,
+    staleBefore: staleBefore.toISOString(),
+    examined: candidates.length,
+    settled,
+    failed,
+    reconciled,
+    pending,
+    skipped,
+    items: Object.freeze(items),
   });
 }

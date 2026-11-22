@@ -7,7 +7,12 @@ import { getActiveParcelProfiles } from "@/lib/commercial/configuration.service"
 import { usableParcelProfiles } from "@/lib/commercial/parcel-profiles";
 import { resolvePaystackConfiguration } from "@/lib/payments/providers/paystack/paystack-config";
 import { BankInstructionsSchema, readBankInstructions } from "@/lib/client-platform/driver-cash.service";
-import { capability, configurationCapability, type Capability } from "./contracts";
+import {
+  PRODUCTION_READINESS_REPAIR_LINKS,
+  capability,
+  configurationCapability,
+  type Capability,
+} from "./contracts";
 import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
@@ -276,13 +281,7 @@ export async function getProductionReadiness() {
     approvedDriversActive: typeof approvedDriversCount === "number" ? approvedDriversCount : null,
     paymentProviderConfigured: paystack.configured && paystack.active,
     paymentProviderEnvironment: paystack.environment,
-    repairLinks: [
-      { label: "Store repair cockpit", href: "/admin/stores" },
-      { label: "Driver onboarding", href: "/admin/drivers" },
-      { label: "Provider diagnostics", href: "/admin/integrations" },
-      { label: "Coverage & regions", href: "/admin/regions" },
-      { label: "Courier pricing", href: "/admin/pricing" },
-    ],
+    repairLinks: PRODUCTION_READINESS_REPAIR_LINKS,
   };
 
   return {

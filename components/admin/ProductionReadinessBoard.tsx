@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Capability, CapabilityStatus } from "@/lib/production-readiness/contracts";
+import {
+  PRODUCTION_READINESS_CAPABILITY_ROUTES as routes,
+  type Capability,
+  type CapabilityStatus,
+} from "@/lib/production-readiness/contracts";
 import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capability-matrix.service";
 import type { EnvSchemaVerificationReport } from "@/lib/runtime/env-schema-verifier";
 import type { CommerceActivation } from "@/lib/runtime/commerce-activation";
@@ -24,15 +28,6 @@ const ownerNames: Record<Owner, string> = {
 const statusNames: Record<CapabilityStatus, string> = {
   READY: "Verified ready", DISABLED_BY_POLICY: "Excluded by policy", BLOCKED_CONFIGURATION: "Configuration required",
   BLOCKED_EXTERNAL_INPUT: "External decision required", BLOCKED_HUMAN_APPROVAL: "Approval required", BLOCKED_LIVE_ACCEPTANCE: "Acceptance pending",
-};
-const routes: Record<string, { href: string; label: string }> = {
-  cod_policy: { href: "/admin/payment-policies", label: "Payment policies" },
-  cod_remittance: { href: "/admin/cash-deposits", label: "Cash & banking" },
-  operational_coverage: { href: "/admin/regions", label: "Delivery coverage" },
-  courier_services: { href: "/admin/pricing", label: "Courier pricing" },
-  notification_routes: { href: "/admin/notifications", label: "Notification settings" },
-  notification_templates: { href: "/admin/notifications", label: "Notification settings" },
-  payment_provider: { href: "/admin/integrations", label: "Provider diagnostics" },
 };
 const isBlocker = (s: CapabilityStatus) => s !== "READY" && s !== "DISABLED_BY_POLICY";
 const readable = (s: string) => s.replaceAll("_", " ").toLowerCase().replace(/^./, c => c.toUpperCase());

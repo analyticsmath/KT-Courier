@@ -454,4 +454,225 @@ describe("Paystack Verify API authoritative recovery (PAY-04..06)", () => {
     expect(res.outcome).toBe("SKIPPED");
     expect(res.paymentId).toBe("pay-1");
   });
+
+  it("opens reconciliation case and refuses settlement on provider domain mismatch", async () => {
+    mocks.attemptFindUnique.mockResolvedValue({
+      ...baseAttempt,
+      providerEnvironment: "PRODUCTION",
+      payment: basePayment,
+    });
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999801,
+        domain: "test",
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "scan_payment_reconciliation",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("RECONCILIATION_REQUIRED");
+    expect(mocks.openRecon).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({ reason: "MERCHANT_MISMATCH", provider: "PAYSTACK" }),
+    );
+    expect(mocks.postLedger).not.toHaveBeenCalled();
+    expect(mocks.confirmCourier).not.toHaveBeenCalled();
+  });
+
+  it("verifies reference, currency, amount, and domain before marking failed or abandoned", async () => {
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999802,
+        status: "failed",
+        reference: "DIFFERENT_REF",
+        amount: 15000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "scan_payment_reconciliation",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("RECONCILIATION_REQUIRED");
+    expect(mocks.attemptUpdate).not.toHaveBeenCalled();
+    expect(mocks.paymentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { reconciliationStatus: "REQUIRED" } }),
+    );
+    expect(mocks.openRecon).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({ reason: "PROVIDER_REFERENCE_CONFLICT", provider: "PAYSTACK" }),
+    );
+  });
+
+  it("resolves open reconciliation cases when Paystack confirms matching failed/abandoned status", async () => {
+    const reconPayment = {
+      ...basePayment,
+      status: "PROCESSING",
+      reconciliationStatus: "REQUIRED",
+    };
+    const unknownAttempt = {
+      ...baseAttempt,
+      status: "UNKNOWN",
+      payment: reconPayment,
+    };
+    mocks.attemptFindUnique.mockResolvedValue(unknownAttempt);
+    mocks.paymentFindUnique.mockResolvedValue(reconPayment);
+    mocks.paymentStatusHistoryCreate.mockResolvedValue({ id: "psh-fail-2" });
+
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999803,
+        status: "failed",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "ZAR",
+        gateway_response: "Declined by bank",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "scan_payment_reconciliation",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("FAILED_VIA_VERIFY");
+    expect(mocks.resolveRecon).toHaveBeenCalledWith(txMock, "pay-1", "att-1", "VERIFIED_FAILED");
+    expect(mocks.paymentUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", reconciliationStatus: "RESOLVED" }),
+      }),
+    );
+  });
+
+  it("escalates reversed and unrecognized provider statuses to RECONCILIATION_REQUIRED instead of leaving PENDING", async () => {
+    for (const status of ["reversed", "unexpected_status"] as const) {
+      vi.clearAllMocks();
+      mocks.$queryRaw.mockResolvedValue([]);
+      mocks.$transaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => cb(txMock));
+      mocks.webhookFindFirst.mockResolvedValue(null);
+      mocks.attemptFindUnique.mockResolvedValue(baseAttempt);
+      mocks.paymentFindUnique.mockResolvedValue(basePayment);
+
+      const mockClient = {
+        verifyTransaction: vi.fn().mockResolvedValue({
+          id: 999804,
+          status,
+          reference: "kt_ref_1",
+          amount: 15000,
+          currency: "ZAR",
+        }),
+      };
+
+      const res = await recoverPaystackAttemptViaVerify({
+        attemptId: "att-1",
+        trigger: "scan_payment_reconciliation",
+        clientOverride: mockClient as never,
+      });
+
+      expect(res.recovered).toBe(false);
+      expect(res.outcome).toBe("RECONCILIATION_REQUIRED");
+      expect(mocks.openRecon).toHaveBeenCalledWith(
+        txMock,
+        expect.objectContaining({
+          reason: status === "reversed" ? "CONFLICTING_PROVIDER_STATUS" : "UNRECOGNIZED_PROVIDER_STATUS",
+          provider: "PAYSTACK",
+        }),
+      );
+      expect(mocks.postLedger).not.toHaveBeenCalled();
+    }
+  });
+
+  it("closes stale UNKNOWN attempts only when explicitly authorized and Paystack confirms transaction not found", async () => {
+    const staleDate = new Date("2026-11-22T06:00:00Z");
+    const staleCutoff = new Date("2026-11-22T07:30:00Z");
+    const unknownAttempt = {
+      ...baseAttempt,
+      status: "UNKNOWN",
+      updatedAt: staleDate,
+      payment: { ...basePayment, status: "PROCESSING", reconciliationStatus: "REQUIRED" },
+    };
+    mocks.attemptFindUnique.mockResolvedValue(unknownAttempt);
+    mocks.paymentFindUnique.mockResolvedValue({ ...basePayment, status: "PROCESSING", reconciliationStatus: "REQUIRED" });
+    mocks.paymentStatusHistoryCreate.mockResolvedValue({ id: "psh-notfound-1" });
+
+    const { PaymentError } = await import("@/lib/payments/errors");
+    const mockClient = {
+      verifyTransaction: vi.fn().mockRejectedValue(
+        new PaymentError("PAYSTACK_TRANSACTION_NOT_FOUND", "Paystack has no transaction for this reference."),
+      ),
+    };
+
+    const nonStaleRes = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "customer_status_poll",
+      clientOverride: mockClient as never,
+    });
+    expect(nonStaleRes.outcome).toBe("PENDING");
+    expect(mocks.attemptUpdate).not.toHaveBeenCalled();
+
+    const staleRes = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "scan_payment_reconciliation",
+      clientOverride: mockClient as never,
+      allowStaleNotFound: true,
+      staleCutoff,
+    });
+    expect(staleRes.recovered).toBe(false);
+    expect(staleRes.outcome).toBe("FAILED_VIA_VERIFY");
+    expect(mocks.attemptUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "FAILED", failureCode: "PAYSTACK_TRANSACTION_NOT_FOUND" }),
+      }),
+    );
+    expect(mocks.resolveRecon).toHaveBeenCalledWith(txMock, "pay-1", "att-1", "VERIFIED_FAILED");
+  });
+
+  it("never illegally transitions a terminal FAILED attempt to SUCCEEDED if late success verify arrives", async () => {
+    const failedAttempt = {
+      ...baseAttempt,
+      status: "FAILED",
+      payment: { ...basePayment, status: "FAILED", reconciliationStatus: "REQUIRED" },
+    };
+    mocks.attemptFindUnique.mockResolvedValue(failedAttempt);
+    mocks.paymentFindUnique.mockResolvedValue({ ...basePayment, status: "FAILED", reconciliationStatus: "REQUIRED" });
+
+    const mockClient = {
+      verifyTransaction: vi.fn().mockResolvedValue({
+        id: 999805,
+        status: "success",
+        reference: "kt_ref_1",
+        amount: 15000,
+        currency: "ZAR",
+      }),
+    };
+
+    const res = await recoverPaystackAttemptViaVerify({
+      attemptId: "att-1",
+      trigger: "scan_payment_reconciliation",
+      clientOverride: mockClient as never,
+    });
+
+    expect(res.recovered).toBe(false);
+    expect(res.outcome).toBe("RECONCILIATION_REQUIRED");
+    expect(mocks.postLedger).not.toHaveBeenCalled();
+    expect(mocks.openRecon).toHaveBeenCalledWith(
+      txMock,
+      expect.objectContaining({ reason: "OUT_OF_ORDER_EVENT", provider: "PAYSTACK" }),
+    );
+  });
 });

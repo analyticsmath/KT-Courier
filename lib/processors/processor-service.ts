@@ -652,8 +652,12 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
         updatedAt: { lt: threshold },
         OR: [
           { status: "UNKNOWN" },
+          { status: { in: ["RESERVED", "REQUESTING"] } },
           { status: "PROCESSING", webhookEvents: { none: { providerDataVerified: true } } },
-          { status: "REQUIRES_ACTION", expiresAt: { lt: new Date() } },
+          {
+            status: "REQUIRES_ACTION",
+            OR: [{ expiresAt: null }, { expiresAt: { lt: new Date() } }],
+          },
         ],
       },
       orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
@@ -677,14 +681,21 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     );
     const unresolvedAttempts: typeof staleAttempts = [];
     let recoveredCount = 0;
+    let alreadyReconciledCount = 0;
     for (const attempt of staleAttempts) {
       if (attempt.provider === "PAYSTACK") {
         const recovery = await recoverPaystackAttemptViaVerify({
           attemptId: attempt.id,
           trigger: "scan_payment_reconciliation",
+          allowStaleNotFound: true,
+          staleCutoff: threshold,
         }).catch(() => null);
         if (recovery?.recovered || recovery?.outcome === "FAILED_VIA_VERIFY") {
           recoveredCount += 1;
+          continue;
+        }
+        if (recovery?.outcome === "RECONCILIATION_REQUIRED") {
+          alreadyReconciledCount += 1;
           continue;
         }
       }
@@ -711,14 +722,15 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
         { isolationLevel: "Serializable" },
       );
     }
+    const totalReconciled = alreadyReconciledCount + casesOpened;
     return {
       itemsExamined,
-      itemsClaimed: recoveredCount + casesOpened,
-      itemsCompleted: recoveredCount + casesOpened,
+      itemsClaimed: recoveredCount + totalReconciled,
+      itemsCompleted: recoveredCount + totalReconciled,
       itemsSkipped: 0,
       itemsRetried: 0,
-      itemsReconciled: casesOpened,
-      safeSummary: `Payment reconciliation scan recovered ${recoveredCount} attempts via Paystack verify and recorded ${casesOpened} anomalies.`,
+      itemsReconciled: totalReconciled,
+      safeSummary: `Payment reconciliation scan recovered ${recoveredCount} attempts via Paystack verify and recorded ${totalReconciled} anomalies.`,
     };
   },
 

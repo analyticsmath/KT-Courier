@@ -151,6 +151,7 @@ export function paymentApiError(error: unknown): NextResponse {
     case "PAYMENT_PROVIDER_RATE_LIMITED":
       return noStoreJson({ error: "Card checkout is temporarily rate limited. Check payment status before retrying." }, 429);
     case "PAYMENT_PROVIDER_RESPONSE_INVALID":
+    case "PAYMENT_PROVIDER_REFERENCE_CONFLICT":
     case "PAYMENT_PROVIDER_REDIRECT_INVALID":
       return noStoreJson({ error: "The card payment handoff could not be verified. Please contact KT Couriers support." }, 503);
     default:

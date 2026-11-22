@@ -497,7 +497,7 @@ async function finalizeAttempt(
         failureMessage: failure?.operatorMessage ?? (targetAttemptStatus === "UNKNOWN" ? "Provider outcome requires later reconciliation." : null),
         requestSnapshot: requestSnapshot as Prisma.InputJsonValue,
         resultSnapshot: resultSnapshot as Prisma.InputJsonValue,
-        completedAt: ["REQUIRES_ACTION", "PROCESSING"].includes(targetAttemptStatus) ? null : now,
+        completedAt: ["REQUIRES_ACTION", "PROCESSING", "UNKNOWN"].includes(targetAttemptStatus) ? null : now,
         version: { increment: 1 },
       },
     });

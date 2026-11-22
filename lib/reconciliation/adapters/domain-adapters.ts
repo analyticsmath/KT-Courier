@@ -36,8 +36,8 @@ export const domainAdapters: Record<ReconciliationDomain, ReconciliationSourceAd
     supportedCaseTypes: ["PAYMENT_GATEWAY_DISCREPANCY", "UNMATCHED_SETTLEMENT"],
     requiredViewPermission: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
     requiredRecoveryPermissions: {
-      RETRY_PAYMENT_VERIFICATION: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
-      MARK_RECONCILED: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
+      RETRY_PAYMENT_VERIFICATION: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
+      MARK_RECONCILED: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
     },
     getHealthState: async () => "HEALTHY",
     listCases: async (query: UnifiedReconciliationQuery) => {
@@ -50,38 +50,50 @@ export const domainAdapters: Record<ReconciliationDomain, ReconciliationSourceAd
         })
         .catch(() => []);
 
-      return records.map((c) => ({
-        domain: "payments",
-        caseType: "PAYMENT_GATEWAY_DISCREPANCY",
-        publicReference: c.publicReference,
-        relatedResourceType: "Payment",
-        relatedResourceReference: c.paymentId,
-        severity: (c.priority === "HIGH" ? "HIGH" : "MEDIUM") as ReconciliationSeverity,
-        canonicalStatus: (c.status === "RESOLVED" || c.status === "CLOSED" ? "CONVERGED" : "OPEN") as NormalizedReconciliationStatus,
-        reasonCode: String(c.reason),
-        safeSummary: c.summary,
-        createdAt: c.createdAt.toISOString(),
-        updatedAt: c.updatedAt.toISOString(),
-        lastRecoveryAttempt: null,
-        assignedOperator: null,
-        isBlocking: c.priority === "HIGH",
-        impactCategory: "CUSTOMER",
-        relatedIncidentReference: null,
-        permittedActions: [
-          {
-            actionKey: "MARK_RECONCILED",
-            name: "Mark Reconciled",
-            description: "Mark case resolved after manual bank re-check",
-            requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
-            readinessState: "READY",
-          },
-        ],
-        authorityReadiness: "HEALTHY",
-      }));
+      return records.map((c) => {
+        const isResolved = c.status === "RESOLVED" || c.status === "CLOSED";
+        return {
+          domain: "payments",
+          caseType: "PAYMENT_GATEWAY_DISCREPANCY",
+          publicReference: c.publicReference,
+          relatedResourceType: "Payment",
+          relatedResourceReference: c.paymentId,
+          severity: (c.priority === "HIGH" || c.priority === "CRITICAL" ? "HIGH" : "MEDIUM") as ReconciliationSeverity,
+          canonicalStatus: (isResolved ? "CONVERGED" : "OPEN") as NormalizedReconciliationStatus,
+          reasonCode: String(c.reason),
+          safeSummary: c.summary,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+          lastRecoveryAttempt: null,
+          assignedOperator: null,
+          isBlocking: c.priority === "HIGH" || c.priority === "CRITICAL",
+          impactCategory: "CUSTOMER",
+          relatedIncidentReference: null,
+          permittedActions: [
+            {
+              actionKey: "RETRY_PAYMENT_VERIFICATION",
+              name: "Retry Payment Verification",
+              description: "Verify transaction status with Paystack using exact merchant reference, currency, and amount",
+              requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
+              readinessState: isResolved || c.provider !== "PAYSTACK" ? "BLOCKED" : "READY",
+              ...(c.provider !== "PAYSTACK" ? { readinessBlocker: "Provider verify retry applies only to Paystack." } : {}),
+            },
+            {
+              actionKey: "MARK_RECONCILED",
+              name: "Mark Reconciled",
+              description: "Close case after payment reaches verified settlement or terminal failure",
+              requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
+              readinessState: "READY",
+            },
+          ],
+          authorityReadiness: "HEALTHY",
+        };
+      });
     },
     getCase: async (reference: string) => {
       const record = await db.paymentReconciliationCase.findUnique({ where: { publicReference: reference } }).catch(() => null);
       if (!record) return null;
+      const isResolved = record.status === "RESOLVED" || record.status === "CLOSED";
 
       const base: NormalizedReconciliationCase = {
         domain: "payments",
@@ -89,23 +101,31 @@ export const domainAdapters: Record<ReconciliationDomain, ReconciliationSourceAd
         publicReference: record.publicReference,
         relatedResourceType: "Payment",
         relatedResourceReference: record.paymentId,
-        severity: "MEDIUM",
-        canonicalStatus: record.status === "RESOLVED" || record.status === "CLOSED" ? "CONVERGED" : "OPEN",
+        severity: record.priority === "HIGH" || record.priority === "CRITICAL" ? "HIGH" : "MEDIUM",
+        canonicalStatus: isResolved ? "CONVERGED" : "OPEN",
         reasonCode: String(record.reason),
         safeSummary: record.summary,
         createdAt: record.createdAt.toISOString(),
         updatedAt: record.updatedAt.toISOString(),
         lastRecoveryAttempt: null,
         assignedOperator: null,
-        isBlocking: false,
+        isBlocking: record.priority === "HIGH" || record.priority === "CRITICAL",
         impactCategory: "CUSTOMER",
         relatedIncidentReference: null,
         permittedActions: [
           {
+            actionKey: "RETRY_PAYMENT_VERIFICATION",
+            name: "Retry Payment Verification",
+            description: "Verify transaction status with Paystack",
+            requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
+            readinessState: isResolved || record.provider !== "PAYSTACK" ? "BLOCKED" : "READY",
+            ...(record.provider !== "PAYSTACK" ? { readinessBlocker: "Provider verify retry applies only to Paystack." } : {}),
+          },
+          {
             actionKey: "MARK_RECONCILED",
             name: "Mark Reconciled",
-            description: "Mark case resolved",
-            requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_READ,
+            description: "Mark case resolved once payment has verified terminal or settled state",
+            requiredPermission: PERMISSIONS.PAYMENT_RECONCILIATION_MANAGE,
             readinessState: "READY",
           },
         ],
@@ -128,18 +148,120 @@ export const domainAdapters: Record<ReconciliationDomain, ReconciliationSourceAd
       };
     },
     executeRecovery: async (params: RecoveryExecutionParams) => {
-      if (params.actionKey === "MARK_RECONCILED") {
-        await db.paymentReconciliationCase
-          .update({
-            where: { publicReference: params.reference },
-            data: {
-              status: "RESOLVED",
-              resolvedAt: new Date(),
-              resolutionCode: params.reasonCode || "MANUAL_RECONCILED",
-            },
-          })
-          .catch(() => null);
+      if (params.actionKey !== "RETRY_PAYMENT_VERIFICATION" && params.actionKey !== "MARK_RECONCILED") {
+        throw new Error(`Unsupported payment reconciliation action '${params.actionKey}'.`);
       }
+
+      const record = (await db.paymentReconciliationCase.findUnique({
+        where: { publicReference: params.reference },
+        include: { payment: true, attempt: true },
+      })) as
+        | {
+            id: string;
+            publicReference: string;
+            paymentId: string;
+            attemptId: string | null;
+            provider: string;
+            status: string;
+            payment?: { status: string; successLedgerJournalId?: string | null } | null;
+            attempt?: { status: string } | null;
+          }
+        | null;
+
+      if (!record) {
+        return {
+          success: false,
+          operationId: params.operationId,
+          domain: "payments",
+          reference: params.reference,
+          actionKey: params.actionKey,
+          executedAt: new Date().toISOString(),
+          safeOutcome: `Payment reconciliation case ${params.reference} was not found.`,
+          updatedStatus: "OPEN",
+        };
+      }
+
+      const alreadyClosed = record.status === "RESOLVED" || record.status === "CLOSED";
+      if (alreadyClosed) {
+        return {
+          success: true,
+          operationId: params.operationId,
+          domain: "payments",
+          reference: params.reference,
+          actionKey: params.actionKey,
+          executedAt: new Date().toISOString(),
+          safeOutcome: safeOperationalText(`Payment case ${params.reference} is already resolved (${record.status}).`),
+          updatedStatus: "CONVERGED",
+        };
+      }
+
+      if (params.actionKey === "RETRY_PAYMENT_VERIFICATION") {
+        if (record.provider !== "PAYSTACK") {
+          return {
+            success: false,
+            operationId: params.operationId,
+            domain: "payments",
+            reference: params.reference,
+            actionKey: params.actionKey,
+            executedAt: new Date().toISOString(),
+            safeOutcome: `Verification retry is only supported for PAYSTACK cases (${record.publicReference}).`,
+            updatedStatus: "OPEN",
+          };
+        }
+        const {
+          recoverPaystackAttemptViaVerify,
+          recoverPendingPaystackPaymentForPaymentId,
+        } = await import("@/lib/services/paystack-verify-recovery.service");
+        const recovery = record.attemptId
+          ? await recoverPaystackAttemptViaVerify({
+              attemptId: record.attemptId,
+              trigger: "admin_reconciliation_retry",
+              allowStaleNotFound: true,
+            })
+          : await recoverPendingPaystackPaymentForPaymentId(record.paymentId, {
+              trigger: "admin_reconciliation_retry",
+              allowStaleNotFound: true,
+            });
+        const converged =
+          recovery.recovered ||
+          recovery.outcome === "SETTLED_VIA_VERIFY" ||
+          recovery.outcome === "ALREADY_SETTLED" ||
+          recovery.outcome === "APPLIED_WEBHOOK" ||
+          recovery.outcome === "FAILED_VIA_VERIFY";
+        return {
+          success: converged,
+          operationId: params.operationId,
+          domain: "payments",
+          reference: params.reference,
+          actionKey: params.actionKey,
+          executedAt: new Date().toISOString(),
+          safeOutcome: safeOperationalText(`Verification outcome for ${params.reference}: ${recovery.outcome}`),
+          updatedStatus: converged ? "CONVERGED" : "OPEN",
+        };
+      }
+
+      const paymentStatus = record.payment?.status ?? "";
+      const attemptStatus = record.attempt?.status ?? null;
+      const settledWithJournal =
+        paymentStatus === "SUCCEEDED" && Boolean(record.payment?.successLedgerJournalId);
+      const terminalClosed =
+        ["FAILED", "CANCELLED", "EXPIRED"].includes(paymentStatus) &&
+        (attemptStatus === null || ["FAILED", "CANCELLED", "EXPIRED"].includes(attemptStatus));
+
+      if (!settledWithJournal && !terminalClosed) {
+        throw new Error(
+          `Cannot mark payment case ${params.reference} reconciled while payment outcome remains unresolved or unverified (${paymentStatus || "UNKNOWN"}).`,
+        );
+      }
+
+      await db.paymentReconciliationCase.update({
+        where: { publicReference: params.reference },
+        data: {
+          status: "RESOLVED",
+          resolvedAt: new Date(),
+          resolutionCode: params.reasonCode || "MANUAL_RECONCILED",
+        },
+      });
 
       return {
         success: true,
@@ -148,7 +270,7 @@ export const domainAdapters: Record<ReconciliationDomain, ReconciliationSourceAd
         reference: params.reference,
         actionKey: params.actionKey,
         executedAt: new Date().toISOString(),
-        safeOutcome: safeOperationalText(`Executed action '${params.actionKey}' on payment case ${params.reference}`),
+        safeOutcome: safeOperationalText(`Marked resolved payment case ${params.reference} reconciled.`),
         updatedStatus: "CONVERGED",
       };
     },
