@@ -49,6 +49,8 @@ test("the bounded directed timeout preserves the exact workflow selection and sa
   assert.equal(isExactPhase2And3DirectedSelection(exactArgs), true);
   assert.equal(playwrightTimeoutMs(exactArgs), PHASE2_3_DIRECTED_TIMEOUT_MS);
   assert.equal(playwrightTimeoutMs(["--project=chromium"]), PHASE1_FULL_CHROMIUM_TIMEOUT_MS);
+  assert.equal(playwrightTimeoutMs(["--project=chromium", "--project=mobile", "--project=keyboard"]), PHASE1_FULL_CHROMIUM_TIMEOUT_MS);
+  assert.equal(playwrightTimeoutMs(["--project=chromium", "--project=mobile", "--project=keyboard", "tests/e2e/mobile-viewport.spec.ts"]), DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
   assert.equal(playwrightTimeoutMs(["--project=chromium", "--workers=1", "--timeout=60000"]), PHASE1_FULL_CHROMIUM_TIMEOUT_MS);
   assert.equal(playwrightTimeoutMs(["--project=chromium", "tests/e2e/anonymous-courier-quote.spec.ts"]), DEFAULT_PLAYWRIGHT_TIMEOUT_MS);
   assert.equal(PHASE2_3_DIRECTED_TIMEOUT_MS, 45 * 60 * 1000);

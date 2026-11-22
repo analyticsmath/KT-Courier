@@ -1,5 +1,6 @@
 import { expect, test as baseTest } from "@playwright/test";
 import { attachConsoleMonitor } from "./fixtures/console-monitor";
+import { openAccessibleCheckout, advanceAccessibleCheckoutToReview } from "./fixtures/accessibility-checkout";
 
 const isLocalValidationServerAvailable = Boolean(
   process.env.PLAYWRIGHT_BASE_URL || process.env.KT_LOCAL_STOREFRONT_VALIDATION === "true"
@@ -24,7 +25,7 @@ test.describe("Mobile Viewport Execution", () => {
     const monitor = attachConsoleMonitor(page);
 
     await page.goto("/shop");
-    await expect(page.locator("h1")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Discover local, differently.", level: 1 })).toBeVisible();
 
     const isNoOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(isNoOverflow).toBe(true);
@@ -57,13 +58,13 @@ test.describe("Mobile Viewport Execution", () => {
 
     await request.post("/api/cart/lines", {
       data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
+        offerReference: "CO-E2E64GB",
+        variantReference: "CV-E2E64GB",
         quantity: 2,
         modifiers: [],
         operationId: `op-mob-cart-${Date.now()}`,
         requestHash: SAFE_HASH,
-        cartVersion: 0,
+        cartVersion: 1,
       },
     });
 
@@ -76,27 +77,12 @@ test.describe("Mobile Viewport Execution", () => {
     monitor.assertClean();
   });
 
-  test("checkout contact form on mobile viewport displays focused fields without obscuring", async ({ request, page }) => {
+  test("checkout contact form on mobile viewport displays focused fields without obscuring", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
 
-    const cartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-mob-chk-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const cartBody = await cartRes.json();
-    const chkRes = await request.post("/api/checkout", { data: { cartReference: cartBody.cart.reference } });
-    const chkBody = await chkRes.json();
-    const chkRef = chkBody.checkout.reference;
-
-    await page.goto(`/checkout/${chkRef}/contact`);
-    await expect(page.locator("h1")).toBeVisible();
+    await openAccessibleCheckout(page);
+    await page.getByLabel("Recipient Full Name", { exact: true }).focus();
+    await expect(page.getByLabel("Recipient Full Name", { exact: true })).toBeFocused();
 
     const isNoOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(isNoOverflow).toBe(true);
@@ -104,27 +90,11 @@ test.describe("Mobile Viewport Execution", () => {
     monitor.assertClean();
   });
 
-  test("checkout review on mobile viewport displays wrapped totals correctly", async ({ request, page }) => {
+  test("checkout review on mobile viewport displays wrapped totals correctly", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
 
-    const cartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-mob-rev-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const cartBody = await cartRes.json();
-    const chkRes = await request.post("/api/checkout", { data: { cartReference: cartBody.cart.reference } });
-    const chkBody = await chkRes.json();
-    const chkRef = chkBody.checkout.reference;
-
-    await page.goto(`/checkout/${chkRef}/review`);
-    await expect(page.locator("h1")).toBeVisible();
+    await openAccessibleCheckout(page);
+    await advanceAccessibleCheckoutToReview(page);
 
     const isNoOverflow = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(isNoOverflow).toBe(true);

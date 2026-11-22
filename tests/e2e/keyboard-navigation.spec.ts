@@ -1,11 +1,10 @@
 import { expect, test as baseTest } from "@playwright/test";
 import { attachConsoleMonitor } from "./fixtures/console-monitor";
+import { openAccessibleCheckout } from "./fixtures/accessibility-checkout";
 
 const isLocalValidationServerAvailable = Boolean(
   process.env.PLAYWRIGHT_BASE_URL || process.env.KT_LOCAL_STOREFRONT_VALIDATION === "true"
 );
-
-const SAFE_HASH = "request-hash-1234567890123456";
 
 const test = baseTest.extend({
   request: async ({ page }, provide) => {
@@ -18,7 +17,7 @@ test.describe("Keyboard-Only Execution Journey", () => {
     test.skip(!isLocalValidationServerAvailable, "Requires active local app instance with KT_LOCAL_STOREFRONT_VALIDATION=true");
   });
 
-  test("keyboard-only journey navigates shop, search, product, cart and checkout contact using Tab, Enter and Space", async ({ request, page }) => {
+  test("keyboard-only journey navigates shop, search, product, cart and checkout contact using Tab, Enter and Space", async ({ page }) => {
     const monitor = attachConsoleMonitor(page);
 
     // 1. Open storefront via keyboard focus
@@ -50,30 +49,13 @@ test.describe("Keyboard-Only Execution Journey", () => {
     }
 
     // 4. Cart navigation via keyboard
-    const cartRes = await request.post("/api/cart/lines", {
-      data: {
-        offerReference: "off_64gb",
-        variantReference: "var_64gb",
-        quantity: 1,
-        modifiers: [],
-        operationId: `op-kbd-cart-${Date.now()}`,
-        requestHash: SAFE_HASH,
-        cartVersion: 0,
-      },
-    });
-    const cartBody = await cartRes.json();
-
     await page.goto("/cart");
     await page.keyboard.press("Tab");
     activeTag = await page.evaluate(() => document.activeElement?.tagName.toLowerCase());
     expect(activeTag).toBeTruthy();
 
     // 5. Checkout contact form keyboard focus
-    const chkRes = await request.post("/api/checkout", { data: { cartReference: cartBody.cart.reference } });
-    const chkBody = await chkRes.json();
-    const chkRef = chkBody.checkout.reference;
-
-    await page.goto(`/checkout/${chkRef}/contact`);
+    await openAccessibleCheckout(page);
     await page.keyboard.press("Tab");
     const focusInContact = await page.evaluate(() => Boolean(document.activeElement && document.activeElement !== document.body));
     expect(focusInContact).toBe(true);
