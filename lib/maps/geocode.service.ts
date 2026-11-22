@@ -4,6 +4,7 @@ import { getMapsServerConfig, type MapsServerConfig } from "./google-maps-config
 import { disposableGeocode, southAfricanAddressQuery } from "@/lib/testing/disposable-geocoding";
 import { PROVINCES } from "@/lib/client-platform/contracts";
 import { logApplicationEvent } from "@/lib/observability/logger";
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
 
 const TIMEOUT_MS = 8_000;
 
@@ -195,7 +196,7 @@ export async function geocodeSouthAfricanAddress(
     const components = result.address_components ?? [];
     if (components.find(component => component.types?.includes("country"))?.short_name !== "ZA") return reject("GEOCODE_COUNTRY_MISMATCH");
     if (components.find(component => component.types?.includes("administrative_area_level_1"))?.long_name?.trim().toLowerCase() !== address.province.trim().toLowerCase()) return reject("GEOCODE_PROVINCE_MISMATCH");
-    if (address.country && normalizedCity(address.country) !== "south africa") return reject("GEOCODE_COUNTRY_MISMATCH");
+    if (address.country && !isSouthAfricanCountry(address.country)) return reject("GEOCODE_COUNTRY_MISMATCH");
     if (address.requireSuburbAndPostalMatch) {
       const { resolveStorePickupSuburb } = await import("@/lib/marketplace-checkout/store-pickup-selection");
       const requestedSuburb = normalizedCity(resolveStorePickupSuburb(address) ?? "");

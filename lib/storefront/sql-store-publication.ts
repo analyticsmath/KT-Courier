@@ -84,8 +84,8 @@ const approvedCheckoutEvidence = Prisma.sql`
       )
       AND BTRIM(COALESCE(pickup."city", '')) <> ''
       AND BTRIM(COALESCE(pickup."province", '')) <> ''
-      AND BTRIM(COALESCE(pickup."postalCode", '')) <> ''
-      AND UPPER(BTRIM(COALESCE(pickup."country", ''))) IN ('ZA', 'SOUTH AFRICA')
+      AND BTRIM(COALESCE(pickup."postalCode", '')) ~ '^[0-9]{4}$'
+      AND UPPER(regexp_replace(BTRIM(COALESCE(pickup."country", '')), '[[:space:]]+', ' ', 'g')) IN ('ZA', 'ZAF', 'RSA', 'SOUTH AFRICA')
       AND pickup."latitude" IS NOT NULL
       AND pickup."latitude" BETWEEN -35 AND -22
       AND pickup."longitude" IS NOT NULL

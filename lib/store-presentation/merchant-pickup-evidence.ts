@@ -1,4 +1,5 @@
 import { resolveStorePickupSuburb } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
 
 /** Only an explicitly saved, complete collection point may be described as
  * configured in the vendor dashboard. Business registration addresses are not
@@ -18,7 +19,7 @@ export type MerchantSavedPickup = Readonly<{
 
 export function isMerchantPickupEvidenceComplete(pickup: MerchantSavedPickup | null | undefined): boolean {
   const suburb = resolveStorePickupSuburb(pickup);
-  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || (suburb?.length ?? 0) < 2 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || pickup.country?.trim().toLowerCase() !== "south africa") return false;
+  if (!pickup || (pickup.line1?.trim().length ?? 0) < 3 || (suburb?.length ?? 0) < 2 || (pickup.city?.trim().length ?? 0) < 2 || (pickup.province?.trim().length ?? 0) < 2 || !isSouthAfricanCountry(pickup.country)) return false;
   if (!/^\d{4}$/.test(pickup.postalCode?.trim() ?? "")) return false;
   const latitude = Number(pickup.latitude);
   const longitude = Number(pickup.longitude);

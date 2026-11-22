@@ -1,5 +1,7 @@
 import type { GeocodableSouthAfricanAddress } from "@/lib/maps/geocode.service";
 import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { resolveStorePickupSuburb } from "@/lib/marketplace-checkout/store-pickup-selection";
+import { isSouthAfricanCountry } from "@/lib/validation/south-african-country";
 
 export type StoredMerchantPickup = Readonly<{
   line1?: string | null;
@@ -26,7 +28,7 @@ export async function resolveVerifiedStorePickupCoordinates(
 ): Promise<VerifiedStorePickupCoordinates | null> {
   const line1 = pickup?.line1?.trim();
   const line2 = pickup?.line2?.trim();
-  const suburb = pickup?.suburb?.trim() || line2;
+  const suburb = resolveStorePickupSuburb(pickup);
   const city = pickup?.city?.trim();
   const province = pickup?.province?.trim();
   const postalCode = pickup?.postalCode?.trim();
@@ -35,7 +37,7 @@ export async function resolveVerifiedStorePickupCoordinates(
     || !suburb || suburb.length < 2
     || !city || city.length < 2
     || !province || province.length < 2
-    || pickup?.country?.trim().toLowerCase() !== "south africa"
+    || !isSouthAfricanCountry(pickup?.country)
     || !/^\d{4}$/.test(postalCode ?? "")
     || pickup?.latitude == null
     || pickup?.longitude == null
