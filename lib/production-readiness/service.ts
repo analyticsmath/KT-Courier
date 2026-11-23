@@ -122,24 +122,27 @@ export async function getProductionReadiness() {
   }
 
   await probe("cod_policy", async () => {
-    // Launch scope is personal-parcel 100% COD, not the legacy store 50/50 program.
-    // Mirror the server-side conditions before advertising financial readiness.
+    // The owner-approved initial COD model is a 50% digital deposit plus 50%
+    // driver cash on explicitly scoped personal parcel routes. Store-specific
+    // legacy drafts and full-COD policies do not satisfy this launch gate.
     const rows = await prisma.paymentMethodPolicy.findMany({ where: {
-      status: "ACTIVE", mode: "FULL_COD", storeId: null, orderType: "PARCEL_DOCUMENT",
+      status: "ACTIVE", mode: "DEPOSIT_PLUS_COD", storeId: null, orderType: "PARCEL_DOCUMENT",
       effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
     } });
     const bank = await prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true, updatedAt: true } });
     const bankValid = !!bank && !!BankInstructionsSchema.safeParse(bank.value).success;
     const eligible = rows.filter((r) => {
       const evidence = r.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
-      return !r.storeId && r.orderType === "PARCEL_DOCUMENT" && !!r.deliveryServiceId &&
+      const depositPercent = r.depositPercent?.toString();
+      return r.mode === "DEPOSIT_PLUS_COD" && !r.storeId && r.orderType === "PARCEL_DOCUMENT" &&
+        (depositPercent === "0.5" || depositPercent === "0.5000") && r.depositAmount == null && !!r.deliveryServiceId &&
         (!!r.regionId || (Array.isArray(r.provinceScope) && r.provinceScope.length > 0)) &&
-        r.depositPercent == null && r.depositAmount == null && Number(r.maximumCodAmount) > 0 &&
+        Number(r.maximumCodAmount) > 0 &&
         !!evidence?.approvedByUserId && evidence.approvedByUserId !== r.createdByUserId &&
         !!evidence.approvedAt && evidence.remittanceApproved === true && !!evidence.settlementTiming &&
         bankValid && bank?.updatedAt.toISOString() === evidence.remittanceUpdatedAt;
     });
-    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Personal parcel 100% cash requires an independently approved service, area, cash limit and unchanged remittance instructions. Legacy 50/50 store policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length });
+    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Eligible personal parcel cash requires the owner-approved 50% digital deposit and 50% driver cash, an independently approved service, area, cash limit and unchanged remittance instructions. Full COD and store-specific policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length });
   });
   await probe("cod_remittance", async () => {
     const configured = !!await readBankInstructions(); const approved = entries.find((e) => e.key === "cod_policy")?.status === "READY";

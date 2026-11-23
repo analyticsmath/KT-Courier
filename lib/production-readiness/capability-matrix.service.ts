@@ -251,10 +251,19 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       ? "REFERRAL_REWARD_ISSUING_DISABLED"
       : null;
 
+  const notificationGovernanceBlocker = [
+    "notification_templates",
+    "notification_recipient_policy",
+    "notification_routes",
+    "notification_domain_engineering",
+  ]
+    .map((key) => findCapability(caps, key))
+    .find((entry) => !!entry && entry.status !== "READY")?.reasonCode
+    ?? "NOTIFICATION_GOVERNANCE_PENDING";
   const notificationBlocker = !emailProviderReady
     ? "EMAIL_PROVIDER_UNCONFIGURED"
     : !notificationGovReady
-      ? (findCapability(caps, "notification_domain_engineering")?.reasonCode ?? "NOTIFICATION_GOVERNANCE_PENDING")
+      ? notificationGovernanceBlocker
       : !coreLoopHealthy
         ? "NOTIFICATION_WORKER_NOT_HEALTHY"
         : null;

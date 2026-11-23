@@ -121,16 +121,16 @@ describe("Commercial Program Readiness Scoping", () => {
   });
 });
 
-describe("100% personal parcel COD production readiness", () => {
+describe("owner-approved 50/50 personal parcel COD production readiness", () => {
   const date = new Date("2026-10-25T00:00:00.000Z");
   const bank = {
     bankName: "Verified test bank", accountName: "KT Couriers Pty", accountNumber: "123456789",
     branchCode: "123456", referenceHint: "Use delivery reference", expectedVersion: 1, handoverEnabled: false,
   };
   const approval = { approvedByUserId: "finance-reviewer", approvedAt: "2026-10-20T12:00:00.000Z", remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Daily" };
-  const valid = { id: "personal-cod", mode: "FULL_COD", storeId: null, deliveryServiceId: "CLIENT_STANDARD",
+  const valid = { id: "personal-cod", mode: "DEPOSIT_PLUS_COD", storeId: null, deliveryServiceId: "CLIENT_STANDARD",
     orderType: "PARCEL_DOCUMENT", provinceScope: ["Gauteng"], regionId: null,
-    maximumCodAmount: { toString: () => "1000.00" }, depositPercent: null, depositAmount: null,
+    maximumCodAmount: { toString: () => "1000.00" }, depositPercent: { toString: () => "0.5" }, depositAmount: null,
     createdByUserId: "policy-author", policyEvidence: approval };
   beforeEach(() => {
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
@@ -148,12 +148,21 @@ describe("100% personal parcel COD production readiness", () => {
     db.notificationRecipientPolicyVersion.findMany.mockResolvedValue([]);
     db.productionAcceptanceRecord.findMany.mockResolvedValue([]);
   });
-  it("recognizes independently approved 100% COD for personal parcels", async () => {
+  it("recognizes an independently approved 50% digital plus 50% cash policy for personal parcels", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([valid]);
     const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
     expect(entry).toMatchObject({ status: "READY", reasonCode: "COD_SCOPED_APPROVAL_CURRENT", evidence: { scopedPolicyCount: 1 } });
   });
-  it("does not mistake a legacy 50/50 business policy for the 100% personal parcel launch feature", async () => {
+  it("does not treat full cash or a non-50% personal cash policy as the approved launch model", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...valid, mode: "FULL_COD", depositPercent: null }]);
+    const fullCash = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
+    expect(fullCash).toMatchObject({ status: "BLOCKED_EXTERNAL_INPUT", reasonCode: "COD_APPROVED_SCOPE_MISSING" });
+
+    db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...valid, depositPercent: { toString: () => "0.6" } }]);
+    const nonFiftyFifty = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
+    expect(nonFiftyFifty).toMatchObject({ status: "BLOCKED_EXTERNAL_INPUT", reasonCode: "COD_APPROVED_SCOPE_MISSING" });
+  });
+  it("does not mistake a store-scoped 50/50 business policy for personal parcel COD", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([{ ...valid, mode: "DEPOSIT_PLUS_COD", storeId: "store-1", depositPercent: { toString: () => "0.5" } }]);
     const entry = (await getProductionReadiness()).capabilities.find(c => c.key === "cod_policy");
     expect(entry).toMatchObject({ status: "BLOCKED_EXTERNAL_INPUT", reasonCode: "COD_APPROVED_SCOPE_MISSING" });

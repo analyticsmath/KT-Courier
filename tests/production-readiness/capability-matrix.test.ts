@@ -166,4 +166,25 @@ describe("Central Read-Only Capability Matrix (F08 / CR-162 / CR-165)", () => {
     expect(subscriptions?.eligibleForLiveUse).toBe(false);
     expect(subscriptions?.lastBlockerCode).toBe("SUBSCRIPTIONS_CONSOLIDATED_VALIDATION_NOT_APPROVED");
   });
+
+  it("reports the missing notification governance approval instead of the positive active-domain reason", () => {
+    const matrix = buildCapabilityMatrix({
+      now: new Date("2026-11-15T10:00:00.000Z"),
+      releaseSha: SHA,
+      capabilities: [
+        capability("email_provider", "READY", "CONFIGURED", "Email is configured.", "OPERATIONS"),
+        capability("notification_templates", "BLOCKED_HUMAN_APPROVAL", "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED", "Template approval is missing.", "ADMIN_REVIEW"),
+        capability("notification_recipient_policy", "BLOCKED_HUMAN_APPROVAL", "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED", "Recipient approval is missing.", "ADMIN_REVIEW"),
+        capability("notification_routes", "BLOCKED_HUMAN_APPROVAL", "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED", "Route approval is missing.", "ADMIN_REVIEW"),
+        capability("notification_domain_engineering", "READY", "NOTIFICATION_DOMAINS_ACTIVE", "Core notification domains are active.", "ENGINEERING"),
+      ],
+      paystack: paystackState(),
+      acceptanceRecords: [],
+      heartbeat: null,
+      env: { NODE_ENV: "production", NOTIFICATION_PRODUCTION_VALIDATION_APPROVED: "true" },
+    });
+
+    expect(matrix.find((row) => row.key === "NOTIFICATIONS_AND_EMAIL")?.lastBlockerCode)
+      .toBe("DOMAIN_GOVERNANCE_APPROVAL_REQUIRED");
+  });
 });
