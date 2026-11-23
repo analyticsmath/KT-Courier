@@ -19,6 +19,7 @@ import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evi
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
 import { evaluateProcessorEvidence } from "./processor-evidence";
 import { buildCapabilityMatrix } from "./capability-matrix.service";
+import { evaluateCommissionPlanCoverage } from "./commission-plan-coverage";
 import { verifyEnvironmentSchema } from "@/lib/runtime/env-schema-verifier";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 import type { AcceptanceRecord } from "./evidence";
@@ -73,21 +74,42 @@ export async function getProductionReadiness() {
     return capability("parcel_profiles", missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "PARCEL_OPERATIONAL_APPROVAL_REQUIRED" : "ACTIVE_PARCEL_PROFILES", "Draft examples are not production acceptance limits.", "OPERATIONS", { missingSizes: missing });
   });
   await probe("approved_commission_plan", async () => {
-    const count = await prisma.commissionPlan.count({
+    const activeStores = await prisma.store.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
+    const activeStoreIds = activeStores.map((store) => store.id);
+    const plans = await prisma.commissionPlan.findMany({
       where: {
+        currency: "ZAR",
         status: "ACTIVE",
-        approvedAt: { not: null },
         effectiveFrom: { lte: now },
         OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
+        AND: [{ OR: [
+          { subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER" },
+          ...(activeStoreIds.length ? [{ subjectType: "MARKETPLACE_STORE_ORDER" as const, scopeKey: { in: activeStoreIds.map((id) => `STORE:${id}`) } }] : []),
+        ] }],
+      },
+      select: {
+        subjectType: true,
+        scopeKey: true,
+        currency: true,
+        status: true,
+        basisType: true,
+        effectiveFrom: true,
+        effectiveUntil: true,
+        calculationVersion: true,
+        createdByUserId: true,
+        approvedByUserId: true,
+        approvedAt: true,
+        rules: { select: { id: true } },
       },
     });
+    const coverage = evaluateCommissionPlanCoverage({ now, activeStoreIds, plans });
     return capability(
       "approved_commission_plan",
-      count ? "READY" : "BLOCKED_EXTERNAL_INPUT",
-      count ? "ACTIVE_COMMISSION_PLAN" : "NO_APPROVED_COMMERCIAL_CONFIGURATION",
-      count ? "Approved commission plan is active." : "Supply real commercial values through the versioned admin workflow.",
+      coverage.ready ? "READY" : "BLOCKED_EXTERNAL_INPUT",
+      coverage.reasonCode,
+      coverage.summary,
       "FINANCE",
-      { approvedEffectiveCount: count }
+      coverage.evidence,
     );
   });
 
@@ -221,11 +243,36 @@ export async function getProductionReadiness() {
     const records = await listAcceptanceEvidence();
     acceptanceRecords = records;
     for (const key of acceptanceKeys) {
-      const record = records.find((r) => r.evidence.key === key); const current = evidenceIsCurrent(record, releaseSha, now);
+      const record = records.find((r) => r.evidence.key === key);
+      const current = evidenceIsCurrent(record, releaseSha, now);
+      const sameReleaseDraft = record?.status === "DRAFT" && !!releaseSha && record.evidence.releaseSha === releaseSha &&
+        new Date(record.evidence.observedAt) <= now && new Date(record.evidence.expiresAt) > now;
       const engineering = ["current_ci_certification", "production_deployment_sha_parity"].includes(key);
-      entries.push(capability(key, current ? "READY" : engineering ? "BLOCKED_CONFIGURATION" : "BLOCKED_LIVE_ACCEPTANCE", current ? "CURRENT_APPROVED_EVIDENCE" : "RELEASE_BOUND_EVIDENCE_REQUIRED", key === "payment_integration_acceptance" ? "Verified provider sandbox transactions qualify for payment integration acceptance; no real-money test charge is required. Evidence must match this release and be independently reviewed." : "Record genuine evidence for this release, then obtain independent review. Expired or different-release evidence cannot unblock launch.", engineering ? "ENGINEERING" : key.includes("driver") || key === "pod_otp_acceptance" ? "OPERATIONS" : "FINANCE", { version: record?.version ?? 0, evidenceStatus: record?.status ?? "MISSING", currentRelease: !!releaseSha && record?.evidence.releaseSha === releaseSha }));
+      const status = current ? "READY" : sameReleaseDraft ? "BLOCKED_HUMAN_APPROVAL" : engineering ? "BLOCKED_CONFIGURATION" : "BLOCKED_LIVE_ACCEPTANCE";
+      const reasonCode = current ? "CURRENT_APPROVED_EVIDENCE"
+        : sameReleaseDraft ? "INDEPENDENT_REVIEW_REQUIRED"
+          : key === "production_deployment_sha_parity" && !record ? "PROTECTED_DATA_AUDIT_REQUIRED"
+            : key === "current_ci_certification" && !record ? "CURRENT_SHA_CI_CERTIFICATION_REQUIRED"
+          : record?.status === "REVOKED" ? "EVIDENCE_REVOKED"
+            : record && releaseSha && record.evidence.releaseSha !== releaseSha ? "EVIDENCE_RELEASE_SHA_MISMATCH"
+              : record && new Date(record.evidence.expiresAt) <= now ? "EVIDENCE_EXPIRED"
+                : "RELEASE_BOUND_EVIDENCE_REQUIRED";
+      const summary = current
+        ? "Independent approval is current for this release."
+        : sameReleaseDraft
+          ? "A current-release draft is saved; a different authorized administrator must review the linked evidence."
+          : key === "production_deployment_sha_parity" && !record
+            ? "Verify the exact Vercel, Railway web and operations SHAs, then attach a fresh protected-row audit and obtain independent review."
+            : key === "current_ci_certification" && !record
+              ? "Run the current exact-SHA certification, record the successful workflow evidence and obtain independent review."
+          : key === "payment_integration_acceptance"
+            ? "Verified provider sandbox transactions qualify for payment integration acceptance; no real-money test charge is required. Evidence must match this release and be independently reviewed."
+            : record?.status === "APPROVED" && record.evidence.releaseSha !== releaseSha
+              ? "The approved evidence is tied to a different release. Record and independently review evidence for the deployed SHA."
+              : "Record genuine evidence for this release, then obtain independent review. Expired or different-release evidence cannot unblock launch.";
+      entries.push(capability(key, status, reasonCode, summary, engineering ? "ENGINEERING" : key.includes("driver") || key === "pod_otp_acceptance" ? "OPERATIONS" : "FINANCE", { version: record?.version ?? 0, evidenceStatus: record?.status ?? "MISSING", currentRelease: !!releaseSha && record?.evidence.releaseSha === releaseSha }));
     }
-    return capability("acceptance_evidence", "READY", "EVIDENCE_STORE_READABLE", "Acceptance evidence is audited and independently reviewed.", "ADMIN_REVIEW");
+    return capability("acceptance_evidence", "READY", "EVIDENCE_STORE_READABLE", "Evidence register is readable; each release acceptance gate is evaluated separately.", "ADMIN_REVIEW");
   });
   for (const key of [...acceptanceKeys, "notification_templates", "notification_recipient_policy", "notification_routes"]) {
     if (!entries.some((e) => e.key === key)) entries.push(capability(key, "BLOCKED_CONFIGURATION", "READINESS_PROBE_FAILED", "Required evidence could not be read; investigate schema and configuration availability.", "ENGINEERING"));

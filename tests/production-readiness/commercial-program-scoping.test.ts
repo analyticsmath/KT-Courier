@@ -4,7 +4,7 @@ const db = vi.hoisted(() => ({
   deliveryServiceDefinition: { count: vi.fn(), findFirst: vi.fn() },
   deliveryRegion: { findMany: vi.fn() },
   parcelProfile: { findMany: vi.fn() },
-  commissionPlan: { count: vi.fn() },
+  commissionPlan: { findMany: vi.fn() },
   subscriptionPlanVersion: { count: vi.fn() },
   promoterProgramVersion: { count: vi.fn() },
   advertisingRateCardVersion: { count: vi.fn() },
@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
   notificationTemplateVersion: { findMany: vi.fn() },
   notificationRecipientPolicyVersion: { findMany: vi.fn() },
   productionAcceptanceRecord: { findMany: vi.fn() },
+  store: { findMany: vi.fn() },
 }));
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
@@ -59,7 +60,8 @@ describe("Commercial Program Readiness Scoping", () => {
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
     db.deliveryRegion.findMany.mockResolvedValue([]);
     db.parcelProfile.findMany.mockResolvedValue([]);
-    db.commissionPlan.count.mockResolvedValue(1);
+    db.commissionPlan.findMany.mockResolvedValue([]);
+    db.store.findMany.mockResolvedValue([]);
     db.subscriptionPlanVersion.count.mockResolvedValue(0);
     db.promoterProgramVersion.count.mockResolvedValue(0);
     db.advertisingRateCardVersion.count.mockResolvedValue(0);
@@ -136,7 +138,8 @@ describe("owner-approved 50/50 personal parcel COD production readiness", () => 
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
     db.deliveryRegion.findMany.mockResolvedValue([]);
     db.parcelProfile.findMany.mockResolvedValue([]);
-    db.commissionPlan.count.mockResolvedValue(1);
+    db.commissionPlan.findMany.mockResolvedValue([]);
+    db.store.findMany.mockResolvedValue([]);
     db.subscriptionPlanVersion.count.mockResolvedValue(0);
     db.promoterProgramVersion.count.mockResolvedValue(0);
     db.advertisingRateCardVersion.count.mockResolvedValue(0);

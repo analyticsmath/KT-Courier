@@ -1,5 +1,11 @@
 # Operator actions and separation of duties
 
+## Current-status addendum — 2026-11-23
+
+This dated update supersedes only stale release-status statements below; the detailed policy and safety boundaries remain in force. Railway production was read and showed `web`, `operations`, `query-storefront-categories`, Postgres, and Redis online with one running replica each, no recent failures, and no staged changes. The separate `admin-replacement-inspection` service was offline with no deployment. Railway web/operations/query and Vercel production matched `e1878ce9a4e7ce4b4a1c9c88de5306b022d6b20b`; GitHub CI run `45142819290` and exact-SHA certification run `45142819253` succeeded. The admin readiness board still showed 16 launch blockers; current CI evidence was a draft awaiting review and deployment parity still needed protected-data audit evidence. These observations were gathered read-only.
+
+The canonical live gate keys, per-gate closure requirements, owner-identified low-balance Paystack test attempts, and a code-level commission-readiness defect/fix are recorded in [`SECTION_7_ADMIN_READINESS_BLOCKERS_2026-11-23.md`](SECTION_7_ADMIN_READINESS_BLOCKERS_2026-11-23.md). Any new code release invalidates older release-bound acceptance evidence. Refresh this addendum and the linked blocker register after the next deployed SHA is established.
+
 Engineering certification is NOT_READY. These instructions are prepared for later execution and do not transfer unresolved engineering work to an operator.
 
 1. Engineering must deliver a full Production Certification run on the exact current main SHA. Current main CI passed and current Vercel/Railway web/operations deployments match main; the latest full certification is on an earlier SHA. The final `certified` manifest remains blocked while live, human or deployment evidence is legitimately missing.

@@ -51,3 +51,7 @@ Phase 5 operational closure source implementation is fully complete. Cross-domai
 ## Operational Runbook & Next Steps
 
 All operational procedures, cron trigger examples, recovery protocols, and emergency release procedures are documented in `docs/production-operations-runbook.md` and `docs/final-consolidated-production-validation-plan.md`.
+
+## Section 7 addendum — current admin launch blockers (2026-11-23)
+
+The Phase 5 Section 7 operational interfaces are implemented; this does not mean that commercial launch acceptance is complete. The current admin dashboard separately reports 16 release and operating gates. See the persistent [Section 7 admin readiness blocker register](production-closure/SECTION_7_ADMIN_READINESS_BLOCKERS_2026-11-23.md) for the exact 16 keys, the code defect being corrected, current infrastructure evidence, and valid closure procedures. Refresh the recorded SHA and statuses before relying on this addendum.

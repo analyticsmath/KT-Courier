@@ -8,7 +8,7 @@ const db = vi.hoisted(() => ({
   deliveryServiceDefinition: { count: vi.fn(), findFirst: vi.fn() },
   deliveryRegion: { findMany: vi.fn() },
   parcelProfile: { findMany: vi.fn() },
-  commissionPlan: { count: vi.fn() },
+  commissionPlan: { findMany: vi.fn() },
   subscriptionPlanVersion: { count: vi.fn() },
   promoterProgramVersion: { count: vi.fn() },
   advertisingRateCardVersion: { count: vi.fn() },
@@ -20,7 +20,7 @@ const db = vi.hoisted(() => ({
   notificationTemplateVersion: { findMany: vi.fn() },
   notificationRecipientPolicyVersion: { findMany: vi.fn() },
   productionAcceptanceRecord: { findMany: vi.fn() },
-  store: { count: vi.fn() },
+  store: { count: vi.fn(), findMany: vi.fn() },
   driverProfile: { count: vi.fn() },
   storeOrderOperationalPolicy: { findFirst: vi.fn() },
   privacyRetentionPolicyVersion: { count: vi.fn() },
@@ -60,10 +60,11 @@ vi.mock("@/lib/marketplace-checkout/courier-tariff-policy", () => ({
 }));
 
 import { ProductionReadinessBoard } from "@/components/admin/ProductionReadinessBoard";
+import { PRODUCTION_READINESS_CAPABILITY_ROUTES } from "@/lib/production-readiness/contracts";
 import { getProductionReadiness } from "@/lib/production-readiness/service";
 
 function adminPageExists(href: string): boolean {
-  const segments = href.replace(/^\//, "").split("/");
+  const segments = href.replace(/^\//, "").replace(/[?#].*$/, "").split("/");
   return existsSync(path.join(process.cwd(), "app", "(admin)", ...segments, "page.tsx"));
 }
 
@@ -74,7 +75,7 @@ describe("production readiness repair and diagnostic links", () => {
     db.deliveryServiceDefinition.findFirst.mockResolvedValue(null);
     db.deliveryRegion.findMany.mockResolvedValue([]);
     db.parcelProfile.findMany.mockResolvedValue([]);
-    db.commissionPlan.count.mockResolvedValue(0);
+    db.commissionPlan.findMany.mockResolvedValue([]);
     db.subscriptionPlanVersion.count.mockResolvedValue(0);
     db.promoterProgramVersion.count.mockResolvedValue(0);
     db.advertisingRateCardVersion.count.mockResolvedValue(0);
@@ -87,6 +88,7 @@ describe("production readiness repair and diagnostic links", () => {
     db.notificationRecipientPolicyVersion.findMany.mockResolvedValue([]);
     db.productionAcceptanceRecord.findMany.mockResolvedValue([]);
     db.store.count.mockResolvedValue(0);
+    db.store.findMany.mockResolvedValue([]);
     db.driverProfile.count.mockResolvedValue(0);
     db.storeOrderOperationalPolicy.findFirst.mockResolvedValue(null);
     db.privacyRetentionPolicyVersion.count.mockResolvedValue(0);
@@ -108,6 +110,9 @@ describe("production readiness repair and diagnostic links", () => {
 
     for (const link of readiness.entityConfigurationStatus.repairLinks) {
       expect(adminPageExists(link.href), `Missing page for repair link ${link.href}`).toBe(true);
+    }
+    for (const [key, link] of Object.entries(PRODUCTION_READINESS_CAPABILITY_ROUTES)) {
+      expect(adminPageExists(link.href), `Missing page for ${key} link ${link.href}`).toBe(true);
     }
 
     const html = renderToStaticMarkup(

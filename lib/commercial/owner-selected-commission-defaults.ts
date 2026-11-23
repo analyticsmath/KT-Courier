@@ -13,12 +13,23 @@ export async function prepareOwnerSelectedCommissionDefaults(actorUserId: string
       { subjectType: "COURIER_ORDER" as const, scopeKey: "GLOBAL:COURIER_ORDER", rateBasisPoints: 3000 },
       ...stores.map(store => ({ subjectType: "MARKETPLACE_STORE_ORDER" as const, scopeKey: `STORE:${store.id}`, rateBasisPoints: 800 })),
     ];
+    const existingPlans = await tx.commissionPlan.findMany({
+      where: {
+        currency: "ZAR",
+        OR: [
+          { subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER" },
+          ...(stores.length ? [{ subjectType: "MARKETPLACE_STORE_ORDER" as const, scopeKey: { in: stores.map(store => `STORE:${store.id}`) } }] : []),
+        ],
+      },
+      select: { subjectType: true, scopeKey: true },
+    });
+    const existingScopes = new Set(existingPlans.map(plan => `${plan.subjectType}:${plan.scopeKey}`));
     let prepared = 0;
     let preserved = 0;
     const effectiveFrom = new Date().toISOString();
     for (const scope of scopes) {
       // Even DRAFT or retired operator terms are authoritative; never replace them.
-      if (await tx.commissionPlan.findFirst({ where: { subjectType: scope.subjectType, scopeKey: scope.scopeKey, currency: "ZAR" }, select: { id: true } })) {
+      if (existingScopes.has(`${scope.subjectType}:${scope.scopeKey}`)) {
         preserved++;
         continue;
       }
@@ -36,5 +47,5 @@ export async function prepareOwnerSelectedCommissionDefaults(actorUserId: string
       prepared++;
     }
     return { prepared, preserved, status: "DRAFT" as const, independentReviewRequired: true };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10_000, timeout: 30_000 });
 }
