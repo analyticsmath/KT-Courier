@@ -20,6 +20,7 @@ import { requiredDomainNotificationDefinitions } from "@/lib/notifications/requi
 import { evaluateProcessorEvidence } from "./processor-evidence";
 import { buildCapabilityMatrix } from "./capability-matrix.service";
 import { evaluateCommissionPlanCoverage } from "./commission-plan-coverage";
+import { evaluateRequiredNotificationGovernance } from "./notification-governance";
 import { verifyEnvironmentSchema } from "@/lib/runtime/env-schema-verifier";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 import type { AcceptanceRecord } from "./evidence";
@@ -172,14 +173,34 @@ export async function getProductionReadiness() {
   });
   await probe("notification_governance", async () => {
     const required = requiredDomainNotificationDefinitions;
-    const [routes, versions, templates, policies] = await Promise.all([prisma.notificationEventRoute.findMany(), prisma.notificationEventRouteVersion.findMany({ where: { status: "ACTIVE", approvedAt: { not: null }, activatedAt: { not: null } } }), prisma.notificationTemplateVersion.findMany({ where: { status: "PUBLISHED", approvedAt: { not: null } } }), prisma.notificationRecipientPolicyVersion.findMany({ where: { status: "APPROVED", approvedAt: { not: null } } })]);
-    const missing = required.filter((e) => !versions.some((v) => routes.some((r) => r.id === v.routeId && r.sourceAuthority === e.sourceAuthority && r.sourceEventType === e.eventType) && templates.some((t) => t.id === v.templateVersionId) && policies.some((p) => p.id === v.recipientPolicyVersionId))).map((e) => `${e.sourceAuthority}:${e.eventType}`);
-    for (const key of ["notification_templates", "notification_recipient_policy", "notification_routes"]) entries.push(capability(key, missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "DOMAIN_GOVERNANCE_APPROVAL_REQUIRED" : "ACTIVE_DOMAIN_GOVERNANCE", "Required registered domains must have published templates, approved recipient policies and active routes.", "ADMIN_REVIEW", { missingDomains: missing }));
+    const [routes, routeVersions, templateRoots, templateVersions, policies] = await Promise.all([
+      prisma.notificationEventRoute.findMany(),
+      prisma.notificationEventRouteVersion.findMany({ where: { status: "ACTIVE" } }),
+      prisma.notificationTemplate.findMany(),
+      prisma.notificationTemplateVersion.findMany(),
+      prisma.notificationRecipientPolicyVersion.findMany(),
+    ]);
+    const governance = evaluateRequiredNotificationGovernance({
+      required,
+      routes,
+      routeVersions,
+      templateRoots,
+      templateVersions,
+      recipientPolicyVersions: policies,
+    });
+    const notificationGateSpecs = [
+      ["notification_templates", governance.missingTemplates, "NOTIFICATION_TEMPLATE_PUBLICATION_REQUIRED", "Every required notification domain needs a current approved and published template."],
+      ["notification_recipient_policy", governance.missingRecipientPolicies, "NOTIFICATION_RECIPIENT_POLICY_APPROVAL_REQUIRED", "Every required notification domain needs a current independently governed recipient policy."],
+      ["notification_routes", governance.missingRoutes, "NOTIFICATION_ROUTE_ACTIVATION_REQUIRED", "Every required notification domain needs one active route referencing its current approved template and recipient policy."],
+    ] as const;
+    for (const [key, missing, reasonCode, summary] of notificationGateSpecs) {
+      entries.push(capability(key, missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? reasonCode : "ACTIVE_DOMAIN_GOVERNANCE", summary, "ADMIN_REVIEW", { missingDomains: missing }));
+    }
 
     // Precise checks for payment, refund, and marketplace notification routes and delivery adapters
     const coreDomains = ["PAYMENT", "REFUND", "MARKETPLACE", "STORE_ORDERS"];
     const missingCoreDomainRoutes = required
-      .filter((e) => coreDomains.includes(e.sourceAuthority) && !versions.some((v) => routes.some((r) => r.id === v.routeId && r.sourceAuthority === e.sourceAuthority && r.sourceEventType === e.eventType) && templates.some((t) => t.id === v.templateVersionId) && policies.some((p) => p.id === v.recipientPolicyVersionId)))
+      .filter((e) => coreDomains.includes(e.sourceAuthority) && governance.missingDomains.includes(`${e.sourceAuthority}:${e.eventType}`))
       .map((e) => `${e.sourceAuthority}:${e.eventType}`);
 
     const emailProviderReady = entries.find((e) => e.key === "email_provider")?.status === "READY";
