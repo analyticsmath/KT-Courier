@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 
 type Action = "APPROVE_TEMPLATE" | "PUBLISH_TEMPLATE" | "APPROVE_RECIPIENT_POLICY" | "PREPARE_ROUTE" | "APPROVE_ROUTE" | "ACTIVATE_ROUTE";
 export type CustomerOrderReviewRow = { eventType: string; label: string; recipientSummary: string; title: string; body: string; templateStatus: string; recipientPolicyStatus: string; routeStatus: string; activatedAt: string | null; actions: { action: Action; label: string }[]; publisherMustDiffer: boolean; activatorMustDiffer: boolean };
+const formatActivationTime = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "an unknown time";
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")} ${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")} UTC`;
+};
 
 export function CustomerOrderNotificationReview({ rows, locked }: { rows: CustomerOrderReviewRow[]; locked: boolean }) {
   const router = useRouter();
@@ -32,7 +37,7 @@ export function CustomerOrderNotificationReview({ rows, locked }: { rows: Custom
       <div><p className="font-medium">{row.title || "Template not prepared"}</p><p className="whitespace-pre-wrap">{row.body}</p></div>
       <p>Template: {row.templateStatus.replaceAll("_", " ")} · Recipient policy: {row.recipientPolicyStatus} · Route: {row.routeStatus}</p>
       <p className="text-sm">Recipient: {row.recipientSummary} Channels: account inbox where available and verified email. Email preferences and quiet hours apply.</p>
-      {row.activatedAt && <p className="text-sm">New events are eligible from {new Date(row.activatedAt).toLocaleString("en-ZA")}.</p>}
+      {row.activatedAt && <p className="text-sm">New events are eligible from {formatActivationTime(row.activatedAt)}.</p>}
       {row.publisherMustDiffer && <p>A different administrator must publish this approved template.</p>}
       {row.activatorMustDiffer && <p>A different administrator must activate this approved route.</p>}
       <div className="flex flex-wrap gap-3">{row.actions.map(({ action, label }) => <button key={action} type="button" disabled={locked || Boolean(busy) || refreshing} onClick={() => act(row.eventType, action)} className="rounded-lg border border-[var(--eo-border)] px-4 py-2 disabled:opacity-50">{busy === `${row.eventType}:${action}` ? "Saving…" : label}</button>)}</div>
