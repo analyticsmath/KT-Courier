@@ -139,6 +139,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "admin-processors", label: "Processors", href: "/admin/processors", icon: "route", group: "Command centre", requiredPermissions: [PERMISSIONS.PROCESSORS_READ], contexts: C.ADMIN },
   { id: "admin-incidents", label: "Incidents", href: "/admin/incidents", icon: "shield", group: "Command centre", requiredPermissions: [PERMISSIONS.INCIDENTS_READ], contexts: C.ADMIN },
   { id: "admin-privacy-requests", label: "Privacy requests", href: "/admin/privacy-requests", icon: "shield", group: "Governance", requiredPermissions: [PERMISSIONS.PRIVACY_REQUESTS_READ], contexts: C.ADMIN },
+  { id: "admin-retention-policies", label: "Retention policies", href: "/admin/retention-policies", icon: "shield", group: "Governance", requiredPermissions: [PERMISSIONS.RETENTION_POLICIES_READ], contexts: C.ADMIN },
   { id: "admin-legal-documents", label: "Legal documents", href: "/admin/legal-documents", icon: "book", group: "Governance", requiredPermissions: [PERMISSIONS.LEGAL_DOCUMENTS_READ], contexts: C.ADMIN },
 ];
 

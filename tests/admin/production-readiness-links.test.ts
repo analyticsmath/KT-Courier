@@ -23,7 +23,7 @@ const db = vi.hoisted(() => ({
   store: { count: vi.fn(), findMany: vi.fn() },
   driverProfile: { count: vi.fn() },
   storeOrderOperationalPolicy: { findFirst: vi.fn() },
-  privacyRetentionPolicyVersion: { count: vi.fn() },
+  retentionPolicyVersion: { findMany: vi.fn() },
 }));
 
 vi.mock("@/lib/db/prisma", () => ({ prisma: db }));
@@ -91,11 +91,14 @@ describe("production readiness repair and diagnostic links", () => {
     db.store.findMany.mockResolvedValue([]);
     db.driverProfile.count.mockResolvedValue(0);
     db.storeOrderOperationalPolicy.findFirst.mockResolvedValue(null);
-    db.privacyRetentionPolicyVersion.count.mockResolvedValue(0);
+    db.retentionPolicyVersion.findMany.mockResolvedValue([]);
   });
 
   it("emits /admin/payment-providers for Provider diagnostics in both readiness data and rendered board, and verifies every link exists", async () => {
     const readiness = await getProductionReadiness();
+    expect(db.retentionPolicyVersion.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ dataClass: "PRIVATE_MEDIA", action: "DELETE", legalReviewStatus: "APPROVED" }),
+    }));
     const providerRepairLink = readiness.entityConfigurationStatus.repairLinks.find(
       (link) => link.label === "Provider diagnostics",
     );

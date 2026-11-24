@@ -1,4 +1,4 @@
-import type { AcceptanceRecord } from "./evidence";
+import { evidenceIsCurrent, type AcceptanceRecord } from "./evidence";
 import type { Capability } from "./contracts";
 import type { SafeProviderConfigurationState } from "@/lib/payments/providers/provider-config";
 import { evaluateCommerceActivation, type CommerceActivation } from "@/lib/runtime/commerce-activation";
@@ -94,30 +94,33 @@ function isHeartbeatHealthy(
 function resolveIsolatedTestPassSha(
   acceptanceRecords: readonly AcceptanceRecord[],
   releaseSha: string | null,
+  now: Date,
 ): string | null {
-  const ci = acceptanceRecords.find(
-    (record) => record.evidence.key === "current_ci_certification" && record.status === "APPROVED" && !!record.approverId && record.approverId !== record.authorId,
+  const ci = acceptanceRecords.find((record) =>
+    record.evidence.key === "current_ci_certification"
+    && evidenceIsCurrent(record, releaseSha ?? undefined, now)
   );
-  if (!ci) return null;
-  if (releaseSha && ci.evidence.releaseSha !== releaseSha) return null;
-  return ci.evidence.releaseSha;
+  return ci?.evidence.releaseSha ?? null;
 }
 
 function buildRow(row: Omit<CapabilityMatrixEntry, "eligibleForLiveUse">): CapabilityMatrixEntry {
+  const lastBlockerCode = row.lastBlockerCode
+    ?? (row.isolatedTestPassSha ? null : "CURRENT_RELEASE_CI_CERTIFICATION_REQUIRED");
   const eligibleForLiveUse =
     row.sourceImplemented &&
+    !!row.isolatedTestPassSha &&
     row.runtimeConfigured &&
     row.externalEntitlementApproved &&
     row.adminPolicyEffective &&
     row.schedulerRegisteredAndHealthy !== false &&
-    row.lastBlockerCode === null;
-  return Object.freeze({ ...row, eligibleForLiveUse });
+    lastBlockerCode === null;
+  return Object.freeze({ ...row, lastBlockerCode, eligibleForLiveUse });
 }
 
 export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly CapabilityMatrixEntry[] {
   const env = inputs.env ?? process.env;
   const caps = inputs.capabilities;
-  const isolatedSha = resolveIsolatedTestPassSha(inputs.acceptanceRecords, inputs.releaseSha);
+  const isolatedSha = resolveIsolatedTestPassSha(inputs.acceptanceRecords, inputs.releaseSha, inputs.now);
   const activation: CommerceActivation = evaluateCommerceActivation(env, { paystackStateOverride: inputs.paystack });
   const eftChannelFlagged = isPaystackEftChannelApproved(env);
   const paystackLiveConfigured = inputs.paystack.configured && inputs.paystack.active;
@@ -474,7 +477,7 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       lastBlockerCode: !isReadyCapability(caps, "private_media_storage")
         ? "PRIVATE_MEDIA_STORAGE_UNCONFIGURED"
         : (inputs.activePrivacyPolicyCount ?? 0) === 0
-          ? "ACTIVE_PRIVATE_MEDIA_RETENTION_POLICY_REQUIRED"
+          ? "ACTIVE_INDEPENDENTLY_REVIEWED_PRIVATE_MEDIA_RETENTION_POLICY_REQUIRED"
           : !isHeartbeatHealthy(inputs.heartbeat, inputs.now, ["process-privacy-requests", "process-data-retention"])
             ? "PRIVACY_RETENTION_WORKERS_UNHEALTHY"
             : null,

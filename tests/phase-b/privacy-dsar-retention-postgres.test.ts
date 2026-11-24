@@ -7,11 +7,11 @@ import { registerFaultInjectionHook } from "@/lib/db";
 import { UserRole, UserStatus } from "@/types/db";
 import { buildPrivacyExport, createPrivacyRequest, getPrivacyRequest, processConsentWithdrawal, transitionPrivacyRequest } from "@/lib/services/privacy-requests.service";
 import { createRetentionHold, releaseRetentionHold } from "@/lib/retention/hold-evaluator";
-import { activateRetentionPolicy, createRetentionPolicyVersion, executeAccountAnonymisation, executeRetentionTarget } from "@/lib/retention/privacy-retention.service";
+import { activateRetentionPolicy, createRetentionPolicyVersion, executeAccountAnonymisation, executeRetentionTarget, reviewRetentionPolicyVersion } from "@/lib/retention/privacy-retention.service";
 import { runConsentWithdrawalBatch } from "@/lib/privacy/consent-withdrawal-batch";
 
-const marker = `DSAR${randomUUID().replaceAll("-", "").toUpperCase()}`; let userA = ""; let userB = ""; let admin = "";
-beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = await Promise.all(["a", "b", "admin"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin] = rows.map((row) => row.id); });
+const marker = `DSAR${randomUUID().replaceAll("-", "").toUpperCase()}`; let userA = ""; let userB = ""; let admin = ""; let legalReviewer = "";
+beforeAll(async () => { await assertPrivacyDisposableDatabase(); const rows = await Promise.all(["a", "b", "admin", "legal-reviewer"].map((suffix) => prisma.user.create({ data: { email: `${marker.toLowerCase()}-${suffix}@example.test`, name: `DSAR ${suffix}`, passwordHash: "proof-only", role: suffix === "admin" || suffix === "legal-reviewer" ? UserRole.ADMIN : UserRole.CUSTOMER, status: UserStatus.ACTIVE } }))); [userA, userB, admin, legalReviewer] = rows.map((row) => row.id); });
 
 describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
   it("recovers authenticated consent withdrawals without advancing an administrator's review", async () => {
@@ -81,7 +81,18 @@ describe("Phase B DSAR/retention PostgreSQL production-service proof", () => {
     const withdrawalEvents = await (prisma as any).privacyRequestEvent.findMany({ where: { privacyRequestId: withdrawal.id } });
     expect(withdrawalEvents.map((event: any) => event.eventType)).toEqual(expect.arrayContaining(["UNDER_REVIEW", "APPROVED", "PROCESSING", "COMPLETED"]));
 
+    await expect(executeAccountAnonymisation({ userId: userB, operationId: `${marker}-ANON-NO-POLICY`, actorReference: "POSTGRES_PROOF" })).rejects.toMatchObject({ code: "RETENTION_POLICY_REQUIRED" });
+    const delayedPolicy = await createRetentionPolicyVersion({ dataClass: "ACCOUNT_PROFILE", action: "ANONYMIZE", retentionDays: 36500, actorUserId: admin });
+    await reviewRetentionPolicyVersion({ publicReference: String(delayedPolicy.publicReference), actorUserId: legalReviewer, decision: "APPROVE", reason: "Verified the disposable delayed policy and its non-production source reference.", sourceReference: "TEST-POLICY-DELAYED", attested: true });
+    const delayedActive = await activateRetentionPolicy({ publicReference: String(delayedPolicy.publicReference), actorUserId: admin });
+    await expect(executeAccountAnonymisation({ userId: userB, policyVersionId: String(delayedActive.id), operationId: `${marker}-ANON-EARLY`, actorReference: "POSTGRES_PROOF" })).rejects.toMatchObject({ code: "RETENTION_NOT_ELIGIBLE" });
+
     const policy = await createRetentionPolicyVersion({ dataClass: "ACCOUNT_PROFILE", action: "ANONYMIZE", retentionDays: 0, actorUserId: admin });
+    await expect(activateRetentionPolicy({ publicReference: String(policy.publicReference), actorUserId: admin })).rejects.toMatchObject({ code: "RETENTION_POLICY_INDEPENDENT_LEGAL_REVIEW_REQUIRED" });
+    await expect(reviewRetentionPolicyVersion({ publicReference: String(policy.publicReference), actorUserId: admin, decision: "APPROVE", reason: "Test policy cannot be approved by its creator.", sourceReference: "TEST-POLICY", attested: true })).rejects.toMatchObject({ code: "RETENTION_POLICY_REVIEWER_MUST_BE_INDEPENDENT" });
+    await expect(reviewRetentionPolicyVersion({ publicReference: String(policy.publicReference), actorUserId: legalReviewer, decision: "APPROVE", reason: "Test policy approval requires an explicit reviewer attestation.", sourceReference: "TEST-POLICY", attested: false })).rejects.toMatchObject({ code: "RETENTION_POLICY_REVIEW_ATTESTATION_REQUIRED" });
+    await reviewRetentionPolicyVersion({ publicReference: String(policy.publicReference), actorUserId: legalReviewer, decision: "APPROVE", reason: "Verified the disposable test policy and its non-production source reference.", sourceReference: "TEST-POLICY", attested: true });
+    await expect(activateRetentionPolicy({ publicReference: String(policy.publicReference), actorUserId: legalReviewer })).rejects.toMatchObject({ code: "RETENTION_POLICY_ACTIVATOR_MUST_BE_INDEPENDENT" });
     const active = await activateRetentionPolicy({ publicReference: String(policy.publicReference), actorUserId: admin });
     await createRetentionHold({ subjectType: "User", subjectReference: userB, reasonCode: "OPEN_CLAIM", actorUserId: admin });
     const held = await executeRetentionTarget({ dataClass: "ACCOUNT_PROFILE", resourceType: "User", resourceReference: userB, resourceCreatedAt: new Date(0), subjectType: "User", subjectReference: userB, operationId: `${marker}-HELD`, actorReference: "POSTGRES_PROOF" });

@@ -18,9 +18,12 @@ describe("DSAR and retention source authorities", () => {
     expect(service).not.toMatch(/passwordHash: true/); expect(service).not.toMatch(/providerSecret/);
   });
   it("keeps retention versioned, hold-first, idempotent and financial-safe", () => {
-    const retention = read("lib/retention/privacy-retention.service.ts"); const hold = read("lib/retention/hold-evaluator.ts"); const worker = read("lib/retention/privacy-retention-worker.ts"); const schema = read("prisma/schema.prisma");
-    expect(schema).toMatch(/model RetentionPolicyVersion[\s\S]*dataClass[\s\S]*version[\s\S]*legalReviewStatus/); expect(schema).toMatch(/model RetentionExecution[\s\S]*executionKey/);
+    const retention = read("lib/retention/privacy-retention.service.ts"); const hold = read("lib/retention/hold-evaluator.ts"); const worker = read("lib/retention/privacy-retention-worker.ts"); const schema = read("prisma/schema.prisma"); const readiness = read("lib/production-readiness/service.ts");
+    expect(schema).toMatch(/model RetentionPolicyVersion[\s\S]*dataClass[\s\S]*version[\s\S]*legalReviewStatus[\s\S]*legalReviewReference[\s\S]*legalReviewedByUserId[\s\S]*legalReviewedAt/); expect(schema).toMatch(/model RetentionExecution[\s\S]*executionKey/);
     expect(retention).toMatch(/resolveRetentionPolicy/); expect(retention).toMatch(/eligibleAt/); expect(retention).toMatch(/RETENTION_RESOURCE_HELD|status: "HELD"/);
+    expect(retention).toMatch(/RETENTION_POLICY_REVIEWER_MUST_BE_INDEPENDENT/); expect(retention).toMatch(/RETENTION_POLICY_INDEPENDENT_LEGAL_REVIEW_REQUIRED/); expect(retention).toMatch(/RETENTION_POLICY_ACTIVATOR_MUST_BE_INDEPENDENT/); expect(retention).toMatch(/pg_advisory_xact_lock/);
+    expect(retention).toMatch(/eligibleAt\(policy, retentionResource\.createdAt\)/); expect(retention).toMatch(/candidate\.activatedByUserId !== candidate\.legalReviewedByUserId/);
+    expect(worker).toMatch(/resolveRetentionPolicy\("PRIVATE_MEDIA"\)/); expect(readiness).toMatch(/legalReviewStatus: "APPROVED"/); expect(readiness).toMatch(/legalReviewReference: \{ not: null \}/);
     expect(retention).toMatch(/email: `deleted-\$\{token\}@anonymized\.invalid`/); expect(retention).toMatch(/status: "DISABLED"/); expect(retention).toMatch(/FINANCIAL_LEDGER.*RETAINED/s);
     expect(hold).toMatch(/expiresAt/); expect(worker).toMatch(/executeRetentionTarget/);
   });

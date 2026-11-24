@@ -22,11 +22,19 @@ describe("production closure configuration transactions on isolated PostgreSQL",
   });
   it("executes the operator audit read-only and detects a synthetic protected-row change without exporting row contents", async () => {
     const auditOwner = await createUser(`${tag}-audit`, "CUSTOMER");
+    const latestCompany = await prisma.companyProfileVersion.aggregate({ _max: { versionNumber: true } });
+    await prisma.companyProfileVersion.create({ data: {
+      publicReference: `COMPANY-AUDIT-${tag}`, versionNumber: (latestCompany._max.versionNumber ?? 0) + 1,
+      status: "DRAFT", legalName: "Disposable audit fixture", registrationNumber: "AUDIT-REG-DO-NOT-LOG", vatNumber: "AUDIT-VAT-DO-NOT-LOG",
+      createdByUserId: auditOwner.id,
+    } });
     const first = await reviewedProtectedRowAudit();
     expect(first.database).toEqual({ database: "kt_launch_test", role: "kt_closure_test", transactionReadOnly: "on" });
     const before = first.protected as Record<string, { count: number; hash: string }>;
     expect(Object.keys(before)).toHaveLength(17);
     expect(Object.values(before).every(value => Number.isSafeInteger(value.count) && /^[a-f0-9]{64}$/.test(value.hash))).toBe(true);
+    expect(JSON.stringify(first)).not.toContain("AUDIT-REG-DO-NOT-LOG");
+    expect(JSON.stringify(first)).not.toContain("AUDIT-VAT-DO-NOT-LOG");
     const unchanged = await reviewedProtectedRowAudit(); expect(unchanged.protected).toEqual(before);
     const rawOwner = await prisma.user.findUniqueOrThrow({ where: { id: auditOwner.id } });
     expect(JSON.stringify(first)).not.toContain(rawOwner.email);

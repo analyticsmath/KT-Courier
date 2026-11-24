@@ -298,17 +298,43 @@ export async function getProductionReadiness() {
   for (const key of [...acceptanceKeys, "notification_templates", "notification_recipient_policy", "notification_routes"]) {
     if (!entries.some((e) => e.key === key)) entries.push(capability(key, "BLOCKED_CONFIGURATION", "READINESS_PROBE_FAILED", "Required evidence could not be read; investigate schema and configuration availability.", "ENGINEERING"));
   }
-  const [heartbeatRow, referralSettingRow, storeOrderPolicyRow, activePrivacyPolicyCount] = await Promise.all([
+  const [heartbeatRow, referralSettingRow, storeOrderPolicyRow, activePrivacyPolicyRows] = await Promise.all([
     prisma.systemSetting?.findUnique?.({ where: { key: "production_processor_heartbeat" }, select: { value: true } }).catch(() => null) ?? null,
     prisma.systemSetting?.findUnique?.({ where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true } }).catch(() => null) ?? null,
     (prisma as unknown as { storeOrderOperationalPolicy?: { findFirst?: (args: unknown) => Promise<{ id: string } | null> } }).storeOrderOperationalPolicy?.findFirst?.({
       where: { status: "ACTIVE", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] },
       select: { id: true },
     }).catch(() => null) ?? null,
-    (prisma as unknown as { privacyRetentionPolicyVersion?: { count?: (args: unknown) => Promise<number> } }).privacyRetentionPolicyVersion?.count?.({
-      where: { dataClass: "PRIVATE_MEDIA", status: "ACTIVE" },
-    }).catch(() => 0) ?? 0,
+    prisma.retentionPolicyVersion.findMany({
+      where: {
+        dataClass: "PRIVATE_MEDIA",
+        status: "ACTIVE",
+        action: "DELETE",
+        legalReviewStatus: "APPROVED",
+        retentionDays: { not: null },
+        effectiveAt: { lte: now },
+        legalReviewReference: { not: null },
+        legalReviewReason: { not: null },
+        legalReviewedByUserId: { not: null },
+        legalReviewedAt: { not: null },
+        activatedByUserId: { not: null },
+      },
+      select: { createdByUserId: true, legalReviewedByUserId: true, activatedByUserId: true, retentionDays: true },
+    }).catch(() => []),
   ]);
+  const activePrivacyPolicyCount = Array.isArray(activePrivacyPolicyRows)
+    ? activePrivacyPolicyRows.filter((policy) =>
+      typeof policy.createdByUserId === "string"
+      && typeof policy.legalReviewedByUserId === "string"
+      && typeof policy.activatedByUserId === "string"
+      && typeof policy.retentionDays === "number"
+      && Number.isInteger(policy.retentionDays)
+      && policy.retentionDays >= 0
+      && policy.retentionDays <= 36500
+      && policy.createdByUserId !== policy.legalReviewedByUserId
+      && policy.activatedByUserId !== policy.legalReviewedByUserId
+    ).length
+    : 0;
   const capabilityMatrix = buildCapabilityMatrix({
     now,
     releaseSha: releaseSha ?? null,

@@ -47,7 +47,9 @@ export async function reviewedProtectedRowAudit() {
     }
     report.protected = protectedRows;
     report.policies = await tx.legalDocumentVersion.findMany({ select: { documentType: true, version: true, publicationStatus: true, contentHash: true, effectiveAt: true } });
-    report.company = await tx.companyProfileVersion.findMany({ select: { versionNumber: true, status: true, registrationNumber: true, vatNumber: true } });
+    // Tax identifiers are needed by transactional issuer snapshots, not by a
+    // deploy-time readiness summary. Keep them out of retained Railway logs.
+    report.company = await tx.companyProfileVersion.findMany({ select: { versionNumber: true, status: true } });
     report.parcels = await tx.parcelProfileVersion.findMany({ select: { stableKey: true, versionNumber: true, status: true } });
     report.services = await tx.deliveryServiceDefinition.findMany({ select: { stableKey: true, versionNumber: true, status: true, pricingPolicy: true } });
     report.processorRuns = await tx.operationalProcessorRun.findMany({ select: { jobName: true, status: true, itemsCompleted: true, itemsRetried: true, startedAt: true }, orderBy: { startedAt: "desc" }, take: 12 });

@@ -13,6 +13,7 @@ import {
   createRetentionPolicyVersion,
   executeAccountAnonymisation,
   executeRetentionTarget,
+  reviewRetentionPolicyVersion,
 } from "@/lib/retention/privacy-retention.service";
 import { expenseCsv, storeExpenses } from "@/lib/client-platform/expenses.service";
 import { getStoreOperationsSnapshot } from "@/lib/services/admin-store-operations.service";
@@ -40,6 +41,9 @@ describe("Section 4 functional gaps verified against isolated PostgreSQL", () =>
     const admin = await prisma.user.create({
       data: { email: `${marker}-ret-admin@example.test`, role: "SUPER_ADMIN", status: "ACTIVE" },
     });
+    const reviewer = await prisma.user.create({
+      data: { email: `${marker}-ret-reviewer@example.test`, role: "ADMIN", status: "ACTIVE" },
+    });
     const customer = await prisma.user.create({
       data: { email: `${marker}-ret-cust@example.test`, role: "CUSTOMER", status: "ACTIVE" },
     });
@@ -53,9 +57,9 @@ describe("Section 4 functional gaps verified against isolated PostgreSQL", () =>
       dataClass: "PRIVATE_MEDIA",
       action: "DELETE",
       retentionDays: 0,
-      effectiveAt: new Date(Date.now() - 60_000),
       actorUserId: admin.id,
     });
+    await reviewRetentionPolicyVersion({ publicReference: String(policyDraft.publicReference), actorUserId: reviewer.id, decision: "APPROVE", reason: "Verified the configured deletion action against the disposable test policy.", sourceReference: `TEST-${tag}`, attested: true });
     await activateRetentionPolicy({ publicReference: String(policyDraft.publicReference), actorUserId: admin.id });
 
     // Non-held object deletes cleanly and updates PrivateMediaObject.status -> DELETED
@@ -161,8 +165,17 @@ describe("Section 4 functional gaps verified against isolated PostgreSQL", () =>
         formattedAddress: "12 Oxford Rd, Rosebank, Johannesburg",
       },
     });
+    const accountPolicyDraft = await createRetentionPolicyVersion({
+      dataClass: "ACCOUNT_PROFILE",
+      action: "ANONYMIZE",
+      retentionDays: 0,
+      actorUserId: admin.id,
+    });
+    await reviewRetentionPolicyVersion({ publicReference: String(accountPolicyDraft.publicReference), actorUserId: reviewer.id, decision: "APPROVE", reason: "Verified the account anonymisation action against the disposable test policy.", sourceReference: `TEST-ACCOUNT-${tag}`, attested: true });
+    const accountPolicy = await activateRetentionPolicy({ publicReference: String(accountPolicyDraft.publicReference), actorUserId: admin.id });
     await executeAccountAnonymisation({
       userId: customer.id,
+      policyVersionId: String(accountPolicy.id),
       operationId: `anon-${tag}`,
       actorReference: admin.id,
     });

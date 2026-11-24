@@ -456,6 +456,7 @@ export const PERMISSIONS = {
   PRIVACY_REQUESTS_RESOLVE: "privacy_requests.resolve",
   RETENTION_POLICIES_READ: "retention_policies.read",
   RETENTION_POLICIES_MANAGE: "retention_policies.manage",
+  RETENTION_POLICIES_REVIEW: "retention_policies.review",
   LEGAL_HOLDS_READ: "legal_holds.read",
   LEGAL_HOLDS_MANAGE: "legal_holds.manage",
   PRIVACY_EXPORTS_READ: "privacy_exports.read",
@@ -1570,6 +1571,7 @@ export const SYSTEM_PERMISSION_DEFINITIONS: SystemPermissionDefinition[] = [
   { key: PERMISSIONS.PRIVACY_REQUESTS_RESOLVE, name: "Resolve privacy requests", category: "Governance", description: "Approve, reject and complete privacy-rights cases." },
   { key: PERMISSIONS.RETENTION_POLICIES_READ, name: "Read retention policies", category: "Governance", description: "Inspect versioned retention policies and execution evidence." },
   { key: PERMISSIONS.RETENTION_POLICIES_MANAGE, name: "Manage retention policies", category: "Governance", description: "Create and activate retention policy versions." },
+  { key: PERMISSIONS.RETENTION_POLICIES_REVIEW, name: "Independently review retention policies", category: "Governance", description: "Record a separate review against an approved legal source for a retention policy version." },
   { key: PERMISSIONS.LEGAL_HOLDS_READ, name: "Read legal holds", category: "Governance", description: "Inspect preservation holds." },
   { key: PERMISSIONS.LEGAL_HOLDS_MANAGE, name: "Manage legal holds", category: "Governance", description: "Create and release preservation holds." },
   { key: PERMISSIONS.PRIVACY_EXPORTS_READ, name: "Read privacy export metadata", category: "Governance", description: "Access controlled privacy export metadata." },
@@ -1779,6 +1781,7 @@ export const DEFAULT_ADMIN_PERMISSION_KEYS: PermissionKey[] = [
   PERMISSIONS.SECURITY_SESSIONS_MANAGE,
   PERMISSIONS.INCIDENTS_READ,
   PERMISSIONS.PRIVACY_REQUESTS_READ,
+  PERMISSIONS.RETENTION_POLICIES_READ,
   PERMISSIONS.LEGAL_DOCUMENTS_READ,
   PERMISSIONS.PROCESSORS_READ,
 ];

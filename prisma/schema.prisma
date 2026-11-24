@@ -289,6 +289,7 @@ model User {
   recruitmentDecisions                 RecruitmentDecision[]               @relation("DecisionReviewer")
   recruitmentOffersApproved            RecruitmentOfferVersion[]           @relation("OfferApprovedBy")
   recruitmentRetentionPoliciesApproved RecruitmentRetentionPolicyVersion[] @relation("RetentionPolicyApprovedBy")
+  privacyRetentionPoliciesLegallyReviewed RetentionPolicyVersion[]           @relation("PrivacyRetentionPolicyLegalReviewer")
   VacancyApplication                   VacancyApplication[]
   legacyPaymentRefundsCreated          PaymentRefund[]                     @relation("PaymentRefundLegacyCreatedBy")
   legacyWithdrawalsReviewed            WithdrawalRequest[]                 @relation("WithdrawalRequestLegacyReviewedBy")
@@ -13773,22 +13774,28 @@ model PrivacyRequestExecutionPlan {
 }
 
 model RetentionPolicyVersion {
-  id                String    @id @default(cuid())
-  publicReference   String    @unique
-  dataClass         String
-  version           Int
-  action            String
-  retentionDays     Int?
-  effectiveAt       DateTime?
-  status            String    @default("DRAFT")
-  legalReviewStatus String    @default("LEGAL_REVIEW_REQUIRED")
-  createdByUserId   String?
-  activatedByUserId String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  publicReference        String    @unique
+  dataClass              String
+  version                Int
+  action                 String
+  retentionDays          Int?
+  effectiveAt            DateTime?
+  status                 String    @default("DRAFT")
+  legalReviewStatus      String    @default("LEGAL_REVIEW_REQUIRED")
+  legalReviewReference   String?
+  legalReviewReason      String?
+  legalReviewedByUserId  String?
+  legalReviewedAt        DateTime?
+  createdByUserId        String?
+  activatedByUserId      String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  legalReviewedBy        User?     @relation("PrivacyRetentionPolicyLegalReviewer", fields: [legalReviewedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([dataClass, version])
   @@index([dataClass, status, effectiveAt])
+  @@index([legalReviewedByUserId])
 }
 
 model RetentionExecution {

@@ -187,4 +187,53 @@ describe("Central Read-Only Capability Matrix (F08 / CR-162 / CR-165)", () => {
     expect(matrix.find((row) => row.key === "NOTIFICATIONS_AND_EMAIL")?.lastBlockerCode)
       .toBe("DOMAIN_GOVERNANCE_APPROVAL_REQUIRED");
   });
+
+  it("requires current-release CI certification before a configured payment capability is live-eligible", () => {
+    const now = new Date("2026-11-15T10:00:00.000Z");
+    const healthyHeartbeat = {
+      observedAt: "2026-11-15T09:59:00.000Z",
+      healthy: true,
+      readinessBlockers: [],
+      processors: productionProcessors.map((name) => ({ name, status: "IDLE", itemsRetried: 0 })),
+    };
+    const matrix = buildCapabilityMatrix({
+      now,
+      releaseSha: SHA,
+      capabilities: [
+        capability("courier_services", "READY", "ACTIVE_SERVICES", "Services ok", "OPERATIONS"),
+        capability("operational_coverage", "READY", "BOUNDARIES_CONFIGURED", "Coverage ok", "OPERATIONS"),
+        capability("paystack_webhook_processing", "READY", "PROCESSOR_HEALTHY", "Webhook ok", "ENGINEERING"),
+        capability("payment_event_processor", "READY", "PROCESSOR_HEALTHY", "Event processor ok", "ENGINEERING"),
+        capability("payment_integration_acceptance", "READY", "CURRENT_APPROVED_EVIDENCE", "Accepted", "FINANCE"),
+      ],
+      paystack: paystackState({ configured: true, active: true, credentialVersionConfigured: true, environment: "production", errorCategory: "NONE", blockReason: null, productionValidationApproved: true }),
+      acceptanceRecords: [makeAcceptance("payment_integration_acceptance")],
+      heartbeat: healthyHeartbeat,
+      env: { NODE_ENV: "production", CHECKOUT_PUBLIC_ENABLED: "true", PAYSTACK_MODE: "live" },
+    });
+    const card = matrix.find((row) => row.key === "PAYSTACK_CARD");
+
+    expect(card).toMatchObject({
+      isolatedTestPassSha: null,
+      eligibleForLiveUse: false,
+      lastBlockerCode: "CURRENT_RELEASE_CI_CERTIFICATION_REQUIRED",
+    });
+  });
+
+  it("does not advertise an expired CI approval as the isolated test SHA", () => {
+    const now = new Date("2026-11-15T10:00:00.000Z");
+    const expiredCi = makeAcceptance("current_ci_certification");
+    expiredCi.evidence.expiresAt = "2026-11-14T08:00:00.000Z";
+    const matrix = buildCapabilityMatrix({
+      now,
+      releaseSha: SHA,
+      capabilities: [],
+      paystack: paystackState(),
+      acceptanceRecords: [expiredCi],
+      heartbeat: null,
+      env: { NODE_ENV: "production" },
+    });
+
+    expect(matrix.every((row) => row.isolatedTestPassSha === null)).toBe(true);
+  });
 });
