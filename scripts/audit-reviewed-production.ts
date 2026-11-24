@@ -513,7 +513,7 @@ if (/(?:^|[\\/])audit-reviewed-production\.ts$/.test(process.argv[1] ?? "") && p
       const safeConsole = sanitizeAuditOutputForConsole(report);
       const formatted = JSON.stringify(safeConsole, null, 2);
       if (outPath) writeFileSync(outPath, `${formatted}\n`, "utf8");
-      console.log(formatted);
+      console.log(JSON.stringify(safeConsole));
     })
     .catch(() => {
       console.error("Read-only production evidence failed.");

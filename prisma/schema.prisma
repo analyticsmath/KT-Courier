@@ -14962,5 +14962,5 @@ model PaymentReleaseProvenance {
   ledgerJournal       LedgerJournal                @relation("PaymentReleaseProvenanceJournal", fields: [ledgerJournalId], references: [id], onDelete: Restrict)
 
   @@index([releaseSha, createdAt])
-  @@index([provider, providerEnvironment, releaseSha])
+  @@index([provider, providerEnvironment, releaseSha], map: "PaymentReleaseProvenance_provider_env_sha_idx")
 }
