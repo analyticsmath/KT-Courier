@@ -210,7 +210,7 @@ async function computeDeterministicBoundedTableHash(
   tableName: string,
   hasIdColumn: boolean,
 ): Promise<TableAuditSummary> {
-  const quotedTable = `"${tableName.replace(/"/g, "\"\"")}"`;
+  const quotedTable = `"public"."${tableName.replace(/"/g, "\"\"")}"`;
   const [{ count }] = await tx.$queryRawUnsafe<Array<{ count: number }>>(`SELECT count(*)::int AS count FROM ${quotedTable}`);
   if (count === 0) {
     return {
@@ -334,18 +334,21 @@ export async function reviewedProtectedRowAudit(options?: {
       `;
       const tablesWithId = new Set(idColRows.map((r) => r.table_name));
 
+      // Use CASE + c.oid so PostgreSQL cannot evaluate has_table_privilege before filtering to public base/partitioned tables.
       const writableTableRows = await tx.$queryRaw<Array<{ table_name: string }>>`
-        SELECT t.table_name
-        FROM information_schema.tables t
-        WHERE t.table_schema = 'public'
-          AND t.table_type = 'BASE TABLE'
-          AND (
-            has_table_privilege(current_user, quote_ident(t.table_name), 'INSERT')
-            OR has_table_privilege(current_user, quote_ident(t.table_name), 'UPDATE')
-            OR has_table_privilege(current_user, quote_ident(t.table_name), 'DELETE')
-            OR has_table_privilege(current_user, quote_ident(t.table_name), 'TRUNCATE')
+        SELECT c.relname AS table_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+        WHERE CASE
+          WHEN n.nspname = 'public' AND c.relkind IN ('r', 'p') THEN (
+            has_table_privilege(current_user, c.oid, 'INSERT')
+            OR has_table_privilege(current_user, c.oid, 'UPDATE')
+            OR has_table_privilege(current_user, c.oid, 'DELETE')
+            OR has_table_privilege(current_user, c.oid, 'TRUNCATE')
           )
-        ORDER BY t.table_name ASC
+          ELSE false
+        END
+        ORDER BY c.relname ASC
       `;
       const writableAuditTables = writableTableRows
         .map((r) => r.table_name)
