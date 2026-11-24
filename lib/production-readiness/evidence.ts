@@ -556,7 +556,20 @@ function extractPrimaryTestCountFromZip(zipBuffer: Buffer): number | null {
     const content = compression === 0 ? compressed : compression === 8 ? inflateRawSync(compressed) : null;
     if (!content) continue;
     try {
-      const parsed = JSON.parse(content.toString("utf8")) as { numPassedTests?: number; testsPassed?: number };
+      const parsed = JSON.parse(content.toString("utf8")) as {
+        numPassedTests?: number;
+        testsPassed?: number;
+        testsFailed?: number;
+        testsSkipped?: number;
+        status?: string;
+      };
+      if (
+        (typeof parsed.testsFailed === "number" && parsed.testsFailed > 0) ||
+        (typeof parsed.testsSkipped === "number" && parsed.testsSkipped > 0) ||
+        (typeof parsed.status === "string" && parsed.status !== "PASS")
+      ) {
+        continue;
+      }
       const count = parsed.numPassedTests ?? parsed.testsPassed;
       if (typeof count === "number" && Number.isInteger(count) && count > 0) {
         return count;

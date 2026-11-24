@@ -301,14 +301,15 @@ export async function verifyProductionParityRemote(
   const readyJson = (await readyResponse.json()) as {
     status?: string;
     database?: string;
-    redis?: { configured?: boolean; connected?: boolean };
+    redis?: string | { configured?: boolean; connected?: boolean };
   };
-  if (
-    readyJson.status !== "ready" ||
-    readyJson.database !== "reachable" ||
-    readyJson.redis?.configured !== true ||
-    readyJson.redis?.connected !== true
-  ) {
+  const redisReady =
+    readyJson.redis === "connected" ||
+    (typeof readyJson.redis === "object" &&
+      readyJson.redis !== null &&
+      readyJson.redis.configured === true &&
+      readyJson.redis.connected === true);
+  if (readyJson.status !== "ready" || readyJson.database !== "reachable" || !redisReady) {
     throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "Production database or Redis health check is not ready.", 409);
   }
 

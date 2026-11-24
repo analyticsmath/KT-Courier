@@ -78,7 +78,7 @@ describe("release-authority Postgres store and parity adapter bridge", () => {
             { status: 200 },
           );
         }
-        return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: { configured: true, connected: true } }), { status: 200 });
+        return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: "connected" }), { status: 200 });
       },
     });
 

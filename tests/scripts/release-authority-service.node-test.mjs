@@ -126,7 +126,7 @@ function buildMockUpstreamFetch(commitSha, treeSha) {
     }
     if (target.endsWith("/api/infrastructure/ready")) {
       return new Response(
-        JSON.stringify({ status: "ready", database: "reachable", redis: { configured: true, connected: true } }),
+        JSON.stringify({ status: "ready", database: "reachable", redis: "connected" }),
         { status: 200 },
       );
     }

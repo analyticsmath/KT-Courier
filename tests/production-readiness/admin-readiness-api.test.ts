@@ -107,7 +107,7 @@ describe("production readiness API, verification adapters, and parity guards", (
           { status: 200 },
         );
       }
-      return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: { configured: true, connected: true } }), { status: 200 });
+      return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: "connected" }), { status: 200 });
     }) as unknown as typeof fetch;
 
     await expect(
@@ -147,7 +147,7 @@ describe("production readiness API, verification adapters, and parity guards", (
           { status: 200 },
         );
       }
-      return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: { configured: true, connected: true } }), { status: 200 });
+      return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: "connected" }), { status: 200 });
     }) as unknown as typeof fetch;
 
     const result = await verifyProductionParityRemote(parityInput, {

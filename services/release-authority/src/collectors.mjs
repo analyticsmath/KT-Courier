@@ -305,10 +305,13 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
     throw Object.assign(new Error("Production health check returned non-200 status."), { code: "HEALTH_CHECK_FAILED", status: 409 });
   }
   const readyJson = await readyRes.json();
+  const redisOnline =
+    readyJson?.redis === "connected" ||
+    (readyJson?.redis?.configured === true && readyJson?.redis?.connected === true);
   const health = {
     postgresOnline: readyJson?.database === "reachable",
-    redisOnline: readyJson?.redis?.configured === true && readyJson?.redis?.connected === true,
-    healthy: readyJson?.status === "ready" && readyJson?.database === "reachable" && readyJson?.redis?.configured === true && readyJson?.redis?.connected === true,
+    redisOnline,
+    healthy: readyJson?.status === "ready" && readyJson?.database === "reachable" && redisOnline,
   };
 
   if (!params.auditReceipt || params.auditReceipt.releaseSha !== params.commitSha || params.auditReceipt.protectedDataUnchanged !== true || params.auditReceipt.leastPrivilege !== true) {
@@ -390,7 +393,10 @@ export async function verifyParityRemote(input, options = {}) {
     throw Object.assign(new Error("Health endpoint failed."), { code: "HEALTH_CHECK_FAILED", status: 409 });
   }
   const readyJson = await readyRes.json();
-  const healthy = readyJson?.status === "ready" && readyJson?.database === "reachable" && readyJson?.redis?.connected === true;
+  const redisConnected =
+    readyJson?.redis === "connected" ||
+    (readyJson?.redis?.configured === true && readyJson?.redis?.connected === true);
+  const healthy = readyJson?.status === "ready" && readyJson?.database === "reachable" && redisConnected;
 
   return {
     vercelSha: deployments.vercel.sha,
