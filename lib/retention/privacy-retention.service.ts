@@ -33,7 +33,7 @@ function assertSupportedRetentionPolicy(dataClass: string, action: RetentionActi
 async function lockRetentionDataClass(tx: Prisma.TransactionClient, dataClass: string): Promise<void> {
   // Serialize version allocation and activate/retire transitions per data class,
   // including the first policy when there is no existing row to lock.
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`retention-policy:${dataClass}`}))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`retention-policy:${dataClass}`}))`;
 }
 
 export async function listRetentionPolicyVersions() {
