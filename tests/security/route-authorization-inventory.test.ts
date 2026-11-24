@@ -133,6 +133,22 @@ describe("P1R-009: Route and Server Action Authorization Inventory Drift Prevent
     });
   });
 
+  it("indexes the independent retention-policy review permission", () => {
+    const content = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const entry = content.routes.find((row: { routePath: string }) =>
+      row.routePath === "app/api/admin/retention-policies/[reference]/review/route.ts");
+    expect(entry).toMatchObject({
+      httpMethods: ["POST"],
+      authorizationMechanism: "ADMIN_SESSION_PERMISSION",
+      requiredRoles: ["ADMIN", "SUPER_ADMIN"],
+      requiredPermissions: [PERMISSIONS.RETENTION_POLICIES_REVIEW],
+      rateLimitingApplied: false,
+      idempotencyEnforced: false,
+      originProtection: "ENFORCED_IN_ROUTE",
+      remediationStatus: "COMPLIANT",
+    });
+  });
+
   it("limits ordinary referrals to authenticated customer and store owners", () => {
     const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
     const referral = artifact.routes.find((row: { routePath: string }) =>

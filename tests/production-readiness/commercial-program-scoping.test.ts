@@ -16,6 +16,7 @@ const db = vi.hoisted(() => ({
   notificationTemplateVersion: { findMany: vi.fn() },
   notificationRecipientPolicyVersion: { findMany: vi.fn() },
   productionAcceptanceRecord: { findMany: vi.fn() },
+  retentionPolicyVersion: { findMany: vi.fn() },
   store: { findMany: vi.fn() },
 }));
 
@@ -73,6 +74,7 @@ describe("Commercial Program Readiness Scoping", () => {
     db.notificationTemplateVersion.findMany.mockResolvedValue([]);
     db.notificationRecipientPolicyVersion.findMany.mockResolvedValue([]);
     db.productionAcceptanceRecord.findMany.mockResolvedValue([]);
+    db.retentionPolicyVersion.findMany.mockResolvedValue([]);
   });
 
   it("does not label missing evidence as belonging to the deployed release", async () => {
