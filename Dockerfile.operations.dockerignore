@@ -11,6 +11,11 @@
 !types/**
 !scripts/
 !scripts/**
+!services/
+!services/release-authority/
+!services/release-authority/src/
+!services/release-authority/src/audit-receipt.mjs
+!services/release-authority/src/security.mjs
 !tests/
 !tests/**
 !docs/

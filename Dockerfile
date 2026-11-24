@@ -74,6 +74,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/types ./types
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+COPY --from=builder --chown=nextjs:nodejs /app/services/release-authority/src/audit-receipt.mjs /app/services/release-authority/src/security.mjs ./services/release-authority/src/
 COPY --from=builder --chown=nextjs:nodejs /app/var/catalog-media ./var/catalog-media
 COPY --from=builder --chown=nextjs:nodejs /app/docs/client-authority/2026-10 ./docs/client-authority/2026-10
 
@@ -96,6 +97,7 @@ COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node types ./types
 COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node services/release-authority/src/audit-receipt.mjs services/release-authority/src/security.mjs ./services/release-authority/src/
 
 USER node
 
@@ -111,6 +113,7 @@ COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node types ./types
 COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node services/release-authority/src/audit-receipt.mjs services/release-authority/src/security.mjs ./services/release-authority/src/
 
 USER node
 
@@ -126,6 +129,7 @@ COPY --chown=node:node prisma ./prisma
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node types ./types
 COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node services/release-authority/src/audit-receipt.mjs services/release-authority/src/security.mjs ./services/release-authority/src/
 
 USER node
 

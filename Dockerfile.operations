@@ -9,6 +9,7 @@ RUN node node_modules/prisma/build/index.js generate
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node types ./types
 COPY --chown=node:node scripts ./scripts
+COPY --chown=node:node services/release-authority/src/audit-receipt.mjs services/release-authority/src/security.mjs ./services/release-authority/src/
 COPY --chown=node:node tests ./tests
 COPY --chown=node:node docs/client-authority/2026-10 ./docs/client-authority/2026-10
 COPY --chown=node:node tsconfig.json vitest*.ts ./

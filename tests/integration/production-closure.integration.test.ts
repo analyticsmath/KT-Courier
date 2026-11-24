@@ -375,6 +375,13 @@ describe("production closure configuration transactions on isolated PostgreSQL",
       expect(changedUndocumented.comparison.changedTables).toContain("SystemSetting");
       expect(changedUndocumented.comparison.eligibleForParity).toBe(false);
     } finally {
+      await prisma.deliveryRegion.updateMany({
+        where: { slug: { in: [tag, `${tag}-cod-gp`] } },
+        data: { active: false, pricingEnabled: false },
+      }).catch(() => {});
+      await prisma.systemSetting.deleteMany({
+        where: { key: "pg-closure-ro-verify-setting" },
+      }).catch(() => {});
       await prisma.$executeRawUnsafe(`REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM "${roRole}";`).catch(() => {});
       await prisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM "${roRole}";`).catch(() => {});
       await prisma.$executeRawUnsafe(`DROP ROLE IF EXISTS "${roRole}";`).catch(() => {});
