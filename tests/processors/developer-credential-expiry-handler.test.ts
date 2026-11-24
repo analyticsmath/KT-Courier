@@ -1,6 +1,9 @@
 import { expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({ select: vi.fn(), apply: vi.fn() }));
-vi.mock("@/lib/developer-api/composition-root", () => ({ resolveDeveloperApiProductionComposition: () => ({ services: { processors: state } }) }));
+vi.mock("@/lib/developer-api/composition-root", () => ({
+  resolveDeveloperApiProductionComposition: () => ({ services: { processors: state } }),
+  resolveDeveloperApiProductionCompositionAsync: async () => ({ services: { processors: state } }),
+}));
 import { PROCESSOR_HANDLERS, type ProcessorHandler } from "@/lib/processors/processor-service";
 
 it("performs bounded credential expiry through the canonical service", async () => {

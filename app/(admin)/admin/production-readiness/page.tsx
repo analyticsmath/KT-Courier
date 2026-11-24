@@ -22,6 +22,7 @@ export default async function ProductionReadinessPage() {
         capabilities={matrix.capabilities}
         capabilityMatrix={matrix.capabilityMatrix}
         matrixReconciliation={matrix.matrixReconciliation}
+        moduleActivations={matrix.moduleActivations}
         envSchema={matrix.envSchema}
         commerceActivation={matrix.commerceActivation}
         entityConfigurationStatus={matrix.entityConfigurationStatus}

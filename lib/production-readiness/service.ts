@@ -47,7 +47,8 @@ export async function getProductionReadiness() {
     entries.push(configurationCapability(key, provider?.readiness === "LIVE_READY", "Provider configuration must be eligible for this production runtime."));
   }
   entries.push(configurationCapability("cloudinary_media", process.env.CATALOG_MEDIA_DELIVERY === "cloudinary" && ["CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"].every((key) => !!process.env[key]?.trim()), "Cloudinary delivery and write configuration."));
-  entries.push(configurationCapability("report_artifact_storage", process.env.REPORT_ARTIFACT_STORAGE === "s3" && ["REPORT_ARTIFACT_S3_ENDPOINT", "REPORT_ARTIFACT_S3_BUCKET", "REPORT_ARTIFACT_S3_ACCESS_KEY_ID", "REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY"].every((key) => !!process.env[key]?.trim()), "Persistent report artifact configuration."));
+  const { reportingRuntimeStorageStatus } = await import("@/lib/reporting/activation");
+  entries.push(configurationCapability("report_artifact_storage", reportingRuntimeStorageStatus().configured, "Persistent S3-compatible or Cloudinary private report artifact configuration."));
 
   async function probe(key: string, fn: () => Promise<Capability>) {
     try { entries.push(await fn()); }
@@ -105,7 +106,21 @@ export async function getProductionReadiness() {
         createdByUserId: true,
         approvedByUserId: true,
         approvedAt: true,
-        rules: { select: { id: true } },
+        rules: {
+          select: {
+            id: true,
+            ruleCode: true,
+            allocationType: true,
+            beneficiaryType: true,
+            calculationMethod: true,
+            rateBasisPoints: true,
+            fixedAmount: true,
+            minimumAmount: true,
+            maximumAmount: true,
+            priority: true,
+            isRequired: true,
+          },
+        },
       },
     });
     const coverage = evaluateCommissionPlanCoverage({ now, activeStoreIds, plans });
@@ -161,31 +176,28 @@ export async function getProductionReadiness() {
     const bankParsed = bank ? BankInstructionsSchema.safeParse(bank.value) : null;
     const bankValid = !!bankParsed?.success;
     const [services, regions] = await Promise.all([
-      typeof prisma.deliveryServiceDefinition?.findMany === "function"
-        ? prisma.deliveryServiceDefinition.findMany({
-            where: { status: "ACTIVE" },
-            select: { stableKey: true, status: true, effectiveFrom: true, effectiveTo: true },
-          })
-        : Promise.resolve(null),
-      typeof prisma.deliveryRegion?.findMany === "function"
-        ? prisma.deliveryRegion.findMany({
-            select: {
-              id: true,
-              active: true,
-              province: true,
-              coverageMode: true,
-              centerLat: true,
-              centerLng: true,
-              coverageRadiusKm: true,
-              maxDistanceKm: true,
-            },
-          })
-        : Promise.resolve(null),
+      prisma.deliveryServiceDefinition.findMany({
+        where: { status: "ACTIVE" },
+        select: { stableKey: true, status: true, effectiveFrom: true, effectiveTo: true },
+      }),
+      prisma.deliveryRegion.findMany({
+        select: {
+          id: true,
+          active: true,
+          pricingEnabled: true,
+          province: true,
+          coverageMode: true,
+          centerLat: true,
+          centerLng: true,
+          coverageRadiusKm: true,
+          maxDistanceKm: true,
+        },
+      }),
     ]);
-    const activeServicesByKey = services ? new Map(services.map((s) => [s.stableKey, s])) : null;
-    const regionsById = regions ? new Map(regions.map((r) => [r.id, r])) : null;
+    const activeServicesByKey = new Map(services.map((s) => [s.stableKey, s]));
+    const regionsById = new Map(regions.map((r) => [r.id, r]));
     const bankMeta = (bank?.value && typeof bank.value === "object" ? bank.value : null) as { updatedByUserId?: string } | null;
-    const { eligible } = evaluateCodPolicyReadiness(rows, {
+    const { eligible, rejectedReasons } = evaluateCodPolicyReadiness(rows, {
       activeServicesByKey,
       regionsById,
       bank: {
@@ -195,7 +207,7 @@ export async function getProductionReadiness() {
       },
       now,
     });
-    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Eligible personal parcel cash requires the owner-approved 50% digital deposit and 50% driver cash, an independently approved service, area, cash limit and unchanged remittance instructions. Full COD and store-specific policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length });
+    return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Eligible personal parcel cash requires the owner-approved 50% digital deposit and 50% driver cash, an independently approved service, area, cash limit and unchanged remittance instructions. Full COD and store-specific policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length, rejectedPolicyCount: rejectedReasons.length, rejectedPolicyReasons: rejectedReasons.map((r) => r.reason) });
   });
   await probe("cod_remittance", async () => {
     const configured = !!await readBankInstructions(); const approved = entries.find((e) => e.key === "cod_policy")?.status === "READY";
@@ -328,7 +340,7 @@ export async function getProductionReadiness() {
   for (const key of [...acceptanceKeys, "notification_templates", "notification_recipient_policy", "notification_routes"]) {
     if (!entries.some((e) => e.key === key)) entries.push(capability(key, "BLOCKED_CONFIGURATION", "READINESS_PROBE_FAILED", "Required evidence could not be read; investigate schema and configuration availability.", "ENGINEERING"));
   }
-  const [heartbeatRow, referralSettingRow, storeOrderPolicyRow, activePrivacyPolicyRows] = await Promise.all([
+  const [heartbeatRow, referralSettingRow, storeOrderPolicyRow, activePrivacyPolicyRows, reportingActivation, developerApiActivation] = await Promise.all([
     prisma.systemSetting?.findUnique?.({ where: { key: "production_processor_heartbeat" }, select: { value: true } }).catch(() => null) ?? null,
     prisma.systemSetting?.findUnique?.({ where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true } }).catch(() => null) ?? null,
     (prisma as unknown as { storeOrderOperationalPolicy?: { findFirst?: (args: unknown) => Promise<{ id: string } | null> } }).storeOrderOperationalPolicy?.findFirst?.({
@@ -351,6 +363,8 @@ export async function getProductionReadiness() {
       },
       select: { createdByUserId: true, legalReviewedByUserId: true, activatedByUserId: true, retentionDays: true },
     }).catch(() => []),
+    import("@/lib/reporting/activation").then((m) => m.resolveReportingActivationState({ db: prisma, now })).catch(() => null),
+    import("@/lib/developer-api/activation").then((m) => m.resolveDeveloperApiActivationState({ db: prisma, now })).catch(() => null),
   ]);
   const activePrivacyPolicyCount = Array.isArray(activePrivacyPolicyRows)
     ? activePrivacyPolicyRows.filter((policy) =>
@@ -365,16 +379,26 @@ export async function getProductionReadiness() {
       && policy.activatedByUserId !== policy.legalReviewedByUserId
     ).length
     : 0;
+
+  const guardedEntries = await applyReleaseAndParityGuardsToEntries(entries, { now });
+  const guardedStatusByKey = new Map(guardedEntries.map((entry) => [entry.key, entry.status]));
+  const effectiveAcceptanceRecords = acceptanceRecords.filter((record) => {
+    const guardedStatus = guardedStatusByKey.get(record.evidence.key);
+    return guardedStatus === undefined || guardedStatus === "READY";
+  });
+
   const capabilityMatrix = buildCapabilityMatrix({
     now,
     releaseSha: releaseSha ?? null,
-    capabilities: entries,
+    capabilities: guardedEntries,
     paystack,
-    acceptanceRecords,
+    acceptanceRecords: effectiveAcceptanceRecords,
     heartbeat: (heartbeatRow?.value as Parameters<typeof buildCapabilityMatrix>[0]["heartbeat"]) ?? null,
     storeOrderPolicyActive: Boolean(storeOrderPolicyRow),
     activePrivacyPolicyCount: typeof activePrivacyPolicyCount === "number" ? activePrivacyPolicyCount : 0,
     referralRewardIssuingEnabled: referralSettingRow?.type === "BOOLEAN" && referralSettingRow.value === true,
+    reportingActivation,
+    developerApiActivation,
   });
 
   const envSchema = verifyEnvironmentSchema(process.env);
@@ -411,7 +435,6 @@ export async function getProductionReadiness() {
     repairLinks: PRODUCTION_READINESS_REPAIR_LINKS,
   };
 
-  const guardedEntries = await applyReleaseAndParityGuardsToEntries(entries, { now });
   const matrixReconciliation = reconcileBoardWithCapabilityMatrix(guardedEntries, capabilityMatrix);
   return {
     generatedAt: now.toISOString(),
@@ -419,6 +442,10 @@ export async function getProductionReadiness() {
     capabilities: guardedEntries,
     capabilityMatrix,
     matrixReconciliation,
+    moduleActivations: {
+      reporting: reportingActivation,
+      developerApi: developerApiActivation,
+    },
     envSchema,
     commerceActivation,
     codeCapabilities,

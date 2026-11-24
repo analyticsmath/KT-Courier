@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { logApplicationEvent } from "@/lib/observability/logger";
 import { recordTelemetry } from "@/lib/observability/telemetry";
 import { assertReportStorageReady, getReportArtifactStorage, type ReportArtifactStorage } from "./artifact-storage";
+import { assertReportingProductionReady } from "./production-readiness";
 import { authorizeReportDefinition, getApprovedReportDefinition, normalizeReportRequest, type ReportActor } from "./authorization";
 import { ReportingError } from "./contracts";
 import { formatCsvReport, formatJsonReport } from "./csv-sanitizer";
@@ -46,10 +47,15 @@ export interface CreateReportJobInput {
 }
 
 export class ReportJobService {
-  constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
+  constructor(private readonly storageOverride?: ReportArtifactStorage) {}
+
+  private storage(): ReportArtifactStorage {
+    return this.storageOverride ?? getReportArtifactStorage();
+  }
 
   async createJob(input: CreateReportJobInput) {
-    assertReportStorageReady(this.storage.provider);
+    assertReportStorageReady(this.storage().provider);
+    await assertReportingProductionReady({ db });
     const definition = getApprovedReportDefinition(input.definitionKey);
     const actor: ReportActor = { id: input.requesterUserId, role: input.requesterRole };
     await authorizeReportDefinition(actor, definition, "GENERATE");
@@ -97,7 +103,9 @@ export class ReportJobService {
   }
 
   async processJob(publicReferenceValue: string) {
-    assertReportStorageReady(this.storage.provider);
+    const storage = this.storage();
+    assertReportStorageReady(storage.provider);
+    await assertReportingProductionReady({ db });
     const job = await db.reportJob.findUnique({ where: { publicReference: publicReferenceValue } });
     if (!job) throw new ReportingError("REPORT_JOB_NOT_FOUND", 404, "Report job not found.");
     if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(job.status)) return job;
@@ -133,9 +141,9 @@ export class ReportJobService {
       const data = await generateReportData(queryContext);
       const content = job.outputFormat === "JSON" ? formatJsonReport(data.rows) : formatCsvReport(data.headers, data.rows);
       const contentType = job.outputFormat === "JSON" ? "application/json; charset=utf-8" : "text/csv; charset=utf-8";
-      const storageKey = this.storage.createStorageKey(`${job.publicReference}-${claimToken}`, job.outputFormat, content);
+      const storageKey = storage.createStorageKey(`${job.publicReference}-${claimToken}`, job.outputFormat, content);
       storedKey = storageKey;
-      await this.storage.store(storageKey, content);
+      await storage.store(storageKey, content);
       const checksum = crypto.createHash("sha256").update(content).digest("hex");
 
       const completed = await db.$transaction(async (tx) => {
@@ -145,7 +153,7 @@ export class ReportJobService {
           publicReference: publicReference("ART"),
           jobId: job.id,
           format: job.outputFormat,
-          storageProvider: this.storage.provider,
+          storageProvider: storage.provider,
           storageKey,
           contentType,
           byteSize: Buffer.byteLength(content, "utf8"),
@@ -160,7 +168,7 @@ export class ReportJobService {
         return tx.reportJob.findUnique({ where: { id: job.id } });
       });
       if (!completed) {
-        await this.storage.delete(storageKey);
+        await storage.delete(storageKey);
         storedKey = null;
         return db.reportJob.findUnique({ where: { id: job.id } });
       }
@@ -174,13 +182,13 @@ export class ReportJobService {
     } catch {
       if (storedKey) {
         try {
-          await this.storage.delete(storedKey);
+          await storage.delete(storedKey);
         } catch {
           await db.reportReconciliationCase.create({ data: {
             publicReference: `REP-REC-${crypto.randomBytes(16).toString("hex").toUpperCase()}`,
             reason: "REPORT_STORAGE_FAILURE", status: "OPEN", jobId: job.id,
             safeSummary: "An uncommitted report object requires storage cleanup.",
-            safeEvidence: { source: "report_upload_cleanup", storageKey: storedKey, storageProvider: this.storage.provider },
+            safeEvidence: { source: "report_upload_cleanup", storageKey: storedKey, storageProvider: storage.provider },
           } });
         }
       }
@@ -227,10 +235,16 @@ export class ReportJobService {
 }
 
 export class ReportDownloadService {
-  constructor(private readonly storage: ReportArtifactStorage = getReportArtifactStorage()) {}
+  constructor(private readonly storageOverride?: ReportArtifactStorage) {}
+
+  private storage(): ReportArtifactStorage {
+    return this.storageOverride ?? getReportArtifactStorage();
+  }
 
   async getArtifactFile(artifactId: string, userId: string, role: string, ipAddress?: string, userAgent?: string) {
-    assertReportStorageReady(this.storage.provider);
+    const storage = this.storage();
+    assertReportStorageReady(storage.provider);
+    await assertReportingProductionReady({ db });
     const artifact = await db.reportExportArtifact.findUnique({ where: { id: artifactId } });
     if (!artifact) throw new ReportingError("ARTIFACT_NOT_FOUND", 404, "Export artifact not found.");
     if (new Date() >= artifact.expiresAt) throw new ReportingError("ARTIFACT_EXPIRED", 410, "Export artifact has expired.");
@@ -248,7 +262,7 @@ export class ReportDownloadService {
       }
     }
 
-    const content = await this.storage.open(artifact.storageKey);
+    const content = await storage.open(artifact.storageKey);
     await db.$transaction([
       db.reportDownloadAudit.create({
         data: {

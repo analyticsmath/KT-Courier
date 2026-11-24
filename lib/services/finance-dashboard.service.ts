@@ -10,7 +10,7 @@ export async function getFinanceDashboard() {
   const driverEarnings = await summarizeDriverEarnings();
   const [byStatus, held, paid, cases, platformWallet, platformCommission, beneficiaryPayable, commissionAccrued, commissionReversed, commissionCases, commissionByPlan] = await Promise.all([
     prisma.withdrawalRequest.groupBy({ by: ["status"], _sum: { amount: true }, _count: { _all: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "WITHDRAWAL_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE" }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "WITHDRAWAL_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
     prisma.withdrawalRequest.aggregate({ where: { status: "PAID" }, _sum: { amount: true } }),
     prisma.withdrawalReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] } } }),
     prisma.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" } }, select: { id: true } }),
@@ -32,15 +32,15 @@ export async function getFinanceDashboard() {
   const periodStart = new Date(); periodStart.setUTCDate(1); periodStart.setUTCHours(0, 0, 0, 0);
   const [refundByStatus, walletLiability, refundHeldLiability, walletRefunds, externalRefunds, refundedByPeriod, refundCases, commissionClawbacks, oldestPendingRefunds, refundablePayments] = await Promise.all([
     prisma.paymentRefund.groupBy({ by: ["status"], _sum: { amount: true }, _count: { _all: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_WALLET_AVAILABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE" }, _sum: { currentBalance: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE" }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_WALLET_AVAILABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", method: "CUSTOMER_WALLET" }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", method: "ORIGINAL_PAYMENT_METHOD" }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", completedAt: { gte: periodStart } }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.refundReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] } } }),
     prisma.refundFundingAllocation.aggregate({ where: { sourceType: { in: ["PLATFORM_COMMISSION_REVENUE", "BENEFICIARY_COMMISSION_PAYABLE"] }, refund: { status: { notIn: ["REJECTED", "CANCELLED"] } } }, _sum: { amount: true } }),
     prisma.paymentRefund.findMany({ where: { status: { in: ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "RECONCILIATION_REQUIRED"] } }, select: { id: true, publicReference: true, amount: true, method: true, status: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 10 }),
-    prisma.payment.findMany({ where: { status: "SUCCEEDED", currency: "ZAR" }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } }),
+    prisma.payment.findMany({ where: { status: "SUCCEEDED", currency: "ZAR", publicReference: { not: { startsWith: "pay_sbox_" } } }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } }),
   ]);
   const refundStatus = Object.fromEntries(refundByStatus.map((item) => [item.status, Object.freeze({ count: item._count._all, amount: stringAmount(item._sum.amount) })]));
   const remainingRefundableLiabilities = refundablePayments.reduce((total, payment) => {

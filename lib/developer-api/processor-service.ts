@@ -44,7 +44,7 @@ export class Phase28ProcessorService {
     return this.rows(await this.db.developerWebhookDelivery.findMany({ where: { status: "SENDING" }, orderBy: [{ lastAttemptedAt: "asc" }, { id: "asc" }], take: limit }), operation);
   }
   async apply(operation: Phase28ProcessorOperation, candidate: ProcessorCandidate): Promise<unknown> {
-    assertDeveloperApiProductionReady();
+    await assertDeveloperApiProductionReady({ db: this.db });
     if (operation === "expire-credentials") return this.maintenance.expireCredential(candidate.record);
     if (operation === "expire-idempotency") return this.maintenance.expireIdempotency(candidate.record);
     if (operation === "close-usage") return this.maintenance.closeUsage(candidate.record);

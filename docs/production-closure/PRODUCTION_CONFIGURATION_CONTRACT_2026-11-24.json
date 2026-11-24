@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24",
+  "repository": "analyticsmath/KT-Courier",
+  "branch": "main",
+  "policy": "NON_SECRET_NAMES_ONLY_NO_SECRET_VALUES",
+  "services": [
+    "vercel-edge",
+    "railway-web",
+    "railway-operations",
+    "railway-query-storefront-categories",
+    "standalone-release-authority",
+    "github-production-release-env"
+  ],
+  "variables": [
+    {
+      "key": "DATABASE_URL",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations", "railway-query-storefront-categories"],
+      "validator": "lib/config/production-validation.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Non-local postgres/postgresql TLS URI pointing strictly to production DB",
+      "owner": "Infrastructure + Data Owner"
+    },
+    {
+      "key": "KT_DATABASE_CLASSIFICATION",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations", "railway-query-storefront-categories"],
+      "validator": "lib/runtime/deployment-classification.ts",
+      "rule": "Must equal 'production' alongside production DATABASE_URL and never combine with test/e2e/smoke/demo flags",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "REDIS_URL",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/security/redis-client.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Non-placeholder Redis connection string (rediss:// preferred); required for rate limiting and processor leases",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "NEXT_PUBLIC_APP_URL",
+      "classification": "PUBLIC_CONFIG",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge", "railway-web"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Valid public HTTPS origin without credentials, path, query, or loopback host",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "PAYMENT_APP_ORIGIN",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge", "railway-web"],
+      "validator": "lib/payments/return-url-policy.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Must match canonical HTTPS origin of NEXT_PUBLIC_APP_URL",
+      "owner": "Infrastructure + Finance"
+    },
+    {
+      "key": "KT_EDGE_ROLE",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge"],
+      "validator": "lib/deployment/edge-routing.ts & next.config.ts",
+      "rule": "Set to 'production' on production Vercel project so verified PRODUCTION_EDGE_ORIGIN routing applies",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "KT_COMMERCE_ENABLED",
+      "classification": "GOVERNANCE_SWITCH",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge", "railway-web", "railway-operations"],
+      "validator": "lib/runtime/commerce-switch.ts & lib/runtime/commerce-activation.ts",
+      "rule": "Single authoritative public commerce switch (never duplicate conflicting legacy CHECKOUT_PUBLIC_ENABLED)",
+      "owner": "Client Authority + Operations"
+    },
+    {
+      "key": "PAYSTACK_MODE",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/payments/providers/paystack/paystack-config.ts",
+      "rule": "Must equal 'live' when public live checkout is active ('test' or 'disabled' only when sandbox/disabled); never mix with PAYSTACK_TEMPORARY_SANDBOX_ENABLED=true when KT_COMMERCE_ENABLED=true",
+      "owner": "Finance + Payments"
+    },
+    {
+      "key": "PAYSTACK_SECRET_KEY",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Server-only sk_live_ key when PAYSTACK_MODE=live (or sk_test_ for isolated sandbox)",
+      "owner": "Finance + Payments"
+    },
+    {
+      "key": "PAYSTACK_PUBLIC_KEY",
+      "classification": "PUBLIC_CONFIG",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge", "railway-web"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Matching pk_live_ prefix for live mode (or pk_test_ for sandbox)",
+      "owner": "Finance + Payments"
+    },
+    {
+      "key": "AUTH_OTP_HMAC_KEY",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "32+ byte non-placeholder HMAC secret for phone/email OTP integrity",
+      "owner": "Security"
+    },
+    {
+      "key": "NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/notifications/security-payload-vault.ts",
+      "rule": "Base64 32-byte encryption key for security/OTP outbox vault",
+      "owner": "Security + Messaging"
+    },
+    {
+      "key": "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["vercel-edge", "railway-web"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Shared stable AES encryption key across multi-instance deployments",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "CRON_SECRET",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Server-to-server scheduled job authentication secret",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "INTERNAL_JOB_SECRET",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Internal processor/worker authentication secret",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "EMAIL_PROVIDER",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/config/env.ts",
+      "rule": "'resend' in production (with verified EMAIL_FROM, EMAIL_REPLY_TO, RESEND_API_KEY); 'console' is dev/test only",
+      "owner": "Messaging Owner"
+    },
+    {
+      "key": "RESEND_API_KEY",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "Required non-placeholder secret when EMAIL_PROVIDER=resend",
+      "owner": "Messaging Owner"
+    },
+    {
+      "key": "REPORT_ARTIFACT_STORAGE",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/reporting/artifact-storage.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Must be 's3' or 'cloudinary' in production before approving REPORTING governed activation; 'local' is forbidden in production",
+      "owner": "Infrastructure + Data Owner"
+    },
+    {
+      "key": "REPORT_ARTIFACT_S3_ENDPOINT",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts",
+      "rule": "HTTPS S3/R2 endpoint when REPORT_ARTIFACT_STORAGE=s3 (alongside BUCKET, REGION, ACCESS_KEY_ID, SECRET_ACCESS_KEY)",
+      "owner": "Infrastructure"
+    },
+    {
+      "key": "CLOUDINARY_CLOUD_NAME",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/media/cloudinary-image-storage.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Paired with CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET for authenticated catalog media and optional cloudinary report storage",
+      "owner": "Media + Security"
+    },
+    {
+      "key": "PRIVATE_MEDIA_STORAGE",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/private-media/private-media-storage.ts",
+      "rule": "Must be 's3' in production with PRIVATE_MEDIA_S3_ENDPOINT/BUCKET/REGION/ACCESS_KEY_ID/SECRET_ACCESS_KEY",
+      "owner": "Security + Media"
+    },
+    {
+      "key": "DEVELOPER_API_ENDPOINT_ENVIRONMENT",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "railway-operations"],
+      "validator": "lib/runtime/env-schema-verifier.ts & lib/developer-api/production-readiness.ts",
+      "rule": "'PRODUCTION' (plus dual-control approval) alongside DEVELOPER_API_CREDENTIAL_HMAC_KEY, DEVELOPER_API_CURSOR_HMAC_KEY, DEVELOPER_WEBHOOK_ENCRYPTION_KEY",
+      "owner": "Platform Admin + Security"
+    },
+    {
+      "key": "GITHUB_RELEASE_READ_TOKEN",
+      "classification": "SECRET",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "standalone-release-authority"],
+      "validator": "lib/production-readiness/evidence.ts & services/release-authority/src/collectors.mjs",
+      "rule": "Read-only GitHub token to server-verify CI 10-job and Certification 26-job runs and artifact counts",
+      "owner": "Release Infrastructure"
+    },
+    {
+      "key": "VERCEL_TOKEN",
+      "classification": "SECRET",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "standalone-release-authority"],
+      "validator": "lib/production-readiness/verification-adapters.server.ts",
+      "rule": "Read-only Vercel API token for server-verified READY production deployment SHA parity",
+      "owner": "Release Infrastructure"
+    },
+    {
+      "key": "RAILWAY_API_TOKEN",
+      "classification": "SECRET",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "standalone-release-authority"],
+      "validator": "lib/production-readiness/verification-adapters.server.ts",
+      "rule": "Read-only Railway token for web, operations, and query-storefront-categories parity",
+      "owner": "Release Infrastructure"
+    },
+    {
+      "key": "KT_PARITY_VERIFIER_URL",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web"],
+      "validator": "lib/runtime/env-schema-verifier.ts & lib/production-readiness/verification-adapters.server.ts",
+      "rule": "Optional HTTPS URL pointing to standalone release-authority /v1/release-authority/parity/verify endpoint",
+      "owner": "Release Infrastructure"
+    },
+    {
+      "key": "RELEASE_AUTHORITY_ORIGIN",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["github-production-release-env"],
+      "validator": "scripts/release-authority-client.mjs & .github/workflows/production-release-authorization.yml",
+      "rule": "Bare HTTPS origin of deployed services/release-authority matched against RELEASE_AUTHORITY_ALLOWED_ORIGIN and DNS SSRF guard",
+      "owner": "Independent Release Authority"
+    },
+    {
+      "key": "RELEASE_AUTHORITY_TOKEN",
+      "classification": "SECRET",
+      "requiredInProduction": false,
+      "targets": ["github-production-release-env", "standalone-release-authority"],
+      "validator": "services/release-authority/src/app.mjs",
+      "rule": "Bearer read/claim credential in GitHub production-release environment matching RELEASE_AUTHORITY_BEARER_TOKEN (distinct from RELEASE_AUTHORITY_ADMIN_TOKEN)",
+      "owner": "Independent Release Authority"
+    },
+    {
+      "key": "RELEASE_AUTHORITY_TRUST_SHA256",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["github-production-release-env"],
+      "validator": "scripts/release-authority-client.mjs",
+      "rule": "Pinned 64-hex SHA-256 digest of the canonical 4-role Ed25519 trust bundle",
+      "owner": "Independent Release Authority"
+    }
+  ]
+}

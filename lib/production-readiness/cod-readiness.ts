@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { PROVINCES } from "@/lib/client-platform/contracts";
 import { regionBoundaryIssues, type RegionBoundary } from "@/lib/maps/region-boundaries";
 
 export type CodPolicyRowCandidate = Readonly<{
@@ -30,6 +31,7 @@ export type CodRegionSnapshot = RegionBoundary &
   Readonly<{
     id: string;
     active: boolean;
+    pricingEnabled?: boolean;
   }>;
 
 export type CodBankSnapshot = Readonly<{
@@ -37,6 +39,17 @@ export type CodBankSnapshot = Readonly<{
   updatedAtIso: string | null;
   updatedByUserId?: string | null;
 }>;
+
+function isUsableRegion(region: CodRegionSnapshot | undefined): region is CodRegionSnapshot {
+  return Boolean(region && region.active && region.pricingEnabled !== false && regionBoundaryIssues(region).length === 0);
+}
+
+function isCanonicalDepositHalf(value: Prisma.Decimal | null): boolean {
+  if (!value) return false;
+  const text = value.toString().trim();
+  const numeric = Number(text);
+  return Number.isFinite(numeric) && numeric === 0.5 && /^0\.50*$/.test(text);
+}
 
 export function evaluateCodPolicyReadiness<T extends CodPolicyRowCandidate>(
   rows: readonly T[],
@@ -63,8 +76,8 @@ export function evaluateCodPolicyReadiness<T extends CodPolicyRowCandidate>(
       continue;
     }
 
-    const depositPercent = r.depositPercent?.toString();
-    if ((depositPercent !== "0.5" && depositPercent !== "0.5000") || r.depositAmount != null || Number(r.maximumCodAmount ?? 0) <= 0) {
+    const maxCod = r.maximumCodAmount == null ? Number.NaN : Number(r.maximumCodAmount.toString());
+    if (!isCanonicalDepositHalf(r.depositPercent) || r.depositAmount != null || !Number.isFinite(maxCod) || maxCod <= 0) {
       rejectedReasons.push({ policyId: r.id, reason: "INVALID_FIFTY_FIFTY_SPLIT_OR_LIMIT" });
       continue;
     }
@@ -73,27 +86,55 @@ export function evaluateCodPolicyReadiness<T extends CodPolicyRowCandidate>(
       rejectedReasons.push({ policyId: r.id, reason: "MISSING_DELIVERY_SERVICE" });
       continue;
     }
-    if (context.activeServicesByKey) {
-      const service = context.activeServicesByKey.get(r.deliveryServiceId);
-      if (
-        !service ||
-        service.status !== "ACTIVE" ||
-        service.effectiveFrom > context.now ||
-        (service.effectiveTo !== null && service.effectiveTo <= context.now)
-      ) {
-        rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_SERVICE_INACTIVE" });
-        continue;
-      }
+    if (!context.activeServicesByKey) {
+      rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_SERVICE_UNAVAILABLE" });
+      continue;
+    }
+    const service = context.activeServicesByKey.get(r.deliveryServiceId);
+    if (
+      !service ||
+      service.status !== "ACTIVE" ||
+      service.effectiveFrom > context.now ||
+      (service.effectiveTo !== null && service.effectiveTo <= context.now)
+    ) {
+      rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_SERVICE_INACTIVE" });
+      continue;
     }
 
-    const provinces = Array.isArray(r.provinceScope) ? r.provinceScope.filter((p): p is string => typeof p === "string" && p.trim().length > 0) : [];
+    if (r.provinceScope != null && !Array.isArray(r.provinceScope)) {
+      rejectedReasons.push({ policyId: r.id, reason: "INVALID_PROVINCE_SCOPE" });
+      continue;
+    }
+    const rawProvinces = Array.isArray(r.provinceScope) ? r.provinceScope : [];
+    const hasInvalidProvince = rawProvinces.some(
+      (p) => typeof p !== "string" || !PROVINCES.some((canon) => canon === p),
+    );
+    if (hasInvalidProvince) {
+      rejectedReasons.push({ policyId: r.id, reason: "INVALID_PROVINCE_SCOPE" });
+      continue;
+    }
+    const provinces = rawProvinces as string[];
     if (!r.regionId && provinces.length === 0) {
       rejectedReasons.push({ policyId: r.id, reason: "MISSING_REGION_OR_PROVINCE_SCOPE" });
       continue;
     }
-    if (r.regionId && context.regionsById) {
+    if (!context.regionsById) {
+      rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_REGION_UNUSABLE" });
+      continue;
+    }
+    if (r.regionId) {
       const region = context.regionsById.get(r.regionId);
-      if (!region || !region.active || regionBoundaryIssues(region).length > 0) {
+      if (!isUsableRegion(region) || (provinces.length > 0 && (!region.province || !provinces.includes(region.province)))) {
+        rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_REGION_UNUSABLE" });
+        continue;
+      }
+    }
+    if (provinces.length > 0) {
+      const usableRegions = [...context.regionsById.values()].filter((region) => isUsableRegion(region));
+      const allProvincesCovered = provinces.every((province) =>
+        usableRegions.some((region) => region.province === province),
+      );
+      if (!allProvincesCovered) {
         rejectedReasons.push({ policyId: r.id, reason: "DELIVERY_REGION_UNUSABLE" });
         continue;
       }
@@ -107,14 +148,21 @@ export function evaluateCodPolicyReadiness<T extends CodPolicyRowCandidate>(
       settlementTiming?: string;
     } | null;
 
+    const approvedAtMs = typeof evidence?.approvedAt === "string" ? Date.parse(evidence.approvedAt) : Number.NaN;
+    const remittanceAtMs = typeof evidence?.remittanceUpdatedAt === "string" ? Date.parse(evidence.remittanceUpdatedAt) : Number.NaN;
+    const nowMs = context.now.getTime();
     if (
       !context.bank.valid ||
       !evidence?.approvedByUserId ||
       evidence.approvedByUserId === r.createdByUserId ||
       (context.bank.updatedByUserId && evidence.approvedByUserId === context.bank.updatedByUserId) ||
-      !evidence.approvedAt ||
+      !Number.isFinite(approvedAtMs) ||
+      approvedAtMs > nowMs ||
+      !Number.isFinite(remittanceAtMs) ||
+      remittanceAtMs > approvedAtMs ||
       evidence.remittanceApproved !== true ||
-      !evidence.settlementTiming ||
+      typeof evidence.settlementTiming !== "string" ||
+      evidence.settlementTiming.trim().length === 0 ||
       !context.bank.updatedAtIso ||
       context.bank.updatedAtIso !== evidence.remittanceUpdatedAt
     ) {

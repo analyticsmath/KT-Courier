@@ -12,7 +12,7 @@ const db = vi.hoisted(() => ({
   systemSetting: { findUnique: vi.fn() },
   store: { findUnique: vi.fn() },
   deliveryServiceDefinition: { findFirst: vi.fn() },
-  deliveryRegion: { findFirst: vi.fn() },
+  deliveryRegion: { findFirst: vi.fn(), findMany: vi.fn() },
   order: { findUnique: vi.fn(), update: vi.fn() },
   cashOnDelivery: { delete: vi.fn(), update: vi.fn() },
   adminActivityLog: { create: vi.fn(), findFirst: vi.fn() },
@@ -81,6 +81,19 @@ beforeEach(() => {
   });
   permission.mockResolvedValue(true);
   db.deliveryServiceDefinition.findFirst.mockResolvedValue({ stableKey: "CLIENT_STANDARD" });
+  db.deliveryRegion.findMany.mockResolvedValue([
+    {
+      id: "reg-gauteng",
+      active: true,
+      pricingEnabled: true,
+      province: "Gauteng",
+      coverageMode: "RADIUS",
+      centerLat: -26.2,
+      centerLng: 28.04,
+      coverageRadiusKm: 40,
+      maxDistanceKm: 80,
+    },
+  ]);
 });
 describe("scoped cash payment policies", () => {
   it.each([
@@ -478,6 +491,56 @@ describe("scoped cash payment policies", () => {
     } finally {
       vi.unstubAllEnvs();
     }
+  });
+
+  it("refuses COD configuration when scoped region or province lacks an active pricing-enabled region with valid boundaries", async () => {
+    db.paymentMethodPolicy.findMany.mockResolvedValue([]);
+    db.deliveryRegion.findMany.mockResolvedValue([
+      {
+        id: "reg-gp-disabled",
+        active: true,
+        pricingEnabled: false,
+        province: "Gauteng",
+        coverageMode: "RADIUS",
+        centerLat: -26.2,
+        centerLng: 28.04,
+        coverageRadiusKm: 40,
+        maxDistanceKm: 80,
+      },
+    ]);
+    await expect(
+      savePaymentConfiguration(actor, {
+        ...input,
+        storeId: null,
+        mode: "DEPOSIT_PLUS_COD",
+        orderType: "PARCEL_DOCUMENT",
+        depositPercent: "0.5",
+        expectedVersion: 0,
+      }),
+    ).rejects.toMatchObject({ code: "PAYMENT_REGION_UNAVAILABLE", status: 422 });
+
+    db.deliveryRegion.findFirst.mockResolvedValue({
+      id: "cm00000000000000000000099",
+      active: true,
+      pricingEnabled: true,
+      province: "Western Cape",
+      coverageMode: "RADIUS",
+      centerLat: null,
+      centerLng: null,
+      coverageRadiusKm: null,
+      maxDistanceKm: null,
+    });
+    await expect(
+      savePaymentConfiguration(actor, {
+        ...input,
+        storeId: null,
+        regionId: "cm00000000000000000000099",
+        mode: "FULL_COD",
+        depositPercent: null,
+        orderType: "PARCEL_DOCUMENT",
+        expectedVersion: 0,
+      }),
+    ).rejects.toMatchObject({ code: "PAYMENT_REGION_UNAVAILABLE", status: 422 });
   });
 
 });

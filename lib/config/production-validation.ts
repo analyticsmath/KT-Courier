@@ -113,7 +113,15 @@ export function evaluateProductionConfiguration(
   }
 
   const cloudinaryReady = cloudinaryImageConfig(source) !== null;
-  if (!source.REPORT_ARTIFACT_STORAGE || source.REPORT_ARTIFACT_STORAGE === "local" || (source.REPORT_ARTIFACT_STORAGE === "cloudinary" && !cloudinaryReady)) {
+  const s3ReportReady =
+    source.REPORT_ARTIFACT_STORAGE === "s3" &&
+    hasUsableValue(source.REPORT_ARTIFACT_S3_ENDPOINT) &&
+    hasUsableValue(source.REPORT_ARTIFACT_S3_BUCKET) &&
+    hasUsableValue(source.REPORT_ARTIFACT_S3_ACCESS_KEY_ID) &&
+    hasUsableValue(source.REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY);
+  const reportStorageValid =
+    (source.REPORT_ARTIFACT_STORAGE === "cloudinary" && cloudinaryReady) || s3ReportReady;
+  if (!reportStorageValid) {
     issues.push(issue("report_artifacts", "LOCAL_STORAGE_NOT_PRODUCTION_APPROVED", "DURABLE_ARTIFACT_STORAGE", "READINESS"));
   }
 

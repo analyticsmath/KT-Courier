@@ -12,8 +12,9 @@ import { evaluatePromotionsReleaseGate } from "@/lib/promotions/production-lock"
 import { SUBSCRIPTIONS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/subscriptions/production-lock";
 import { PROMOTERS_PRODUCTION_VALIDATION_APPROVED } from "@/lib/promoters/production-readiness";
 import { ADVERTISING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/advertising/production-lock";
-import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/reporting/production-readiness";
-import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "@/lib/developer-api/production-readiness";
+import type { GovernedModuleActivationState } from "@/lib/governance/module-activation";
+import { REPORTING_PRODUCTION_LOCK_REASON } from "@/lib/reporting/contracts";
+import { DEVELOPER_API_PRODUCTION_LOCK_REASON } from "@/lib/developer-api/contracts";
 import { DELEGATED_COMPOSITE_PROCESSORS, productionProcessors } from "@/lib/processors/production-loop";
 import { PROCESSOR_REGISTRY } from "@/lib/processors/processor-registry";
 
@@ -64,6 +65,8 @@ export interface CapabilityMatrixInputs {
   readonly storeOrderPolicyActive?: boolean;
   readonly activePrivacyPolicyCount?: number;
   readonly referralRewardIssuingEnabled?: boolean;
+  readonly reportingActivation?: GovernedModuleActivationState | null;
+  readonly developerApiActivation?: GovernedModuleActivationState | null;
   readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
@@ -445,11 +448,11 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       sourceImplemented: true,
       isolatedTestPassSha: isolatedSha,
       runtimeConfigured: isReadyCapability(caps, "report_artifact_storage"),
-      externalEntitlementApproved: REPORTING_PRODUCTION_VALIDATION_APPROVED,
-      adminPolicyEffective: REPORTING_PRODUCTION_VALIDATION_APPROVED,
+      externalEntitlementApproved: Boolean(inputs.reportingActivation?.approved),
+      adminPolicyEffective: Boolean(inputs.reportingActivation?.approved),
       schedulerRegisteredAndHealthy: isHeartbeatHealthy(inputs.heartbeat, inputs.now, ["generate-report-jobs", "expire-report-artifacts"]),
-      lastBlockerCode: !REPORTING_PRODUCTION_VALIDATION_APPROVED
-        ? "REPORTING_CONSOLIDATED_VALIDATION_NOT_APPROVED"
+      lastBlockerCode: !(inputs.reportingActivation?.approved)
+        ? REPORTING_PRODUCTION_LOCK_REASON
         : !isReadyCapability(caps, "report_artifact_storage")
           ? "REPORT_ARTIFACT_STORAGE_UNCONFIGURED"
           : null,
@@ -459,11 +462,15 @@ export function buildCapabilityMatrix(inputs: CapabilityMatrixInputs): readonly 
       label: "Developer API & Outbound Webhooks",
       sourceImplemented: true,
       isolatedTestPassSha: isolatedSha,
-      runtimeConfigured: databaseReady,
-      externalEntitlementApproved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
-      adminPolicyEffective: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
+      runtimeConfigured: databaseReady && Boolean(inputs.developerApiActivation?.runtimeConfigured),
+      externalEntitlementApproved: Boolean(inputs.developerApiActivation?.approved),
+      adminPolicyEffective: Boolean(inputs.developerApiActivation?.approved),
       schedulerRegisteredAndHealthy: isHeartbeatHealthy(inputs.heartbeat, inputs.now, ["deliver-developer-webhooks", "expire-developer-api-credentials"]),
-      lastBlockerCode: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? null : "DEVELOPER_API_CONSOLIDATED_VALIDATION_NOT_APPROVED",
+      lastBlockerCode: !(inputs.developerApiActivation?.approved)
+        ? DEVELOPER_API_PRODUCTION_LOCK_REASON
+        : !(inputs.developerApiActivation?.runtimeConfigured)
+          ? (inputs.developerApiActivation?.blockerCode ?? "DEVELOPER_API_SECRETS_UNCONFIGURED")
+          : null,
     }),
     buildRow({
       key: "PRIVACY_AND_RETENTION",

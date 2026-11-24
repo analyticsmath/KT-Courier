@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
-import { netmaskMatchesPrivateOrLoopback, parseHostLiteral, validateTrustBundle } from "./release-authority-helpers.mjs";
+import {
+  netmaskMatchesPrivateOrLoopback,
+  parseHostLiteral,
+  resolveAndVerifyPublicAuthorityHost,
+  validateTrustBundle,
+} from "./release-authority-helpers.mjs";
 
 const MAX_RESPONSE_BYTES = 262_144;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -44,7 +49,7 @@ export function validateAuthorityOrigin(rawOrigin, allowedOrigin, options = {}) 
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       return { ok: false, reason: "AUTHORITY_ENDPOINT_INVALID", detail: "Unsupported loopback protocol." };
     }
-    return { ok: true, origin: parsed.origin };
+    return { ok: true, origin: parsed.origin, hostname: parsed.hostname };
   }
 
   if (parsed.protocol !== "https:") {
@@ -53,7 +58,16 @@ export function validateAuthorityOrigin(rawOrigin, allowedOrigin, options = {}) 
   if (netmaskMatchesPrivateOrLoopback(parsed.hostname)) {
     return { ok: false, reason: "AUTHORITY_ENDPOINT_INVALID", detail: "Private, metadata, and loopback authority addresses are prohibited." };
   }
-  return { ok: true, origin: parsed.origin };
+  return { ok: true, origin: parsed.origin, hostname: parsed.hostname };
+}
+
+export async function validateAuthorityOriginWithDns(rawOrigin, allowedOrigin, options = {}) {
+  const syncCheck = validateAuthorityOrigin(rawOrigin, allowedOrigin, options);
+  if (!syncCheck.ok) return syncCheck;
+
+  const dnsCheck = await resolveAndVerifyPublicAuthorityHost(syncCheck.hostname, options);
+  if (!dnsCheck.ok) return dnsCheck;
+  return { ok: true, origin: syncCheck.origin };
 }
 
 export function resolveConfiguredTrust(env, canonicalBytesFn) {
@@ -177,8 +191,12 @@ export function createHttpReleaseAuthorityAdapter({
       return res.body.envelope;
     },
 
-    async getVerifiedReleaseContext({ releaseSha, treeSha }) {
-      const route = `/v1/release-authority/releases/${encodeURIComponent(releaseSha)}/context?treeSha=${encodeURIComponent(treeSha)}`;
+    async getVerifiedReleaseContext({ releaseSha, treeSha, evidenceReference }) {
+      const query = new URLSearchParams({ treeSha: String(treeSha ?? "") });
+      if (evidenceReference) {
+        query.set("evidenceReference", String(evidenceReference));
+      }
+      const route = `/v1/release-authority/releases/${encodeURIComponent(releaseSha)}/context?${query.toString()}`;
       const res = await requestJson(route, { method: "GET" });
       if (res.status === 401 || res.status === 403) {
         throw Object.assign(new Error("Authority rejected context credentials."), { code: "AUTHORITY_UNAUTHORIZED" });
@@ -215,7 +233,7 @@ export function createHttpReleaseAuthorityAdapter({
         throw Object.assign(new Error("Single-use issuance claim rejected."), { code });
       }
       if (res.status === 403 || res.status === 410) {
-        if (res.body?.code === "REVOKED" || res.body?.code === "ISSUANCE_REVOKED") {
+        if (res.body?.code === "REVOKED" || res.body?.code === "ISSUANCE_REVOKED" || res.body?.code === "EVIDENCE_REVOKED") {
           throw Object.assign(new Error("Issuance revoked at claim."), { code: "EVIDENCE_REVOKED" });
         }
         throw Object.assign(new Error("Authority rejected issuance claim credentials."), { code: "AUTHORITY_UNAUTHORIZED" });

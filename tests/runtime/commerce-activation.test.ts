@@ -220,4 +220,56 @@ describe("Redacted Environment Schema Verifier (§B.4)", () => {
       ]),
     );
   });
+
+  it("enforces reporting durable storage, developer API production keys, and parity verifier URL rules", () => {
+    const baseProd = {
+      NODE_ENV: "production",
+      KT_DATABASE_CLASSIFICATION: "production",
+      KT_COMMERCE_ENABLED: "false",
+      DATABASE_URL: "postgresql://postgres:SecretPass@db.internal:5432/kt_prod?sslmode=require",
+      REDIS_URL: "rediss://default:SecretRedis@redis.internal:6379",
+      PAYSTACK_MODE: "disabled",
+      NEXT_PUBLIC_APP_URL: "https://www.ktcouriers.com",
+      PAYMENT_APP_ORIGIN: "https://www.ktcouriers.com",
+      AUTH_OTP_HMAC_KEY: "a".repeat(64),
+      NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY: "b".repeat(64),
+      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: "c".repeat(64),
+      CRON_SECRET: "d".repeat(48),
+      INTERNAL_JOB_SECRET: "e".repeat(48),
+    };
+
+    const badReport = verifyEnvironmentSchema({
+      ...baseProd,
+      REPORT_ARTIFACT_STORAGE: "local",
+      DEVELOPER_API_ENDPOINT_ENVIRONMENT: "PRODUCTION",
+      KT_PARITY_VERIFIER_URL: "http://127.0.0.1:8080/parity",
+    });
+    expect(badReport.valid).toBe(false);
+    expect(badReport.checks.map((c) => c.code)).toEqual(
+      expect.arrayContaining([
+        "REPORT_ARTIFACT_LOCAL_FORBIDDEN_IN_PRODUCTION",
+        "DEVELOPER_API_CREDENTIAL_HMAC_KEY_MISSING",
+        "DEVELOPER_API_CURSOR_HMAC_KEY_MISSING",
+        "DEVELOPER_WEBHOOK_ENCRYPTION_KEY_MISSING",
+        "KT_PARITY_VERIFIER_URL_UNSAFE",
+      ]),
+    );
+
+    const s3Secret = "SecretS3ReportingKey987654";
+    const goodS3Report = verifyEnvironmentSchema({
+      ...baseProd,
+      REPORT_ARTIFACT_STORAGE: "s3",
+      REPORT_ARTIFACT_S3_ENDPOINT: "https://s3.af-south-1.example.com",
+      REPORT_ARTIFACT_S3_BUCKET: "kt-prod-reports",
+      REPORT_ARTIFACT_S3_ACCESS_KEY_ID: "AKIA_TEST_ID_1234",
+      REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY: s3Secret,
+      DEVELOPER_API_ENDPOINT_ENVIRONMENT: "PRODUCTION",
+      DEVELOPER_API_CREDENTIAL_HMAC_KEY: "f".repeat(64),
+      DEVELOPER_API_CURSOR_HMAC_KEY: "g".repeat(64),
+      DEVELOPER_WEBHOOK_ENCRYPTION_KEY: "h".repeat(64),
+      KT_PARITY_VERIFIER_URL: "https://authority.ktcouriers.com/v1/release-authority/parity/verify",
+    });
+    expect(goodS3Report.valid).toBe(true);
+    expect(JSON.stringify(goodS3Report)).not.toContain(s3Secret);
+  });
 });

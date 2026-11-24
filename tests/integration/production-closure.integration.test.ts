@@ -11,6 +11,10 @@ import { createUser, uniqueTag } from "./phase7-5-fixtures";
 import type { AuthenticatedUser } from "@/types/domain";
 import { reviewedProtectedRowAudit, REQUIRED_PROTECTED_AUDIT_TABLES } from "@/scripts/audit-reviewed-production";
 import { getProductionReadiness } from "@/lib/production-readiness/service";
+import { getFinanceDashboard } from "@/lib/services/finance-dashboard.service";
+import { listLedgerAccounts, listLedgerJournals } from "@/lib/services/ledger-query.service";
+import { listPayments } from "@/lib/services/payment-query.service";
+import { generateReportData } from "@/lib/reporting/report-generator";
 import { createSandboxGatewayVerification, settleSandboxGatewayVerification } from "@/lib/payments/sandbox-acceptance.service";
 import type { PaystackClient } from "@/lib/payments/providers/paystack/paystack-client";
 
@@ -79,6 +83,8 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     const owner = await createUser(`${tag}-store`, "STORE"); await prisma.user.update({ where: { id: owner.id }, data: { emailVerifiedAt: new Date() } });
     const store = await prisma.store.create({ data: { name: tag, slug: `${tag}-store`, ownerUserId: owner.id, status: "ACTIVE" } });
     await prisma.deliveryServiceDefinition.create({ data: { stableKey: "CLIENT_CLOSURE", versionNumber: 1, displayName: "Disposable closure service", status: "ACTIVE", effectiveFrom: new Date(Date.now() - 1000), createdByUserId: author.id } });
+    await expect(savePaymentConfiguration(author, { storeId: store.id, deliveryServiceId: "CLIENT_CLOSURE", provinces: ["Western Cape"], regionId: null, orderId: null, mode: "DEPOSIT_PLUS_COD", depositPercent: "0.5", maximumCodAmount: "10.00", active: true, expectedVersion: 0, reason: "Missing usable region for Western Cape" })).rejects.toMatchObject({ code: "PAYMENT_REGION_UNAVAILABLE" });
+    await createDeliveryRegion({ name: `${tag}-cod-gp`, slug: `${tag}-cod-gp`, province: "Gauteng", centerLat: -26.2, centerLng: 28.04, coverageRadiusKm: 40, maxDistanceKm: 80, active: true, pricingEnabled: true }, author.id);
     const effectiveFrom = new Date(Date.now() + 60000).toISOString(); const effectiveTo = new Date(Date.now() + 120000).toISOString();
     const saved = await savePaymentConfiguration(author, { storeId: store.id, deliveryServiceId: "CLIENT_CLOSURE", provinces: ["Gauteng"], regionId: null, orderId: null, mode: "DEPOSIT_PLUS_COD", depositPercent: "0.5", maximumCodAmount: "10.00", active: true, expectedVersion: 0, effectiveFrom, effectiveTo, reason: "Disposable COD operating draft" });
     expect((await prisma.paymentMethodPolicy.findUniqueOrThrow({ where: { id: saved.id } })).status).toBe("INACTIVE");
@@ -139,6 +145,18 @@ describe("production closure configuration transactions on isolated PostgreSQL",
         select: { id: true, currentBalance: true, debitTotal: true, creditTotal: true },
         orderBy: { id: "asc" },
       }),
+      dashboard: await getFinanceDashboard(),
+      accounts: await listLedgerAccounts({ page: 1, pageSize: 50 }),
+      journals: await listLedgerJournals({ page: 1, pageSize: 50 }),
+      adminPayments: await listPayments({ page: 1, pageSize: 50 }),
+      reconciliationReport: await generateReportData({
+        definitionKey: "admin-financial-reconciliation",
+        requesterUserId: author.id,
+        requesterRole: "SUPER_ADMIN",
+        ownerScope: {},
+        filters: {},
+        limit: 100,
+      }),
     };
 
     const created = await createSandboxGatewayVerification(
@@ -159,7 +177,7 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     expect(settled?.ledgerJournalId).toBeTruthy();
     expect(settled?.resultDigest).toMatch(/^[a-f0-9]{64}$/);
 
-    // Live order/payment/platform accounts remain completely untouched
+    // Live order/payment/platform accounts & all live read aggregates remain completely untouched
     expect(await prisma.order.count()).toBe(liveCountsBefore.orders);
     expect(await prisma.payment.count()).toBe(liveCountsBefore.payments);
     const livePlatformAccountsAfter = await prisma.ledgerAccount.findMany({
@@ -168,6 +186,20 @@ describe("production closure configuration transactions on isolated PostgreSQL",
       orderBy: { id: "asc" },
     });
     expect(livePlatformAccountsAfter).toEqual(liveCountsBefore.livePlatformAccounts);
+    expect(await getFinanceDashboard()).toEqual(liveCountsBefore.dashboard);
+    expect(await listLedgerAccounts({ page: 1, pageSize: 50 })).toEqual(liveCountsBefore.accounts);
+    expect(await listLedgerJournals({ page: 1, pageSize: 50 })).toEqual(liveCountsBefore.journals);
+    expect(await listPayments({ page: 1, pageSize: 50 })).toEqual(liveCountsBefore.adminPayments);
+    expect(
+      await generateReportData({
+        definitionKey: "admin-financial-reconciliation",
+        requesterUserId: author.id,
+        requesterRole: "SUPER_ADMIN",
+        ownerScope: {},
+        filters: {},
+        limit: 100,
+      }),
+    ).toEqual(liveCountsBefore.reconciliationReport);
 
     // SQL trigger blocks mutating or deleting PaymentReleaseProvenance rows
     await expect(

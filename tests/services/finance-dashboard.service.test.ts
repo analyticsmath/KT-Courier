@@ -80,5 +80,21 @@ describe("finance dashboard service", () => {
     expect(dashboard.commissions.beneficiaryPayable).toBe("50.00");
     expect(dashboard.refunds.walletLiabilities).toBe("100.00");
     expect(dashboard.refunds.refundHeldLiabilities).toBe("50.00");
+    expect(mocks.prisma.payment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "SUCCEEDED",
+          currency: "ZAR",
+          publicReference: { not: { startsWith: "pay_sbox_" } },
+        }),
+      }),
+    );
+    expect(mocks.prisma.ledgerAccount.aggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          wallet: { ownerId: { not: "platform-sandbox-acceptance" } },
+        }),
+      }),
+    );
   });
 });

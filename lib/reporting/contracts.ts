@@ -1,6 +1,5 @@
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 
-export const REPORTING_PRODUCTION_VALIDATION_APPROVED = false as const;
 export const REPORTING_PRODUCTION_LOCK_REASON = "REPORTING_CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
 export type ReportAudience =

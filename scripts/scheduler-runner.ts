@@ -4,8 +4,8 @@ import { executeRegisteredProcessor } from "@/lib/processors/processor-service";
 import type { ImplementedProcessorName } from "@/lib/processors/processor-registry";
 import { logApplicationEvent } from "@/lib/observability/logger";
 import { isActualProductionInstance, promotionsProductionReady } from "@/lib/promotions/production-lock";
-import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "@/lib/reporting/production-readiness";
-import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "@/lib/developer-api/production-readiness";
+import { resolveReportingActivationState } from "@/lib/reporting/activation";
+import { resolveDeveloperApiActivationState } from "@/lib/developer-api/activation";
 import { subscriptionsProductionReady } from "@/lib/subscriptions/production-lock";
 import { promotersProductionReady } from "@/lib/promoters/production-readiness";
 import { advertisingProductionReady } from "@/lib/advertising/production-lock";
@@ -33,13 +33,13 @@ const SCHEDULED_TASKS: ScheduledTask[] = [
   { name: "process-earning-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
   ...(process.env.KT_ORDINARY_REFERRAL_WORKER_AUTHORIZED === "true" ? [{ name: "process-ordinary-referral-awards" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_PROMOTION_EXPIRY_WORKER_ENABLED === "true" && promotionsProductionReady() ? [{ name: "end-expired-promotions" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
-  ...(process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true" && (!(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED) ? [{ name: "expire-report-artifacts" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
-  ...(process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true" && (!(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED) ? [{ name: "generate-report-jobs" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
-  ...(process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true" && DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? [{ name: "expire-developer-api-credentials" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true" ? [{ name: "expire-report-artifacts" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true" ? [{ name: "generate-report-jobs" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true" ? [{ name: "expire-developer-api-credentials" as const, intervalMs: 3_600_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_SUBSCRIPTION_RENEWAL_WORKER_ENABLED !== "false" && subscriptionsProductionReady() ? [{ name: "process-subscription-renewals" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_PROMOTER_QUALIFICATION_WORKER_ENABLED !== "false" && promotersProductionReady() ? [{ name: "process-promoter-qualifications" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
   ...(process.env.KT_ADVERTISING_CLICK_WORKER_ENABLED !== "false" && advertisingProductionReady() ? [{ name: "process-valid-click-charges" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
-  ...(process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false" && DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED ? [{ name: "deliver-developer-webhooks" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
+  ...(process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false" ? [{ name: "deliver-developer-webhooks" as const, intervalMs: 60_000, lastRunAt: 0 }] : []),
   { name: "process-managed-marketing-lifecycle", intervalMs: 300_000, lastRunAt: 0 },
   { name: "process-privacy-requests", intervalMs: 300_000, lastRunAt: 0 },
   ...(process.env.KT_LOYALTY_RECONCILE_WORKER_DISABLED !== "true" ? [{ name: "reconcile-customer-parcel-loyalty" as const, intervalMs: 300_000, lastRunAt: 0 }] : []),
@@ -117,6 +117,17 @@ async function runSchedulerLoop() {
       if (isShuttingDown) break;
 
       if (now - task.lastRunAt >= task.intervalMs) {
+        if (task.name === "expire-report-artifacts" || task.name === "generate-report-jobs") {
+          const isProd = process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance();
+          if (isProd) {
+            const state = await resolveReportingActivationState({ db: prisma }).catch(() => null);
+            if (!state?.active) { task.lastRunAt = now; continue; }
+          }
+        }
+        if (task.name === "expire-developer-api-credentials" || task.name === "deliver-developer-webhooks") {
+          const state = await resolveDeveloperApiActivationState({ db: prisma }).catch(() => null);
+          if (!state?.active) { task.lastRunAt = now; continue; }
+        }
         task.lastRunAt = now;
         runningTaskCount += 1;
 

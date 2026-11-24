@@ -4,11 +4,13 @@ import path from "node:path";
 import { ReportingError, type ReportExportFormat } from "./contracts";
 import { CloudinaryImageStorage, CloudinaryImageStorageError, cloudinaryImageConfig } from "../media/cloudinary-image-storage";
 import { isActualProductionInstance } from "../promotions/production-lock";
+import { parseS3ConfigFromEnv, signedS3Fetch, type S3CompatibleConfig, type S3EnvSource } from "../storage/s3-sigv4";
 
 const STORAGE_KEY_PATTERN = /^reports\/[A-Z0-9-]+\/[a-f0-9]{64}\.(csv|json)$/;
+const MAX_REPORT_BYTES = 10 * 1024 * 1024;
 
 export interface ReportArtifactStorage {
-  readonly provider: "LOCAL_SECURE" | "CLOUDINARY_AUTHENTICATED_RAW";
+  readonly provider: "LOCAL_SECURE" | "CLOUDINARY_AUTHENTICATED_RAW" | "S3_COMPATIBLE_PRIVATE" | "UNCONFIGURED";
   readonly root: string;
   createStorageKey(reference: string, format: ReportExportFormat, content: string): string;
   store(storageKey: string, content: string): Promise<void>;
@@ -18,10 +20,31 @@ export interface ReportArtifactStorage {
 }
 
 /** Local filesystem storage is disposable and cannot prove durable production exports. */
-export function assertReportStorageReady(provider: ReportArtifactStorage["provider"], env: Record<string, string | undefined> = process.env): void {
-  if (provider !== "CLOUDINARY_AUTHENTICATED_RAW" &&
-      (env.VERCEL_ENV === "production" || env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance(env))) {
-    throw new ReportingError("REPORT_DURABLE_STORAGE_REQUIRED", 503, "Durable private report storage is required for production reports.");
+export function assertReportStorageReady(
+  provider: ReportArtifactStorage["provider"],
+  env: S3EnvSource = process.env,
+): void {
+  if (provider === "UNCONFIGURED") {
+    throw new ReportingError(
+      "REPORT_DURABLE_STORAGE_REQUIRED",
+      503,
+      "Durable private report storage is not configured.",
+    );
+  }
+  const isProd =
+    env.VERCEL_ENV === "production" ||
+    env.RAILWAY_ENVIRONMENT_NAME === "production" ||
+    isActualProductionInstance(env);
+  if (
+    provider !== "CLOUDINARY_AUTHENTICATED_RAW" &&
+    provider !== "S3_COMPATIBLE_PRIVATE" &&
+    isProd
+  ) {
+    throw new ReportingError(
+      "REPORT_DURABLE_STORAGE_REQUIRED",
+      503,
+      "Durable private report storage is required for production reports.",
+    );
   }
 }
 
@@ -37,6 +60,17 @@ function normalizeReference(reference: string): string {
     throw new ReportingError("INVALID_ARTIFACT_REFERENCE", 400, "Invalid report artifact reference.");
   }
   return normalized;
+}
+
+function verifyKeyDigest(key: string, bytes: Uint8Array): void {
+  if (!STORAGE_KEY_PATTERN.test(key)) {
+    throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+  }
+  const expectedDigest = key.split("/")[2]?.split(".")[0];
+  const actualDigest = crypto.createHash("sha256").update(bytes).digest("hex");
+  if (!expectedDigest || expectedDigest !== actualDigest) {
+    throw new ReportingError("ARTIFACT_STORAGE_CONFLICT", 409, "Report artifact identity does not match its content.");
+  }
 }
 
 export class LocalSecureReportArtifactStorage implements ReportArtifactStorage {
@@ -113,25 +147,20 @@ export class LocalSecureReportArtifactStorage implements ReportArtifactStorage {
   }
 }
 
-let defaultStorage: ReportArtifactStorage | undefined;
-
 export class CloudinaryReportArtifactStorage implements ReportArtifactStorage {
   readonly provider = "CLOUDINARY_AUTHENTICATED_RAW" as const;
   readonly root = "cloudinary://authenticated-reports";
   private readonly keys = new LocalSecureReportArtifactStorage();
   constructor(private readonly storage: CloudinaryImageStorage) {}
   createStorageKey(reference: string, format: ReportExportFormat, content: string) { return this.keys.createStorageKey(reference, format, content); }
-  private assertContent(key: string, bytes: Uint8Array) {
-    if (!STORAGE_KEY_PATTERN.test(key) || key.split("/")[2].split(".")[0] !== crypto.createHash("sha256").update(bytes).digest("hex")) throw new ReportingError("ARTIFACT_STORAGE_CONFLICT", 409, "Report artifact identity does not match its content.");
-  }
   async store(key: string, content: string) {
-    const bytes = Buffer.from(content, "utf8"); this.assertContent(key, bytes);
-    try { await this.storage.write(key, bytes, 10 * 1024 * 1024); }
+    const bytes = Buffer.from(content, "utf8"); verifyKeyDigest(key, bytes);
+    try { await this.storage.write(key, bytes, MAX_REPORT_BYTES); }
     catch { throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report storage is unavailable."); }
   }
   async open(key: string): Promise<Buffer> {
     if (!STORAGE_KEY_PATTERN.test(key)) throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
-    try { const bytes = Buffer.from(await this.storage.read(key, 10 * 1024 * 1024)); this.assertContent(key, bytes); return bytes; }
+    try { const bytes = Buffer.from(await this.storage.read(key, MAX_REPORT_BYTES)); verifyKeyDigest(key, bytes); return bytes; }
     catch (error) {
       if (error instanceof ReportingError) throw error;
       throw new ReportingError(error instanceof CloudinaryImageStorageError && error.code === "MISSING" ? "ARTIFACT_NOT_AVAILABLE" : "ARTIFACT_STORAGE_FAILURE", error instanceof CloudinaryImageStorageError && error.code === "MISSING" ? 404 : 503, "Private report artifact is unavailable.");
@@ -146,12 +175,149 @@ export class CloudinaryReportArtifactStorage implements ReportArtifactStorage {
   }
 }
 
-export function getReportArtifactStorage(): ReportArtifactStorage {
-  if (!defaultStorage && process.env.REPORT_ARTIFACT_STORAGE === "cloudinary") {
-    const config = cloudinaryImageConfig();
-    if (!config) throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report storage is not configured.");
-    defaultStorage = new CloudinaryReportArtifactStorage(new CloudinaryImageStorage(config, fetch, "raw"));
+export class S3ReportArtifactStorage implements ReportArtifactStorage {
+  readonly provider = "S3_COMPATIBLE_PRIVATE" as const;
+  readonly root: string;
+  private readonly keys = new LocalSecureReportArtifactStorage();
+
+  constructor(
+    private readonly config: S3CompatibleConfig,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {
+    this.root = `s3://${config.bucket}`;
   }
-  defaultStorage ??= new LocalSecureReportArtifactStorage();
-  return defaultStorage;
+
+  createStorageKey(reference: string, format: ReportExportFormat, content: string): string {
+    return this.keys.createStorageKey(reference, format, content);
+  }
+
+  async store(key: string, content: string): Promise<void> {
+    const bytes = Buffer.from(content, "utf8");
+    if (bytes.byteLength > MAX_REPORT_BYTES) {
+      throw new ReportingError("ARTIFACT_TOO_LARGE", 422, "Report artifact exceeds maximum storage size.");
+    }
+    verifyKeyDigest(key, bytes);
+    const contentType = key.endsWith(".json") ? "application/json; charset=utf-8" : "text/csv; charset=utf-8";
+    const response = await signedS3Fetch(
+      this.config,
+      { method: "PUT", key, body: bytes, contentType },
+      this.fetchImpl,
+    ).catch(() => {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage is unavailable.");
+    });
+    if (!response.ok) {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage rejected the upload.");
+    }
+  }
+
+  async open(key: string): Promise<Buffer> {
+    if (!STORAGE_KEY_PATTERN.test(key)) {
+      throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+    }
+    const response = await signedS3Fetch(
+      this.config,
+      { method: "GET", key },
+      this.fetchImpl,
+    ).catch(() => {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage is unavailable.");
+    });
+    if (response.status === 404) {
+      throw new ReportingError("ARTIFACT_NOT_AVAILABLE", 404, "Private report artifact is unavailable.");
+    }
+    if (!response.ok) {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage could not retrieve the artifact.");
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_REPORT_BYTES) {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private report artifact exceeds maximum size.");
+    }
+    verifyKeyDigest(key, bytes);
+    return bytes;
+  }
+
+  async exists(key: string): Promise<boolean> {
+    if (!STORAGE_KEY_PATTERN.test(key)) {
+      throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+    }
+    const response = await signedS3Fetch(
+      this.config,
+      { method: "HEAD", key },
+      this.fetchImpl,
+    ).catch(() => {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage is unavailable.");
+    });
+    if (response.status === 404) return false;
+    if (!response.ok) {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage could not verify the artifact.");
+    }
+    return true;
+  }
+
+  async delete(key: string): Promise<boolean> {
+    if (!STORAGE_KEY_PATTERN.test(key)) {
+      throw new ReportingError("INVALID_ARTIFACT_STORAGE_KEY", 400, "Invalid report artifact storage key.");
+    }
+    const response = await signedS3Fetch(
+      this.config,
+      { method: "DELETE", key },
+      this.fetchImpl,
+    ).catch(() => {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage is unavailable.");
+    });
+    if (response.status === 404) return false;
+    if (!response.ok) {
+      throw new ReportingError("ARTIFACT_STORAGE_FAILURE", 503, "Private S3 report storage could not delete the artifact.");
+    }
+    return true;
+  }
+}
+
+export class LockedReportArtifactStorage implements ReportArtifactStorage {
+  readonly provider = "UNCONFIGURED" as const;
+  readonly root = "unconfigured://report-storage";
+  private readonly keys = new LocalSecureReportArtifactStorage();
+  constructor(private readonly reason = "Durable private report storage is not configured.") {}
+  createStorageKey(reference: string, format: ReportExportFormat, content: string): string {
+    return this.keys.createStorageKey(reference, format, content);
+  }
+  private fail(): never {
+    throw new ReportingError("REPORT_DURABLE_STORAGE_REQUIRED", 503, this.reason);
+  }
+  async store(): Promise<void> { return this.fail(); }
+  async open(): Promise<Buffer> { return this.fail(); }
+  async exists(): Promise<boolean> { return this.fail(); }
+  async delete(): Promise<boolean> { return this.fail(); }
+}
+
+export function resolveReportArtifactStorage(
+  env: S3EnvSource = process.env,
+  fetchImpl: typeof fetch = fetch,
+): ReportArtifactStorage {
+  const mode = env.REPORT_ARTIFACT_STORAGE?.trim().toLowerCase();
+  if (mode === "s3") {
+    const s3Config = parseS3ConfigFromEnv("REPORT_ARTIFACT_S3", { defaultRegion: "auto", env });
+    if (!s3Config) {
+      return new LockedReportArtifactStorage("REPORT_ARTIFACT_STORAGE is 's3', but S3 credentials or endpoint are missing/invalid.");
+    }
+    return new S3ReportArtifactStorage(s3Config, fetchImpl);
+  }
+  if (mode === "cloudinary") {
+    const config = cloudinaryImageConfig(env);
+    if (!config) {
+      return new LockedReportArtifactStorage("REPORT_ARTIFACT_STORAGE is 'cloudinary', but Cloudinary credentials are incomplete.");
+    }
+    return new CloudinaryReportArtifactStorage(new CloudinaryImageStorage(config, fetchImpl, "raw"));
+  }
+  const isProd =
+    env.VERCEL_ENV === "production" ||
+    env.RAILWAY_ENVIRONMENT_NAME === "production" ||
+    isActualProductionInstance(env);
+  if (!isProd && (!mode || mode === "local")) {
+    return new LocalSecureReportArtifactStorage(env.REPORT_ARTIFACT_DIR || path.join(process.cwd(), "artifacts", "reports"));
+  }
+  return new LockedReportArtifactStorage();
+}
+
+export function getReportArtifactStorage(): ReportArtifactStorage {
+  return resolveReportArtifactStorage(process.env, fetch);
 }

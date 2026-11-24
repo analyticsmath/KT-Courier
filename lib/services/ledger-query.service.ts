@@ -155,7 +155,10 @@ export async function listLedgerAccounts(query: LedgerAccountQuery): Promise<Led
     ...(query.currency && { currency: query.currency }),
     ...(query.status && { status: query.status }),
     ...(query.nonZero !== undefined && { currentBalance: query.nonZero ? { not: new Prisma.Decimal(0) } : new Prisma.Decimal(0) }),
-    ...(query.ownerType && { wallet: { ownerType: query.ownerType } }),
+    wallet: {
+      ...(query.ownerType && { ownerType: query.ownerType }),
+      ownerId: { not: "platform-sandbox-acceptance" },
+    },
   };
   const [total, rows] = await prisma.$transaction([
     prisma.ledgerAccount.count({ where }),
@@ -206,6 +209,10 @@ export async function getLedgerAccountDetail(
 
 export async function listLedgerJournals(query: LedgerJournalQuery): Promise<LedgerJournalListDto> {
   const where: Prisma.LedgerJournalWhereInput = {
+    AND: [
+      { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
+      { entries: { none: { account: { wallet: { ownerId: "platform-sandbox-acceptance" } } } } },
+    ],
     ...(query.from || query.to ? { postedAt: { ...(query.from && { gte: new Date(query.from) }), ...(query.to && { lte: new Date(query.to) }) } } : {}),
     ...(query.reference && { reference: { contains: query.reference, mode: "insensitive" } }),
     ...(query.type && { type: query.type }),

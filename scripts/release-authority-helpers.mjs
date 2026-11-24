@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 const VALID_ROLES = new Set(["operator", "finance", "database", "security"]);
@@ -24,14 +25,58 @@ export function netmaskMatchesPrivateOrLoopback(hostname) {
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 192 && b === 168) return true;
     if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a >= 224) return true;
     return false;
   }
   if (ipVersion === 6) {
     if (host === "::" || host === "::1") return true;
-    if (host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("::ffff:")) return true;
+    if (host.startsWith("::ffff:")) {
+      return netmaskMatchesPrivateOrLoopback(host.slice(7));
+    }
+    if (host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd") || host.startsWith("ff")) return true;
     return false;
   }
   return false;
+}
+
+export async function resolveAndVerifyPublicAuthorityHost(hostname, options = {}) {
+  const hostKind = parseHostLiteral(hostname);
+  if (options.allowLoopbackForTest === true && hostKind === "loopback") {
+    return { ok: true };
+  }
+  if (netmaskMatchesPrivateOrLoopback(hostname)) {
+    return {
+      ok: false,
+      reason: "AUTHORITY_ENDPOINT_INVALID",
+      detail: "Private, metadata, and loopback authority addresses are prohibited.",
+    };
+  }
+  if (hostKind === "ip") {
+    return { ok: true };
+  }
+
+  const resolveDns = options.resolveDns ?? lookup;
+  let records;
+  try {
+    const raw = await resolveDns(String(hostname).replace(/^\[|\]$/g, ""), { all: true });
+    records = Array.isArray(raw) ? raw : [raw];
+  } catch {
+    return {
+      ok: false,
+      reason: "AUTHORITY_UNREACHABLE",
+      detail: "Unable to resolve independent authority hostname.",
+    };
+  }
+
+  if (records.length === 0 || records.some((entry) => !entry?.address || netmaskMatchesPrivateOrLoopback(entry.address))) {
+    return {
+      ok: false,
+      reason: "AUTHORITY_ENDPOINT_INVALID",
+      detail: "Authority hostname resolved to a private, metadata, or loopback IP address.",
+    };
+  }
+
+  return { ok: true };
 }
 
 export function validateTrustBundle(raw) {

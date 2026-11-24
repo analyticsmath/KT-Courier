@@ -262,14 +262,14 @@ export class FetchWebhookHttpClient implements WebhookHttpClient {
 export class WebhookExecutionService {
   constructor(private readonly db: any, private readonly subscriptions: WebhookSubscriptionService, private readonly http: WebhookHttpClient = new FetchWebhookHttpClient()) {}
   async verify(verification: any, subscription: any) {
-    assertDeveloperApiProductionReady();
+    await assertDeveloperApiProductionReady({ db: this.db });
     if (verification.status !== "PENDING" || verification.expiresAt <= new Date() || subscription.status !== "VERIFYING") throw new DeveloperApiError("WEBHOOK_VERIFICATION_NOT_PENDING", 409);
     if (verification.attempts >= 5) { await this.db.developerWebhookVerification.update({ where: { id: verification.id }, data: { status: "FAILED" } }); await this.db.developerWebhookSubscription.update({ where: { id: subscription.id }, data: { status: "VERIFICATION_FAILED" } }); throw new DeveloperApiError("WEBHOOK_VERIFICATION_ATTEMPTS_EXHAUSTED", 409); }
     const endpoint = decryptWebhookSecret(subscription.encryptedEndpoint); await validateWebhookEndpoint(endpoint); const challenge = decryptWebhookSecret(verification.encryptedChallenge); const currentSecret = await this.subscriptions.currentSecret(subscription.id); const raw = Buffer.from(JSON.stringify(createCloudEvent({ id: verification.publicReference, type: "za.co.ktcouriers.webhook.verification.v1", subject: subscription.publicReference, time: new Date(), data: { challenge } }))); const signed = signWebhookRequest({ secret: currentSecret.value, method: "POST", targetUri: endpoint, rawBody: raw, webhookId: verification.publicReference, timestamp: new Date().toISOString(), keyId: `v${currentSecret.version}` });
     try { const result = await this.http.send({ url: endpoint, headers: { ...signed, "user-agent": "KT-Couriers-Webhook/1.0", accept: "text/plain" }, body: raw, timeoutMs: 8_000 }); if (result.status < 200 || result.status >= 300 || result.body.trim() !== challenge) throw new DeveloperApiError("WEBHOOK_VERIFICATION_FAILED", 409, "Webhook endpoint verification failed."); return this.subscriptions.completeVerification(subscription, challenge); } catch (error) { await this.db.developerWebhookVerification.update({ where: { id: verification.id }, data: { attempts: { increment: 1 }, ...(verification.attempts + 1 >= 5 ? { status: "FAILED" } : {}) } }); if (verification.attempts + 1 >= 5) await this.db.developerWebhookSubscription.update({ where: { id: subscription.id }, data: { status: "VERIFICATION_FAILED" } }); throw error; }
   }
   async deliver(delivery: any, event: any, subscription: any) {
-    assertDeveloperApiProductionReady();
+    await assertDeveloperApiProductionReady({ db: this.db });
     const claim = await this.db.$transaction(async (tx: any) => {
       await tx.$queryRaw`SELECT id FROM "DeveloperWebhookSubscription" WHERE id = ${subscription.id} FOR UPDATE`;
       const current = await tx.developerWebhookDelivery.findUnique({ where: { id: delivery.id } });

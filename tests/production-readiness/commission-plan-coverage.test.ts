@@ -16,7 +16,18 @@ function plan(overrides: Partial<Parameters<typeof evaluateCommissionPlanCoverag
     createdByUserId: "maker",
     approvedByUserId: "reviewer",
     approvedAt: new Date("2026-11-02T00:00:00.000Z"),
-    rules: [{ id: "rule-1" }],
+    rules: [
+      {
+        id: "rule-1",
+        ruleCode: "PLATFORM_FEE",
+        allocationType: "PLATFORM_COMMISSION_REVENUE",
+        beneficiaryType: "PLATFORM",
+        calculationMethod: "PERCENTAGE_BPS",
+        rateBasisPoints: 1000,
+        fixedAmount: null,
+        priority: 1,
+      },
+    ],
     ...overrides,
   };
 }
@@ -40,15 +51,45 @@ describe("production commission-plan coverage", () => {
     expect(result).toMatchObject({ ready: false, reasonCode: "STORE_COMMISSION_PLAN_COVERAGE_INCOMPLETE", evidence: { missingStorePlanCount: 1 } });
   });
 
-  it("rejects draft, expired, self-approved, and ruleless plans", () => {
+  it("rejects draft, expired, self-approved, ruleless, and malformed or mismatched commission plans", () => {
+    const baseRule = plan().rules[0] as Record<string, unknown>;
     const rejected = [
       plan({ status: "DRAFT" }),
       plan({ effectiveUntil: new Date("2026-11-20T00:00:00.000Z") }),
       plan({ approvedByUserId: "maker" }),
       plan({ rules: [] }),
+      plan({ rules: [null] }),
+      plan({ rules: [{ id: "rule-1" }] }),
+      plan({ rules: [{ ...baseRule, calculationMethod: "FIXED_AMOUNT", fixedAmount: null, rateBasisPoints: null }] }),
+      plan({ rules: [{ ...baseRule, allocationType: "BENEFICIARY_COMMISSION_PAYABLE", beneficiaryType: "PLATFORM" }] }),
+      plan({ rules: [{ ...baseRule, ruleCode: "DUP" }, { ...baseRule, ruleCode: "DUP", priority: 2 }] }),
     ];
     const result = evaluateCommissionPlanCoverage({ now, activeStoreIds: [], plans: rejected });
     expect(result).toMatchObject({ ready: false, reasonCode: "COURIER_COMMISSION_PLAN_MISSING" });
+
+    const fixedValid = evaluateCommissionPlanCoverage({
+      now,
+      activeStoreIds: ["store-a"],
+      plans: [
+        plan(),
+        plan({
+          subjectType: "MARKETPLACE_STORE_ORDER",
+          scopeKey: "STORE:store-a",
+          rules: [
+            {
+              ruleCode: "STORE_FIXED",
+              allocationType: "PLATFORM_COMMISSION_REVENUE",
+              beneficiaryType: "PLATFORM",
+              calculationMethod: "FIXED_AMOUNT",
+              rateBasisPoints: null,
+              fixedAmount: "5.00",
+              priority: 1,
+            },
+          ],
+        }),
+      ],
+    });
+    expect(fixedValid.ready).toBe(true);
   });
 
   it("rejects duplicate active plans for one launch scope instead of reporting a false green", () => {

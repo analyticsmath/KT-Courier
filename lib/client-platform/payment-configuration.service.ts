@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { hasPermission } from "@/lib/auth/permissions";
 import type { AuthenticatedUser } from "@/types/domain";
 import { PROVINCES, PlatformError } from "./contracts";
+import { regionBoundaryIssues } from "@/lib/maps/region-boundaries";
 import {
   paymentPolicyScope,
   resolvePaymentBreakdown,
@@ -224,17 +225,70 @@ async function saveReviewedPaymentConfiguration(
           "Select an available service.",
           422,
         );
-      if (
-        input.regionId &&
-        !(await tx.deliveryRegion.findFirst({
-          where: { id: input.regionId, active: true },
-        }))
-      )
-        throw new PlatformError(
-          "PAYMENT_REGION_UNAVAILABLE",
-          "Select an active region.",
-          422,
+      if (input.regionId) {
+        const selectedRegion = await tx.deliveryRegion.findFirst({
+          where: { id: input.regionId, active: true, pricingEnabled: true },
+          select: {
+            id: true,
+            active: true,
+            pricingEnabled: true,
+            province: true,
+            coverageMode: true,
+            centerLat: true,
+            centerLng: true,
+            coverageRadiusKm: true,
+            maxDistanceKm: true,
+          },
+        });
+        if (
+          !selectedRegion ||
+          !selectedRegion.active ||
+          selectedRegion.pricingEnabled === false ||
+          regionBoundaryIssues(selectedRegion).length > 0 ||
+          (input.provinces?.length &&
+            !input.provinces.some((province) => province === selectedRegion.province))
+        ) {
+          throw new PlatformError(
+            "PAYMENT_REGION_UNAVAILABLE",
+            "Select an active pricing-enabled region with complete boundaries matching the scoped provinces.",
+            422,
+          );
+        }
+      }
+      if (input.mode !== "DIGITAL" && input.provinces?.length) {
+        const candidateRegions = await tx.deliveryRegion.findMany({
+          where: { active: true, pricingEnabled: true, province: { in: input.provinces } },
+          select: {
+            id: true,
+            active: true,
+            pricingEnabled: true,
+            province: true,
+            coverageMode: true,
+            centerLat: true,
+            centerLng: true,
+            coverageRadiusKm: true,
+            maxDistanceKm: true,
+          },
+        });
+        const usableProvinces = new Set(
+          candidateRegions
+            .filter(
+              (region) =>
+                region.active &&
+                region.pricingEnabled !== false &&
+                regionBoundaryIssues(region).length === 0 &&
+                typeof region.province === "string",
+            )
+            .map((region) => region.province as string),
         );
+        if (!input.provinces.every((province) => usableProvinces.has(province))) {
+          throw new PlatformError(
+            "PAYMENT_REGION_UNAVAILABLE",
+            "Each scoped province requires an active pricing-enabled delivery region with complete boundaries.",
+            422,
+          );
+        }
+      }
       const existing = (
         await tx.paymentMethodPolicy.findMany({
           where: { storeId: input.storeId },

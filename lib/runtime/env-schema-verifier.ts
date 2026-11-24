@@ -348,6 +348,60 @@ export function verifyEnvironmentSchema(
     }
   }
 
+  // 8. Governed module storage/secrets & server-verified parity authorities (names + status ONLY)
+  const reportStorage = source.REPORT_ARTIFACT_STORAGE?.trim().toLowerCase() ?? "";
+  if (reportStorage) {
+    if (!["local", "s3", "cloudinary"].includes(reportStorage)) {
+      checks.push(checkEntry("REPORT_ARTIFACT_STORAGE", "MISMATCH", "ERROR", "REPORT_ARTIFACT_STORAGE_INVALID", "REPORT_ARTIFACT_STORAGE must be local, s3, or cloudinary."));
+    } else if (isProduction && reportStorage === "local") {
+      checks.push(checkEntry("REPORT_ARTIFACT_STORAGE", "FORBIDDEN", "ERROR", "REPORT_ARTIFACT_LOCAL_FORBIDDEN_IN_PRODUCTION", "REPORT_ARTIFACT_STORAGE=local is forbidden in production."));
+    } else if (reportStorage === "s3") {
+      const s3Endpoint = parseSafeOrigin(source.REPORT_ARTIFACT_S3_ENDPOINT);
+      if (!s3Endpoint.valid || (isProduction && (s3Endpoint.protocol !== "https:" || s3Endpoint.isLocal))) {
+        checks.push(checkEntry("REPORT_ARTIFACT_S3_ENDPOINT", "MISMATCH", "ERROR", "REPORT_ARTIFACT_S3_ENDPOINT_INVALID", "REPORT_ARTIFACT_S3_ENDPOINT must be a valid HTTPS origin when REPORT_ARTIFACT_STORAGE=s3."));
+      }
+      checkSecretKeyPresence(checks, source, "REPORT_ARTIFACT_S3_BUCKET", true, isProduction);
+      checkSecretKeyPresence(checks, source, "REPORT_ARTIFACT_S3_ACCESS_KEY_ID", true, isProduction);
+      checkSecretKeyPresence(checks, source, "REPORT_ARTIFACT_S3_SECRET_ACCESS_KEY", true, isProduction);
+    } else if (reportStorage === "cloudinary") {
+      checkSecretKeyPresence(checks, source, "CLOUDINARY_CLOUD_NAME", true, isProduction);
+      checkSecretKeyPresence(checks, source, "CLOUDINARY_API_KEY", true, isProduction);
+      checkSecretKeyPresence(checks, source, "CLOUDINARY_API_SECRET", true, isProduction);
+    }
+  }
+
+  const devEnv = source.DEVELOPER_API_ENDPOINT_ENVIRONMENT?.trim().toUpperCase() ?? "";
+  if (devEnv && !["TEST", "PRODUCTION"].includes(devEnv)) {
+    checks.push(checkEntry("DEVELOPER_API_ENDPOINT_ENVIRONMENT", "MISMATCH", "ERROR", "DEVELOPER_API_ENVIRONMENT_INVALID", "DEVELOPER_API_ENDPOINT_ENVIRONMENT must be TEST or PRODUCTION."));
+  }
+  const devRequired = devEnv === "PRODUCTION";
+  checkSecretKeyPresence(checks, source, "DEVELOPER_API_CREDENTIAL_HMAC_KEY", devRequired, isProduction);
+  checkSecretKeyPresence(checks, source, "DEVELOPER_API_CURSOR_HMAC_KEY", devRequired, isProduction);
+  checkSecretKeyPresence(checks, source, "DEVELOPER_WEBHOOK_ENCRYPTION_KEY", devRequired, isProduction);
+
+  const parityUrlRaw = source.KT_PARITY_VERIFIER_URL?.trim();
+  if (parityUrlRaw) {
+    if (isPlaceholderValue(parityUrlRaw)) {
+      checks.push(checkEntry("KT_PARITY_VERIFIER_URL", "PLACEHOLDER", isProduction ? "ERROR" : "WARNING", "KT_PARITY_VERIFIER_URL_PLACEHOLDER", "KT_PARITY_VERIFIER_URL contains a placeholder value."));
+    } else {
+      try {
+        const parsedParity = new URL(parityUrlRaw);
+        const isLocalParity = ["localhost", "127.0.0.1", "0.0.0.0", "::1"].includes(parsedParity.hostname.toLowerCase());
+        if (isProduction && (parsedParity.protocol !== "https:" || isLocalParity)) {
+          checks.push(checkEntry("KT_PARITY_VERIFIER_URL", "FORBIDDEN", "ERROR", "KT_PARITY_VERIFIER_URL_UNSAFE", "KT_PARITY_VERIFIER_URL must use non-local HTTPS in production."));
+        } else {
+          checks.push(checkEntry("KT_PARITY_VERIFIER_URL", "OK", "INFO", "KT_PARITY_VERIFIER_URL_VALID", "KT_PARITY_VERIFIER_URL format verified."));
+        }
+      } catch {
+        checks.push(checkEntry("KT_PARITY_VERIFIER_URL", "MISMATCH", "ERROR", "KT_PARITY_VERIFIER_URL_INVALID", "KT_PARITY_VERIFIER_URL is not a valid URL."));
+      }
+    }
+  }
+
+  checkSecretKeyPresence(checks, source, "GITHUB_RELEASE_READ_TOKEN", false, isProduction);
+  checkSecretKeyPresence(checks, source, "VERCEL_TOKEN", false, isProduction);
+  checkSecretKeyPresence(checks, source, "RAILWAY_API_TOKEN", false, isProduction);
+
   const errorCount = checks.filter((item) => item.severity === "ERROR").length;
   const warningCount = checks.filter((item) => item.severity === "WARNING").length;
 

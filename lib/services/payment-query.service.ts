@@ -33,7 +33,8 @@ function pagination(page: number, pageSize: number, total: number) {
 
 export async function listPayments(query: PaymentListQuery): Promise<PaymentListDto> {
   const where: Prisma.PaymentWhereInput = {
-    ...(query.publicReference && { publicReference: { contains: query.publicReference, mode: "insensitive" } }),
+    publicReference: { not: { startsWith: "pay_sbox_" } },
+    ...(query.publicReference && { AND: [{ publicReference: { contains: query.publicReference, mode: "insensitive" } }] }),
     ...(query.orderReference && { order: { orderNumber: { contains: query.orderReference, mode: "insensitive" } } }),
     ...(query.payer && {
       user: {

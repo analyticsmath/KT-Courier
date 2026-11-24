@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 797,
+    "totalRoutes": 798,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 693,
-    "permissionGatedRoutes": 545,
+    "authenticatedRoutes": 694,
+    "permissionGatedRoutes": 546,
     "webhookSignatureRoutes": 5,
-    "rateLimitedRoutes": 239,
-    "generatedAt": "2026-11-24T11:17:27.790Z"
+    "rateLimitedRoutes": 240,
+    "generatedAt": "2026-11-24T18:19:26.789Z"
   },
   "serverActions": [],
   "routes": [
@@ -4481,6 +4481,29 @@
       "idempotencyEnforced": true,
       "bolaOwnershipValidated": true,
       "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/production-readiness/activation/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "system_readiness.read",
+        "system_readiness.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": true,
+      "originProtection": "DELEGATED_TO_GUARD_HELPER",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },

@@ -82,9 +82,22 @@ export async function applyReleaseAndParityGuardsToEntries(
     }
   }
 
-  // 2. Enforce SERVER_VERIFIED boundary on CI and PARITY in production runtime
+  // 2. Enforce provenance mode boundaries across CI, PARITY, SANDBOX, and LIVE acceptance in production runtime
+  const serverVerifiedAndLiveKeys = [
+    "current_ci_certification",
+    "production_deployment_sha_parity",
+    "payment_integration_acceptance",
+    "vendor_onboarding_acceptance",
+    "driver_onboarding_acceptance",
+    "driver_gps_acceptance",
+    "pod_otp_acceptance",
+    "settlement_acceptance",
+    "refund_acceptance",
+    "payout_acceptance",
+  ] as const;
+
   if (prod && typeof prisma.systemSetting?.findUnique === "function") {
-    for (const key of ["current_ci_certification", "production_deployment_sha_parity"] as const) {
+    for (const key of serverVerifiedAndLiveKeys) {
       const entry = updated.find((e) => e.key === key);
       if (entry && entry.status === "READY") {
         const row = await prisma.systemSetting.findUnique({ where: { key: acceptanceStorageKey(key) } });
@@ -94,7 +107,23 @@ export async function applyReleaseAndParityGuardsToEntries(
         }
         try {
           const parsed = parseAcceptanceRecord(row.value);
-          if (parsed.verificationMode !== "SERVER_VERIFIED") {
+          if (parsed.evidence.kind === "LIVE") {
+            if (parsed.verificationMode !== "HUMAN_ATTESTED" && parsed.verificationMode !== "SERVER_VERIFIED") {
+              replaceStatus(
+                key,
+                "BLOCKED_LIVE_ACCEPTANCE",
+                "ACCEPTANCE_SERVER_VERIFICATION_REQUIRED",
+                "Production requires recorded human attestation provenance for live acceptance.",
+              );
+            } else if (!parsed.evidence.financialAuthorizationReference) {
+              replaceStatus(
+                key,
+                "BLOCKED_LIVE_ACCEPTANCE",
+                "FINANCIAL_AUTHORIZATION_REQUIRED",
+                "Real-money live acceptance requires an explicit financial authorization reference.",
+              );
+            }
+          } else if (parsed.verificationMode !== "SERVER_VERIFIED") {
             replaceStatus(
               key,
               "BLOCKED_LIVE_ACCEPTANCE",
@@ -124,7 +153,23 @@ export async function applyReleaseAndParityGuardsToEntries(
           effectiveFrom: { lte: options.now },
           OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: options.now } }],
         },
-        include: { rules: { select: { id: true, calculationMethod: true, rateBasisPoints: true, fixedAmount: true, allocationType: true } } },
+        include: {
+          rules: {
+            select: {
+              id: true,
+              ruleCode: true,
+              allocationType: true,
+              beneficiaryType: true,
+              calculationMethod: true,
+              rateBasisPoints: true,
+              fixedAmount: true,
+              minimumAmount: true,
+              maximumAmount: true,
+              priority: true,
+              isRequired: true,
+            },
+          },
+        },
       }),
       prisma.store.findMany({
         where: { status: "ACTIVE" },

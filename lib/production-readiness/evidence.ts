@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
@@ -92,9 +93,11 @@ export const AcceptanceEvidenceSchema = z
         vercelSha: sha,
         webSha: sha,
         operationsSha: sha,
+        querySha: sha,
         vercelDeploymentId: z.string().regex(/^dpl_[A-Za-z0-9]+$/),
         webDeploymentId: z.uuid(),
         operationsDeploymentId: z.uuid(),
+        queryDeploymentId: z.uuid(),
         protectedDataAuditReference: z.string().regex(/^[A-Za-z0-9:/._-]{8,250}$/),
         protectedDataUnchanged: z.literal(true),
       })
@@ -107,7 +110,13 @@ export const AcceptanceEvidenceSchema = z
     if (v.kind === "LIVE" && v.financialAuthorizationReference === null) {
       context.addIssue({ code: "custom", message: "Financial authorization reference is required for real-money acceptance." });
     }
-    if (v.kind === "PARITY" && (v.vercelSha !== v.releaseSha || v.webSha !== v.releaseSha || v.operationsSha !== v.releaseSha)) {
+    if (
+      v.kind === "PARITY" &&
+      (v.vercelSha !== v.releaseSha ||
+        v.webSha !== v.releaseSha ||
+        v.operationsSha !== v.releaseSha ||
+        v.querySha !== v.releaseSha)
+    ) {
       context.addIssue({ code: "custom", message: "Deployment SHAs must all match the release SHA." });
     }
   });
@@ -130,7 +139,7 @@ const AcceptanceRecordSchema = z.object({
   authorId: z.string().min(1),
   approverId: z.string().nullable(),
   approvedAt: z.iso.datetime().nullable(),
-  verificationMode: z.enum(["SERVER_VERIFIED", "LOCAL_TEST_BOUNDARY"]).optional(),
+  verificationMode: z.enum(["SERVER_VERIFIED", "HUMAN_ATTESTED", "LOCAL_TEST_BOUNDARY"]).optional(),
   provenanceDigest: z.string().regex(/^[a-f0-9]{64}$/).nullable().optional(),
 });
 
@@ -203,8 +212,17 @@ export function evidenceIsCurrent(
 
   const env = options?.env ?? process.env;
   const enforceServer = options?.requireServerVerifiedInProd ?? isProductionAcceptanceRuntime(env);
-  if (enforceServer && record.verificationMode !== "SERVER_VERIFIED") {
-    return false;
+  if (enforceServer) {
+    if (record.evidence.kind === "LIVE") {
+      if (record.verificationMode !== "HUMAN_ATTESTED" && record.verificationMode !== "SERVER_VERIFIED") {
+        return false;
+      }
+      if (!record.evidence.financialAuthorizationReference) {
+        return false;
+      }
+    } else if (record.verificationMode !== "SERVER_VERIFIED") {
+      return false;
+    }
   }
   return true;
 }
@@ -384,13 +402,60 @@ export function assertSandboxPaymentAcceptance(payment: SandboxAcceptanceCandida
   }
 }
 
+export const REQUIRED_CERTIFICATION_JOBS = Object.freeze([
+  "quality",
+  "postgres (docker:migration-smoke)",
+  "postgres (test:integration:auth)",
+  "postgres (test:integration:permissions)",
+  "postgres (test:integration:orders)",
+  "postgres (test:integration:pricing)",
+  "postgres (test:integration:dispatch)",
+  "postgres (test:integration:cross-module)",
+  "postgres (test:integration:driver-operations)",
+  "postgres (test:integration:ledger)",
+  "postgres (test:integration:payment-foundation)",
+  "postgres (test:integration:refunds)",
+  "postgres (test:integration:withdrawals)",
+  "postgres (test:integration:store-earnings)",
+  "postgres (test:integration:driver-earnings)",
+  "postgres (test:integration:marketplace-checkout)",
+  "postgres (test:integration:store-orders)",
+  "postgres (test:integration:storefront)",
+  "postgres (test:integration:catalog)",
+  "postgres (test:integration:closure)",
+  "postgres (docker:gate4)",
+  "redis-and-recovery",
+  "recovery",
+  "browser",
+  "Phase 2 automated engineering verification (not live launch approval)",
+  "Release authorization status (informational)",
+] as const);
+
+export const REQUIRED_PRIMARY_CI_JOBS = Object.freeze([
+  "quality",
+  "container-build",
+  "migration-smoke",
+  "pricing-integration",
+  "dispatch-integration",
+  "cross-module-integration",
+  "ledger-integration",
+  "Phase 1 Release-Critical Verification (Paystack, Invariants, Security, Processors, Refunds)",
+  "Phase 1 PostgreSQL Webhook Concurrency Integration",
+  "docker-runtime",
+] as const);
+
 export type VerifiedCiRunInfo = Readonly<{
   headSha: string;
+  headBranch?: string;
+  workflowPath?: string;
   status: string;
   conclusion: string;
   completedAt: string;
   jobsPassed: number;
   skippedJobs: number;
+  missingJobs?: readonly string[];
+  primaryCiVerified?: boolean;
+  verifiedTestsPassed?: number | null;
 }>;
 
 export type VerifiedParityInfo = Readonly<{
@@ -400,6 +465,8 @@ export type VerifiedParityInfo = Readonly<{
   webStatus: string;
   operationsSha: string;
   operationsStatus: string;
+  querySha: string;
+  queryStatus: string;
   auditReleaseSha: string;
   protectedDataUnchanged: boolean;
   leastPrivilege: boolean;
@@ -413,6 +480,7 @@ export type AcceptanceVerificationAdapters = Readonly<{
     vercelDeploymentId: string;
     webDeploymentId: string;
     operationsDeploymentId: string;
+    queryDeploymentId: string;
     protectedDataAuditReference: string;
   }) => Promise<VerifiedParityInfo>;
   verifySandboxPaymentWithProvider?: (input: {
@@ -429,44 +497,195 @@ export type AcceptanceVerificationOptions = Readonly<{
   adapters?: AcceptanceVerificationAdapters;
 }>;
 
-async function fetchGithubCiRun(runId: string, token: string): Promise<VerifiedCiRunInfo> {
+type GithubJobRow = { name?: string; status?: string; conclusion?: string | null };
+
+async function fetchPaginatedGithubJobs(
+  baseUrl: string,
+  headers: Record<string, string>,
+  fetchImpl: typeof fetch,
+): Promise<GithubJobRow[]> {
+  const allJobs: GithubJobRow[] = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const res = await fetchImpl(`${baseUrl}?per_page=100&page=${page}`, {
+      headers,
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      throw new PlatformError("CI_VERIFICATION_UNAVAILABLE", "Unable to query GitHub Actions jobs.", 502);
+    }
+    const payload = (await res.json()) as { total_count?: number; jobs?: GithubJobRow[] };
+    const pageJobs = payload.jobs ?? [];
+    allJobs.push(...pageJobs);
+    if (pageJobs.length < 100 || (typeof payload.total_count === "number" && allJobs.length >= payload.total_count)) {
+      break;
+    }
+  }
+  return allJobs;
+}
+
+function extractPrimaryTestCountFromZip(zipBuffer: Buffer): number | null {
+  // Parse ZIP end-of-central-directory and extract test-coverage/phase2 JSON without external packages.
+  let eocdOffset = -1;
+  for (let i = zipBuffer.length - 22; i >= Math.max(0, zipBuffer.length - 65557); i -= 1) {
+    if (zipBuffer.readUInt32LE(i) === 0x06054b50) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset < 0) return null;
+  const cdOffset = zipBuffer.readUInt32LE(eocdOffset + 16);
+  const totalEntries = zipBuffer.readUInt16LE(eocdOffset + 10);
+  let cursor = cdOffset;
+  for (let idx = 0; idx < totalEntries && cursor + 46 <= zipBuffer.length; idx += 1) {
+    if (zipBuffer.readUInt32LE(cursor) !== 0x02014b50) break;
+    const compression = zipBuffer.readUInt16LE(cursor + 10);
+    const compressedSize = zipBuffer.readUInt32LE(cursor + 20);
+    const nameLen = zipBuffer.readUInt16LE(cursor + 28);
+    const extraLen = zipBuffer.readUInt16LE(cursor + 30);
+    const commentLen = zipBuffer.readUInt16LE(cursor + 32);
+    const localHeaderOffset = zipBuffer.readUInt32LE(cursor + 42);
+    const fileName = zipBuffer.subarray(cursor + 46, cursor + 46 + nameLen).toString("utf8");
+    cursor += 46 + nameLen + extraLen + commentLen;
+    if (!/(?:^|\/)(?:test-coverage|vitest-coverage|coverage-summary)\.json$/i.test(fileName)) continue;
+    if (zipBuffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) continue;
+    const lNameLen = zipBuffer.readUInt16LE(localHeaderOffset + 26);
+    const lExtraLen = zipBuffer.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + lNameLen + lExtraLen;
+    const compressed = zipBuffer.subarray(dataStart, dataStart + compressedSize);
+    const content = compression === 0 ? compressed : compression === 8 ? inflateRawSync(compressed) : null;
+    if (!content) continue;
+    try {
+      const parsed = JSON.parse(content.toString("utf8")) as { numPassedTests?: number; testsPassed?: number };
+      const count = parsed.numPassedTests ?? parsed.testsPassed;
+      if (typeof count === "number" && Number.isInteger(count) && count > 0) {
+        return count;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+export async function fetchGithubCiRun(
+  runId: string,
+  token: string,
+  releaseSha?: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<VerifiedCiRunInfo> {
   const headers = {
     accept: "application/vnd.github+json",
     authorization: `Bearer ${token}`,
     "user-agent": "KT-Courier-Acceptance-Verifier",
   };
-  const [runRes, jobsRes] = await Promise.all([
-    fetch(`https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}`, {
-      headers,
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-    }),
-    fetch(`https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}/jobs?per_page=100`, {
-      headers,
-      redirect: "error",
-      signal: AbortSignal.timeout(10_000),
-    }),
-  ]);
-  if (!runRes.ok || !jobsRes.ok) {
+  const runRes = await fetchImpl(
+    `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}`,
+    { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+  );
+  if (!runRes.ok) {
     throw new PlatformError("CI_VERIFICATION_UNAVAILABLE", "Unable to query GitHub Actions run status.", 502);
   }
-  const runJson = (await runRes.json()) as { head_sha?: string; status?: string; conclusion?: string; updated_at?: string };
-  const jobsJson = (await jobsRes.json()) as { jobs?: Array<{ conclusion?: string | null }> };
-  const jobs = jobsJson.jobs ?? [];
+  const runJson = (await runRes.json()) as {
+    head_sha?: string;
+    head_branch?: string;
+    path?: string;
+    status?: string;
+    conclusion?: string;
+    updated_at?: string;
+    run_attempt?: number;
+  };
+  const attempt = typeof runJson.run_attempt === "number" && runJson.run_attempt > 0 ? runJson.run_attempt : 1;
+  const targetSha = releaseSha ?? String(runJson.head_sha ?? "");
+
+  const [jobs, ciRunsRes, artifactsRes] = await Promise.all([
+    fetchPaginatedGithubJobs(
+      `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}/attempts/${attempt}/jobs`,
+      headers,
+      fetchImpl,
+    ),
+    fetchImpl(
+      `https://api.github.com/repos/analyticsmath/KT-Courier/actions/workflows/ci.yml/runs?head_sha=${encodeURIComponent(targetSha)}&branch=main&per_page=20`,
+      { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+    ),
+    fetchImpl(
+      `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}/artifacts?per_page=50`,
+      { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+    ),
+  ]);
+
+  const succeededCertJobNames = new Set(
+    jobs.filter((job) => job.conclusion === "success" && typeof job.name === "string").map((job) => job.name!),
+  );
+  const missingJobs = REQUIRED_CERTIFICATION_JOBS.filter((name) => !succeededCertJobNames.has(name));
+
+  let primaryCiVerified = false;
+  if (ciRunsRes.ok) {
+    const ciRunsJson = (await ciRunsRes.json()) as {
+      workflow_runs?: Array<{ id?: number; head_sha?: string; head_branch?: string; status?: string; conclusion?: string; run_attempt?: number }>;
+    };
+    const matchingCi = (ciRunsJson.workflow_runs ?? []).find(
+      (r) =>
+        r.head_sha === targetSha &&
+        r.head_branch === "main" &&
+        r.status === "completed" &&
+        r.conclusion === "success" &&
+        typeof r.id === "number",
+    );
+    if (matchingCi?.id) {
+      const ciAttempt = typeof matchingCi.run_attempt === "number" && matchingCi.run_attempt > 0 ? matchingCi.run_attempt : 1;
+      const ciJobs = await fetchPaginatedGithubJobs(
+        `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${matchingCi.id}/attempts/${ciAttempt}/jobs`,
+        headers,
+        fetchImpl,
+      );
+      const ciSucceeded = new Set(
+        ciJobs.filter((j) => j.conclusion === "success" && typeof j.name === "string").map((j) => j.name!),
+      );
+      primaryCiVerified = REQUIRED_PRIMARY_CI_JOBS.every((jobName) => ciSucceeded.has(jobName));
+    }
+  }
+
+  let verifiedTestsPassed: number | null = null;
+  if (artifactsRes.ok) {
+    const artifactsPayload = (await artifactsRes.json()) as {
+      artifacts?: Array<{ name?: string; expired?: boolean; archive_download_url?: string }>;
+    };
+    const qualityArtifact = (artifactsPayload.artifacts ?? []).find(
+      (a) => a.name === "certification-quality" && a.expired !== true && typeof a.archive_download_url === "string",
+    );
+    if (qualityArtifact?.archive_download_url) {
+      const zipRes = await fetchImpl(qualityArtifact.archive_download_url, {
+        headers,
+        redirect: "follow",
+        signal: AbortSignal.timeout(15_000),
+      }).catch(() => null);
+      if (zipRes?.ok) {
+        const buf = Buffer.from(await zipRes.arrayBuffer());
+        verifiedTestsPassed = extractPrimaryTestCountFromZip(buf);
+      }
+    }
+  }
+
   return {
     headSha: String(runJson.head_sha ?? ""),
+    headBranch: String(runJson.head_branch ?? ""),
+    workflowPath: String(runJson.path ?? ""),
     status: String(runJson.status ?? ""),
     conclusion: String(runJson.conclusion ?? ""),
     completedAt: String(runJson.updated_at ?? new Date().toISOString()),
     jobsPassed: jobs.filter((j) => j.conclusion === "success").length,
     skippedJobs: jobs.filter((j) => j.conclusion === "skipped").length,
+    missingJobs,
+    primaryCiVerified,
+    verifiedTestsPassed,
   };
 }
 
 export async function verifyAcceptanceProvenanceWithAdapters(
   evidence: AcceptanceEvidence,
   options?: AcceptanceVerificationOptions,
-): Promise<{ verificationMode: "SERVER_VERIFIED" | "LOCAL_TEST_BOUNDARY"; provenanceDigest: string | null }> {
+): Promise<{ verificationMode: "SERVER_VERIFIED" | "HUMAN_ATTESTED" | "LOCAL_TEST_BOUNDARY"; provenanceDigest: string | null }> {
   const now = options?.now ?? new Date();
   const env = options?.env ?? process.env;
   const prod = isProductionAcceptanceRuntime(env);
@@ -485,8 +704,10 @@ export async function verifyAcceptanceProvenanceWithAdapters(
   }
 
   if (evidence.kind === "LIVE") {
-    const digest = createHash("sha256").update(`${evidence.releaseSha}:${evidence.key}:${evidence.evidenceReference}`).digest("hex");
-    return { verificationMode: prod ? "SERVER_VERIFIED" : "LOCAL_TEST_BOUNDARY", provenanceDigest: digest };
+    const digest = createHash("sha256")
+      .update(`${evidence.releaseSha}:${evidence.key}:${evidence.evidenceReference}:${evidence.financialAuthorizationReference ?? ""}`)
+      .digest("hex");
+    return { verificationMode: "HUMAN_ATTESTED", provenanceDigest: digest };
   }
 
   const mustVerifyRemotely = options?.requireServerVerification ?? prod;
@@ -496,7 +717,7 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     const githubToken = (env.GITHUB_RELEASE_READ_TOKEN ?? "").trim();
     const verifier =
       options?.adapters?.verifyCiRun ??
-      (githubToken ? ({ runId: id }: { runId: string; releaseSha: string }) => fetchGithubCiRun(id, githubToken) : null);
+      (githubToken ? ({ runId: id, releaseSha: shaValue }: { runId: string; releaseSha: string }) => fetchGithubCiRun(id, githubToken, shaValue) : null);
 
     if (!verifier) {
       if (mustVerifyRemotely) {
@@ -508,10 +729,16 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     const verified = await verifier({ runId, releaseSha: evidence.releaseSha });
     if (
       verified.headSha !== evidence.releaseSha ||
+      (verified.headBranch !== undefined && verified.headBranch !== "main") ||
+      (verified.workflowPath !== undefined && verified.workflowPath !== ".github/workflows/production-certification.yml") ||
       verified.status !== "completed" ||
       verified.conclusion !== "success" ||
       verified.skippedJobs !== 0 ||
+      verified.jobsPassed < 26 && verified.missingJobs !== undefined ||
       verified.jobsPassed <= 0 ||
+      Boolean(verified.missingJobs?.length) ||
+      verified.primaryCiVerified === false ||
+      (verified.verifiedTestsPassed != null && verified.verifiedTestsPassed !== evidence.testsPassed) ||
       new Date(evidence.observedAt).getTime() < new Date(verified.completedAt).getTime()
     ) {
       throw new PlatformError("CI_VERIFICATION_MISMATCH", "CI workflow evidence does not match verified GitHub run state.", 409);
@@ -535,6 +762,7 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     vercelDeploymentId: evidence.vercelDeploymentId,
     webDeploymentId: evidence.webDeploymentId,
     operationsDeploymentId: evidence.operationsDeploymentId,
+    queryDeploymentId: evidence.queryDeploymentId,
     protectedDataAuditReference: evidence.protectedDataAuditReference,
   });
   if (
@@ -544,6 +772,8 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     verifiedParity.webStatus !== "SUCCESS" ||
     verifiedParity.operationsSha !== evidence.releaseSha ||
     verifiedParity.operationsStatus !== "SUCCESS" ||
+    verifiedParity.querySha !== evidence.releaseSha ||
+    verifiedParity.queryStatus !== "SUCCESS" ||
     verifiedParity.auditReleaseSha !== evidence.releaseSha ||
     verifiedParity.protectedDataUnchanged !== true ||
     verifiedParity.leastPrivilege !== true
@@ -553,8 +783,13 @@ export async function verifyAcceptanceProvenanceWithAdapters(
   return { verificationMode: "SERVER_VERIFIED", provenanceDigest: verifiedParity.auditDigest };
 }
 
+type AcceptanceDbReader = Pick<
+  Prisma.TransactionClient,
+  "adminActivityLog" | "payment" | "paystackSandboxVerification"
+>;
+
 async function assertSandboxNotPreviouslyRevokedOrReplayed(
-  tx: Prisma.TransactionClient,
+  db: AcceptanceDbReader,
   key: string,
   evidence: SandboxEvidence,
   priorRecord: AcceptanceRecord | null,
@@ -565,7 +800,7 @@ async function assertSandboxNotPreviouslyRevokedOrReplayed(
   if (priorRecord && priorRecord.status === "APPROVED" && priorRecord.evidence.kind === "SANDBOX" && priorRecord.evidence.paymentReference === evidence.paymentReference && priorRecord.evidence.releaseSha !== evidence.releaseSha) {
     throw new PlatformError("SANDBOX_PAYMENT_REPLAYED", "Sandbox payment reference was already consumed by another release SHA.", 409);
   }
-  const historyRows = await tx.adminActivityLog.findMany({
+  const historyRows = await db.adminActivityLog.findMany({
     where: { entityType: "ProductionAcceptance", entityId: key, action: "UPDATE" },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -579,11 +814,11 @@ async function assertSandboxNotPreviouslyRevokedOrReplayed(
   }
 }
 
-async function loadSandboxCandidate(tx: Prisma.TransactionClient, evidence: SandboxEvidence): Promise<SandboxAcceptanceCandidate | null> {
-  const payment = await tx.payment.findUnique({ where: { publicReference: evidence.paymentReference }, select: sandboxPaymentSelection });
+async function loadSandboxCandidate(db: AcceptanceDbReader, evidence: SandboxEvidence): Promise<SandboxAcceptanceCandidate | null> {
+  const payment = await db.payment.findUnique({ where: { publicReference: evidence.paymentReference }, select: sandboxPaymentSelection });
   if (payment) return payment;
 
-  const sandboxVerif = await tx.paystackSandboxVerification.findUnique({
+  const sandboxVerif = await db.paystackSandboxVerification.findUnique({
     where: { reference: evidence.paymentReference },
     include: { releaseProvenance: true },
   });
@@ -617,8 +852,8 @@ async function loadSandboxCandidate(tx: Prisma.TransactionClient, evidence: Sand
   };
 }
 
-async function validateSandboxEvidence(
-  tx: Prisma.TransactionClient,
+async function validateSandboxEvidenceInDb(
+  db: AcceptanceDbReader,
   key: string,
   evidence: AcceptanceEvidence,
   priorRecord: AcceptanceRecord | null,
@@ -630,11 +865,19 @@ async function validateSandboxEvidence(
   if (prod && env.KT_E2E_PAYSTACK_ACCEPTANCE === "true") {
     throw new PlatformError("SANDBOX_FIXTURE_REJECTED_IN_PRODUCTION", "Disposable provider fixtures cannot certify production readiness.", 409);
   }
-  await assertSandboxNotPreviouslyRevokedOrReplayed(tx, key, evidence, priorRecord);
-
-  const candidate = await loadSandboxCandidate(tx, evidence);
+  await assertSandboxNotPreviouslyRevokedOrReplayed(db, key, evidence, priorRecord);
+  const candidate = await loadSandboxCandidate(db, evidence);
   assertSandboxPaymentAcceptance(candidate, evidence);
+}
 
+/** Execute Paystack external HTTP check outside database transactions and advisory locks. */
+async function verifySandboxEvidenceRemotely(
+  evidence: AcceptanceEvidence,
+  options?: AcceptanceVerificationOptions,
+) {
+  if (evidence.kind !== "SANDBOX") return;
+  const env = options?.env ?? process.env;
+  const prod = isProductionAcceptanceRuntime(env);
   const expectedAmountCents = Math.round(Number(evidence.amount) * 100);
   if (options?.adapters?.verifySandboxPaymentWithProvider) {
     const providerResult = await options.adapters.verifySandboxPaymentWithProvider({
@@ -676,6 +919,18 @@ export async function recordAcceptanceEvidence(
 ) {
   const data = AcceptanceDraftSchema.parse(input);
   const key = acceptanceStorageKey(data.evidence.key);
+
+  // Phase 1: Preflight DB checks & external network verifications outside SQL locks.
+  const prePrior = await prisma.systemSetting.findUnique({ where: { key } });
+  const preParsed = prePrior ? parseAcceptanceRecord(prePrior.value) : null;
+  if ((preParsed ? preParsed.version : 0) !== data.expectedVersion) {
+    throw new PlatformError("EVIDENCE_CONFLICT", "Refresh the acceptance evidence before saving.", 409);
+  }
+  await validateSandboxEvidenceInDb(prisma, key, data.evidence, preParsed, options);
+  await verifySandboxEvidenceRemotely(data.evidence, options);
+  const provenanceCheck = await verifyAcceptanceProvenanceWithAdapters(data.evidence, options);
+
+  // Phase 2: Atomic advisory-locked transaction with zero external network I/O.
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
     const prior = await tx.systemSetting.findUnique({ where: { key } });
@@ -683,8 +938,7 @@ export async function recordAcceptanceEvidence(
     const version = parsedPrior ? parsedPrior.version : 0;
     if (version !== data.expectedVersion) throw new PlatformError("EVIDENCE_CONFLICT", "Refresh the acceptance evidence before saving.", 409);
 
-    await validateSandboxEvidence(tx, key, data.evidence, parsedPrior, options);
-    const provenanceCheck = await verifyAcceptanceProvenanceWithAdapters(data.evidence, options);
+    await validateSandboxEvidenceInDb(tx, key, data.evidence, parsedPrior, options);
 
     const value: AcceptanceRecord = {
       evidence: data.evidence,
@@ -722,6 +976,32 @@ export async function reviewAcceptanceEvidence(
 ) {
   const data = AcceptanceReviewSchema.parse(input);
   const key = acceptanceStorageKey(data.key);
+
+  // Phase 1: Preflight & external network verification outside SQL locks.
+  const preRow = await prisma.systemSetting.findUnique({ where: { key } });
+  const prePrior = preRow ? parseAcceptanceRecord(preRow.value) : null;
+  if (!preRow || !prePrior || prePrior.version !== data.expectedVersion) {
+    throw new PlatformError("EVIDENCE_CONFLICT", "Refresh before reviewing.", 409);
+  }
+  const preRawJson = preRow.value as { evidence?: { key?: string } } | null;
+  if (data.action === "APPROVE" && preRawJson?.evidence?.key === "live_paid_order_acceptance") {
+    throw new PlatformError("EVIDENCE_CONFLICT", "Legacy acceptance evidence must be replaced before review.", 409);
+  }
+  if (data.action === "APPROVE" && (prePrior.authorId === actorId || prePrior.status !== "DRAFT")) {
+    throw new PlatformError("INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must review the draft and its linked evidence.", 403);
+  }
+
+  let verifiedMode = prePrior.verificationMode;
+  let verifiedDigest = prePrior.provenanceDigest;
+  if (data.action === "APPROVE") {
+    await validateSandboxEvidenceInDb(prisma, key, prePrior.evidence, prePrior, options);
+    await verifySandboxEvidenceRemotely(prePrior.evidence, options);
+    const provenanceCheck = await verifyAcceptanceProvenanceWithAdapters(prePrior.evidence, options);
+    verifiedMode = provenanceCheck.verificationMode;
+    verifiedDigest = provenanceCheck.provenanceDigest;
+  }
+
+  // Phase 2: Atomic advisory-locked transaction with zero external network I/O.
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
     const row = await tx.systemSetting.findUnique({ where: { key } });
@@ -734,13 +1014,8 @@ export async function reviewAcceptanceEvidence(
     if (data.action === "APPROVE" && (prior.authorId === actorId || prior.status !== "DRAFT")) {
       throw new PlatformError("INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must review the draft and its linked evidence.", 403);
     }
-    let verificationMode = prior.verificationMode;
-    let provenanceDigest = prior.provenanceDigest;
     if (data.action === "APPROVE") {
-      await validateSandboxEvidence(tx, key, prior.evidence, prior, options);
-      const provenanceCheck = await verifyAcceptanceProvenanceWithAdapters(prior.evidence, options);
-      verificationMode = provenanceCheck.verificationMode;
-      provenanceDigest = provenanceCheck.provenanceDigest;
+      await validateSandboxEvidenceInDb(tx, key, prior.evidence, prior, options);
     }
     const now = options?.now ?? new Date();
     const next: AcceptanceRecord = {
@@ -749,8 +1024,8 @@ export async function reviewAcceptanceEvidence(
       status: data.action === "APPROVE" ? "APPROVED" : "REVOKED",
       approverId: actorId,
       approvedAt: now.toISOString(),
-      verificationMode,
-      provenanceDigest,
+      verificationMode: verifiedMode,
+      provenanceDigest: verifiedDigest,
     };
     await tx.systemSetting.update({ where: { id: row.id, updatedAt: row.updatedAt }, data: { value: next as unknown as Prisma.InputJsonValue } });
     await tx.adminActivityLog.create({

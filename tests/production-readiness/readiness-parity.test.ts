@@ -100,14 +100,25 @@ describe("board scope reconciliation, COD readiness parity, and commission cover
       },
     };
     const validServices = new Map([["STANDARD", { stableKey: "STANDARD", status: "ACTIVE", effectiveFrom: new Date("2026-11-01T00:00:00Z"), effectiveTo: null }]]);
-    const validRegions = new Map([["reg_gp", { id: "reg_gp", active: true, province: "Gauteng", coverageMode: "RADIUS", centerLat: -26.2, centerLng: 28.04, coverageRadiusKm: 40, maxDistanceKm: 60 }]]);
+    const validRegions = new Map([["reg_gp", { id: "reg_gp", active: true, pricingEnabled: true, province: "Gauteng", coverageMode: "RADIUS", centerLat: -26.2, centerLng: 28.04, coverageRadiusKm: 40, maxDistanceKm: 60 }]]);
     const validBank = { valid: true, updatedAtIso: "2026-11-24T00:30:00.000Z", updatedByUserId: "bank_author_3" };
 
     expect(evaluateCodPolicyReadiness([validPolicy], { activeServicesByKey: validServices, regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(1);
+    expect(evaluateCodPolicyReadiness([validPolicy], { activeServicesByKey: null, regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(0);
+    expect(evaluateCodPolicyReadiness([validPolicy], { activeServicesByKey: validServices, regionsById: null, bank: validBank, now }).eligible).toHaveLength(0);
     expect(evaluateCodPolicyReadiness([validPolicy], { activeServicesByKey: new Map(), regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(0);
 
-    const badRegions = new Map([["reg_gp", { id: "reg_gp", active: false, province: "Gauteng", coverageMode: "RADIUS", centerLat: null, centerLng: null, coverageRadiusKm: null, maxDistanceKm: null }]]);
+    const badRegions = new Map([["reg_gp", { id: "reg_gp", active: false, pricingEnabled: false, province: "Gauteng", coverageMode: "RADIUS", centerLat: null, centerLng: null, coverageRadiusKm: null, maxDistanceKm: null }]]);
     expect(evaluateCodPolicyReadiness([validPolicy], { activeServicesByKey: validServices, regionsById: badRegions, bank: validBank, now }).eligible).toHaveLength(0);
+
+    const pricingDisabledRegion = new Map([["reg_gp", { id: "reg_gp", active: true, pricingEnabled: false, province: "Gauteng", coverageMode: "RADIUS", centerLat: -26.2, centerLng: 28.04, coverageRadiusKm: 40, maxDistanceKm: 60 }]]);
+    expect(evaluateCodPolicyReadiness([{ ...validPolicy, regionId: null }], { activeServicesByKey: validServices, regionsById: pricingDisabledRegion, bank: validBank, now }).eligible).toHaveLength(0);
+
+    const invalidProvince = { ...validPolicy, regionId: null, provinceScope: ["Atlantis"] };
+    expect(evaluateCodPolicyReadiness([invalidProvince], { activeServicesByKey: validServices, regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(0);
+
+    const futureApproved = { ...validPolicy, policyEvidence: { ...validPolicy.policyEvidence, approvedAt: "2099-01-01T00:00:00.000Z" } };
+    expect(evaluateCodPolicyReadiness([futureApproved], { activeServicesByKey: validServices, regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(0);
 
     const selfApproved = { ...validPolicy, policyEvidence: { ...validPolicy.policyEvidence, approvedByUserId: "maker_1" } };
     expect(evaluateCodPolicyReadiness([selfApproved], { activeServicesByKey: validServices, regionsById: validRegions, bank: validBank, now }).eligible).toHaveLength(0);
@@ -119,14 +130,14 @@ describe("board scope reconciliation, COD readiness parity, and commission cover
       scopeKey: "GLOBAL:COURIER_ORDER",
       currency: "ZAR",
       status: "ACTIVE",
-      basisType: "DELIVERY_FEE",
+      basisType: "ORDER_TOTAL",
       effectiveFrom: new Date("2026-11-01T00:00:00.000Z"),
       effectiveUntil: null,
       calculationVersion: "v1",
       createdByUserId: "maker_1",
       approvedByUserId: "reviewer_2",
       approvedAt: new Date("2026-11-01T00:00:00.000Z"),
-      rules: [{ calculationMethod: "PERCENTAGE_OF_BASIS", rateBasisPoints: 7000 }],
+      rules: [{ calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: 7000 }],
     };
 
     const ok = evaluateCommissionPlanCoverage({
@@ -137,7 +148,7 @@ describe("board scope reconciliation, COD readiness parity, and commission cover
           subjectType: "MARKETPLACE_STORE_ORDER",
           scopeKey: "STORE:store_1",
           basisType: "ORDER_SUBTOTAL",
-          rules: [{ calculationMethod: "PERCENTAGE_OF_BASIS", rateBasisPoints: 800 }],
+          rules: [{ calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: 800 }],
         },
       ],
       activeStoreIds: ["store_1"],
@@ -157,7 +168,7 @@ describe("board scope reconciliation, COD readiness parity, and commission cover
 
     // Invalid >100% rateBasisPoints rejected
     const badRate = evaluateCommissionPlanCoverage({
-      plans: [{ ...basePlan, rules: [{ calculationMethod: "PERCENTAGE_OF_BASIS", rateBasisPoints: 12000 }] }],
+      plans: [{ ...basePlan, rules: [{ calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: 12000 }] }],
       activeStoreIds: [],
       now: new Date("2026-11-24T12:00:00.000Z"),
     });

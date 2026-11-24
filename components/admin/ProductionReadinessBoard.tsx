@@ -11,6 +11,7 @@ import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capabilit
 import type { MatrixReconciliationSummary } from "@/lib/production-readiness/reconciliation";
 import type { EnvSchemaVerificationReport } from "@/lib/runtime/env-schema-verifier";
 import type { CommerceActivation } from "@/lib/runtime/commerce-activation";
+import type { GovernedModuleActivationState } from "@/lib/governance/module-activation";
 
 type EntityConfigurationStatus = Readonly<{
   storefrontStoresTotal: number | null;
@@ -37,6 +38,7 @@ export function ProductionReadinessBoard({
   capabilities,
   capabilityMatrix = [],
   matrixReconciliation,
+  moduleActivations,
   envSchema,
   commerceActivation,
   entityConfigurationStatus,
@@ -44,6 +46,10 @@ export function ProductionReadinessBoard({
   capabilities: Capability[];
   capabilityMatrix?: readonly CapabilityMatrixEntry[];
   matrixReconciliation?: MatrixReconciliationSummary;
+  moduleActivations?: {
+    reporting: GovernedModuleActivationState | null;
+    developerApi: GovernedModuleActivationState | null;
+  };
   envSchema?: EnvSchemaVerificationReport;
   commerceActivation?: CommerceActivation;
   entityConfigurationStatus?: EntityConfigurationStatus;
@@ -77,10 +83,10 @@ export function ProductionReadinessBoard({
       <div className="rounded-xl border border-[var(--kt-border)] bg-white p-4 text-xs text-[var(--kt-text-soft)]">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-semibold text-[var(--kt-brand-navy)]">
-            Scope reconciliation: {matrixReconciliation.overallStatus}
+            Scope reconciliation: {matrixReconciliation.overallStatus} (register blockers: {blocked}, matrix blockers: {matrixReconciliation.inScopeMatrixBlockers.length})
           </span>
           <span className="font-mono">
-            In-scope matrix blockers: {matrixReconciliation.inScopeMatrixBlockers.length} · Excluded: {matrixReconciliation.excludedCapabilities.join(", ") || "None"}
+            Register ready: {ready} · Excluded by policy: {matrixReconciliation.excludedCapabilities.join(", ") || "None"}
           </span>
         </div>
         {matrixReconciliation.inScopeMatrixBlockers.length > 0 && (
@@ -88,6 +94,32 @@ export function ProductionReadinessBoard({
             Matrix blockers preventing unrestricted ready: {matrixReconciliation.inScopeMatrixBlockers.join(", ")}
           </p>
         )}
+      </div>
+    )}
+    {moduleActivations && (moduleActivations.reporting || moduleActivations.developerApi) && (
+      <div className="rounded-xl border border-[var(--kt-border)] bg-white p-4 text-xs text-[var(--kt-text-soft)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-semibold text-[var(--kt-brand-navy)]">Governed module dual-control activations</span>
+          <span>Activate individually via Admin Reports or Admin Developers consoles</span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {[
+            { label: "Reporting & CSV exports", state: moduleActivations.reporting, href: "/admin/reports" },
+            { label: "Developer API & webhooks", state: moduleActivations.developerApi, href: "/admin/developers" },
+          ].map(({ label, state, href }) => (
+            <div key={label} className="rounded-lg bg-[var(--kt-surface-muted)] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Link href={href} className="font-semibold text-[var(--kt-brand-navy)] underline underline-offset-2">{label}</Link>
+                <span className={`rounded px-2 py-0.5 font-mono text-[11px] font-semibold ${state?.active ? "bg-[#edf7f0] text-[#236547]" : "bg-[#fff2e7] text-[#875224]"}`}>
+                  {state ? (state.active ? "ACTIVE" : state.status) : "UNKNOWN"}
+                </span>
+              </div>
+              {state?.blockerCode && (
+                <p className="mt-1 font-mono text-[11px] text-[#875224]">{state.blockerCode}</p>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     )}
     {(commerceActivation || envSchema || entityConfigurationStatus) && (

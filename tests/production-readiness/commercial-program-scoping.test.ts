@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
-  deliveryServiceDefinition: { count: vi.fn(), findFirst: vi.fn() },
+  deliveryServiceDefinition: { count: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
   deliveryRegion: { findMany: vi.fn() },
   parcelProfile: { findMany: vi.fn() },
   commissionPlan: { findMany: vi.fn() },
@@ -59,7 +59,22 @@ describe("Commercial Program Readiness Scoping", () => {
     vi.clearAllMocks();
     vi.mocked(marketplaceCourierTariffPolicy).mockResolvedValue(null);
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
-    db.deliveryRegion.findMany.mockResolvedValue([]);
+    db.deliveryServiceDefinition.findMany.mockResolvedValue([
+      { stableKey: "CLIENT_STANDARD", status: "ACTIVE", effectiveFrom: new Date("2020-01-01T00:00:00.000Z"), effectiveTo: null },
+    ]);
+    db.deliveryRegion.findMany.mockResolvedValue([
+      {
+        id: "region-gp-1",
+        active: true,
+        pricingEnabled: true,
+        province: "Gauteng",
+        coverageMode: "RADIUS",
+        centerLat: -26.2,
+        centerLng: 28.04,
+        coverageRadiusKm: 40,
+        maxDistanceKm: 80,
+      },
+    ]);
     db.parcelProfile.findMany.mockResolvedValue([]);
     db.commissionPlan.findMany.mockResolvedValue([]);
     db.store.findMany.mockResolvedValue([]);
@@ -131,14 +146,29 @@ describe("owner-approved 50/50 personal parcel COD production readiness", () => 
     bankName: "Verified test bank", accountName: "KT Couriers Pty", accountNumber: "123456789",
     branchCode: "123456", referenceHint: "Use delivery reference", expectedVersion: 1, handoverEnabled: false,
   };
-  const approval = { approvedByUserId: "finance-reviewer", approvedAt: "2026-10-20T12:00:00.000Z", remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Daily" };
+  const approval = { approvedByUserId: "finance-reviewer", approvedAt: "2026-10-26T12:00:00.000Z", remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Daily" };
   const valid = { id: "personal-cod", mode: "DEPOSIT_PLUS_COD", storeId: null, deliveryServiceId: "CLIENT_STANDARD",
     orderType: "PARCEL_DOCUMENT", provinceScope: ["Gauteng"], regionId: null,
     maximumCodAmount: { toString: () => "1000.00" }, depositPercent: { toString: () => "0.5" }, depositAmount: null,
     createdByUserId: "policy-author", policyEvidence: approval };
   beforeEach(() => {
     db.deliveryServiceDefinition.count.mockResolvedValue(1);
-    db.deliveryRegion.findMany.mockResolvedValue([]);
+    db.deliveryServiceDefinition.findMany.mockResolvedValue([
+      { stableKey: "CLIENT_STANDARD", status: "ACTIVE", effectiveFrom: new Date("2020-01-01T00:00:00.000Z"), effectiveTo: null },
+    ]);
+    db.deliveryRegion.findMany.mockResolvedValue([
+      {
+        id: "region-gp-1",
+        active: true,
+        pricingEnabled: true,
+        province: "Gauteng",
+        coverageMode: "RADIUS",
+        centerLat: -26.2,
+        centerLng: 28.04,
+        coverageRadiusKm: 40,
+        maxDistanceKm: 80,
+      },
+    ]);
     db.parcelProfile.findMany.mockResolvedValue([]);
     db.commissionPlan.findMany.mockResolvedValue([]);
     db.store.findMany.mockResolvedValue([]);

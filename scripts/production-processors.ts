@@ -21,8 +21,8 @@ import {
   type ProcessorActivationState,
 } from "../lib/processors/production-loop";
 import { isActualProductionInstance, promotionsProductionReady } from "../lib/promotions/production-lock";
-import { REPORTING_PRODUCTION_VALIDATION_APPROVED } from "../lib/reporting/production-readiness";
-import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED } from "../lib/developer-api/production-readiness";
+import { resolveReportingActivationState } from "../lib/reporting/activation";
+import { resolveDeveloperApiActivationState } from "../lib/developer-api/activation";
 import { subscriptionsProductionReady } from "../lib/subscriptions/production-lock";
 import { promotersProductionReady } from "../lib/promoters/production-readiness";
 import { advertisingProductionReady } from "../lib/advertising/production-lock";
@@ -84,7 +84,15 @@ async function main() {
   }
 
   async function resolveActivationState(name: ProductionProcessor): Promise<{ activationState: ProcessorActivationState; blockerCode: string | null }> {
-    const reportingApproved = !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED;
+    const isProd = process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance();
+    const reportingActivation = (name === "expire-report-artifacts" || name === "generate-report-jobs")
+      ? await resolveReportingActivationState({ db: prisma })
+      : null;
+    const reportingApproved = !isProd || Boolean(reportingActivation?.approved);
+    const developerApiActivation = (name === "expire-developer-api-credentials" || name === "deliver-developer-webhooks")
+      ? await resolveDeveloperApiActivationState({ db: prisma })
+      : null;
+    const developerApiApproved = Boolean(developerApiActivation?.active);
     if (name === "process-ordinary-referral-awards") {
       const authorized = process.env.KT_ORDINARY_REFERRAL_WORKER_AUTHORIZED === "true";
       const setting = await prisma.systemSetting.findUnique({ where: { key: "referral.reward_issuing_enabled" }, select: { type: true, value: true } });
@@ -101,7 +109,7 @@ async function main() {
       return evaluateCommercialGateState({ enabled: process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true", approved: reportingApproved, blockerCode: "REPORTING_PRODUCTION_LOCKED" });
     }
     if (name === "expire-developer-api-credentials") {
-      return evaluateCommercialGateState({ enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true", approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED, blockerCode: "DEVELOPER_API_PRODUCTION_LOCKED" });
+      return evaluateCommercialGateState({ enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true", approved: developerApiApproved, blockerCode: "DEVELOPER_API_PRODUCTION_LOCKED" });
     }
     if (name === "process-subscription-renewals") {
       return evaluateCommercialGateState({ enabled: process.env.KT_SUBSCRIPTION_RENEWAL_WORKER_ENABLED !== "false", approved: subscriptionsProductionReady(), blockerCode: "SUBSCRIPTIONS_PRODUCTION_LOCKED" });
@@ -113,7 +121,7 @@ async function main() {
       return evaluateCommercialGateState({ enabled: process.env.KT_ADVERTISING_CLICK_WORKER_ENABLED !== "false", approved: advertisingProductionReady(), blockerCode: "ADVERTISING_PRODUCTION_LOCKED" });
     }
     if (name === "deliver-developer-webhooks") {
-      return evaluateCommercialGateState({ enabled: process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false", approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED, blockerCode: "DEVELOPER_API_PRODUCTION_LOCKED" });
+      return evaluateCommercialGateState({ enabled: process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false", approved: developerApiApproved, blockerCode: "DEVELOPER_API_PRODUCTION_LOCKED" });
     }
     if (name === "reconcile-customer-parcel-loyalty") {
       return evaluateOperationalWorkerGateState({ enabled: process.env.KT_LOYALTY_RECONCILE_WORKER_DISABLED !== "true", blockerCode: "LOYALTY_RECONCILE_WORKFLOW" });
@@ -160,21 +168,32 @@ async function main() {
         return (await expirePromotionReservations({ limit: 1, apply: false })).examined > 0;
       },
     });
-    if (name === "expire-report-artifacts") return hasEnabledPromotionExpiryWork({
-      enabled: process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true",
-      approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
-      hasPending: async () => !!await prisma.reportExportArtifact.findFirst({ where: { storageDeletedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
-    });
-    if (name === "generate-report-jobs") return hasEnabledPromotionExpiryWork({
-      enabled: process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true",
-      approved: !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || REPORTING_PRODUCTION_VALIDATION_APPROVED,
-      hasPending: async () => !!await prisma.reportJob.findFirst({ where: { OR: [{ status: "QUEUED" }, { status: "FAILED_RETRYABLE", OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, { status: "RUNNING", claimExpiresAt: { lte: new Date() } }] }, select: { id: true } }),
-    });
-    if (name === "expire-developer-api-credentials") return hasEnabledPromotionExpiryWork({
-      enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true",
-      approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
-      hasPending: async () => !!await prisma.developerApiCredential.findFirst({ where: { status: { in: ["ACTIVE", "EXPIRING"] }, revokedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
-    });
+    if (name === "expire-report-artifacts") {
+      const reportingActivation = await resolveReportingActivationState({ db: prisma });
+      const reportingReady = !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || reportingActivation.active;
+      return hasEnabledPromotionExpiryWork({
+        enabled: process.env.KT_REPORT_EXPIRY_WORKER_ENABLED === "true",
+        approved: reportingReady,
+        hasPending: async () => !!await prisma.reportExportArtifact.findFirst({ where: { storageDeletedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
+      });
+    }
+    if (name === "generate-report-jobs") {
+      const reportingActivation = await resolveReportingActivationState({ db: prisma });
+      const reportingReady = !(process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) || reportingActivation.active;
+      return hasEnabledPromotionExpiryWork({
+        enabled: process.env.KT_REPORT_GENERATION_WORKER_ENABLED === "true",
+        approved: reportingReady,
+        hasPending: async () => !!await prisma.reportJob.findFirst({ where: { OR: [{ status: "QUEUED" }, { status: "FAILED_RETRYABLE", OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: new Date() } }] }, { status: "RUNNING", claimExpiresAt: { lte: new Date() } }] }, select: { id: true } }),
+      });
+    }
+    if (name === "expire-developer-api-credentials") {
+      const devActivation = await resolveDeveloperApiActivationState({ db: prisma });
+      return hasEnabledPromotionExpiryWork({
+        enabled: process.env.KT_DEVELOPER_CREDENTIAL_EXPIRY_ENABLED === "true",
+        approved: devActivation.active,
+        hasPending: async () => !!await prisma.developerApiCredential.findFirst({ where: { status: { in: ["ACTIVE", "EXPIRING"] }, revokedAt: null, expiresAt: { lte: new Date() } }, select: { id: true } }),
+      });
+    }
     if (name === "reconcile-expired-dispatch") {
       return !!await prisma.orderAssignment.findFirst({
         where: { status: "ASSIGNED", expiresAt: { lte: new Date() } },
@@ -297,9 +316,10 @@ async function main() {
       });
     }
     if (name === "deliver-developer-webhooks") {
+      const devActivation = await resolveDeveloperApiActivationState({ db: prisma });
       return hasEnabledCommercialProcessorWork({
         enabled: process.env.KT_DEVELOPER_WEBHOOK_WORKER_ENABLED !== "false",
-        approved: DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
+        approved: devActivation.active,
         hasPending: async () => !!await prisma.developerWebhookDelivery.findFirst({
           where: { status: { in: ["PENDING", "FAILED_RETRYABLE", "SENDING"] } },
           select: { id: true },

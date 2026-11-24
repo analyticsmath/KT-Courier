@@ -1,0 +1,17 @@
+{
+  "name": "kt-courier-release-authority",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Independent standalone release authority service and offline 4-role Ed25519 signing CLI for KT Couriers production releases.",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "cli": "node src/cli.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

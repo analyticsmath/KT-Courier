@@ -28,14 +28,29 @@ describe("ledger query service", () => {
     mocks.prisma.ledgerAccount.count.mockResolvedValue(1); mocks.prisma.ledgerAccount.findMany.mockResolvedValue([account]);
     const result = await listLedgerAccounts({ page: 1, pageSize: 20 });
     expect(result.data[0]).toMatchObject({ currentBalance: "1.00", owner: { label: "KT Couriers platform" } });
-    expect(mocks.prisma.ledgerAccount.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: [{ code: "asc" }, { id: "asc" }] }));
+    expect(mocks.prisma.ledgerAccount.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }),
+        orderBy: [{ code: "asc" }, { id: "asc" }],
+      }),
+    );
   });
 
   it("returns server-derived journal balancing and stable ordering", async () => {
     mocks.prisma.ledgerJournal.count.mockResolvedValue(1); mocks.prisma.ledgerJournal.findMany.mockResolvedValue([journal]);
     const result = await listLedgerJournals({ page: 1, pageSize: 20 });
     expect(result.data[0]).toMatchObject({ totalDebits: "1.00", totalCredits: "1.00", balanced: true });
-    expect(mocks.prisma.ledgerJournal.findMany).toHaveBeenCalledWith(expect.objectContaining({ orderBy: [{ postedAt: "desc" }, { id: "desc" }] }));
+    expect(mocks.prisma.ledgerJournal.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
+            { entries: { none: { account: { wallet: { ownerId: "platform-sandbox-acceptance" } } } } },
+          ]),
+        }),
+        orderBy: [{ postedAt: "desc" }, { id: "desc" }],
+      }),
+    );
   });
 
   it("redacts unsafe stored metadata and never exposes a request hash", async () => {

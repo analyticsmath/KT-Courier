@@ -38,7 +38,7 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: node --test scripts/staging-isolation.test.mjs scripts/phase3-evidence.test.mjs scripts/final-closure-evidence.test.mjs scripts/edge-build-refusal.test.mjs
-      - run: node --test scripts/check-closure-engineering-gates.test.mjs tests/report-phase3-blockers.test.mjs tests/scripts/release-attestation.node-test.mjs tests/scripts/release-status.node-test.mjs tests/scripts/release-authorization-entry.node-test.mjs tests/scripts/release-authorization-composition.node-test.mjs
+      - run: node --test scripts/check-closure-engineering-gates.test.mjs tests/report-phase3-blockers.test.mjs tests/scripts/release-attestation.node-test.mjs tests/scripts/release-status.node-test.mjs tests/scripts/release-authorization-entry.node-test.mjs tests/scripts/release-authorization-composition.node-test.mjs tests/scripts/release-authority-service.node-test.mjs
       - run: node scripts/validate-phase3-evidence.mjs
       - run: node --test scripts/certification-output.test.mjs scripts/production-certification-workflow.test.mjs scripts/phase2-engineering-verification.test.mjs scripts/phase1-browser-plan.test.mjs scripts/e2e-ingress.test.mjs scripts/release-test-deferrals.test.mjs scripts/e2e-standalone-app.test.mjs
       - run: node --test tests/scripts/phase2-bounded-capacity.node-test.mjs

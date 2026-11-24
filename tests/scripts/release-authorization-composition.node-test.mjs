@@ -54,6 +54,16 @@ function buildFixture(overrides = {}) {
       { reference: `ev-${k}-001`, digest: sha256(`ev-${k}-001`), ...(overrides.evidence?.[k] ?? {}) },
     ]),
   );
+  const contextEvidence = Object.fromEntries(
+    Object.entries(attestedEvidence).map(([k, v]) => [
+      k,
+      {
+        observedAt: "2026-11-24T11:50:00.000Z",
+        expiresAt: "2026-11-24T12:30:00.000Z",
+        ...v,
+      },
+    ]),
+  );
 
   const scope = overrides.scope ?? {
     mandatoryChecks: ["checkout", "cod", "store_operational_policy", "commissions", "notifications", "retention", "audit"],
@@ -67,7 +77,7 @@ function buildFixture(overrides = {}) {
   };
 
   const payload = {
-    version: 1,
+    version: 2,
     repository: "analyticsmath/KT-Courier",
     environment: "production",
     audience: "kt-couriers-release",
@@ -79,8 +89,10 @@ function buildFixture(overrides = {}) {
       vercel: deployments.vercel,
       railwayWeb: deployments.railwayWeb,
       railwayOperations: deployments.railwayOperations,
+      railwayQuery: deployments.railwayQuery,
     },
     scope: [...scope.mandatoryChecks],
+    excludedCapabilities: [...scope.excludedCapabilities],
     policies,
     evidence: attestedEvidence,
     maker: "maker-author-01",
@@ -145,14 +157,14 @@ function buildFixture(overrides = {}) {
     },
     deployments: {
       vercel: { id: deployments.vercel, sha: commitSha, state: "READY", target: "production" },
-      railwayWeb: { id: deployments.railwayWeb, sha: commitSha, status: "SUCCESS" },
-      railwayOperations: { id: deployments.railwayOperations, sha: commitSha, status: "SUCCESS" },
-      railwayQuery: { id: deployments.railwayQuery, sha: commitSha, status: "SUCCESS" },
+      railwayWeb: { id: deployments.railwayWeb, sha: commitSha, status: "SUCCESS", serviceName: "web" },
+      railwayOperations: { id: deployments.railwayOperations, sha: commitSha, status: "SUCCESS", serviceName: "operations" },
+      railwayQuery: { id: deployments.railwayQuery, sha: commitSha, status: "SUCCESS", serviceName: "query-storefront-categories" },
     },
     health: { postgresOnline: true, redisOnline: true, healthy: true },
     scope,
     policies,
-    evidence: attestedEvidence,
+    evidence: contextEvidence,
     ...(overrides.verifiedContext ?? {}),
   };
 
@@ -708,6 +720,78 @@ test("supports remote trust fetch when pinned via SHA-256 and refuses unauthoriz
     });
     assert.equal(badToken.releaseAuthorized, false);
     assert.equal(badToken.reason, "AUTHORITY_UNAUTHORIZED");
+
+    const dnsSsrf = await authorizeProductionRelease({
+      releaseSha: fixture.commitSha,
+      workflowSha: fixture.commitSha,
+      sourceSha: fixture.commitSha,
+      treeSha: fixture.treeSha,
+      evidenceReference: fixture.evidenceReference,
+      now: fixture.now,
+      outputDir: outDir,
+      resolveDns: async () => [{ address: "10.20.30.40", family: 4 }],
+      env: {
+        RELEASE_AUTHORITY_ORIGIN: "https://release-authority.example",
+        RELEASE_AUTHORITY_ALLOWED_ORIGIN: "https://release-authority.example",
+        RELEASE_AUTHORITY_TOKEN: authority.token,
+        RELEASE_AUTHORITY_TRUST_ANCHORS: JSON.stringify(fixture.trust),
+      },
+    });
+    assert.equal(dnsSsrf.releaseAuthorized, false);
+    assert.equal(dnsSsrf.reason, "AUTHORITY_ENDPOINT_INVALID");
+
+    const wrongQueryService = buildFixture();
+    wrongQueryService.verifiedContext.deployments.railwayQuery.serviceName = "other-service";
+    const authorityWrongService = await startDisposableAuthority(wrongQueryService);
+    try {
+      const mismatchRes = await authorizeProductionRelease({
+        releaseSha: wrongQueryService.commitSha,
+        workflowSha: wrongQueryService.commitSha,
+        sourceSha: wrongQueryService.commitSha,
+        treeSha: wrongQueryService.treeSha,
+        evidenceReference: wrongQueryService.evidenceReference,
+        now: wrongQueryService.now,
+        outputDir: outDir,
+        allowLoopbackForTest: true,
+        env: {
+          RELEASE_AUTHORITY_ORIGIN: authorityWrongService.origin,
+          RELEASE_AUTHORITY_ALLOWED_ORIGIN: authorityWrongService.origin,
+          RELEASE_AUTHORITY_TOKEN: authorityWrongService.token,
+          RELEASE_AUTHORITY_TRUST_ANCHORS: JSON.stringify(wrongQueryService.trust),
+        },
+      });
+      assert.equal(mismatchRes.releaseAuthorized, false);
+      assert.equal(mismatchRes.reason, "DEPLOYMENT_PARITY_MISMATCH");
+    } finally {
+      await authorityWrongService.close();
+    }
+
+    const revokedDomainEvidence = buildFixture();
+    const authorityRevokedDomain = await startDisposableAuthority(revokedDomainEvidence, {
+      revokedEvidenceReferences: ["ev-tax_finance-001"],
+    });
+    try {
+      const revRes = await authorizeProductionRelease({
+        releaseSha: revokedDomainEvidence.commitSha,
+        workflowSha: revokedDomainEvidence.commitSha,
+        sourceSha: revokedDomainEvidence.commitSha,
+        treeSha: revokedDomainEvidence.treeSha,
+        evidenceReference: revokedDomainEvidence.evidenceReference,
+        now: revokedDomainEvidence.now,
+        outputDir: outDir,
+        allowLoopbackForTest: true,
+        env: {
+          RELEASE_AUTHORITY_ORIGIN: authorityRevokedDomain.origin,
+          RELEASE_AUTHORITY_ALLOWED_ORIGIN: authorityRevokedDomain.origin,
+          RELEASE_AUTHORITY_TOKEN: authorityRevokedDomain.token,
+          RELEASE_AUTHORITY_TRUST_ANCHORS: JSON.stringify(revokedDomainEvidence.trust),
+        },
+      });
+      assert.equal(revRes.releaseAuthorized, false);
+      assert.equal(revRes.reason, "EVIDENCE_REVOKED");
+    } finally {
+      await authorityRevokedDomain.close();
+    }
   } finally {
     await authority.close();
     rmSync(outDir, { recursive: true, force: true });

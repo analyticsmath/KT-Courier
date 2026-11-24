@@ -11,11 +11,21 @@ import {
   isValidEvidenceReference,
   isValidSha,
   resolveConfiguredTrust,
-  validateAuthorityOrigin,
+  validateAuthorityOriginWithDns,
 } from "./release-authority-client.mjs";
 
 const REPO = "analyticsmath/KT-Courier";
 const EXPECTED_EXCLUDED_CAPABILITIES = ["ADVERTISING", "PROMOTERS", "SUBSCRIPTIONS"];
+const REQUIRED_LAUNCH_SCOPE = [
+  "audit",
+  "checkout",
+  "cod",
+  "commissions",
+  "notifications",
+  "retention",
+  "store_operational_policy",
+];
+const REQUIRED_POLICIES = ["cod", "commission", "retention"];
 const REQUIRED_EVIDENCE_KEYS = [
   "provider",
   "packing",
@@ -26,6 +36,8 @@ const REQUIRED_EVIDENCE_KEYS = [
   "media",
   "database_audit",
 ];
+const DIGEST_HEX = /^[a-f0-9]{64}$/;
+const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:._-]{0,199}$/;
 
 function sha256Hex(value) {
   return createHash("sha256").update(value).digest("hex");
@@ -88,22 +100,25 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
   if (context.commitSha !== sourceSha || !isValidSha(context.treeSha) || context.treeSha !== treeSha) {
     return { ok: false, reason: "SOURCE_CONTEXT_MISMATCH", detail: "Commit SHA or tree SHA mismatch against verified release context." };
   }
-  if (context.evidenceReference && context.evidenceReference !== evidenceReference) {
-    return { ok: false, reason: "SOURCE_CONTEXT_MISMATCH", detail: "Evidence reference mismatch in verified context." };
+  if (typeof context.evidenceReference !== "string" || context.evidenceReference !== evidenceReference) {
+    return { ok: false, reason: "SOURCE_CONTEXT_MISMATCH", detail: "Evidence reference missing or mismatched in verified context." };
   }
 
   const ciRun = context.ciRun;
   if (
     !ciRun ||
+    ciRun.workflowName !== "CI" ||
+    (ciRun.workflowPath !== undefined && ciRun.workflowPath !== ".github/workflows/ci.yml") ||
+    (ciRun.headBranch !== undefined && ciRun.headBranch !== "main") ||
     ciRun.headSha !== sourceSha ||
     ciRun.status !== "completed" ||
     ciRun.conclusion !== "success" ||
     ciRun.mandatoryJobsSucceeded !== true ||
     ciRun.skippedCriticalJobs !== 0 ||
     typeof ciRun.artifactDigest !== "string" ||
-    !/^[a-f0-9]{64}$/.test(ciRun.artifactDigest)
+    !DIGEST_HEX.test(ciRun.artifactDigest)
   ) {
-    return { ok: false, reason: "CI_VERIFICATION_FAILED", detail: "Exact-SHA primary CI run did not pass all mandatory gates." };
+    return { ok: false, reason: "CI_VERIFICATION_FAILED", detail: "Exact-SHA primary CI workflow on main did not pass all mandatory gates." };
   }
 
   const certRun = context.certificationRun;
@@ -111,6 +126,9 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
     !certRun ||
     !Number.isInteger(certRun.id) ||
     certRun.id <= 0 ||
+    certRun.workflowName !== "Engineering Certification" ||
+    (certRun.workflowPath !== undefined && certRun.workflowPath !== ".github/workflows/production-certification.yml") ||
+    (certRun.headBranch !== undefined && certRun.headBranch !== "main") ||
     certRun.headSha !== sourceSha ||
     certRun.status !== "completed" ||
     certRun.conclusion !== "success" ||
@@ -119,9 +137,9 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
     certRun.jobsPassed !== certRun.jobsTotal ||
     certRun.skippedJobs !== 0 ||
     typeof certRun.evidenceDigest !== "string" ||
-    !/^[a-f0-9]{64}$/.test(certRun.evidenceDigest)
+    !DIGEST_HEX.test(certRun.evidenceDigest)
   ) {
-    return { ok: false, reason: "CERTIFICATION_VERIFICATION_FAILED", detail: "Exact-SHA 26-job Engineering Certification run not verified." };
+    return { ok: false, reason: "CERTIFICATION_VERIFICATION_FAILED", detail: "Exact-SHA 26-job Engineering Certification run on main not verified." };
   }
 
   const deployments = context.deployments;
@@ -137,12 +155,21 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
     !web?.id ||
     web.sha !== sourceSha ||
     web.status !== "SUCCESS" ||
+    (web.serviceName !== undefined && web.serviceName !== "web") ||
     !ops?.id ||
     ops.sha !== sourceSha ||
     ops.status !== "SUCCESS" ||
-    (query && (!query.id || query.sha !== sourceSha || query.status !== "SUCCESS"))
+    (ops.serviceName !== undefined && ops.serviceName !== "operations") ||
+    !query?.id ||
+    query.sha !== sourceSha ||
+    query.status !== "SUCCESS" ||
+    (query.serviceName !== undefined && query.serviceName !== "query-storefront-categories")
   ) {
-    return { ok: false, reason: "DEPLOYMENT_PARITY_MISMATCH", detail: "Production Vercel and Railway deployments do not match the candidate SHA in ready state." };
+    return {
+      ok: false,
+      reason: "DEPLOYMENT_PARITY_MISMATCH",
+      detail: "Production Vercel and Railway (web, operations, query-storefront-categories) deployments must all match candidate SHA in ready state.",
+    };
   }
 
   const health = context.health;
@@ -151,28 +178,41 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
   }
 
   const excluded = Array.isArray(context.scope?.excludedCapabilities) ? [...context.scope.excludedCapabilities].sort() : [];
+  const mandatory = Array.isArray(context.scope?.mandatoryChecks) ? context.scope.mandatoryChecks : [];
+  const mandatorySet = new Set(mandatory);
   if (
-    !Array.isArray(context.scope?.mandatoryChecks) ||
-    context.scope.mandatoryChecks.length === 0 ||
+    mandatory.length === 0 ||
+    !REQUIRED_LAUNCH_SCOPE.every((reqKey) => mandatorySet.has(reqKey)) ||
     !stableEqual(excluded, EXPECTED_EXCLUDED_CAPABILITIES)
   ) {
-    return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: "Scope must preserve mandatory checks and only the three approved exclusions." };
+    return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: "Scope must preserve canonical launch checks and only the three approved exclusions." };
   }
 
-  if (!context.policies || typeof context.policies !== "object" || Array.isArray(context.policies)) {
-    return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: "Verified policy digests missing." };
+  if (
+    !context.policies ||
+    typeof context.policies !== "object" ||
+    Array.isArray(context.policies) ||
+    !REQUIRED_POLICIES.every((k) => typeof context.policies[k] === "string" && SAFE_ID.test(context.policies[k]))
+  ) {
+    return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: "Verified policy digests missing canonical cod/commission/retention entries." };
   }
 
   for (const key of REQUIRED_EVIDENCE_KEYS) {
     const entry = context.evidence?.[key];
-    if (!entry || typeof entry.reference !== "string" || !entry.reference || typeof entry.digest !== "string" || !entry.digest) {
-      return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: `Missing verified evidence digest for ${key}.` };
+    if (
+      !entry ||
+      typeof entry.reference !== "string" ||
+      !SAFE_ID.test(entry.reference) ||
+      typeof entry.digest !== "string" ||
+      !DIGEST_HEX.test(entry.digest) ||
+      entry.revoked === true
+    ) {
+      return { ok: false, reason: "SCOPE_OR_POLICY_MISMATCH", detail: `Missing, malformed, or revoked verified evidence digest for ${key}.` };
     }
-    if (entry.observedAt && (!Number.isFinite(Date.parse(entry.observedAt)) || Date.parse(entry.observedAt) > nowMs)) {
-      return { ok: false, reason: "STALE_EVIDENCE", detail: `Evidence timestamp invalid for ${key}.` };
-    }
-    if (entry.expiresAt && (!Number.isFinite(Date.parse(entry.expiresAt)) || Date.parse(entry.expiresAt) <= nowMs)) {
-      return { ok: false, reason: "STALE_EVIDENCE", detail: `Evidence expired for ${key}.` };
+    const obsMs = typeof entry.observedAt === "string" ? Date.parse(entry.observedAt) : NaN;
+    const expMs = typeof entry.expiresAt === "string" ? Date.parse(entry.expiresAt) : NaN;
+    if (!Number.isFinite(obsMs) || obsMs > nowMs || !Number.isFinite(expMs) || expMs <= nowMs) {
+      return { ok: false, reason: "STALE_EVIDENCE", detail: `Missing, future, or expired evidence timestamp for ${key}.` };
     }
   }
 
@@ -190,6 +230,7 @@ export async function authorizeProductionRelease({
   outputDir = null,
   authorityAdapter = null,
   allowLoopbackForTest = false,
+  resolveDns = undefined,
   trackedDirty = false,
 }) {
   const staticAttempt = classifyReleaseAttempt({ releaseSha, workflowSha, sourceSha, evidenceReference });
@@ -240,7 +281,10 @@ export async function authorizeProductionRelease({
         outputDir,
       });
     }
-    const endpointCheck = validateAuthorityOrigin(originConfig, allowedOriginConfig, { allowLoopbackForTest });
+    const endpointCheck = await validateAuthorityOriginWithDns(originConfig, allowedOriginConfig, {
+      allowLoopbackForTest,
+      resolveDns,
+    });
     if (!endpointCheck.ok) {
       return refusalResult({
         sourceSha,
@@ -315,17 +359,6 @@ export async function authorizeProductionRelease({
       });
     }
 
-    if (verifiedContext.evidenceReference && verifiedContext.evidenceReference !== evidenceReference) {
-      return refusalResult({
-        sourceSha,
-        treeSha,
-        evidenceReference,
-        reason: "SOURCE_CONTEXT_MISMATCH",
-        detail: "Verified release context reference does not match requested evidence reference.",
-        outputDir,
-      });
-    }
-
     const issuanceId = envelope?.payload?.issuanceId;
     if (typeof issuanceId !== "string" || issuanceId.length < 16 || issuanceId.length > 200) {
       return refusalResult({
@@ -339,9 +372,13 @@ export async function authorizeProductionRelease({
     }
 
     const revocations = await adapter.getRevocationStatus({ releaseSha: sourceSha, evidenceReference, issuanceId });
+    const allEvidenceReferences = [
+      evidenceReference,
+      ...REQUIRED_EVIDENCE_KEYS.map((key) => verifiedContext.evidence[key].reference),
+    ];
     if (
       revocations.revokedIssuanceIds.includes(issuanceId) ||
-      revocations.revokedEvidenceReferences.includes(evidenceReference) ||
+      allEvidenceReferences.some((ref) => revocations.revokedEvidenceReferences.includes(ref)) ||
       envelope.payload.revoked === true
     ) {
       return refusalResult({
@@ -349,7 +386,7 @@ export async function authorizeProductionRelease({
         treeSha,
         evidenceReference,
         reason: "EVIDENCE_REVOKED",
-        detail: "Attestation issuance or evidence reference is revoked.",
+        detail: "Attestation issuance or domain evidence reference is revoked.",
         outputDir,
       });
     }
@@ -371,6 +408,7 @@ export async function authorizeProductionRelease({
         vercel: verifiedContext.deployments.vercel.id,
         railwayWeb: verifiedContext.deployments.railwayWeb.id,
         railwayOperations: verifiedContext.deployments.railwayOperations.id,
+        railwayQuery: verifiedContext.deployments.railwayQuery.id,
       },
       policies: verifiedContext.policies,
       evidence: Object.fromEntries(
@@ -380,6 +418,7 @@ export async function authorizeProductionRelease({
         ]),
       ),
       requestedScope: verifiedContext.scope.mandatoryChecks,
+      excludedCapabilities: verifiedContext.scope.excludedCapabilities,
       now: nowMs,
     };
 
@@ -408,7 +447,6 @@ export async function authorizeProductionRelease({
       certificationRunId: verifiedContext.certificationRun.id,
       ciEvidenceDigest: verifiedContext.certificationRun.evidenceDigest,
       deployments: attestationContext.deployments,
-      railwayQueryDeploymentId: verifiedContext.deployments.railwayQuery?.id ?? null,
       scopeDigest: sha256Hex(canonicalBytes(verifiedContext.scope)),
       policyDigest: sha256Hex(canonicalBytes(verifiedContext.policies)),
       claimedAt: new Date(nowMs).toISOString(),
@@ -436,12 +474,7 @@ export async function authorizeProductionRelease({
       ciRunId: verifiedContext.ciRun.id,
       certificationRunId: verifiedContext.certificationRun.id,
       ciEvidenceDigest: verifiedContext.certificationRun.evidenceDigest,
-      deployments: {
-        vercel: verifiedContext.deployments.vercel.id,
-        railwayWeb: verifiedContext.deployments.railwayWeb.id,
-        railwayOperations: verifiedContext.deployments.railwayOperations.id,
-        railwayQuery: verifiedContext.deployments.railwayQuery?.id ?? null,
-      },
+      deployments: attestationContext.deployments,
       signers: redactedSigners,
       issuedAt: envelope.payload.issuedAt,
       expiresAt: envelope.payload.expiresAt,

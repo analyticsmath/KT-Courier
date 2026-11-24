@@ -1,6 +1,5 @@
 /** Canonical public-developer API vocabulary. Never derive permissions from scopes. */
 export const DEVELOPER_API_VERSION = "v1" as const;
-export const DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED = false as const;
 export const DEVELOPER_API_PRODUCTION_LOCK_REASON = "DEVELOPER_API_CONSOLIDATED_VALIDATION_NOT_APPROVED" as const;
 
 export const DEVELOPER_SCOPES = Object.freeze({
@@ -129,6 +128,6 @@ export function allowsScope(scopes: readonly string[], required: DeveloperScope)
   return scopes.includes(required);
 }
 
-export function productionLocked(environment: "TEST" | "LIVE"): boolean {
-  return environment === "LIVE" && !DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED;
+export function productionLocked(environment: "TEST" | "LIVE", governedActive = false): boolean {
+  return environment === "LIVE" && !governedActive;
 }

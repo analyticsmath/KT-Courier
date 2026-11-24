@@ -67,7 +67,7 @@ export async function generateReportData(
     case "customer-payments": {
       const userId = context.ownerScope.userId || context.requesterUserId;
       const payments = await db.payment.findMany({
-        where: { userId },
+        where: { userId, publicReference: { not: { startsWith: "pay_sbox_" } } },
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {
@@ -225,9 +225,12 @@ export async function generateReportData(
 
     case "driver-completed-deliveries": {
       const driverProfileId = context.ownerScope.driverProfileId;
+      if (!driverProfileId) {
+        throw new ReportingError("REPORT_OWNER_SCOPE_UNAVAILABLE", 403, "Driver profile context is required.");
+      }
       const assignments = await db.orderAssignment.findMany({
         where: {
-          driverProfileId: driverProfileId || undefined,
+          driverProfileId,
           status: "COMPLETED",
         },
         take: limit,
@@ -254,8 +257,11 @@ export async function generateReportData(
 
     case "driver-earnings": {
       const driverProfileId = context.ownerScope.driverProfileId;
+      if (!driverProfileId) {
+        throw new ReportingError("REPORT_OWNER_SCOPE_UNAVAILABLE", 403, "Driver profile context is required.");
+      }
       const earnings = await db.driverEarning.findMany({
-        where: { driverId: driverProfileId || undefined },
+        where: { driverId: driverProfileId },
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {
@@ -279,8 +285,11 @@ export async function generateReportData(
 
     case "promoter-referrals": {
       const promoterId = context.ownerScope.promoterId;
+      if (!promoterId) {
+        throw new ReportingError("REPORT_OWNER_SCOPE_UNAVAILABLE", 403, "Promoter context is required.");
+      }
       const attributions = await db.promoterAttribution.findMany({
-        where: { promoterAccountId: promoterId || undefined },
+        where: { promoterAccountId: promoterId },
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {
@@ -304,8 +313,11 @@ export async function generateReportData(
 
     case "promoter-earnings": {
       const promoterId = context.ownerScope.promoterId;
+      if (!promoterId) {
+        throw new ReportingError("REPORT_OWNER_SCOPE_UNAVAILABLE", 403, "Promoter context is required.");
+      }
       const earnings = await db.promoterEarning.findMany({
-        where: { promoterAccountId: promoterId || undefined },
+        where: { promoterAccountId: promoterId },
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {
@@ -328,23 +340,41 @@ export async function generateReportData(
     }
 
     case "developer-api-usage": {
-      const apiLogs = await db.apiRequestLog.findMany({
+      const headers = ["Audit Reference", "Method", "Route", "Outcome", "Status Code", "Duration (ms)", "Created At"];
+      const isAdmin = context.requesterRole === "ADMIN" || context.requesterRole === "SUPER_ADMIN";
+      const scopedUserId = context.ownerScope.userId || context.requesterUserId;
+      let where: Prisma.DeveloperApiRequestAuditWhereInput | undefined;
+      if (!isAdmin) {
+        const ownedApps = await db.developerApplication.findMany({
+          where: { ownerUserId: scopedUserId },
+          select: { id: true },
+        });
+        if (ownedApps.length === 0) {
+          return { headers, rows: [] };
+        }
+        where = { applicationId: { in: ownedApps.map((app) => app.id) } };
+      }
+      const apiLogs = await db.developerApiRequestAudit.findMany({
+        where,
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {
-          id: true,
+          publicReference: true,
           method: true,
-          path: true,
-          statusCode: true,
+          route: true,
+          outcome: true,
+          responseStatus: true,
+          durationMs: true,
           createdAt: true,
         },
       });
-      const headers = ["Log ID", "Method", "Path", "Status Code", "Created At"];
       const rows = apiLogs.map((u) => ({
-        "Log ID": u.id,
+        "Audit Reference": u.publicReference,
         Method: u.method,
-        Path: u.path,
-        "Status Code": u.statusCode ?? 200,
+        Route: u.route,
+        Outcome: u.outcome,
+        "Status Code": u.responseStatus,
+        "Duration (ms)": u.durationMs,
         "Created At": u.createdAt.toISOString(),
       }));
       return { headers, rows };
@@ -398,6 +428,10 @@ export async function generateReportData(
 
     case "admin-financial-reconciliation": {
       const entries = await db.ledgerEntry.findMany({
+        where: {
+          account: { wallet: { ownerId: { not: "platform-sandbox-acceptance" } } },
+          journal: { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
+        },
         take: limit,
         orderBy: { createdAt: "desc" },
         select: {

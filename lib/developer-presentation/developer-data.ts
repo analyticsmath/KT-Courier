@@ -2,7 +2,8 @@
 import { getEffectivePermissionKeysForUser } from "@/lib/auth/permissions";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { prisma } from "@/lib/db/prisma";
-import { DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED, DEVELOPER_SCOPE_DESCRIPTIONS, WEBHOOK_EVENT_CATALOG } from "@/lib/developer-api/contracts";
+import { DEVELOPER_SCOPE_DESCRIPTIONS, WEBHOOK_EVENT_CATALOG } from "@/lib/developer-api/contracts";
+import { resolveDeveloperApiActivationState } from "@/lib/developer-api/activation";
 import type { UserRole } from "@/types/db";
 
 type SafeNumberRecord = Readonly<Record<string, number>>;
@@ -127,6 +128,13 @@ export type DeveloperPresentationSnapshot = Readonly<{
   quotas: readonly DeveloperQuotaRecord[];
   requests: readonly DeveloperRequestRecord[];
   rateLimitProjectionAvailable: false;
+  liveActivation: Readonly<{
+    approved: boolean;
+    runtimeConfigured: boolean;
+    active: boolean;
+    blockerCode: string | null;
+    summary: string;
+  }>;
 }>;
 
 const database: any = prisma;
@@ -166,6 +174,7 @@ export async function getDeveloperOwnerCapabilities(args: { userId: string; role
  * endpoint, signing secret, payload, headers, or review evidence.
  */
 export async function getDeveloperPresentationSnapshot(userId: string, capabilities: DeveloperOwnerCapabilities): Promise<DeveloperPresentationSnapshot> {
+  const liveActivation = await resolveDeveloperApiActivationState({ db: database });
   const applicationsRaw = capabilities.canReadApplications ? await database.developerApplication.findMany({
     where: { ownerUserId: userId },
     orderBy: { createdAt: "desc" },
@@ -223,7 +232,7 @@ export async function getDeveloperPresentationSnapshot(userId: string, capabilit
       approvedAt: iso(application.approvedAt),
       scopeGrants: scopeGrantsByApplication.get(application.id) ?? [],
       termsAcceptedAt: termsByApplication.get(application.id) ?? null,
-      productionLocked: application.environment === "LIVE" && !DEVELOPER_API_PRODUCTION_VALIDATION_APPROVED,
+      productionLocked: application.environment === "LIVE" && !liveActivation.active,
     })),
     credentials: credentialsRaw.flatMap((credential: any): DeveloperCredentialRecord[] => {
       const application = applicationById.get(credential.applicationId);
@@ -250,6 +259,13 @@ export async function getDeveloperPresentationSnapshot(userId: string, capabilit
       return application ? [{ id: request.id, requestId: request.requestId, applicationReference: application.publicReference, applicationName: application.name, environment: request.environment ?? application.environment, method: request.method, route: request.route, responseStatus: request.responseStatus, createdAt: iso(request.createdAt)! }] : [];
     }),
     rateLimitProjectionAvailable: false,
+    liveActivation: {
+      approved: liveActivation.approved,
+      runtimeConfigured: liveActivation.runtimeConfigured,
+      active: liveActivation.active,
+      blockerCode: liveActivation.blockerCode,
+      summary: liveActivation.summary,
+    },
   };
 }
 

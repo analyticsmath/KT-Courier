@@ -1,6 +1,16 @@
+type CommissionDecimalLike = { toString(): string } | string | number;
+
 type CommissionRuleCandidate = Readonly<{
+  id?: string;
+  ruleCode?: string | null;
+  allocationType?: string | null;
+  beneficiaryType?: string | null;
   calculationMethod?: string | null;
   rateBasisPoints?: number | null;
+  fixedAmount?: CommissionDecimalLike | null;
+  minimumAmount?: CommissionDecimalLike | null;
+  maximumAmount?: CommissionDecimalLike | null;
+  priority?: number | null;
 }>;
 
 type CommissionPlanCandidate = Readonly<{
@@ -24,17 +34,79 @@ type CommissionCoverageInput = Readonly<{
   plans: readonly CommissionPlanCandidate[];
 }>;
 
-function rulesHaveValidBounds(rules: readonly unknown[]): boolean {
-  if (rules.length === 0) return false;
+function parseNonNegativeAmount(value: CommissionDecimalLike | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const text = typeof value === "number" ? String(value) : value.toString().trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(text)) return Number.NaN;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : Number.NaN;
+}
+
+function rulesHaveValidBounds(
+  rules: readonly unknown[],
+  subjectType: string,
+): boolean {
+  if (!Array.isArray(rules) || rules.length === 0) return false;
   let totalBps = 0;
+  const seenCodes = new Set<string>();
+  const seenPriorities = new Set<number>();
+
   for (const raw of rules) {
-    if (!raw || typeof raw !== "object") continue;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      return false;
+    }
     const rule = raw as CommissionRuleCandidate;
-    if (rule.rateBasisPoints !== undefined && rule.rateBasisPoints !== null) {
-      if (!Number.isInteger(rule.rateBasisPoints) || rule.rateBasisPoints < 0 || rule.rateBasisPoints > 10000) {
+
+    if (rule.ruleCode !== undefined) {
+      const code = typeof rule.ruleCode === "string" ? rule.ruleCode.trim().toUpperCase() : "";
+      if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(code) || seenCodes.has(code)) {
         return false;
       }
-      totalBps += rule.rateBasisPoints;
+      seenCodes.add(code);
+    }
+
+    if (rule.priority !== undefined) {
+      if (!Number.isInteger(rule.priority) || seenPriorities.has(rule.priority!)) {
+        return false;
+      }
+      seenPriorities.add(rule.priority!);
+    }
+
+    if (rule.allocationType != null || rule.beneficiaryType != null) {
+      if (
+        (rule.allocationType !== "PLATFORM_COMMISSION_REVENUE" && rule.allocationType !== "BENEFICIARY_COMMISSION_PAYABLE") ||
+        (rule.beneficiaryType !== "PLATFORM" && rule.beneficiaryType !== "PROMOTER") ||
+        (rule.allocationType === "PLATFORM_COMMISSION_REVENUE") !== (rule.beneficiaryType === "PLATFORM")
+      ) {
+        return false;
+      }
+      if (subjectType === "MARKETPLACE_STORE_ORDER" && rule.beneficiaryType !== "PLATFORM") {
+        return false;
+      }
+    }
+
+    const min = parseNonNegativeAmount(rule.minimumAmount);
+    const max = parseNonNegativeAmount(rule.maximumAmount);
+    if (Number.isNaN(min) || Number.isNaN(max)) return false;
+    if (min !== null && max !== null && min > max) return false;
+
+    if (rule.calculationMethod === "PERCENTAGE_BPS") {
+      if (
+        !Number.isInteger(rule.rateBasisPoints) ||
+        rule.rateBasisPoints! < 0 ||
+        rule.rateBasisPoints! > 10000 ||
+        rule.fixedAmount != null
+      ) {
+        return false;
+      }
+      totalBps += rule.rateBasisPoints!;
+    } else if (rule.calculationMethod === "FIXED_AMOUNT") {
+      const fixed = parseNonNegativeAmount(rule.fixedAmount);
+      if (fixed === null || Number.isNaN(fixed) || (rule.rateBasisPoints !== undefined && rule.rateBasisPoints !== null)) {
+        return false;
+      }
+    } else {
+      return false;
     }
   }
   return totalBps <= 10000;
@@ -44,19 +116,24 @@ function isCurrentIndependentlyApprovedPlan(plan: CommissionPlanCandidate, now: 
   const effectiveFrom = new Date(plan.effectiveFrom).getTime();
   const effectiveUntil = plan.effectiveUntil === null ? null : new Date(plan.effectiveUntil).getTime();
   const approvedAt = plan.approvedAt === null ? null : new Date(plan.approvedAt).getTime();
+  const validBasis =
+    plan.subjectType === "MARKETPLACE_STORE_ORDER"
+      ? plan.basisType === "ORDER_SUBTOTAL"
+      : plan.basisType === "ORDER_SUBTOTAL" || plan.basisType === "ORDER_TOTAL";
   return (
+    validBasis &&
     plan.currency === "ZAR" &&
     plan.status === "ACTIVE" &&
     Number.isFinite(effectiveFrom) &&
     effectiveFrom <= now.getTime() &&
-    (effectiveUntil === null || (Number.isFinite(effectiveUntil) && effectiveUntil > now.getTime())) &&
+    (effectiveUntil === null || (Number.isFinite(effectiveUntil) && effectiveUntil > now.getTime() && effectiveUntil > effectiveFrom)) &&
     approvedAt !== null &&
     Number.isFinite(approvedAt) &&
     approvedAt <= now.getTime() &&
     !!plan.approvedByUserId &&
     plan.approvedByUserId !== plan.createdByUserId &&
     !!plan.calculationVersion.trim() &&
-    rulesHaveValidBounds(plan.rules)
+    rulesHaveValidBounds(plan.rules, plan.subjectType)
   );
 }
 

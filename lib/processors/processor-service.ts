@@ -116,10 +116,11 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
       return { itemsExamined: examined, itemsClaimed: 0, itemsCompleted: 0, itemsSkipped: examined, itemsRetried: 0, itemsReconciled: 0, safeSummary: `[DRY_RUN] Identified ${pendingCount + retryCount} pending/retryable developer webhook deliveries.` };
     }
     const { assertDeveloperApiProductionReady } = await import("@/lib/developer-api/production-readiness");
-    assertDeveloperApiProductionReady();
-    const [{ recoverStaleWebhookClaims }, { resolveDeveloperApiProductionComposition }] = await Promise.all([import("@/lib/developer-api/webhook-recovery"), import("@/lib/developer-api/composition-root")]);
+    await assertDeveloperApiProductionReady();
+    const [{ recoverStaleWebhookClaims }, { resolveDeveloperApiProductionCompositionAsync }] = await Promise.all([import("@/lib/developer-api/webhook-recovery"), import("@/lib/developer-api/composition-root")]);
     const recovery = await recoverStaleWebhookClaims({ limit: batchSize });
-    const processor = resolveDeveloperApiProductionComposition().services.processors;
+    const composition = await resolveDeveloperApiProductionCompositionAsync();
+    const processor = composition.services.processors;
     const retries = await processor.select("retry", Math.ceil(batchSize / 2));
     const remaining = batchSize - retries.length;
     const pending = remaining ? await processor.select("deliver", remaining) : [];
@@ -144,7 +145,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
       const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");
-      assertReportingProductionReady();
+      await assertReportingProductionReady();
     }
     const [{ recoverExpiredReportClaims }, { runReportBatch }] = await Promise.all([import("@/lib/reporting/report-recovery-batch"), import("@/lib/reporting/report-batch")]);
     const recovery = await recoverExpiredReportClaims({ limit: batchSize });
@@ -156,8 +157,9 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     return { itemsExamined: retried.examined + queued.examined, itemsClaimed: completed, itemsCompleted: completed, itemsSkipped: retried.skipped + queued.skipped, itemsRetried: 0, itemsReconciled: recovery.recovered, safeSummary: `Report generation completed ${completed}; recovered ${recovery.recovered} expired claims.` };
   },
   "expire-developer-api-credentials": async ({ mode, batchSize }) => {
-    const { resolveDeveloperApiProductionComposition } = await import("@/lib/developer-api/composition-root");
-    const processor = resolveDeveloperApiProductionComposition().services.processors;
+    const { resolveDeveloperApiProductionCompositionAsync } = await import("@/lib/developer-api/composition-root");
+    const composition = await resolveDeveloperApiProductionCompositionAsync();
+    const processor = composition.services.processors;
     const candidates = await processor.select("expire-credentials", batchSize);
     let completed = 0, skipped = 0;
     for (const candidate of candidates) {
@@ -179,7 +181,7 @@ export const PROCESSOR_HANDLERS: Record<ImplementedProcessorName, ProcessorHandl
     const { isActualProductionInstance } = await import("@/lib/promotions/production-lock");
     if (process.env.VERCEL_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production" || isActualProductionInstance()) {
       const { assertReportingProductionReady } = await import("@/lib/reporting/production-readiness");
-      assertReportingProductionReady();
+      await assertReportingProductionReady();
     }
     const { expireReportArtifacts } = await import("@/lib/reporting/report-expiry-batch");
     const result = await expireReportArtifacts({ limit: batchSize });

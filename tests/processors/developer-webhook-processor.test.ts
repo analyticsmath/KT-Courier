@@ -2,7 +2,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 const mock = vi.hoisted(() => ({ gate: vi.fn(), recovery: vi.fn(), select: vi.fn(), apply: vi.fn() }));
 vi.mock("@/lib/developer-api/production-readiness", () => ({ assertDeveloperApiProductionReady: mock.gate }));
 vi.mock("@/lib/developer-api/webhook-recovery", () => ({ recoverStaleWebhookClaims: mock.recovery }));
-vi.mock("@/lib/developer-api/composition-root", () => ({ resolveDeveloperApiProductionComposition: () => ({ services: { processors: { select: mock.select, apply: mock.apply } } }) }));
+vi.mock("@/lib/developer-api/composition-root", () => ({
+  resolveDeveloperApiProductionComposition: () => ({ services: { processors: { select: mock.select, apply: mock.apply } } }),
+  resolveDeveloperApiProductionCompositionAsync: async () => ({ services: { processors: { select: mock.select, apply: mock.apply } } }),
+}));
 import { PROCESSOR_HANDLERS } from "@/lib/processors/processor-service";
 const context = { mode: "APPLY" as const, batchSize: 4, operationId: "webhook-run" };
 beforeEach(() => { vi.clearAllMocks(); mock.recovery.mockResolvedValue({ examined: 1, recovered: 1 }); mock.select.mockImplementation(async (kind: string) => [{ kind, reference: kind, record: {} }]); mock.apply.mockResolvedValue({ status: "SUCCEEDED" }); });
