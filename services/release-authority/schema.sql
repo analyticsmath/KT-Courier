@@ -32,12 +32,26 @@ CREATE TABLE IF NOT EXISTS ra_evidence_envelopes (
 );
 
 CREATE TABLE IF NOT EXISTS ra_revocations (
-  kind TEXT NOT NULL CHECK (kind IN ('key', 'issuance', 'evidence_reference')),
+  kind TEXT NOT NULL CHECK (kind IN ('key', 'issuance', 'evidence_reference', 'audit_receipt')),
   target_id TEXT NOT NULL,
   reason TEXT NOT NULL,
   revoked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (kind, target_id)
 );
+
+CREATE TABLE IF NOT EXISTS ra_audit_receipts (
+  receipt_reference TEXT PRIMARY KEY,
+  receipt_digest TEXT NOT NULL UNIQUE,
+  release_sha TEXT NOT NULL,
+  database_name TEXT NOT NULL,
+  classification TEXT NOT NULL,
+  revoked BOOLEAN NOT NULL DEFAULT FALSE,
+  receipt_json JSONB NOT NULL,
+  ingested_by TEXT NOT NULL,
+  ingested_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ra_audit_release_sha ON ra_audit_receipts (release_sha);
 
 CREATE TABLE IF NOT EXISTS ra_issuance_claims (
   issuance_id TEXT PRIMARY KEY,

@@ -90,9 +90,37 @@ if (command === "init-keypair") {
   if (!flags.out) throw new Error("--out path required.");
   writeJson(flags.out, envelope);
   console.log(JSON.stringify({ assembled: true, issuanceId: envelope.payload.issuanceId }));
+} else if (command === "ingest-audit") {
+  const origin = String(flags.origin ?? process.env.RELEASE_AUTHORITY_ORIGIN ?? "").trim().replace(/\/$/, "");
+  const adminToken = String(flags.adminToken ?? process.env.RELEASE_AUTHORITY_ADMIN_TOKEN ?? "").trim();
+  const receiptPath = flags.receipt;
+  if (!origin || !adminToken || !receiptPath) {
+    throw new Error("--origin (or RELEASE_AUTHORITY_ORIGIN), --adminToken (or RELEASE_AUTHORITY_ADMIN_TOKEN), and --receipt are required.");
+  }
+  const parsedOrigin = new URL(origin);
+  if (parsedOrigin.protocol !== "https:" && !["127.0.0.1", "localhost", "::1"].includes(parsedOrigin.hostname)) {
+    throw new Error("Release authority origin must use HTTPS.");
+  }
+  const receipt = readJson(receiptPath);
+  const res = await fetch(`${parsedOrigin.origin}/v1/release-authority/admin/audits`, {
+    method: "PUT",
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({ receipt }),
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`Audit ingestion failed (${res.status}): ${body.error ?? body.code ?? "unknown error"}`);
+  }
+  console.log(JSON.stringify(body));
 } else {
   console.error(
-    "Usage: cli.mjs <init-keypair|export-trust|build-payload|sign-approval|assemble-envelope> --flags...",
+    "Usage: cli.mjs <init-keypair|export-trust|build-payload|sign-approval|assemble-envelope|ingest-audit> --flags...",
   );
   process.exitCode = 1;
 }

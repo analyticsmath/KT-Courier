@@ -17,6 +17,14 @@ import {
   generateRoleKeypair,
   signRoleApproval,
 } from "../../services/release-authority/src/signing.mjs";
+import {
+  AUDIT_RECEIPT_SCHEMA_VERSION,
+  REQUIRED_PROTECTED_AUDIT_TABLES,
+  computeAuditReceiptDigest,
+  computeProtectedSnapshotDigest,
+  evaluateAuditComparison,
+  hashAuditHost,
+} from "../../services/release-authority/src/audit-receipt.mjs";
 import { createDurableFileStore, createPostgresStore } from "../../services/release-authority/src/store.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -134,27 +142,94 @@ function buildMockUpstreamFetch(commitSha, treeSha) {
   };
 }
 
-function buildDomainInputs(nowMs, commitSha) {
+function buildDomainInputs(nowMs, commitSha, receiptReference = `audit-${commitSha.slice(0, 8)}-001`) {
+  const snapshots = Object.fromEntries(
+    REQUIRED_PROTECTED_AUDIT_TABLES.map((table, i) => [
+      table,
+      { count: i + 1, hash: i.toString(16).padStart(64, "0") },
+    ]),
+  );
+  const snapDigest = computeProtectedSnapshotDigest(snapshots);
+  const baselineAt = new Date(nowMs - 20 * 60_000).toISOString();
+  const observedAt = new Date(nowMs - 5 * 60_000).toISOString();
+  const expiresAt = new Date(nowMs + 30 * 60_000).toISOString();
+  const receiptBody = {
+    schemaVersion: AUDIT_RECEIPT_SCHEMA_VERSION,
+    receiptReference,
+    releaseSha: commitSha,
+    baselineReference: `${receiptReference}-base`,
+    baselineSha: commitSha,
+    baselineAt,
+    observedAt,
+    expiresAt,
+    window: {
+      captureMode: "BEFORE_AND_AFTER_COMPARISON",
+      windowStart: baselineAt,
+      windowEnd: observedAt,
+    },
+    deployments: {
+      vercelDeploymentId: "dpl_5Dq9XL1B5eSp3VneVKh2mBqyg9rR",
+      webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
+      operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
+      queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
+    },
+    databaseIdentity: {
+      database: "kt_prod",
+      role: "kt_audit_ro",
+      classification: "production",
+      hostDigest: hashAuditHost("db.internal:5432"),
+      transactionReadOnly: "on",
+      rolsuper: false,
+      rolbypassrls: false,
+      writableTables: [],
+      leastPrivilegeVerified: true,
+      privilegeFindings: [],
+    },
+    inventory: {
+      requiredTablesCount: REQUIRED_PROTECTED_AUDIT_TABLES.length,
+      auditedTablesCount: REQUIRED_PROTECTED_AUDIT_TABLES.length,
+      missingRequiredTables: [],
+      inventoryComplete: true,
+      migrationCount: 132,
+      latestMigration: "20261125000000_parity_evidence_correction",
+    },
+    snapshots: {
+      baselineDigest: snapDigest,
+      candidateDigest: snapDigest,
+      baselineProtected: snapshots,
+      candidateProtected: snapshots,
+    },
+    comparison: evaluateAuditComparison(snapshots, snapshots),
+    provenance: {
+      auditorPrincipal: "ops-auditor-01",
+      reviewerPrincipal: null,
+      captureSource: "DEDICATED_READONLY_CLI",
+    },
+  };
+  const auditReceipt = { ...receiptBody, receiptDigest: computeAuditReceiptDigest(receiptBody) };
+
   const evidence = Object.fromEntries(
     ["provider", "packing", "driver_store", "physical_pod", "tax_finance", "notification", "media", "database_audit"].map((k) => [
       k,
-      {
-        reference: `ev-${k}-001`,
-        digest: sha256(`ev-${k}-001`),
-        observedAt: new Date(nowMs - 5 * 60_000).toISOString(),
-        expiresAt: new Date(nowMs + 30 * 60_000).toISOString(),
-      },
+      k === "database_audit"
+        ? {
+            reference: auditReceipt.receiptReference,
+            digest: auditReceipt.receiptDigest,
+            observedAt,
+            expiresAt,
+          }
+        : {
+            reference: `ev-${k}-001`,
+            digest: sha256(`ev-${k}-001`),
+            observedAt,
+            expiresAt,
+          },
     ]),
   );
   return {
     evidence,
     policies: { cod: "cod-v2", commission: "comm-v2", retention: "ret-v2" },
-    auditReceipt: {
-      releaseSha: commitSha,
-      protectedDataUnchanged: true,
-      leastPrivilege: true,
-      digest: sha256(`audit:${commitSha}`),
-    },
+    auditReceipt,
   };
 }
 
@@ -215,7 +290,40 @@ async function exerciseFullServiceLifecycle(store, { name }) {
     });
     assert.equal(putTrustRes.status, 200);
 
-    const { evidence, policies, auditReceipt } = buildDomainInputs(now.getTime(), commitSha);
+    const { evidence, policies, auditReceipt } = buildDomainInputs(now.getTime(), commitSha, `audit-${name}-001`);
+
+    // Unpersisted boolean audit claims in /admin/collect must fail closed
+    const collectWithoutAuditRes = await fetch(`${origin}/v1/release-authority/admin/collect`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        commitSha,
+        evidenceReference,
+        ciRunId: 45352739658,
+        certificationRunId: 45352739746,
+        vercelDeploymentId: "dpl_5Dq9XL1B5eSp3VneVKh2mBqyg9rR",
+        webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
+        operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
+        queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
+        policies,
+        evidence,
+        auditReceipt: { releaseSha: commitSha, protectedDataUnchanged: true, leastPrivilege: true },
+      }),
+    });
+    assert.equal(collectWithoutAuditRes.ok, false, `${name}: expected unpersisted audit collect to reject`);
+
+    const putAuditRes = await fetch(`${origin}/v1/release-authority/admin/audits`, {
+      method: "PUT",
+      headers: { authorization: `Bearer ${adminToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ receipt: auditReceipt }),
+    });
+    assert.equal(putAuditRes.status, 201, `${name}: ingesting verified audit receipt failed`);
+
+    const getAuditRes = await fetch(`${origin}/v1/release-authority/audits/${encodeURIComponent(auditReceipt.receiptReference)}`, {
+      headers: { authorization: `Bearer ${readToken}` },
+    });
+    assert.equal(getAuditRes.status, 200);
+
     const collectRes = await fetch(`${origin}/v1/release-authority/admin/collect`, {
       method: "POST",
       headers: { authorization: `Bearer ${adminToken}`, "content-type": "application/json" },
@@ -230,7 +338,7 @@ async function exerciseFullServiceLifecycle(store, { name }) {
         queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
         policies,
         evidence,
-        auditReceipt,
+        auditReference: auditReceipt.receiptReference,
       }),
     });
     assert.equal(collectRes.status, 201, `${name}: admin collect failed`);
@@ -350,9 +458,45 @@ test("services/release-authority executes end-to-end via durable file store and 
     const pgStore = createPostgresStore({ pool: db });
     await exerciseFullServiceLifecycle(pgStore, { name: "postgres" });
 
-    // Confirm collector utility exports clean verified snapshot
+    // Confirm collector utility requires persisted verified audit receipt and exports clean verified snapshot
     const commitSha = "07a5f71a482f32e93d6f211fe99961e024fc9551";
     const treeSha = "2222222222222222222222222222222222222222";
+    const directInputs = buildDomainInputs(Date.parse("2026-11-24T12:00:00.000Z"), commitSha, "audit-direct-collect-01");
+    await pgStore.putAuditReceipt({
+      receipt: directInputs.auditReceipt,
+      ingestedBy: "test-collector",
+      ingestedAt: "2026-11-24T11:58:00.000Z",
+    });
+
+    await assert.rejects(
+      () =>
+        collectVerifiedReleaseContext(
+          {
+            commitSha,
+            evidenceReference: "collect-direct-no-store",
+            ciRunId: 45352739658,
+            certificationRunId: 45352739746,
+            vercelDeploymentId: "dpl_5Dq9XL1B5eSp3VneVKh2mBqyg9rR",
+            webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
+            operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
+            queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
+            ...directInputs,
+            auditReference: directInputs.auditReceipt.receiptReference,
+          },
+          {
+            env: {
+              GITHUB_RELEASE_READ_TOKEN: "ghp_tok",
+              VERCEL_TOKEN: "ver_tok",
+              RAILWAY_API_TOKEN: "rail_tok",
+              KT_PRODUCTION_ORIGIN: "https://127.0.0.1",
+            },
+            allowLoopbackForTest: true,
+            fetchImpl: buildMockUpstreamFetch(commitSha, treeSha),
+          },
+        ),
+      (err) => err?.code === "AUDIT_STORE_UNAVAILABLE",
+    );
+
     const collected = await collectVerifiedReleaseContext(
       {
         commitSha,
@@ -363,9 +507,12 @@ test("services/release-authority executes end-to-end via durable file store and 
         webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
         operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
         queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
-        ...buildDomainInputs(Date.parse("2026-11-24T12:00:00.000Z"), commitSha),
+        ...directInputs,
+        auditReference: directInputs.auditReceipt.receiptReference,
       },
       {
+        store: pgStore,
+        now: () => new Date("2026-11-24T12:00:00.000Z"),
         env: {
           GITHUB_RELEASE_READ_TOKEN: "ghp_tok",
           VERCEL_TOKEN: "ver_tok",
@@ -377,6 +524,8 @@ test("services/release-authority executes end-to-end via durable file store and 
       },
     );
     assert.equal(collected.deployments.railwayQuery.serviceName, "query-storefront-categories");
+    assert.equal(collected.auditReceipt.reference, directInputs.auditReceipt.receiptReference);
+    assert.equal(collected.auditReceipt.leastPrivilege, true);
   } finally {
     await db.close();
     rmSync(dataDir, { recursive: true, force: true });

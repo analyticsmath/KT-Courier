@@ -241,11 +241,47 @@
     {
       "key": "KT_PARITY_VERIFIER_URL",
       "classification": "CONFIG",
-      "requiredInProduction": false,
+      "requiredInProduction": true,
       "targets": ["railway-web"],
       "validator": "lib/runtime/env-schema-verifier.ts & lib/production-readiness/verification-adapters.server.ts",
-      "rule": "Optional HTTPS URL pointing to standalone release-authority /v1/release-authority/parity/verify endpoint",
+      "rule": "Required HTTPS URL on railway-web pointing to standalone release-authority /v1/release-authority/parity/verify endpoint; local application-DB parity fallback is disabled",
       "owner": "Release Infrastructure"
+    },
+    {
+      "key": "KT_PARITY_VERIFIER_TOKEN",
+      "classification": "SECRET",
+      "requiredInProduction": true,
+      "targets": ["railway-web"],
+      "validator": "lib/production-readiness/verification-adapters.server.ts",
+      "rule": "Bearer credential granted to railway-web to authenticate POST /v1/release-authority/parity/verify against standalone release-authority",
+      "owner": "Release Infrastructure"
+    },
+    {
+      "key": "KT_AUDIT_READONLY_DATABASE_URL",
+      "classification": "SECRET",
+      "requiredInProduction": false,
+      "targets": ["operator-audit-runner"],
+      "validator": "scripts/audit-reviewed-production.ts & lib/runtime/env-schema-verifier.ts",
+      "rule": "Operator-only dedicated PostgreSQL SELECT-only connection string (non-superuser, non-bypassrls, NO schema/table write or CREATE privileges) used exclusively by audit capture; must never be shared with railway-web writable DATABASE_URL",
+      "owner": "Database + Security"
+    },
+    {
+      "key": "KT_EXPECTED_AUDIT_DATABASE",
+      "classification": "CONFIG",
+      "requiredInProduction": false,
+      "targets": ["railway-web", "standalone-release-authority"],
+      "validator": "services/release-authority/src/collectors.mjs & lib/production-readiness/verification-adapters.server.ts",
+      "rule": "Expected production PostgreSQL database name verified on every ingested ProtectedAuditReceipt",
+      "owner": "Database Owner"
+    },
+    {
+      "key": "KT_EXPECTED_AUDIT_CLASSIFICATION",
+      "classification": "CONFIG",
+      "requiredInProduction": true,
+      "targets": ["railway-web", "standalone-release-authority"],
+      "validator": "lib/runtime/env-schema-verifier.ts & services/release-authority/src/collectors.mjs",
+      "rule": "Must be 'production' in production runtimes and production release-authority instances",
+      "owner": "Database + Release Infrastructure"
     },
     {
       "key": "RELEASE_AUTHORITY_ORIGIN",

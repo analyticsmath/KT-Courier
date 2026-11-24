@@ -355,29 +355,58 @@ describe("acceptance provenance & timing verification", () => {
       protectedDataAuditReference: "audit-receipt-002",
       protectedDataUnchanged: true as const,
     };
+    const validParity = {
+      vercelSha: releaseSha,
+      vercelState: "READY",
+      webSha: releaseSha,
+      webStatus: "SUCCESS",
+      operationsSha: releaseSha,
+      operationsStatus: "SUCCESS",
+      querySha: releaseSha,
+      queryStatus: "SUCCESS",
+      auditReference: "audit-receipt-002",
+      auditReleaseSha: releaseSha,
+      auditDatabase: "kt_prod",
+      auditClassification: "production",
+      auditBaselinePresent: true,
+      auditInventoryComplete: true,
+      auditParityEligible: true,
+      protectedDataUnchanged: true,
+      leastPrivilege: true,
+      auditDigest: "a".repeat(64),
+      auditObservedAt: observedAt,
+      auditExpiresAt: expiresAt,
+    };
+
     await expect(
       verifyAcceptanceProvenanceWithAdapters(parityEvidence, {
         now: reviewNow,
         requireServerVerification: true,
         env: { NODE_ENV: "production", KT_DATABASE_CLASSIFICATION: "production", RAILWAY_GIT_COMMIT_SHA: releaseSha },
         adapters: {
-          verifyParity: async () => ({
-            vercelSha: releaseSha,
-            vercelState: "READY",
-            webSha: releaseSha,
-            webStatus: "SUCCESS",
-            operationsSha: releaseSha,
-            operationsStatus: "SUCCESS",
-            querySha: "d".repeat(40),
-            queryStatus: "SUCCESS",
-            auditReleaseSha: releaseSha,
-            protectedDataUnchanged: true,
-            leastPrivilege: true,
-            auditDigest: "a".repeat(64),
-          }),
+          verifyParity: async () => ({ ...validParity, querySha: "d".repeat(40) }),
         },
       }),
     ).rejects.toMatchObject({ code: "PARITY_VERIFICATION_MISMATCH", status: 409 });
+
+    for (const badPatch of [
+      { leastPrivilege: false },
+      { auditBaselinePresent: false },
+      { auditInventoryComplete: false },
+      { auditParityEligible: false },
+      { auditExpiresAt: "2026-10-07T00:08:00.000Z" },
+    ]) {
+      await expect(
+        verifyAcceptanceProvenanceWithAdapters(parityEvidence, {
+          now: reviewNow,
+          requireServerVerification: true,
+          env: { NODE_ENV: "production", KT_DATABASE_CLASSIFICATION: "production", RAILWAY_GIT_COMMIT_SHA: releaseSha },
+          adapters: {
+            verifyParity: async () => ({ ...validParity, ...badPatch }),
+          },
+        }),
+      ).rejects.toMatchObject({ code: "PARITY_VERIFICATION_MISMATCH", status: 409 });
+    }
   });
 
   it("fails closed on CI and PARITY server verification when required and unconfigured or mismatched", async () => {

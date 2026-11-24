@@ -468,7 +468,18 @@ export type VerifiedParityInfo = Readonly<{
   querySha: string;
   queryStatus: string;
   auditReleaseSha: string;
+  auditReference?: string;
+  auditBaselineReference?: string | null;
+  auditBaselinePresent: boolean;
   protectedDataUnchanged: boolean;
+  auditParityEligible: boolean;
+  auditInventoryComplete: boolean;
+  auditDatabase?: string;
+  auditClassification?: string;
+  auditObservedAt: string;
+  auditExpiresAt: string;
+  auditChangedTables?: readonly string[];
+  auditUnexpectedChangedTables?: readonly string[];
   leastPrivilege: boolean;
   auditDigest: string;
 }>;
@@ -778,6 +789,12 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     queryDeploymentId: evidence.queryDeploymentId,
     protectedDataAuditReference: evidence.protectedDataAuditReference,
   });
+  const auditObsMs = Date.parse(verifiedParity.auditObservedAt);
+  const auditExpMs = Date.parse(verifiedParity.auditExpiresAt);
+  const matchesReference =
+    verifiedParity.auditDigest === evidence.protectedDataAuditReference ||
+    (typeof verifiedParity.auditReference === "string" &&
+      verifiedParity.auditReference === evidence.protectedDataAuditReference);
   if (
     verifiedParity.vercelSha !== evidence.releaseSha ||
     verifiedParity.vercelState !== "READY" ||
@@ -788,8 +805,16 @@ export async function verifyAcceptanceProvenanceWithAdapters(
     verifiedParity.querySha !== evidence.releaseSha ||
     verifiedParity.queryStatus !== "SUCCESS" ||
     verifiedParity.auditReleaseSha !== evidence.releaseSha ||
-    verifiedParity.protectedDataUnchanged !== true ||
-    verifiedParity.leastPrivilege !== true
+    verifiedParity.leastPrivilege !== true ||
+    verifiedParity.auditInventoryComplete !== true ||
+    verifiedParity.auditBaselinePresent !== true ||
+    verifiedParity.auditParityEligible !== true ||
+    !matchesReference ||
+    !Number.isFinite(auditObsMs) ||
+    !Number.isFinite(auditExpMs) ||
+    auditObsMs > now.getTime() ||
+    auditExpMs <= now.getTime() ||
+    !/^[a-f0-9]{64}$/.test(verifiedParity.auditDigest)
   ) {
     throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "Deployment SHAs or protected-row audit receipt failed independent verification.", 409);
   }

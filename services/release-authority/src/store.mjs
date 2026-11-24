@@ -61,6 +61,7 @@ export function createDurableFileStore(dataDir, options = {}) {
   const trustPath = path.join(rootDir, "trust.json");
   const contextsDir = path.join(rootDir, "contexts");
   const envelopesDir = path.join(rootDir, "envelopes");
+  const auditsDir = path.join(rootDir, "audits");
   const revocationsPath = path.join(rootDir, "revocations.json");
   const claimsDir = path.join(rootDir, "claims");
   const locksDir = path.join(rootDir, "locks");
@@ -68,6 +69,7 @@ export function createDurableFileStore(dataDir, options = {}) {
   async function init() {
     await mkdir(contextsDir, { recursive: true });
     await mkdir(envelopesDir, { recursive: true });
+    await mkdir(auditsDir, { recursive: true });
     await mkdir(claimsDir, { recursive: true });
     await mkdir(locksDir, { recursive: true });
   }
@@ -125,6 +127,53 @@ export function createDurableFileStore(dataDir, options = {}) {
     return stored;
   }
 
+  async function getAuditReceipt(ref) {
+    assertSegment(ref, "auditReference");
+    const direct = await readJsonOrNull(path.join(auditsDir, `${safeFileKey(`ref:${ref}`)}.json`));
+    if (direct) return direct;
+    const byDigest = await readJsonOrNull(path.join(auditsDir, `${safeFileKey(`digest:${ref}`)}.json`));
+    return byDigest;
+  }
+
+  async function putAuditReceipt({ receipt, ingestedBy }) {
+    assertSegment(receipt?.receiptReference, "receiptReference");
+    assertSha(receipt?.releaseSha);
+    await init();
+
+    const refPath = path.join(auditsDir, `${safeFileKey(`ref:${receipt.receiptReference}`)}.json`);
+    const digestPath = path.join(auditsDir, `${safeFileKey(`digest:${receipt.receiptDigest}`)}.json`);
+    const existingByRef = await readJsonOrNull(refPath);
+    if (existingByRef && existingByRef.receipt?.receiptDigest !== receipt.receiptDigest) {
+      throw Object.assign(new Error("Audit receipt reference already exists with a different digest."), {
+        status: 409,
+        code: "AUDIT_RECEIPT_CONFLICT",
+      });
+    }
+    const existingByDigest = await readJsonOrNull(digestPath);
+    if (existingByDigest && existingByDigest.receipt?.receiptReference !== receipt.receiptReference) {
+      throw Object.assign(new Error("Audit receipt digest already registered under a different reference."), {
+        status: 409,
+        code: "AUDIT_RECEIPT_CONFLICT",
+      });
+    }
+    if (existingByRef) return existingByRef;
+
+    const stored = {
+      receiptReference: receipt.receiptReference,
+      receiptDigest: receipt.receiptDigest,
+      releaseSha: receipt.releaseSha,
+      databaseName: receipt.databaseIdentity.database,
+      classification: receipt.databaseIdentity.classification,
+      revoked: false,
+      ingestedBy: String(ingestedBy ?? "admin-ingest"),
+      ingestedAt: nowFn().toISOString(),
+      receipt,
+    };
+    await atomicWriteFile(refPath, `${JSON.stringify(stored, null, 2)}\n`);
+    await atomicWriteFile(digestPath, `${JSON.stringify(stored, null, 2)}\n`);
+    return stored;
+  }
+
   async function readRevocationsState() {
     const raw = await readJsonOrNull(revocationsPath);
     return (
@@ -132,12 +181,13 @@ export function createDurableFileStore(dataDir, options = {}) {
         revokedKeyIds: [],
         revokedIssuanceIds: [],
         revokedEvidenceReferences: [],
+        revokedAuditReceiptIds: [],
         entries: [],
       }
     );
   }
 
-  async function getRevocationStatus({ releaseSha, evidenceReference, issuanceId } = {}) {
+  async function getRevocationStatus({ releaseSha, evidenceReference, issuanceId, auditReference } = {}) {
     const state = await readRevocationsState();
     const trust = await getTrustBundle();
     const trustRevokedKeys = Object.entries(trust)
@@ -150,36 +200,68 @@ export function createDurableFileStore(dataDir, options = {}) {
       if (envRecord?.revoked === true) envelopeRevoked = true;
     }
 
-    const revokedEvidenceReferences = [...new Set(state.revokedEvidenceReferences)];
+    const revokedEvidenceReferences = [...new Set(state.revokedEvidenceReferences ?? [])];
     if (envelopeRevoked && evidenceReference && !revokedEvidenceReferences.includes(evidenceReference)) {
       revokedEvidenceReferences.push(evidenceReference);
     }
 
-    const revokedIssuanceIds = [...new Set(state.revokedIssuanceIds)];
+    const revokedIssuanceIds = [...new Set(state.revokedIssuanceIds ?? [])];
     if (envelopeRevoked && issuanceId && !revokedIssuanceIds.includes(issuanceId)) {
       revokedIssuanceIds.push(issuanceId);
     }
 
+    const revokedAuditReceiptIds = [...new Set(state.revokedAuditReceiptIds ?? [])];
+    if (auditReference) {
+      const auditRec = await getAuditReceipt(auditReference);
+      if (auditRec?.revoked && !revokedAuditReceiptIds.includes(auditReference)) {
+        revokedAuditReceiptIds.push(auditReference);
+      }
+    }
+
     return {
-      revokedKeyIds: [...new Set([...state.revokedKeyIds, ...trustRevokedKeys])],
+      revokedKeyIds: [...new Set([...(state.revokedKeyIds ?? []), ...trustRevokedKeys])],
       revokedIssuanceIds,
       revokedEvidenceReferences,
+      revokedAuditReceiptIds,
     };
   }
 
   async function recordRevocation({ kind, targetId, reason }) {
     assertSegment(targetId, "targetId");
-    if (!["key", "issuance", "evidence_reference"].includes(kind)) {
+    if (!["key", "issuance", "evidence_reference", "audit_receipt"].includes(kind)) {
       throw Object.assign(new Error("Unsupported revocation kind."), { status: 400, code: "INVALID_REVOCATION" });
     }
     await init();
     const state = await readRevocationsState();
+    state.revokedAuditReceiptIds = state.revokedAuditReceiptIds ?? [];
     if (kind === "key" && !state.revokedKeyIds.includes(targetId)) {
       state.revokedKeyIds.push(targetId);
     } else if (kind === "issuance" && !state.revokedIssuanceIds.includes(targetId)) {
       state.revokedIssuanceIds.push(targetId);
     } else if (kind === "evidence_reference" && !state.revokedEvidenceReferences.includes(targetId)) {
       state.revokedEvidenceReferences.push(targetId);
+    } else if (kind === "audit_receipt") {
+      if (!state.revokedAuditReceiptIds.includes(targetId)) {
+        state.revokedAuditReceiptIds.push(targetId);
+      }
+      const existingAudit = await getAuditReceipt(targetId);
+      if (existingAudit) {
+        const updatedAudit = { ...existingAudit, revoked: true };
+        await atomicWriteFile(
+          path.join(auditsDir, `${safeFileKey(`ref:${existingAudit.receiptReference}`)}.json`),
+          `${JSON.stringify(updatedAudit, null, 2)}\n`,
+        );
+        await atomicWriteFile(
+          path.join(auditsDir, `${safeFileKey(`digest:${existingAudit.receiptDigest}`)}.json`),
+          `${JSON.stringify(updatedAudit, null, 2)}\n`,
+        );
+        if (!state.revokedAuditReceiptIds.includes(existingAudit.receiptReference)) {
+          state.revokedAuditReceiptIds.push(existingAudit.receiptReference);
+        }
+        if (!state.revokedAuditReceiptIds.includes(existingAudit.receiptDigest)) {
+          state.revokedAuditReceiptIds.push(existingAudit.receiptDigest);
+        }
+      }
     }
     state.entries.push({ kind, targetId, reason: String(reason ?? ""), revokedAt: nowFn().toISOString() });
     await atomicWriteFile(revocationsPath, `${JSON.stringify(state, null, 2)}\n`);
@@ -281,6 +363,8 @@ export function createDurableFileStore(dataDir, options = {}) {
     putReleaseContext,
     getEvidenceEnvelope,
     putEvidenceEnvelope,
+    getAuditReceipt,
+    putAuditReceipt,
     getRevocationStatus,
     recordRevocation,
     claimSingleUseIssuance,
@@ -435,10 +519,117 @@ export function createPostgresStore({ pool, schemaSql, now } = {}) {
     return { releaseSha, evidenceReference, issuanceId: envelope.payload.issuanceId, envelope, revoked: Boolean(revoked) };
   }
 
+  async function getAuditReceipt(ref) {
+    assertSegment(ref, "auditReference");
+    const [res, revRes] = await Promise.all([
+      pool.query(
+        `SELECT receipt_reference, receipt_digest, release_sha, database_name, classification, revoked, receipt_json, ingested_by, ingested_at
+         FROM ra_audit_receipts WHERE receipt_reference = $1 OR receipt_digest = $1 LIMIT 1`,
+        [ref],
+      ),
+      pool.query(
+        `SELECT 1 FROM ra_revocations WHERE kind = 'audit_receipt' AND target_id = $1 LIMIT 1`,
+        [ref],
+      ),
+    ]);
+    const row = res.rows[0];
+    if (!row) return null;
+    const receipt = typeof row.receipt_json === "string" ? JSON.parse(row.receipt_json) : row.receipt_json;
+    const extraRev = await pool.query(
+      `SELECT 1 FROM ra_revocations WHERE kind = 'audit_receipt' AND target_id IN ($1, $2) LIMIT 1`,
+      [row.receipt_reference, row.receipt_digest],
+    );
+    return {
+      receiptReference: row.receipt_reference,
+      receiptDigest: row.receipt_digest,
+      releaseSha: row.release_sha,
+      databaseName: row.database_name,
+      classification: row.classification,
+      revoked: Boolean(row.revoked) || revRes.rows.length > 0 || extraRev.rows.length > 0,
+      ingestedBy: row.ingested_by,
+      ingestedAt: new Date(row.ingested_at).toISOString(),
+      receipt,
+    };
+  }
+
+  async function putAuditReceipt({ receipt, ingestedBy }) {
+    assertSegment(receipt?.receiptReference, "receiptReference");
+    assertSha(receipt?.releaseSha);
+    return withClient(async (client) => {
+      await client.query("BEGIN");
+      try {
+        const existing = await client.query(
+          `SELECT receipt_reference, receipt_digest, release_sha, database_name, classification, revoked, receipt_json, ingested_by, ingested_at
+           FROM ra_audit_receipts WHERE receipt_reference = $1 OR receipt_digest = $2 LIMIT 1`,
+          [receipt.receiptReference, receipt.receiptDigest],
+        );
+        const prior = existing.rows[0];
+        if (prior) {
+          if (
+            prior.receipt_reference !== receipt.receiptReference ||
+            prior.receipt_digest !== receipt.receiptDigest
+          ) {
+            throw Object.assign(new Error("Audit receipt reference or digest conflicts with an existing receipt."), {
+              status: 409,
+              code: "AUDIT_RECEIPT_CONFLICT",
+            });
+          }
+          await client.query("COMMIT");
+          return {
+            receiptReference: prior.receipt_reference,
+            receiptDigest: prior.receipt_digest,
+            releaseSha: prior.release_sha,
+            databaseName: prior.database_name,
+            classification: prior.classification,
+            revoked: Boolean(prior.revoked),
+            ingestedBy: prior.ingested_by,
+            ingestedAt: new Date(prior.ingested_at).toISOString(),
+            receipt: typeof prior.receipt_json === "string" ? JSON.parse(prior.receipt_json) : prior.receipt_json,
+          };
+        }
+
+        const inserted = await client.query(
+          `INSERT INTO ra_audit_receipts (
+             receipt_reference, receipt_digest, release_sha, database_name, classification, revoked, receipt_json, ingested_by, ingested_at
+           )
+           VALUES ($1, $2, $3, $4, $5, FALSE, $6::jsonb, $7, $8::timestamptz)
+           RETURNING receipt_reference, receipt_digest, release_sha, database_name, classification, revoked, receipt_json, ingested_by, ingested_at`,
+          [
+            receipt.receiptReference,
+            receipt.receiptDigest,
+            receipt.releaseSha,
+            receipt.databaseIdentity.database,
+            receipt.databaseIdentity.classification,
+            JSON.stringify(receipt),
+            String(ingestedBy ?? "admin-ingest"),
+            nowFn().toISOString(),
+          ],
+        );
+        await client.query("COMMIT");
+        const row = inserted.rows[0];
+        return {
+          receiptReference: row.receipt_reference,
+          receiptDigest: row.receipt_digest,
+          releaseSha: row.release_sha,
+          databaseName: row.database_name,
+          classification: row.classification,
+          revoked: Boolean(row.revoked),
+          ingestedBy: row.ingested_by,
+          ingestedAt: new Date(row.ingested_at).toISOString(),
+          receipt,
+        };
+      } catch (err) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw err;
+      }
+    });
+  }
+
   async function getRevocationStatus({ releaseSha, evidenceReference, issuanceId } = {}) {
-    const [revRes, trustRevRes, envRes] = await Promise.all([
+    const [revRes, trustRevRes, auditRevRes, envRes] = await Promise.all([
       pool.query("SELECT kind, target_id FROM ra_revocations"),
       pool.query("SELECT key_id FROM ra_trust_keys WHERE revoked = TRUE"),
+      pool.query("SELECT receipt_reference, receipt_digest FROM ra_audit_receipts WHERE revoked = TRUE"),
       releaseSha && evidenceReference
         ? pool.query("SELECT revoked, issuance_id FROM ra_evidence_envelopes WHERE release_sha = $1 AND evidence_reference = $2", [
             releaseSha,
@@ -450,10 +641,16 @@ export function createPostgresStore({ pool, schemaSql, now } = {}) {
     const revokedKeyIds = new Set(trustRevRes.rows.map((r) => r.key_id));
     const revokedIssuanceIds = new Set();
     const revokedEvidenceReferences = new Set();
+    const revokedAuditReceiptIds = new Set();
+    for (const row of auditRevRes.rows) {
+      revokedAuditReceiptIds.add(row.receipt_reference);
+      revokedAuditReceiptIds.add(row.receipt_digest);
+    }
     for (const row of revRes.rows) {
       if (row.kind === "key") revokedKeyIds.add(row.target_id);
       if (row.kind === "issuance") revokedIssuanceIds.add(row.target_id);
       if (row.kind === "evidence_reference") revokedEvidenceReferences.add(row.target_id);
+      if (row.kind === "audit_receipt") revokedAuditReceiptIds.add(row.target_id);
     }
     const envRow = envRes.rows[0];
     if (envRow?.revoked) {
@@ -466,11 +663,15 @@ export function createPostgresStore({ pool, schemaSql, now } = {}) {
       revokedKeyIds: [...revokedKeyIds],
       revokedIssuanceIds: [...revokedIssuanceIds],
       revokedEvidenceReferences: [...revokedEvidenceReferences],
+      revokedAuditReceiptIds: [...revokedAuditReceiptIds],
     };
   }
 
   async function recordRevocation({ kind, targetId, reason }) {
     assertSegment(targetId, "targetId");
+    if (!["key", "issuance", "evidence_reference", "audit_receipt"].includes(kind)) {
+      throw Object.assign(new Error("Unsupported revocation kind."), { status: 400, code: "INVALID_REVOCATION" });
+    }
     await pool.query(
       `INSERT INTO ra_revocations (kind, target_id, reason, revoked_at)
        VALUES ($1, $2, $3, NOW())
@@ -483,6 +684,8 @@ export function createPostgresStore({ pool, schemaSql, now } = {}) {
       await pool.query(`UPDATE ra_evidence_envelopes SET revoked = TRUE WHERE issuance_id = $1`, [targetId]);
     } else if (kind === "evidence_reference") {
       await pool.query(`UPDATE ra_evidence_envelopes SET revoked = TRUE WHERE evidence_reference = $1`, [targetId]);
+    } else if (kind === "audit_receipt") {
+      await pool.query(`UPDATE ra_audit_receipts SET revoked = TRUE WHERE receipt_reference = $1 OR receipt_digest = $1`, [targetId]);
     }
   }
 
@@ -565,6 +768,8 @@ export function createPostgresStore({ pool, schemaSql, now } = {}) {
     putReleaseContext,
     getEvidenceEnvelope,
     putEvidenceEnvelope,
+    getAuditReceipt,
+    putAuditReceipt,
     getRevocationStatus,
     recordRevocation,
     claimSingleUseIssuance,

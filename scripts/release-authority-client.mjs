@@ -207,8 +207,16 @@ export function createHttpReleaseAuthorityAdapter({
       return res.body.context;
     },
 
-    async getRevocationStatus({ releaseSha, evidenceReference, issuanceId }) {
-      const route = `/v1/release-authority/revocations?releaseSha=${encodeURIComponent(releaseSha)}&evidenceReference=${encodeURIComponent(evidenceReference)}&issuanceId=${encodeURIComponent(issuanceId)}`;
+    async getRevocationStatus({ releaseSha, evidenceReference, issuanceId, auditReference }) {
+      const params = new URLSearchParams({
+        releaseSha: String(releaseSha ?? ""),
+        evidenceReference: String(evidenceReference ?? ""),
+        issuanceId: String(issuanceId ?? ""),
+      });
+      if (auditReference) {
+        params.set("auditReference", String(auditReference));
+      }
+      const route = `/v1/release-authority/revocations?${params.toString()}`;
       const res = await requestJson(route, { method: "GET" });
       if (res.status === 401 || res.status === 403) {
         throw Object.assign(new Error("Authority rejected revocation lookup."), { code: "AUTHORITY_UNAUTHORIZED" });
@@ -220,6 +228,7 @@ export function createHttpReleaseAuthorityAdapter({
         revokedKeyIds: Array.isArray(res.body.revokedKeyIds) ? res.body.revokedKeyIds.map(String) : [],
         revokedIssuanceIds: Array.isArray(res.body.revokedIssuanceIds) ? res.body.revokedIssuanceIds.map(String) : [],
         revokedEvidenceReferences: Array.isArray(res.body.revokedEvidenceReferences) ? res.body.revokedEvidenceReferences.map(String) : [],
+        revokedAuditReceiptIds: Array.isArray(res.body.revokedAuditReceiptIds) ? res.body.revokedAuditReceiptIds.map(String) : [],
       };
     },
 

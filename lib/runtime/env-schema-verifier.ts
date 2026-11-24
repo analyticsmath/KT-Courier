@@ -396,6 +396,83 @@ export function verifyEnvironmentSchema(
         checks.push(checkEntry("KT_PARITY_VERIFIER_URL", "MISMATCH", "ERROR", "KT_PARITY_VERIFIER_URL_INVALID", "KT_PARITY_VERIFIER_URL is not a valid URL."));
       }
     }
+  } else {
+    checks.push(checkEntry(
+      "KT_PARITY_VERIFIER_URL",
+      "MISSING",
+      "INFO",
+      "KT_PARITY_VERIFIER_URL_UNSET",
+      "KT_PARITY_VERIFIER_URL is unset; production deployment parity verification fails closed until configured.",
+    ));
+  }
+
+  const auditRoRaw = source.KT_AUDIT_READONLY_DATABASE_URL?.trim();
+  if (auditRoRaw) {
+    if (isPlaceholderValue(auditRoRaw)) {
+      checks.push(checkEntry(
+        "KT_AUDIT_READONLY_DATABASE_URL",
+        "PLACEHOLDER",
+        isProduction ? "ERROR" : "WARNING",
+        "KT_AUDIT_READONLY_DATABASE_URL_PLACEHOLDER",
+        "KT_AUDIT_READONLY_DATABASE_URL contains a placeholder value.",
+      ));
+    } else if (source.DATABASE_URL?.trim() && auditRoRaw === source.DATABASE_URL.trim()) {
+      checks.push(checkEntry(
+        "KT_AUDIT_READONLY_DATABASE_URL",
+        "FORBIDDEN",
+        "ERROR",
+        "KT_AUDIT_READONLY_DATABASE_URL_MATCHES_WRITABLE_DB",
+        "KT_AUDIT_READONLY_DATABASE_URL must be a distinct least-privilege read-only credential, never writable DATABASE_URL.",
+      ));
+    } else if (isProduction && isSafeLocalTestDatabaseUrl(auditRoRaw)) {
+      checks.push(checkEntry(
+        "KT_AUDIT_READONLY_DATABASE_URL",
+        "FORBIDDEN",
+        "ERROR",
+        "NON_PRODUCTION_AUDIT_DB_IN_PRODUCTION",
+        "KT_AUDIT_READONLY_DATABASE_URL cannot target a local or disposable test database in production.",
+      ));
+    } else {
+      checks.push(checkEntry(
+        "KT_AUDIT_READONLY_DATABASE_URL",
+        "OK",
+        "INFO",
+        "KT_AUDIT_READONLY_DATABASE_URL_CONFIGURED",
+        "KT_AUDIT_READONLY_DATABASE_URL is separated from writable DATABASE_URL.",
+      ));
+    }
+  }
+
+  const expectedAuditDb = source.KT_EXPECTED_AUDIT_DATABASE?.trim();
+  if (expectedAuditDb && isPlaceholderValue(expectedAuditDb)) {
+    checks.push(checkEntry(
+      "KT_EXPECTED_AUDIT_DATABASE",
+      "PLACEHOLDER",
+      isProduction ? "ERROR" : "WARNING",
+      "KT_EXPECTED_AUDIT_DATABASE_PLACEHOLDER",
+      "KT_EXPECTED_AUDIT_DATABASE contains a placeholder value.",
+    ));
+  }
+
+  const expectedAuditClass = source.KT_EXPECTED_AUDIT_CLASSIFICATION?.trim();
+  if (expectedAuditClass) {
+    if (!["production", "isolated_test"].includes(expectedAuditClass)) {
+      checks.push(checkEntry(
+        "KT_EXPECTED_AUDIT_CLASSIFICATION",
+        "MISMATCH",
+        "ERROR",
+        "KT_EXPECTED_AUDIT_CLASSIFICATION_INVALID",
+        "KT_EXPECTED_AUDIT_CLASSIFICATION must be 'production' or 'isolated_test'.",
+      ));
+    } else if (isProduction && expectedAuditClass !== "production") {
+      checks.push(checkEntry(
+        "KT_EXPECTED_AUDIT_CLASSIFICATION",
+        "FORBIDDEN",
+        "ERROR",
+        "KT_EXPECTED_AUDIT_CLASSIFICATION_FORBIDDEN",
+        "KT_EXPECTED_AUDIT_CLASSIFICATION must be 'production' in production runtimes.",
+      ));
+    }
   }
 
   checkSecretKeyPresence(checks, source, "GITHUB_RELEASE_READ_TOKEN", false, isProduction);

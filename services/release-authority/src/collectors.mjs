@@ -1,3 +1,4 @@
+import { verifyAuditReceipt } from "./audit-receipt.mjs";
 import {
   AUDIENCE,
   ENVIRONMENT,
@@ -5,6 +6,7 @@ import {
   EXPECTED_EXCLUDED_CAPABILITIES,
   REPOSITORY,
   REQUIRED_LAUNCH_SCOPE,
+  SAFE_ID_PATTERN,
   SHA_PATTERN,
   assertSafeTargetUrl,
   canonicalBytes,
@@ -255,9 +257,75 @@ async function collectVercelAndRailway({
   };
 }
 
+async function loadAndVerifyStoredAuditReceipt({
+  store,
+  auditReference,
+  releaseSha,
+  deployments,
+  env,
+  nowMs,
+}) {
+  if (!store || typeof store.getAuditReceipt !== "function") {
+    throw Object.assign(
+      new Error("Release authority audit store is required to verify protected-row audit receipts."),
+      { code: "AUDIT_STORE_UNAVAILABLE", status: 503 },
+    );
+  }
+  const ref = String(auditReference ?? "").trim();
+  if (!ref || !SAFE_ID_PATTERN.test(ref)) {
+    throw Object.assign(new Error("A valid protected-row audit receipt reference or digest is required."), {
+      code: "AUDIT_RECEIPT_INVALID",
+      status: 400,
+    });
+  }
+
+  const stored = await store.getAuditReceipt(ref);
+  if (!stored || !stored.receipt) {
+    throw Object.assign(new Error("Protected-row audit receipt was not found in independent authority storage."), {
+      code: "AUDIT_RECEIPT_NOT_FOUND",
+      status: 404,
+    });
+  }
+
+  const rev =
+    typeof store.getRevocationStatus === "function"
+      ? await store.getRevocationStatus({ releaseSha, auditReference: ref })
+      : { revokedAuditReceiptIds: [] };
+  const revokedList = rev.revokedAuditReceiptIds ?? [];
+  if (
+    stored.revoked === true ||
+    revokedList.includes(stored.receiptReference) ||
+    revokedList.includes(stored.receiptDigest) ||
+    revokedList.includes(ref)
+  ) {
+    throw Object.assign(new Error("Protected-row audit receipt has been revoked."), {
+      code: "AUDIT_RECEIPT_REVOKED",
+      status: 410,
+    });
+  }
+
+  const configuredClassification = env.KT_EXPECTED_AUDIT_CLASSIFICATION?.trim();
+  const expectedClassification =
+    configuredClassification === "isolated_test" && env.KT_ALLOW_ISOLATED_AUDIT_CLASSIFICATION_FOR_TEST === "true"
+      ? "isolated_test"
+      : "production";
+
+  return verifyAuditReceipt(stored.receipt, {
+    releaseSha,
+    reference: ref,
+    deployments,
+    database: env.KT_EXPECTED_AUDIT_DATABASE?.trim() || undefined,
+    classification: expectedClassification,
+    nowMs,
+    enforceFreshness: true,
+    requireParityEligibility: true,
+  });
+}
+
 export async function collectVerifiedReleaseContext(params, options = {}) {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const nowMs = (options.now ?? (() => new Date()))().getTime();
 
   const githubToken = (env.GITHUB_RELEASE_READ_TOKEN ?? "").trim();
   const vercelToken = (env.VERCEL_TOKEN ?? "").trim();
@@ -276,7 +344,9 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
     resolveDns: options.resolveDns,
   });
 
-  const [githubState, deployments, readyRes] = await Promise.all([
+  const auditRef = String(params.auditReference ?? params.evidence?.database_audit?.reference ?? "").trim();
+
+  const [githubState, deployments, readyRes, verifiedAudit] = await Promise.all([
     collectGithubWorkflows({
       commitSha: params.commitSha,
       ciRunId: params.ciRunId,
@@ -299,6 +369,19 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     }),
+    loadAndVerifyStoredAuditReceipt({
+      store: options.store,
+      auditReference: auditRef,
+      releaseSha: params.commitSha,
+      deployments: {
+        vercelDeploymentId: params.vercelDeploymentId,
+        webDeploymentId: params.webDeploymentId,
+        operationsDeploymentId: params.operationsDeploymentId,
+        queryDeploymentId: params.queryDeploymentId,
+      },
+      env,
+      nowMs,
+    }),
   ]);
 
   if (!readyRes.ok) {
@@ -314,15 +397,22 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
     healthy: readyJson?.status === "ready" && readyJson?.database === "reachable" && redisOnline,
   };
 
-  if (!params.auditReceipt || params.auditReceipt.releaseSha !== params.commitSha || params.auditReceipt.protectedDataUnchanged !== true || params.auditReceipt.leastPrivilege !== true) {
-    throw Object.assign(new Error("Verified read-only protected-row database audit receipt required."), { code: "SCOPE_OR_POLICY_MISMATCH", status: 409 });
-  }
-
   for (const key of EVIDENCE_KEYS) {
+    if (key === "database_audit") continue;
     if (!params.evidence?.[key]?.reference || !params.evidence?.[key]?.digest || !params.evidence?.[key]?.observedAt || !params.evidence?.[key]?.expiresAt) {
       throw Object.assign(new Error(`Missing evidence bundle details for ${key}.`), { code: "SCOPE_OR_POLICY_MISMATCH", status: 409 });
     }
   }
+
+  const boundEvidence = {
+    ...params.evidence,
+    database_audit: {
+      reference: verifiedAudit.receiptReference,
+      digest: verifiedAudit.receiptDigest,
+      observedAt: verifiedAudit.observedAt,
+      expiresAt: verifiedAudit.expiresAt,
+    },
+  };
 
   const scope = {
     mandatoryChecks: [...(params.scope?.mandatoryChecks ?? REQUIRED_LAUNCH_SCOPE)],
@@ -354,14 +444,38 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
     health,
     scope,
     policies: params.policies,
-    evidence: params.evidence,
-    auditReceipt: params.auditReceipt,
+    evidence: boundEvidence,
+    auditReceipt: {
+      reference: verifiedAudit.receiptReference,
+      baselineReference: verifiedAudit.baselineReference,
+      baselinePresent: verifiedAudit.comparison.baselinePresent,
+      releaseSha: verifiedAudit.releaseSha,
+      database: verifiedAudit.databaseIdentity.database,
+      classification: verifiedAudit.databaseIdentity.classification,
+      leastPrivilege: verifiedAudit.databaseIdentity.leastPrivilegeVerified,
+      unchanged: verifiedAudit.comparison.unchanged,
+      eligibleForParity: verifiedAudit.comparison.eligibleForParity,
+      changedTables: verifiedAudit.comparison.changedTables,
+      documentedChangeReference: verifiedAudit.comparison.documentedChangeReference ?? null,
+      documentedChangesAuthorized: Boolean(
+        verifiedAudit.comparison.documentedChangeReference &&
+          verifiedAudit.comparison.documentedChangeReason &&
+          verifiedAudit.provenance?.reviewerPrincipal &&
+          verifiedAudit.provenance.reviewerPrincipal !== verifiedAudit.provenance.auditorPrincipal,
+      ),
+      deployments: verifiedAudit.deployments,
+      observedAt: verifiedAudit.observedAt,
+      expiresAt: verifiedAudit.expiresAt,
+      inventoryComplete: verifiedAudit.inventory.inventoryComplete,
+      digest: verifiedAudit.receiptDigest,
+    },
   };
 }
 
 export async function verifyParityRemote(input, options = {}) {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const nowMs = (options.now ?? (() => new Date()))().getTime();
   const vercelToken = (env.VERCEL_TOKEN ?? "").trim();
   const railwayToken = (env.RAILWAY_API_TOKEN ?? "").trim();
   const appOrigin = (env.KT_PRODUCTION_ORIGIN ?? env.PAYMENT_APP_ORIGIN ?? "").trim();
@@ -375,7 +489,7 @@ export async function verifyParityRemote(input, options = {}) {
     resolveDns: options.resolveDns,
   });
 
-  const [deployments, readyRes] = await Promise.all([
+  const [deployments, readyRes, verifiedAudit] = await Promise.all([
     collectVercelAndRailway({
       vercelDeploymentId: input.vercelDeploymentId,
       webDeploymentId: input.webDeploymentId,
@@ -387,6 +501,19 @@ export async function verifyParityRemote(input, options = {}) {
       fetchImpl,
     }),
     fetchImpl(readyUrl, { headers: { accept: "application/json" }, redirect: "error", signal: AbortSignal.timeout(10_000) }),
+    loadAndVerifyStoredAuditReceipt({
+      store: options.store,
+      auditReference: input.protectedDataAuditReference,
+      releaseSha: input.releaseSha,
+      deployments: {
+        vercelDeploymentId: input.vercelDeploymentId,
+        webDeploymentId: input.webDeploymentId,
+        operationsDeploymentId: input.operationsDeploymentId,
+        queryDeploymentId: input.queryDeploymentId,
+      },
+      env,
+      nowMs,
+    }),
   ]);
 
   if (!readyRes.ok) {
@@ -397,6 +524,9 @@ export async function verifyParityRemote(input, options = {}) {
     readyJson?.redis === "connected" ||
     (readyJson?.redis?.configured === true && readyJson?.redis?.connected === true);
   const healthy = readyJson?.status === "ready" && readyJson?.database === "reachable" && redisConnected;
+  if (!healthy) {
+    throw Object.assign(new Error("Infrastructure database or Redis readiness check is not healthy."), { code: "HEALTH_CHECK_FAILED", status: 409 });
+  }
 
   return {
     vercelSha: deployments.vercel.sha,
@@ -407,9 +537,20 @@ export async function verifyParityRemote(input, options = {}) {
     operationsStatus: deployments.railwayOperations.status,
     querySha: deployments.railwayQuery.sha,
     queryStatus: deployments.railwayQuery.status,
-    auditReleaseSha: input.releaseSha,
-    protectedDataUnchanged: Boolean(healthy),
-    leastPrivilege: Boolean(healthy),
-    auditDigest: sha256Hex(canonicalBytes({ deployments, readyJson, ref: input.protectedDataAuditReference })),
+    auditReleaseSha: verifiedAudit.releaseSha,
+    auditReference: verifiedAudit.receiptReference,
+    auditBaselineReference: verifiedAudit.baselineReference,
+    auditBaselinePresent: verifiedAudit.comparison.baselinePresent,
+    protectedDataUnchanged: verifiedAudit.comparison.unchanged,
+    auditParityEligible: verifiedAudit.comparison.eligibleForParity,
+    auditChangedTables: verifiedAudit.comparison.changedTables,
+    auditUnexpectedChangedTables: verifiedAudit.comparison.unexpectedChangedTables,
+    auditInventoryComplete: verifiedAudit.inventory.inventoryComplete,
+    auditDatabase: verifiedAudit.databaseIdentity.database,
+    auditClassification: verifiedAudit.databaseIdentity.classification,
+    auditObservedAt: verifiedAudit.observedAt,
+    auditExpiresAt: verifiedAudit.expiresAt,
+    leastPrivilege: verifiedAudit.databaseIdentity.leastPrivilegeVerified,
+    auditDigest: verifiedAudit.receiptDigest,
   };
 }

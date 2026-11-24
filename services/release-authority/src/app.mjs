@@ -1,3 +1,4 @@
+import { verifyAuditReceipt } from "./audit-receipt.mjs";
 import { collectVerifiedReleaseContext, verifyParityRemote } from "./collectors.mjs";
 import {
   extractBearerToken,
@@ -5,7 +6,7 @@ import {
   verifySignedEnvelope,
 } from "./security.mjs";
 
-const MAX_BODY_BYTES = 262_144;
+const MAX_BODY_BYTES = 524_288;
 
 async function readJsonBody(req) {
   let total = 0;
@@ -91,9 +92,30 @@ export function createReleaseAuthorityHandler({
 
       if (req.method === "POST" && url.pathname === "/v1/release-authority/admin/collect") {
         const body = await readJsonBody(req);
-        const context = await collectVerifiedReleaseContext(body, { env, fetchImpl, allowLoopbackForTest, resolveDns });
+        const context = await collectVerifiedReleaseContext(body, { store, env, fetchImpl, allowLoopbackForTest, resolveDns, now });
         await store.putReleaseContext(context);
         return sendJson(res, 201, { stored: true, context });
+      }
+
+      if (req.method === "PUT" && url.pathname === "/v1/release-authority/admin/audits") {
+        const body = await readJsonBody(req);
+        const receipt = body?.receipt ?? body;
+        const verifiedReceipt = verifyAuditReceipt(receipt, {
+          nowMs: now().getTime(),
+          enforceFreshness: true,
+          requireParityEligibility: receipt?.window?.captureMode === "BEFORE_AND_AFTER_COMPARISON",
+        });
+        const stored = await store.putAuditReceipt({
+          receipt: verifiedReceipt,
+          ingestedBy: verifiedReceipt.provenance.auditorPrincipal,
+        });
+        return sendJson(res, 201, {
+          stored: true,
+          receiptReference: stored.receiptReference,
+          receiptDigest: stored.receiptDigest,
+          releaseSha: stored.releaseSha,
+          eligibleForParity: verifiedReceipt.comparison.eligibleForParity,
+        });
       }
 
       if (req.method === "PUT" && url.pathname === "/v1/release-authority/admin/envelopes") {
@@ -164,11 +186,36 @@ export function createReleaseAuthorityHandler({
         return sendJson(res, 200, { context });
       }
 
+      const auditMatch = /^\/v1\/release-authority\/audits\/([^/]+)$/.exec(url.pathname);
+      if (req.method === "GET" && auditMatch) {
+        const ref = decodeURIComponent(auditMatch[1]);
+        const stored = await store.getAuditReceipt(ref);
+        if (!stored) {
+          return sendJson(res, 404, { code: "AUDIT_RECEIPT_NOT_FOUND", error: "Protected-row audit receipt not found." });
+        }
+        const rev = await store.getRevocationStatus({ auditReference: ref });
+        if (
+          stored.revoked ||
+          rev.revokedAuditReceiptIds?.includes(stored.receiptReference) ||
+          rev.revokedAuditReceiptIds?.includes(stored.receiptDigest)
+        ) {
+          return sendJson(res, 410, { code: "AUDIT_RECEIPT_REVOKED", error: "Protected-row audit receipt has been revoked." });
+        }
+        return sendJson(res, 200, {
+          receiptReference: stored.receiptReference,
+          receiptDigest: stored.receiptDigest,
+          ingestedBy: stored.ingestedBy,
+          ingestedAt: stored.ingestedAt,
+          receipt: stored.receipt,
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/v1/release-authority/revocations") {
         const releaseSha = url.searchParams.get("releaseSha") ?? undefined;
         const evidenceReference = url.searchParams.get("evidenceReference") ?? undefined;
         const issuanceId = url.searchParams.get("issuanceId") ?? undefined;
-        const status = await store.getRevocationStatus({ releaseSha, evidenceReference, issuanceId });
+        const auditReference = url.searchParams.get("auditReference") ?? undefined;
+        const status = await store.getRevocationStatus({ releaseSha, evidenceReference, issuanceId, auditReference });
         return sendJson(res, 200, status);
       }
 
@@ -180,7 +227,7 @@ export function createReleaseAuthorityHandler({
 
       if (req.method === "POST" && url.pathname === "/v1/release-authority/parity/verify") {
         const body = await readJsonBody(req);
-        const verified = await verifyParityRemote(body, { env, fetchImpl, allowLoopbackForTest, resolveDns });
+        const verified = await verifyParityRemote(body, { store, env, fetchImpl, allowLoopbackForTest, resolveDns, now });
         return sendJson(res, 200, verified);
       }
 

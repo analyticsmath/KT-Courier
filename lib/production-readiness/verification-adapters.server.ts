@@ -1,8 +1,7 @@
-import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { PlatformError } from "@/lib/client-platform/contracts";
-import { reviewedProtectedRowAudit } from "@/scripts/audit-reviewed-production";
+import { verifyAuditReceipt } from "@/services/release-authority/src/audit-receipt.mjs";
 import type { AcceptanceVerificationOptions, VerifiedParityInfo } from "./evidence";
 
 const ALLOWED_PARITY_VERIFIER_HOSTS = new Set<string>(
@@ -202,13 +201,20 @@ export async function verifyProductionParityRemote(
     env?: Record<string, string | undefined>;
     fetchImpl?: typeof fetch;
     allowLoopbackForTest?: boolean;
-    auditRunner?: typeof reviewedProtectedRowAudit;
+    now?: Date;
+    auditReceiptResolver?: (reference: string) => unknown | Promise<unknown>;
   }> = {},
 ): Promise<VerifiedParityInfo> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? fetch;
+  const nowMs = (options.now ?? new Date()).getTime();
+  const configuredClassification = env.KT_EXPECTED_AUDIT_CLASSIFICATION?.trim();
+  const allowIsolatedForTest = env.KT_ALLOW_ISOLATED_AUDIT_CLASSIFICATION_FOR_TEST === "true";
+  const expectedClassification =
+    configuredClassification === "isolated_test" && allowIsolatedForTest ? "isolated_test" : "production";
+  const expectedDatabase = env.KT_EXPECTED_AUDIT_DATABASE?.trim() || undefined;
 
-  // Optional external independent parity verifier (e.g., release-authority service context endpoint)
+  // Authoritative external release-authority parity verifier (`POST /v1/release-authority/parity/verify`)
   const externalUrl = env.KT_PARITY_VERIFIER_URL?.trim();
   if (externalUrl) {
     const allowedHosts = new Set<string>([
@@ -232,7 +238,29 @@ export async function verifyProductionParityRemote(
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      throw new PlatformError("PARITY_VERIFICATION_UNAVAILABLE", "External deployment parity verifier returned an error.", 409);
+      const errBody = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+      const passthroughCodes = new Set([
+        "PARITY_VERIFICATION_MISMATCH",
+        "AUDIT_LEAST_PRIVILEGE_REQUIRED",
+        "AUDIT_INVENTORY_INCOMPLETE",
+        "AUDIT_BASELINE_MISSING",
+        "AUDIT_PROTECTED_CHANGES_UNVERIFIED",
+        "AUDIT_RECEIPT_INVALID",
+        "AUDIT_RECEIPT_NOT_FOUND",
+        "AUDIT_RECEIPT_REVOKED",
+        "EVIDENCE_REVOKED",
+        "STALE_EVIDENCE",
+        "INDEPENDENT_REVIEW_REQUIRED",
+      ]);
+      const errCode =
+        res.status >= 400 && res.status < 500 && errBody?.code && passthroughCodes.has(errBody.code)
+          ? errBody.code
+          : "PARITY_VERIFICATION_UNAVAILABLE";
+      throw new PlatformError(
+        errCode,
+        String(errBody?.error ?? "External deployment parity verifier returned an error."),
+        409,
+      );
     }
     const data = (await res.json()) as Partial<VerifiedParityInfo>;
     if (
@@ -241,9 +269,45 @@ export async function verifyProductionParityRemote(
       typeof data.webSha !== "string" ||
       typeof data.operationsSha !== "string" ||
       typeof data.querySha !== "string" ||
-      typeof data.auditDigest !== "string"
+      typeof data.auditReleaseSha !== "string" ||
+      !/^[a-f0-9]{40}$/.test(data.auditReleaseSha) ||
+      typeof data.auditReference !== "string" ||
+      !data.auditReference.trim() ||
+      typeof data.auditDatabase !== "string" ||
+      !data.auditDatabase.trim() ||
+      typeof data.auditClassification !== "string" ||
+      typeof data.auditObservedAt !== "string" ||
+      typeof data.auditExpiresAt !== "string" ||
+      typeof data.auditDigest !== "string" ||
+      !/^[a-f0-9]{64}$/.test(data.auditDigest)
     ) {
       throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "External deployment parity response is incomplete.", 409);
+    }
+    if (data.leastPrivilege !== true) {
+      throw new PlatformError("AUDIT_LEAST_PRIVILEGE_REQUIRED", "External parity audit was not verified under a least-privilege read-only role.", 409);
+    }
+    if (data.auditInventoryComplete !== true) {
+      throw new PlatformError("AUDIT_INVENTORY_INCOMPLETE", "External parity audit inventory is incomplete.", 409);
+    }
+    if (data.auditBaselinePresent !== true) {
+      throw new PlatformError("AUDIT_BASELINE_MISSING", "External parity audit lacks a pre-deployment baseline comparison.", 409);
+    }
+    if (data.auditParityEligible !== true) {
+      throw new PlatformError("AUDIT_PROTECTED_CHANGES_UNVERIFIED", "External parity audit is not eligible for parity sign-off.", 409);
+    }
+    if (data.auditClassification !== expectedClassification) {
+      throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "External parity audit database classification mismatch.", 409);
+    }
+    if (expectedDatabase && data.auditDatabase !== expectedDatabase) {
+      throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "External parity audit database name mismatch.", 409);
+    }
+    const auditObsMs = Date.parse(data.auditObservedAt);
+    const auditExpMs = Date.parse(data.auditExpiresAt);
+    if (!Number.isFinite(auditObsMs) || !Number.isFinite(auditExpMs) || auditExpMs <= auditObsMs) {
+      throw new PlatformError("AUDIT_RECEIPT_INVALID", "External parity audit receipt timestamps are malformed.", 409);
+    }
+    if (auditObsMs > nowMs || auditExpMs <= nowMs) {
+      throw new PlatformError("STALE_EVIDENCE", "External parity audit receipt is expired or observed in the future.", 409);
     }
     return {
       vercelSha: data.vercelSha,
@@ -254,11 +318,31 @@ export async function verifyProductionParityRemote(
       operationsStatus: String(data.operationsStatus ?? ""),
       querySha: data.querySha,
       queryStatus: String(data.queryStatus ?? ""),
-      auditReleaseSha: String(data.auditReleaseSha ?? ""),
+      auditReference: data.auditReference,
+      auditBaselineReference: typeof data.auditBaselineReference === "string" ? data.auditBaselineReference : null,
+      auditReleaseSha: data.auditReleaseSha,
+      auditDatabase: data.auditDatabase,
+      auditClassification: data.auditClassification,
+      auditBaselinePresent: true,
+      auditInventoryComplete: true,
+      auditParityEligible: true,
       protectedDataUnchanged: data.protectedDataUnchanged === true,
-      leastPrivilege: data.leastPrivilege === true,
+      auditChangedTables: Array.isArray(data.auditChangedTables) ? data.auditChangedTables.map(String) : [],
+      auditUnexpectedChangedTables: Array.isArray(data.auditUnexpectedChangedTables) ? data.auditUnexpectedChangedTables.map(String) : [],
+      leastPrivilege: true,
       auditDigest: data.auditDigest,
+      auditObservedAt: data.auditObservedAt,
+      auditExpiresAt: data.auditExpiresAt,
     };
+  }
+
+  // Fail closed unless an explicit test harness supplies a verifiable auditReceiptResolver.
+  if (typeof options.auditReceiptResolver !== "function") {
+    throw new PlatformError(
+      "PARITY_VERIFICATION_UNAVAILABLE",
+      "KT_PARITY_VERIFIER_URL is required for deployment parity verification; local application-DB fallback is disabled.",
+      409,
+    );
   }
 
   const vercelToken = env.VERCEL_TOKEN?.trim();
@@ -276,7 +360,7 @@ export async function verifyProductionParityRemote(
     allowLoopbackForTest: options.allowLoopbackForTest,
   });
 
-  const [vercel, railway, readyResponse, audit] = await Promise.all([
+  const [vercel, railway, readyResponse, rawReceipt] = await Promise.all([
     queryVercelDeployment(input.vercelDeploymentId, vercelToken, env.VERCEL_TEAM_ID?.trim(), fetchImpl),
     queryRailwayDeployments(
       {
@@ -292,7 +376,7 @@ export async function verifyProductionParityRemote(
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     }),
-    (options.auditRunner ?? reviewedProtectedRowAudit)(),
+    Promise.resolve().then(() => options.auditReceiptResolver!(input.protectedDataAuditReference)),
   ]);
 
   if (!readyResponse.ok) {
@@ -325,17 +409,29 @@ export async function verifyProductionParityRemote(
     );
   }
 
-  const leastPrivilege = Boolean((audit.database as { leastPrivilegeVerified?: boolean } | undefined)?.leastPrivilegeVerified);
-  const protectedUnchanged = Boolean(audit.readOnly) && audit.migrationCount !== null;
-  const auditDigest = typeof audit.receiptDigest === "string"
-    ? audit.receiptDigest
-    : createHash("sha256").update(JSON.stringify(audit)).digest("hex");
-
-  if (
-    /^[a-f0-9]{64}$/.test(input.protectedDataAuditReference) &&
-    input.protectedDataAuditReference !== auditDigest
-  ) {
-    throw new PlatformError("PARITY_VERIFICATION_MISMATCH", "Protected-row audit reference digest does not match.", 409);
+  let verifiedReceipt: ReturnType<typeof verifyAuditReceipt>;
+  try {
+    verifiedReceipt = verifyAuditReceipt(rawReceipt, {
+      releaseSha: input.releaseSha,
+      reference: input.protectedDataAuditReference,
+      deployments: {
+        vercelDeploymentId: input.vercelDeploymentId,
+        webDeploymentId: input.webDeploymentId,
+        operationsDeploymentId: input.operationsDeploymentId,
+        queryDeploymentId: input.queryDeploymentId,
+      },
+      database: expectedDatabase,
+      classification: expectedClassification,
+      nowMs,
+      enforceFreshness: true,
+      requireParityEligibility: true,
+    });
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err && typeof err.code === "string"
+        ? err.code
+        : "PARITY_VERIFICATION_MISMATCH";
+    throw new PlatformError(code, err instanceof Error ? err.message : "Audit receipt verification failed.", 409);
   }
 
   return {
@@ -347,10 +443,21 @@ export async function verifyProductionParityRemote(
     operationsStatus: railway.operations.status,
     querySha: railway.query.sha,
     queryStatus: railway.query.status,
-    auditReleaseSha: audit.releaseSha ?? input.releaseSha,
-    protectedDataUnchanged: protectedUnchanged,
-    leastPrivilege,
-    auditDigest,
+    auditReference: verifiedReceipt.receiptReference,
+    auditBaselineReference: verifiedReceipt.baselineReference ?? null,
+    auditReleaseSha: verifiedReceipt.releaseSha,
+    auditDatabase: verifiedReceipt.databaseIdentity.database,
+    auditClassification: verifiedReceipt.databaseIdentity.classification,
+    auditBaselinePresent: verifiedReceipt.comparison.baselinePresent === true,
+    auditInventoryComplete: verifiedReceipt.inventory.inventoryComplete === true,
+    auditParityEligible: verifiedReceipt.comparison.eligibleForParity === true,
+    protectedDataUnchanged: verifiedReceipt.comparison.unchanged === true,
+    auditChangedTables: verifiedReceipt.comparison.changedTables,
+    auditUnexpectedChangedTables: verifiedReceipt.comparison.unexpectedChangedTables,
+    leastPrivilege: verifiedReceipt.databaseIdentity.leastPrivilegeVerified === true,
+    auditDigest: verifiedReceipt.receiptDigest,
+    auditObservedAt: verifiedReceipt.observedAt,
+    auditExpiresAt: verifiedReceipt.expiresAt,
   };
 }
 

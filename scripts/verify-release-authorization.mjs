@@ -216,6 +216,80 @@ function verifyIndependentContext(context, { sourceSha, treeSha, evidenceReferen
     }
   }
 
+  const audit = context.auditReceipt;
+  if (!audit || typeof audit !== "object" || Array.isArray(audit)) {
+    return {
+      ok: false,
+      reason: "AUDIT_RECEIPT_MISSING",
+      detail: "Verified release context is missing protected-row database audit proof.",
+    };
+  }
+  if (
+    audit.releaseSha !== sourceSha ||
+    audit.leastPrivilege !== true ||
+    audit.inventoryComplete !== true ||
+    audit.baselinePresent !== true ||
+    audit.eligibleForParity !== true ||
+    audit.revoked === true ||
+    typeof audit.reference !== "string" ||
+    !SAFE_ID.test(audit.reference) ||
+    typeof audit.digest !== "string" ||
+    !DIGEST_HEX.test(audit.digest)
+  ) {
+    return {
+      ok: false,
+      reason: "DATABASE_AUDIT_INVALID",
+      detail: "Protected-row database audit proof failed least-privilege, baseline, inventory, or parity verification.",
+    };
+  }
+  if (audit.unchanged !== true) {
+    if (
+      audit.documentedChangesAuthorized !== true ||
+      typeof audit.documentedChangeReference !== "string" ||
+      !SAFE_ID.test(audit.documentedChangeReference)
+    ) {
+      return {
+        ok: false,
+        reason: "AUDIT_PROTECTED_CHANGES_UNVERIFIED",
+        detail: "Protected tables changed without independent reviewer authorization.",
+      };
+    }
+  }
+  if (
+    audit.reference !== context.evidence.database_audit.reference ||
+    audit.digest !== context.evidence.database_audit.digest
+  ) {
+    return {
+      ok: false,
+      reason: "SOURCE_CONTEXT_MISMATCH",
+      detail: "Context database_audit evidence reference or digest does not match verified audit receipt.",
+    };
+  }
+  if (audit.deployments) {
+    const dep = audit.deployments;
+    if (
+      dep.vercelDeploymentId !== vercel.id ||
+      dep.webDeploymentId !== web.id ||
+      dep.operationsDeploymentId !== ops.id ||
+      dep.queryDeploymentId !== query.id
+    ) {
+      return {
+        ok: false,
+        reason: "DEPLOYMENT_PARITY_MISMATCH",
+        detail: "Audit receipt deployments do not match verified production deployments.",
+      };
+    }
+  }
+  const auditObsMs = typeof audit.observedAt === "string" ? Date.parse(audit.observedAt) : NaN;
+  const auditExpMs = typeof audit.expiresAt === "string" ? Date.parse(audit.expiresAt) : NaN;
+  if (!Number.isFinite(auditObsMs) || auditObsMs > nowMs || !Number.isFinite(auditExpMs) || auditExpMs <= nowMs) {
+    return {
+      ok: false,
+      reason: "STALE_EVIDENCE",
+      detail: "Protected-row audit receipt timestamp is missing, future-dated, or expired.",
+    };
+  }
+
   return { ok: true };
 }
 
@@ -371,14 +445,22 @@ export async function authorizeProductionRelease({
       });
     }
 
-    const revocations = await adapter.getRevocationStatus({ releaseSha: sourceSha, evidenceReference, issuanceId });
+    const revocations = await adapter.getRevocationStatus({
+      releaseSha: sourceSha,
+      evidenceReference,
+      issuanceId,
+      auditReference: verifiedContext.auditReceipt.reference,
+    });
     const allEvidenceReferences = [
       evidenceReference,
       ...REQUIRED_EVIDENCE_KEYS.map((key) => verifiedContext.evidence[key].reference),
     ];
+    const revokedAudits = revocations.revokedAuditReceiptIds ?? [];
     if (
       revocations.revokedIssuanceIds.includes(issuanceId) ||
       allEvidenceReferences.some((ref) => revocations.revokedEvidenceReferences.includes(ref)) ||
+      revokedAudits.includes(verifiedContext.auditReceipt.reference) ||
+      revokedAudits.includes(verifiedContext.auditReceipt.digest) ||
       envelope.payload.revoked === true
     ) {
       return refusalResult({
@@ -386,7 +468,7 @@ export async function authorizeProductionRelease({
         treeSha,
         evidenceReference,
         reason: "EVIDENCE_REVOKED",
-        detail: "Attestation issuance or domain evidence reference is revoked.",
+        detail: "Attestation issuance, domain evidence, or protected audit receipt is revoked.",
         outputDir,
       });
     }

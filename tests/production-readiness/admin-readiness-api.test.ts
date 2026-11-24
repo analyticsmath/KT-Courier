@@ -51,7 +51,89 @@ import {
   buildProductionVerificationOptions,
   verifyProductionParityRemote,
 } from "@/lib/production-readiness/verification-adapters.server";
+import {
+  AUDIT_RECEIPT_SCHEMA_VERSION,
+  REQUIRED_PROTECTED_AUDIT_TABLES,
+  computeAuditReceiptDigest,
+  computeProtectedSnapshotDigest,
+  evaluateAuditComparison,
+  hashAuditHost,
+} from "@/services/release-authority/src/audit-receipt.mjs";
 import type { Capability } from "@/lib/production-readiness/contracts";
+
+function buildValidTestAuditReceipt(options: {
+  releaseSha: string;
+  receiptReference: string;
+  vercelDeploymentId: string;
+  webDeploymentId: string;
+  operationsDeploymentId: string;
+  queryDeploymentId: string;
+  observedAt: string;
+  expiresAt: string;
+}) {
+  const snapshotMap = Object.fromEntries(
+    REQUIRED_PROTECTED_AUDIT_TABLES.map((t, idx) => [
+      t,
+      { count: idx + 1, hash: idx.toString(16).padStart(64, "0") },
+    ]),
+  );
+  const digest = computeProtectedSnapshotDigest(snapshotMap);
+  const comparison = evaluateAuditComparison(snapshotMap, snapshotMap);
+  const body = {
+    schemaVersion: AUDIT_RECEIPT_SCHEMA_VERSION,
+    receiptReference: options.receiptReference,
+    releaseSha: options.releaseSha,
+    baselineReference: `${options.receiptReference}-base`,
+    baselineSha: options.releaseSha,
+    baselineAt: options.observedAt,
+    observedAt: options.observedAt,
+    expiresAt: options.expiresAt,
+    window: {
+      captureMode: "BEFORE_AND_AFTER_COMPARISON",
+      windowStart: options.observedAt,
+      windowEnd: options.observedAt,
+    },
+    deployments: {
+      vercelDeploymentId: options.vercelDeploymentId,
+      webDeploymentId: options.webDeploymentId,
+      operationsDeploymentId: options.operationsDeploymentId,
+      queryDeploymentId: options.queryDeploymentId,
+    },
+    databaseIdentity: {
+      database: "kt_prod",
+      role: "kt_audit_ro",
+      classification: "production",
+      hostDigest: hashAuditHost("db.internal:5432"),
+      transactionReadOnly: "on",
+      rolsuper: false,
+      rolbypassrls: false,
+      writableTables: [],
+      leastPrivilegeVerified: true,
+      privilegeFindings: [],
+    },
+    inventory: {
+      requiredTablesCount: REQUIRED_PROTECTED_AUDIT_TABLES.length,
+      auditedTablesCount: REQUIRED_PROTECTED_AUDIT_TABLES.length,
+      missingRequiredTables: [],
+      inventoryComplete: true,
+      migrationCount: 132,
+      latestMigration: "20261125000000_parity_evidence_correction",
+    },
+    snapshots: {
+      baselineDigest: digest,
+      candidateDigest: digest,
+      baselineProtected: snapshotMap,
+      candidateProtected: snapshotMap,
+    },
+    comparison,
+    provenance: {
+      auditorPrincipal: "ops-auditor-01",
+      reviewerPrincipal: null,
+      captureSource: "DEDICATED_READONLY_CLI",
+    },
+  };
+  return { ...body, receiptDigest: computeAuditReceiptDigest(body) };
+}
 
 describe("production readiness API, verification adapters, and parity guards", () => {
   const releaseSha = "691ebded959858e86b4cb28674f52394c1f5676c";
@@ -110,6 +192,18 @@ describe("production readiness API, verification adapters, and parity guards", (
       return new Response(JSON.stringify({ status: "ready", database: "reachable", redis: "connected" }), { status: 200 });
     }) as unknown as typeof fetch;
 
+    const validReceipt = buildValidTestAuditReceipt({
+      releaseSha,
+      receiptReference: "audit-ref-01",
+      vercelDeploymentId: parityInput.vercelDeploymentId,
+      webDeploymentId: parityInput.webDeploymentId,
+      operationsDeploymentId: parityInput.operationsDeploymentId,
+      queryDeploymentId: parityInput.queryDeploymentId,
+      observedAt,
+      expiresAt,
+    });
+
+    // Fail closed when KT_PARITY_VERIFIER_URL and auditReceiptResolver are both omitted
     await expect(
       verifyProductionParityRemote(parityInput, {
         env: {
@@ -118,15 +212,21 @@ describe("production readiness API, verification adapters, and parity guards", (
           PAYMENT_APP_ORIGIN: "https://127.0.0.1",
         },
         allowLoopbackForTest: true,
+        now: reviewNow,
+      }),
+    ).rejects.toMatchObject({ code: "PARITY_VERIFICATION_UNAVAILABLE", status: 409 });
+
+    await expect(
+      verifyProductionParityRemote(parityInput, {
+        env: {
+          VERCEL_TOKEN: "vercel_tok",
+          RAILWAY_API_TOKEN: "rail_tok",
+          PAYMENT_APP_ORIGIN: "https://127.0.0.1",
+        },
+        allowLoopbackForTest: true,
+        now: reviewNow,
         fetchImpl: badServiceFetch,
-        auditRunner: async () =>
-          ({
-            readOnly: true,
-            migrationCount: 14,
-            releaseSha,
-            receiptDigest: "a".repeat(64),
-            database: { leastPrivilegeVerified: true },
-          }) as unknown as Awaited<ReturnType<typeof import("@/scripts/audit-reviewed-production").reviewedProtectedRowAudit>>,
+        auditReceiptResolver: async () => validReceipt,
       }),
     ).rejects.toMatchObject({ code: "PARITY_VERIFICATION_MISMATCH", status: 409 });
 
@@ -157,20 +257,52 @@ describe("production readiness API, verification adapters, and parity guards", (
         PAYMENT_APP_ORIGIN: "https://127.0.0.1",
       },
       allowLoopbackForTest: true,
+      now: reviewNow,
       fetchImpl: goodFetch,
-      auditRunner: async () =>
-        ({
-          readOnly: true,
-          migrationCount: 14,
-          releaseSha,
-          receiptDigest: "a".repeat(64),
-          database: { leastPrivilegeVerified: true },
-        }) as unknown as Awaited<ReturnType<typeof import("@/scripts/audit-reviewed-production").reviewedProtectedRowAudit>>,
+      auditReceiptResolver: async () => validReceipt,
     });
     expect(result.querySha).toBe(releaseSha);
     expect(result.queryStatus).toBe("SUCCESS");
     expect(result.leastPrivilege).toBe(true);
-    expect(result.auditDigest).toBe("a".repeat(64));
+    expect(result.auditBaselinePresent).toBe(true);
+    expect(result.auditInventoryComplete).toBe(true);
+    expect(result.auditParityEligible).toBe(true);
+    expect(result.auditDigest).toBe(validReceipt.receiptDigest);
+
+    // App client still rejects incomplete/unprivileged external verifier responses even on HTTP 200
+    await expect(
+      verifyProductionParityRemote(parityInput, {
+        env: { KT_PARITY_VERIFIER_URL: "https://127.0.0.1:8080/v1/release-authority/parity/verify" },
+        allowLoopbackForTest: true,
+        now: reviewNow,
+        fetchImpl: (async () =>
+          new Response(
+            JSON.stringify({
+              vercelSha: releaseSha,
+              vercelState: "READY",
+              webSha: releaseSha,
+              webStatus: "SUCCESS",
+              operationsSha: releaseSha,
+              operationsStatus: "SUCCESS",
+              querySha: releaseSha,
+              queryStatus: "SUCCESS",
+              auditReleaseSha: releaseSha,
+              auditReference: "audit-ref-01",
+              auditDatabase: "kt_prod",
+              auditClassification: "production",
+              auditBaselinePresent: true,
+              auditInventoryComplete: true,
+              auditParityEligible: true,
+              protectedDataUnchanged: true,
+              leastPrivilege: false,
+              auditObservedAt: observedAt,
+              auditExpiresAt: expiresAt,
+              auditDigest: validReceipt.receiptDigest,
+            }),
+            { status: 200 },
+          )) as unknown as typeof fetch,
+      }),
+    ).rejects.toMatchObject({ code: "AUDIT_LEAST_PRIVILEGE_REQUIRED", status: 409 });
   });
 
   it("runs remote verification before transaction lock and rejects stale expectedVersion on commit", async () => {
@@ -186,9 +318,17 @@ describe("production readiness API, verification adapters, and parity guards", (
         operationsStatus: "SUCCESS",
         querySha: releaseSha,
         queryStatus: "SUCCESS",
+        auditReference: "audit-ref-01",
         auditReleaseSha: releaseSha,
+        auditDatabase: "kt_prod",
+        auditClassification: "production",
+        auditBaselinePresent: true,
+        auditInventoryComplete: true,
+        auditParityEligible: true,
         protectedDataUnchanged: true,
         leastPrivilege: true,
+        auditObservedAt: observedAt,
+        auditExpiresAt: expiresAt,
         auditDigest: "b".repeat(64),
       };
     });

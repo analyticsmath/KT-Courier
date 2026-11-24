@@ -283,4 +283,101 @@ describe("production closure configuration transactions on isolated PostgreSQL",
       expect(board.status).toBe("BLOCKED");
     }
   });
+
+  it("executes captureProtectedRowAuditReceipt under a dedicated PostgreSQL read-only role while blocking writes on that role and preserving app writes", async () => {
+    const { captureProtectedRowAuditReceipt } = await import("@/scripts/audit-reviewed-production");
+    const dbUrlRaw = process.env.DATABASE_URL;
+    if (!dbUrlRaw) throw new Error("DATABASE_URL required for PostgreSQL closure integration test.");
+
+    const roRole = "kt_audit_ro_closure";
+    const roPass = "kt_readonly_disposable_pw_2026";
+    const roParsed = new URL(dbUrlRaw);
+    roParsed.username = roRole;
+    roParsed.password = roPass;
+    const roUrl = roParsed.toString();
+
+    await prisma.$executeRawUnsafe(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${roRole}') THEN CREATE ROLE "${roRole}" WITH LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS PASSWORD '${roPass}'; END IF; END $$;`);
+    await prisma.$executeRawUnsafe(`REVOKE CREATE ON SCHEMA public FROM PUBLIC;`);
+    await prisma.$executeRawUnsafe(`GRANT USAGE ON SCHEMA public TO "${roRole}";`);
+    await prisma.$executeRawUnsafe(`GRANT SELECT ON ALL TABLES IN SCHEMA public TO "${roRole}";`);
+
+    const deployments = {
+      vercelDeploymentId: "dpl_5Dq9XL1B5eSp3VneVKh2mBqyg9rR",
+      webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
+      operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
+      queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
+    };
+
+    try {
+      const roClient = new (await import("@prisma/client")).PrismaClient({ datasourceUrl: roUrl });
+      try {
+        await expect(
+          roClient.$executeRawUnsafe(
+            `INSERT INTO "SystemSetting" ("id", "key", "label", "type", "value", "updatedAt") VALUES ('ro-fail', 'ro-fail', 'ro-fail', 'JSON'::"SystemSettingType", '{}'::jsonb, NOW())`,
+          ),
+        ).rejects.toThrow(/permission denied/i);
+      } finally {
+        await roClient.$disconnect();
+      }
+
+      // Normal application writes remain completely functional via primary DATABASE_URL
+      await prisma.systemSetting.upsert({
+        where: { key: "pg-closure-ro-verify-setting" },
+        update: { label: "PG Closure Read-Only Verify", type: "JSON", value: { phase: "pre-baseline" } },
+        create: { key: "pg-closure-ro-verify-setting", label: "PG Closure Read-Only Verify", type: "JSON", value: { phase: "pre-baseline" } },
+      });
+
+      const baseline = await captureProtectedRowAuditReceipt({
+        releaseSha: "a".repeat(40),
+        receiptReference: "pg-closure-base-01",
+        readOnlyDatabaseUrl: roUrl,
+        env: { ...process.env, KT_DATABASE_CLASSIFICATION: "isolated_test" },
+        classification: "isolated_test",
+        deployments,
+        auditorPrincipal: "ci-postgres-auditor",
+      });
+      expect(baseline.databaseIdentity.leastPrivilegeVerified).toBe(true);
+      expect(baseline.databaseIdentity.rolsuper).toBe(false);
+      expect(baseline.databaseIdentity.rolbypassrls).toBe(false);
+      expect(baseline.databaseIdentity.writableTables).toEqual([]);
+      expect(baseline.inventory.inventoryComplete).toBe(true);
+
+      const candidate = await captureProtectedRowAuditReceipt({
+        releaseSha: "a".repeat(40),
+        receiptReference: "pg-closure-cand-01",
+        readOnlyDatabaseUrl: roUrl,
+        env: { ...process.env, KT_DATABASE_CLASSIFICATION: "isolated_test" },
+        classification: "isolated_test",
+        baselineReceipt: baseline,
+        deployments,
+        auditorPrincipal: "ci-postgres-auditor",
+      });
+      expect(candidate.comparison.baselinePresent).toBe(true);
+      expect(candidate.comparison.unchanged).toBe(true);
+      expect(candidate.comparison.eligibleForParity).toBe(true);
+
+      // Mutating via primary writable client is detected honestly against baseline
+      await prisma.systemSetting.update({
+        where: { key: "pg-closure-ro-verify-setting" },
+        data: { value: { phase: "post-baseline" } },
+      });
+      const changedUndocumented = await captureProtectedRowAuditReceipt({
+        releaseSha: "a".repeat(40),
+        receiptReference: "pg-closure-chg-undoc",
+        readOnlyDatabaseUrl: roUrl,
+        env: { ...process.env, KT_DATABASE_CLASSIFICATION: "isolated_test" },
+        classification: "isolated_test",
+        baselineReceipt: baseline,
+        deployments,
+        auditorPrincipal: "ci-postgres-auditor",
+      });
+      expect(changedUndocumented.comparison.unchanged).toBe(false);
+      expect(changedUndocumented.comparison.changedTables).toContain("SystemSetting");
+      expect(changedUndocumented.comparison.eligibleForParity).toBe(false);
+    } finally {
+      await prisma.$executeRawUnsafe(`REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM "${roRole}";`).catch(() => {});
+      await prisma.$executeRawUnsafe(`REVOKE USAGE ON SCHEMA public FROM "${roRole}";`).catch(() => {});
+      await prisma.$executeRawUnsafe(`DROP ROLE IF EXISTS "${roRole}";`).catch(() => {});
+    }
+  });
 });

@@ -59,6 +59,19 @@ describe("protected-row production audit hardening", () => {
     });
     expect(readonlyEval.leastPrivilegeVerified).toBe(true);
     expect(readonlyEval.findings).toEqual([]);
+
+    const createSchemaEval = evaluatePostgreSqlLeastPrivilege({
+      role: "kt_audit_ro",
+      transactionReadOnly: "on",
+      rolsuper: false,
+      rolbypassrls: false,
+      writableTables: [],
+      schemaCreatePrivilege: true,
+      missingRequiredTables: ["Order"],
+    });
+    expect(createSchemaEval.leastPrivilegeVerified).toBe(false);
+    expect(createSchemaEval.findings.some((f) => /CREATE/i.test(f))).toBe(true);
+    expect(createSchemaEval.findings.some((f) => /incomplete; missing/i.test(f))).toBe(true);
   });
 
   it("redacts store names/slugs and sensitive identifiers from standard console audit output", () => {

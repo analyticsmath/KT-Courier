@@ -165,6 +165,30 @@ function buildFixture(overrides = {}) {
     scope,
     policies,
     evidence: contextEvidence,
+    auditReceipt: {
+      reference: contextEvidence.database_audit.reference,
+      baselineReference: "ev-database_audit-base-001",
+      baselinePresent: true,
+      releaseSha: commitSha,
+      database: "kt_prod",
+      classification: "production",
+      leastPrivilege: true,
+      unchanged: true,
+      eligibleForParity: true,
+      changedTables: [],
+      documentedChangeReference: null,
+      documentedChangesAuthorized: false,
+      deployments: {
+        vercelDeploymentId: deployments.vercel,
+        webDeploymentId: deployments.railwayWeb,
+        operationsDeploymentId: deployments.railwayOperations,
+        queryDeploymentId: deployments.railwayQuery,
+      },
+      observedAt: contextEvidence.database_audit.observedAt,
+      expiresAt: contextEvidence.database_audit.expiresAt,
+      inventoryComplete: true,
+      digest: contextEvidence.database_audit.digest,
+    },
     ...(overrides.verifiedContext ?? {}),
   };
 
@@ -205,6 +229,7 @@ async function startDisposableAuthority(fixture, serverBehavior = {}) {
         revokedKeyIds: serverBehavior.revokedKeyIds ?? [],
         revokedIssuanceIds: serverBehavior.revokedIssuanceIds ?? [],
         revokedEvidenceReferences: serverBehavior.revokedEvidenceReferences ?? [],
+        revokedAuditReceiptIds: serverBehavior.revokedAuditReceiptIds ?? [],
       });
     }
 
@@ -791,6 +816,69 @@ test("supports remote trust fetch when pinned via SHA-256 and refuses unauthoriz
       assert.equal(revRes.reason, "EVIDENCE_REVOKED");
     } finally {
       await authorityRevokedDomain.close();
+    }
+
+    // Protected audit negative cases: missing receipt, unprivileged role, unverified changes, and revoked audit receipt
+    for (const [mutator, expectedReason] of [
+      [(ctx) => { delete ctx.auditReceipt; }, "AUDIT_RECEIPT_MISSING"],
+      [(ctx) => { ctx.auditReceipt.leastPrivilege = false; }, "DATABASE_AUDIT_INVALID"],
+      [(ctx) => { ctx.auditReceipt.inventoryComplete = false; }, "DATABASE_AUDIT_INVALID"],
+      [(ctx) => { ctx.auditReceipt.baselinePresent = false; }, "DATABASE_AUDIT_INVALID"],
+      [(ctx) => { ctx.auditReceipt.unchanged = false; ctx.auditReceipt.documentedChangesAuthorized = false; }, "AUDIT_PROTECTED_CHANGES_UNVERIFIED"],
+      [(ctx) => { ctx.auditReceipt.expiresAt = "2026-11-24T11:59:00.000Z"; }, "STALE_EVIDENCE"],
+    ]) {
+      const badAuditFixture = buildFixture();
+      mutator(badAuditFixture.verifiedContext);
+      const badAuditAuthority = await startDisposableAuthority(badAuditFixture);
+      try {
+        const res = await authorizeProductionRelease({
+          releaseSha: badAuditFixture.commitSha,
+          workflowSha: badAuditFixture.commitSha,
+          sourceSha: badAuditFixture.commitSha,
+          treeSha: badAuditFixture.treeSha,
+          evidenceReference: badAuditFixture.evidenceReference,
+          now: badAuditFixture.now,
+          outputDir: outDir,
+          allowLoopbackForTest: true,
+          env: {
+            RELEASE_AUTHORITY_ORIGIN: badAuditAuthority.origin,
+            RELEASE_AUTHORITY_ALLOWED_ORIGIN: badAuditAuthority.origin,
+            RELEASE_AUTHORITY_TOKEN: badAuditAuthority.token,
+            RELEASE_AUTHORITY_TRUST_ANCHORS: JSON.stringify(badAuditFixture.trust),
+          },
+        });
+        assert.equal(res.releaseAuthorized, false);
+        assert.equal(res.reason, expectedReason);
+      } finally {
+        await badAuditAuthority.close();
+      }
+    }
+
+    const revokedAuditFixture = buildFixture();
+    const authorityRevokedAudit = await startDisposableAuthority(revokedAuditFixture, {
+      revokedAuditReceiptIds: [revokedAuditFixture.verifiedContext.auditReceipt.reference],
+    });
+    try {
+      const res = await authorizeProductionRelease({
+        releaseSha: revokedAuditFixture.commitSha,
+        workflowSha: revokedAuditFixture.commitSha,
+        sourceSha: revokedAuditFixture.commitSha,
+        treeSha: revokedAuditFixture.treeSha,
+        evidenceReference: revokedAuditFixture.evidenceReference,
+        now: revokedAuditFixture.now,
+        outputDir: outDir,
+        allowLoopbackForTest: true,
+        env: {
+          RELEASE_AUTHORITY_ORIGIN: authorityRevokedAudit.origin,
+          RELEASE_AUTHORITY_ALLOWED_ORIGIN: authorityRevokedAudit.origin,
+          RELEASE_AUTHORITY_TOKEN: authorityRevokedAudit.token,
+          RELEASE_AUTHORITY_TRUST_ANCHORS: JSON.stringify(revokedAuditFixture.trust),
+        },
+      });
+      assert.equal(res.releaseAuthorized, false);
+      assert.equal(res.reason, "EVIDENCE_REVOKED");
+    } finally {
+      await authorityRevokedAudit.close();
     }
   } finally {
     await authority.close();

@@ -17,10 +17,18 @@ Standalone deployable HTTP release authority service and offline 4-role Ed25519 
    - `GET /v1/release-authority/trust`
    - `GET /v1/release-authority/releases/:sha/context?treeSha=...&evidenceReference=...`
    - `GET /v1/release-authority/releases/:sha/evidence/:ref`
+   - `GET /v1/release-authority/audits/:ref`
    - `GET /v1/release-authority/revocations`
    - `POST /v1/release-authority/issuances/claim`
    - `POST /v1/release-authority/parity/verify`
-   - Admin ingestion/collector routes (`/v1/release-authority/admin/*`, guarded by separate `RELEASE_AUTHORITY_ADMIN_TOKEN`)
+   - Admin ingestion/collector routes (`/v1/release-authority/admin/trust`, `/admin/audits`, `/admin/collect`, `/admin/envelopes`, `/admin/revocations`, guarded by separate `RELEASE_AUTHORITY_ADMIN_TOKEN`)
+
+5. **Verified Protected-Row Database Audit Flow**:
+   - Capture an immutable pre-deployment baseline and post-deployment candidate `ProtectedAuditReceipt` using a dedicated least-privilege PostgreSQL read-only role (`KT_AUDIT_READONLY_DATABASE_URL`, never writable `DATABASE_URL`):
+     - Baseline capture: `npx tsx scripts/audit-reviewed-production.ts --capture-receipt --release-sha <prevSha> --ref audit-base-01 --vercel-id ... --web-id ... --operations-id ... --query-id ... --auditor <operatorId> --out baseline-receipt.json`
+     - Candidate comparison capture: `npx tsx scripts/audit-reviewed-production.ts --capture-receipt --release-sha <candidateSha> --ref audit-cand-01 --baseline baseline-receipt.json --vercel-id ... --web-id ... --operations-id ... --query-id ... --auditor <operatorId> --out candidate-receipt.json`
+     - If active operational commerce tables changed legitimately during the deployment window, supply `--documented-changes Order,Payment,... --documented-ref <chgRef> --documented-reason "<reason>" --reviewer <distinctReviewerId>`.
+   - Ingest the candidate receipt into the release authority (`PUT /v1/release-authority/admin/audits` via `node services/release-authority/src/cli.mjs ingest-audit --receipt candidate-receipt.json`). Both `POST /v1/release-authority/parity/verify` and `POST /v1/release-authority/admin/collect` enforce `verifyAuditReceipt`, revocation lookup, database identity, least-privilege role verification, complete 37-table inventory, freshness window, and before/after baseline comparison.
 
 ## Environment Contract (Non-Secret Names Only)
 
@@ -29,10 +37,12 @@ Standalone deployable HTTP release authority service and offline 4-role Ed25519 
 | `PORT` | Optional (`8080`) | Listener port |
 | `HOST` | Optional (`0.0.0.0`) | Listener bind address |
 | `RELEASE_AUTHORITY_BEARER_TOKEN` | Yes (>= 16 chars) | Read & claim token granted to GitHub `production-release` environment |
-| `RELEASE_AUTHORITY_ADMIN_TOKEN` | Yes (>= 16 chars) | Separate operator admin token for publishing trust/contexts/envelopes/revocations |
+| `RELEASE_AUTHORITY_ADMIN_TOKEN` | Yes (>= 16 chars) | Separate operator admin token for publishing trust/audits/contexts/envelopes/revocations |
 | `RELEASE_AUTHORITY_DATABASE_URL` | Recommended for HA | Separate dedicated PostgreSQL connection string initialized from `schema.sql` |
 | `RELEASE_AUTHORITY_DATA_DIR` | Fallback if no DB URL | Persistent volume path for atomic file lock/claim store |
 | `GITHUB_RELEASE_READ_TOKEN` | Collector/Parity | Read-only GitHub token to query Actions workflows & commit tree SHAs |
 | `VERCEL_TOKEN` (+ optional `VERCEL_TEAM_ID`) | Collector/Parity | Read-only Vercel token to verify production deployment SHA parity |
 | `RAILWAY_API_TOKEN` | Collector/Parity | Read-only Railway API token to verify `web`, `operations`, `query-storefront-categories` |
 | `KT_PRODUCTION_ORIGIN` | Collector/Parity | Public HTTPS origin of KT Couriers app for `/api/infrastructure/ready` health verification |
+| `KT_EXPECTED_AUDIT_CLASSIFICATION` | Collector/Parity | Expected DB classification (`production`, default) enforced on verified audit receipts |
+| `KT_EXPECTED_AUDIT_DATABASE` | Optional hardening | Expected production PostgreSQL database name enforced on verified audit receipts |
