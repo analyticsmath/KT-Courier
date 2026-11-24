@@ -100,7 +100,7 @@ async function assertPostingWalletOwner(
       exists = Boolean(await tx.promoterProfile.findUnique({ where: { id: wallet.ownerId }, select: { id: true } }));
       break;
     case "PLATFORM":
-      exists = wallet.ownerId === "platform";
+      exists = wallet.ownerId === "platform" || wallet.ownerId === "platform-sandbox-acceptance";
       break;
   }
   if (!exists) throw new LedgerError("LEDGER_OWNER_INVALID", "A ledger account wallet has an invalid owner.");
@@ -177,6 +177,23 @@ async function postNormalizedLedgerJournalWithinTransaction(
 
   const validatedWalletIds = new Set<string>();
   const projections: ReturnType<typeof calculateAccountProjection>[] = [];
+  const hasSandboxAcceptanceAccount = accounts.some(
+    (account) => account.wallet.ownerType === "PLATFORM" && account.wallet.ownerId === "platform-sandbox-acceptance",
+  );
+  if (hasSandboxAcceptanceAccount) {
+    const allSandboxAccounts = accounts.every(
+      (account) =>
+        account.wallet.ownerType === "PLATFORM" &&
+        account.wallet.ownerId === "platform-sandbox-acceptance" &&
+        account.code.startsWith("PLATFORM-SANDBOX-ACCEPTANCE-"),
+    );
+    if (!allSandboxAccounts) {
+      throw new LedgerError(
+        "LEDGER_NAMESPACE_ISOLATION_VIOLATION",
+        "Sandbox acceptance ledger accounts must remain strictly isolated from live accounts.",
+      );
+    }
+  }
   for (const account of accounts) {
     if (account.wallet.status !== "ACTIVE") throw new LedgerError("LEDGER_WALLET_INACTIVE", "A ledger account wallet is not active.");
     if (account.wallet.currency !== account.currency) {

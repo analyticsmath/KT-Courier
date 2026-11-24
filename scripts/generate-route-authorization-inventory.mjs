@@ -115,6 +115,7 @@ for (const file of routeFiles) {
   let requiredPermissions = [];
   if (
     relPath.includes("payments/payfast/itn") ||
+    relPath.includes("payments/paystack/sandbox-webhook") ||
     relPath.includes("webhooks/")
   ) {
     authMechanism = "WEBHOOK_SIGNATURE";

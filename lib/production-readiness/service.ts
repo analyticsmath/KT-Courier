@@ -1,4 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
+import { evaluateCodPolicyReadiness } from "@/lib/production-readiness/cod-readiness";
+import { applyReleaseAndParityGuardsToEntries } from "@/lib/production-readiness/readiness-guards";
+import { reconcileBoardWithCapabilityMatrix } from "@/lib/production-readiness/reconciliation";
+
+export { reconcileBoardWithCapabilityMatrix };
 import { checkReadiness } from "@/lib/health/checks";
 import { getIntegrationRegistry } from "@/lib/security/integration-registry";
 import { regionBoundaryIssues } from "@/lib/maps/region-boundaries";
@@ -153,17 +158,42 @@ export async function getProductionReadiness() {
       effectiveFrom: { lte: now }, OR: [{ effectiveTo: null }, { effectiveTo: { gt: now } }],
     } });
     const bank = await prisma.systemSetting.findUnique({ where: { key: "client_cash_deposit_bank" }, select: { value: true, updatedAt: true } });
-    const bankValid = !!bank && !!BankInstructionsSchema.safeParse(bank.value).success;
-    const eligible = rows.filter((r) => {
-      const evidence = r.policyEvidence as { approvedByUserId?: string; approvedAt?: string; remittanceApproved?: boolean; remittanceUpdatedAt?: string; settlementTiming?: string } | null;
-      const depositPercent = r.depositPercent?.toString();
-      return r.mode === "DEPOSIT_PLUS_COD" && !r.storeId && r.orderType === "PARCEL_DOCUMENT" &&
-        (depositPercent === "0.5" || depositPercent === "0.5000") && r.depositAmount == null && !!r.deliveryServiceId &&
-        (!!r.regionId || (Array.isArray(r.provinceScope) && r.provinceScope.length > 0)) &&
-        Number(r.maximumCodAmount) > 0 &&
-        !!evidence?.approvedByUserId && evidence.approvedByUserId !== r.createdByUserId &&
-        !!evidence.approvedAt && evidence.remittanceApproved === true && !!evidence.settlementTiming &&
-        bankValid && bank?.updatedAt.toISOString() === evidence.remittanceUpdatedAt;
+    const bankParsed = bank ? BankInstructionsSchema.safeParse(bank.value) : null;
+    const bankValid = !!bankParsed?.success;
+    const [services, regions] = await Promise.all([
+      typeof prisma.deliveryServiceDefinition?.findMany === "function"
+        ? prisma.deliveryServiceDefinition.findMany({
+            where: { status: "ACTIVE" },
+            select: { stableKey: true, status: true, effectiveFrom: true, effectiveTo: true },
+          })
+        : Promise.resolve(null),
+      typeof prisma.deliveryRegion?.findMany === "function"
+        ? prisma.deliveryRegion.findMany({
+            select: {
+              id: true,
+              active: true,
+              province: true,
+              coverageMode: true,
+              centerLat: true,
+              centerLng: true,
+              coverageRadiusKm: true,
+              maxDistanceKm: true,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    const activeServicesByKey = services ? new Map(services.map((s) => [s.stableKey, s])) : null;
+    const regionsById = regions ? new Map(regions.map((r) => [r.id, r])) : null;
+    const bankMeta = (bank?.value && typeof bank.value === "object" ? bank.value : null) as { updatedByUserId?: string } | null;
+    const { eligible } = evaluateCodPolicyReadiness(rows, {
+      activeServicesByKey,
+      regionsById,
+      bank: {
+        valid: bankValid,
+        updatedAtIso: bank?.updatedAt.toISOString() ?? null,
+        updatedByUserId: typeof bankMeta?.updatedByUserId === "string" ? bankMeta.updatedByUserId : null,
+      },
+      now,
     });
     return capability("cod_policy", eligible.length ? "READY" : "BLOCKED_EXTERNAL_INPUT", eligible.length ? "COD_SCOPED_APPROVAL_CURRENT" : "COD_APPROVED_SCOPE_MISSING", "Eligible personal parcel cash requires the owner-approved 50% digital deposit and 50% driver cash, an independently approved service, area, cash limit and unchanged remittance instructions. Full COD and store-specific policies do not satisfy this launch gate.", "FINANCE", { scopedPolicyCount: eligible.length });
   });
@@ -381,11 +411,14 @@ export async function getProductionReadiness() {
     repairLinks: PRODUCTION_READINESS_REPAIR_LINKS,
   };
 
+  const guardedEntries = await applyReleaseAndParityGuardsToEntries(entries, { now });
+  const matrixReconciliation = reconcileBoardWithCapabilityMatrix(guardedEntries, capabilityMatrix);
   return {
     generatedAt: now.toISOString(),
-    status: entries.every((e) => e.status === "READY" || e.status === "DISABLED_BY_POLICY") ? "READY" : "BLOCKED",
-    capabilities: entries,
+    status: matrixReconciliation.overallStatus,
+    capabilities: guardedEntries,
     capabilityMatrix,
+    matrixReconciliation,
     envSchema,
     commerceActivation,
     codeCapabilities,

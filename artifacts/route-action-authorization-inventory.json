@@ -1,13 +1,13 @@
 {
   "summary": {
-    "totalRoutes": 795,
+    "totalRoutes": 797,
     "totalServerActions": 0,
     "publicRoutes": 99,
-    "authenticatedRoutes": 692,
-    "permissionGatedRoutes": 544,
-    "webhookSignatureRoutes": 4,
-    "rateLimitedRoutes": 237,
-    "generatedAt": "2026-11-24T08:04:00.000Z"
+    "authenticatedRoutes": 693,
+    "permissionGatedRoutes": 545,
+    "webhookSignatureRoutes": 5,
+    "rateLimitedRoutes": 239,
+    "generatedAt": "2026-11-24T11:17:27.790Z"
   },
   "serverActions": [],
   "routes": [
@@ -3720,6 +3720,26 @@
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
     {
+      "routePath": "app/api/admin/orders/[id]/cod-delivery-exception/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
+      "requiredRoles": [
+        "ADMIN",
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [
+        "cod_operations.manage"
+      ],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
       "routePath": "app/api/admin/orders/[id]/cod/reconcile/route.ts",
       "httpMethods": [
         "POST"
@@ -3817,27 +3837,6 @@
       "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
-    },
-    {
-      "routePath": "app/api/admin/orders/[id]/cod-delivery-exception/route.ts",
-      "httpMethods": [
-        "POST"
-      ],
-      "authorizationMechanism": "ADMIN_SESSION_PERMISSION",
-      "requiredRoles": [
-        "ADMIN",
-        "SUPER_ADMIN"
-      ],
-      "requiredPermissions": [
-        "cod_operations.manage",
-        "orders.status.manage"
-      ],
-      "rateLimitingApplied": true,
-      "idempotencyEnforced": true,
-      "bolaOwnershipValidated": true,
-      "originProtection": "ENFORCED_IN_ROUTE",
-      "remediationStatus": "COMPLIANT",
-      "authorizationEvidence": "Cash permission is enforced on the route and service; reporting additionally requires order status permission. Review requires a different authorized actor."
     },
     {
       "routePath": "app/api/admin/orders/[id]/proof-of-delivery/route.ts",
@@ -4040,6 +4039,24 @@
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": true,
       "originProtection": "NOT_APPLICABLE_READ_ONLY",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/admin/payment-providers/sandbox-acceptance/route.ts",
+      "httpMethods": [
+        "GET",
+        "POST"
+      ],
+      "authorizationMechanism": "SUPER_ADMIN_SESSION",
+      "requiredRoles": [
+        "SUPER_ADMIN"
+      ],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
+      "idempotencyEnforced": true,
+      "bolaOwnershipValidated": true,
+      "originProtection": "ENFORCED_IN_ROUTE",
       "remediationStatus": "COMPLIANT",
       "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
     },
@@ -11595,6 +11612,21 @@
       "requiredRoles": [],
       "requiredPermissions": [],
       "rateLimitingApplied": false,
+      "idempotencyEnforced": false,
+      "bolaOwnershipValidated": false,
+      "originProtection": "NOT_APPLICABLE_SIGNED_WEBHOOK",
+      "remediationStatus": "COMPLIANT",
+      "authorizationEvidence": "Static route inventory; service authority and runtime behavior require separate verification."
+    },
+    {
+      "routePath": "app/api/payments/paystack/sandbox-webhook/route.ts",
+      "httpMethods": [
+        "POST"
+      ],
+      "authorizationMechanism": "WEBHOOK_SIGNATURE",
+      "requiredRoles": [],
+      "requiredPermissions": [],
+      "rateLimitingApplied": true,
       "idempotencyEnforced": false,
       "bolaOwnershipValidated": false,
       "originProtection": "NOT_APPLICABLE_SIGNED_WEBHOOK",

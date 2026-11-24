@@ -8,6 +8,7 @@ import {
   type CapabilityStatus,
 } from "@/lib/production-readiness/contracts";
 import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capability-matrix.service";
+import type { MatrixReconciliationSummary } from "@/lib/production-readiness/reconciliation";
 import type { EnvSchemaVerificationReport } from "@/lib/runtime/env-schema-verifier";
 import type { CommerceActivation } from "@/lib/runtime/commerce-activation";
 
@@ -35,12 +36,14 @@ const readable = (s: string) => s.replaceAll("_", " ").toLowerCase().replace(/^.
 export function ProductionReadinessBoard({
   capabilities,
   capabilityMatrix = [],
+  matrixReconciliation,
   envSchema,
   commerceActivation,
   entityConfigurationStatus,
 }: {
   capabilities: Capability[];
   capabilityMatrix?: readonly CapabilityMatrixEntry[];
+  matrixReconciliation?: MatrixReconciliationSummary;
   envSchema?: EnvSchemaVerificationReport;
   commerceActivation?: CommerceActivation;
   entityConfigurationStatus?: EntityConfigurationStatus;
@@ -70,6 +73,23 @@ export function ProductionReadinessBoard({
       </div>)}
     </dl>
     <p className="sr-only">{blocked} launch blockers, {ready} verified ready, {excluded} excluded by policy.</p>
+    {matrixReconciliation && (
+      <div className="rounded-xl border border-[var(--kt-border)] bg-white p-4 text-xs text-[var(--kt-text-soft)]">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-semibold text-[var(--kt-brand-navy)]">
+            Scope reconciliation: {matrixReconciliation.overallStatus}
+          </span>
+          <span className="font-mono">
+            In-scope matrix blockers: {matrixReconciliation.inScopeMatrixBlockers.length} · Excluded: {matrixReconciliation.excludedCapabilities.join(", ") || "None"}
+          </span>
+        </div>
+        {matrixReconciliation.inScopeMatrixBlockers.length > 0 && (
+          <p className="mt-1 font-mono text-[11px] text-[#875224]">
+            Matrix blockers preventing unrestricted ready: {matrixReconciliation.inScopeMatrixBlockers.join(", ")}
+          </p>
+        )}
+      </div>
+    )}
     {(commerceActivation || envSchema || entityConfigurationStatus) && (
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-labelledby="code-capability-view-heading" className="space-y-3 rounded-xl border border-[var(--kt-border)] bg-white p-5">

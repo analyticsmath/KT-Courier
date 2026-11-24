@@ -20,7 +20,8 @@ export type LedgerErrorCode =
   | "LEDGER_REVERSAL_NOT_ALLOWED"
   | "LEDGER_METADATA_INVALID"
   | "LEDGER_OWNER_INVALID"
-  | "LEDGER_SOURCE_REFERENCE_INVALID";
+  | "LEDGER_SOURCE_REFERENCE_INVALID"
+  | "LEDGER_NAMESPACE_ISOLATION_VIOLATION";
 
 export class LedgerError extends Error {
   readonly code: LedgerErrorCode;

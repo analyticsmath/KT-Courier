@@ -15,7 +15,12 @@ export default async function AdminPaymentProvidersPage() {
   return <div className="max-w-6xl space-y-6">
     <ProtectedPageHeader eyebrow="Server readiness" title="Payment Providers" description="Inspect provider capability and configuration readiness without exposing credential values. This interface is read-only." />
     <AdministrationPanel className="space-y-4"><PaymentProvidersTable providers={providers.data} /></AdministrationPanel>
-    {viewer.role === "SUPER_ADMIN" && <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/payment-providers/live-verification">Superadmin: R1 live gateway verification</Link>}
+    {viewer.role === "SUPER_ADMIN" && (
+      <div className="flex flex-wrap gap-4">
+        <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/payment-providers/live-verification">Superadmin: R1 live gateway verification</Link>
+        <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/payment-providers/sandbox-acceptance">Superadmin: Isolated sandbox acceptance lane</Link>
+      </div>
+    )}
   </div>;
 }
 

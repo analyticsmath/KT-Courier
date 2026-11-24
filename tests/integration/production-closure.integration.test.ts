@@ -9,7 +9,10 @@ import { saveBankInstructions } from "@/lib/client-platform/driver-cash.service"
 import { createDeliveryRegion, updateDeliveryRegion } from "@/lib/services/admin-regions.service";
 import { createUser, uniqueTag } from "./phase7-5-fixtures";
 import type { AuthenticatedUser } from "@/types/domain";
-import { reviewedProtectedRowAudit } from "@/scripts/audit-reviewed-production";
+import { reviewedProtectedRowAudit, REQUIRED_PROTECTED_AUDIT_TABLES } from "@/scripts/audit-reviewed-production";
+import { getProductionReadiness } from "@/lib/production-readiness/service";
+import { createSandboxGatewayVerification, settleSandboxGatewayVerification } from "@/lib/payments/sandbox-acceptance.service";
+import type { PaystackClient } from "@/lib/payments/providers/paystack/paystack-client";
 
 describe("production closure configuration transactions on isolated PostgreSQL", () => {
   let author: AuthenticatedUser; let reviewer: AuthenticatedUser; const tag = uniqueTag("closure");
@@ -20,7 +23,7 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     expect(identity).toEqual({ database: "kt_launch_test", role: "kt_closure_test" });
     author = await createUser(`${tag}-author`, "SUPER_ADMIN"); reviewer = await createUser(`${tag}-reviewer`, "SUPER_ADMIN");
   });
-  it("executes the operator audit read-only and detects a synthetic protected-row change without exporting row contents", async () => {
+  it("executes the operator audit read-only across all schema-discovered tables and detects synthetic changes without exporting row contents", async () => {
     const auditOwner = await createUser(`${tag}-audit`, "CUSTOMER");
     const latestCompany = await prisma.companyProfileVersion.aggregate({ _max: { versionNumber: true } });
     await prisma.companyProfileVersion.create({ data: {
@@ -29,9 +32,13 @@ describe("production closure configuration transactions on isolated PostgreSQL",
       createdByUserId: auditOwner.id,
     } });
     const first = await reviewedProtectedRowAudit();
-    expect(first.database).toEqual({ database: "kt_launch_test", role: "kt_closure_test", transactionReadOnly: "on" });
+    expect(first.database).toMatchObject({ database: "kt_launch_test", role: "kt_closure_test", transactionReadOnly: "on" });
+    expect(typeof (first.database as { leastPrivilegeVerified?: unknown }).leastPrivilegeVerified).toBe("boolean");
     const before = first.protected as Record<string, { count: number; hash: string }>;
-    expect(Object.keys(before)).toHaveLength(17);
+    for (const requiredTable of REQUIRED_PROTECTED_AUDIT_TABLES) {
+      expect(before[requiredTable]).toBeDefined();
+    }
+    expect(Object.keys(before).length).toBeGreaterThanOrEqual(REQUIRED_PROTECTED_AUDIT_TABLES.length);
     expect(Object.values(before).every(value => Number.isSafeInteger(value.count) && /^[a-f0-9]{64}$/.test(value.hash))).toBe(true);
     expect(JSON.stringify(first)).not.toContain("AUDIT-REG-DO-NOT-LOG");
     expect(JSON.stringify(first)).not.toContain("AUDIT-VAT-DO-NOT-LOG");
@@ -96,5 +103,152 @@ describe("production closure configuration transactions on isolated PostgreSQL",
     expect((await resolvePaymentPolicy({}, new Date(start.getTime() - 1))).id).toBe(first.id);
     expect((await resolvePaymentPolicy({}, start)).id).toBe(second.id);
     await expect(resolvePaymentPolicy({}, end)).rejects.toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
+  });
+  it("enforces immutable sandbox payment provenance, rejects old-release reuse, rejects pre-confirmation timestamps, and isolates live ledgers", async () => {
+    const releaseSha = "691ebded959858e86b4cb28674f52394c1f5676c";
+    const priorReleaseSha = "8031c874".padEnd(40, "0");
+    const laneEnv = {
+      NODE_ENV: "test",
+      PAYSTACK_ACCEPTANCE_SANDBOX_ENABLED: "true",
+      PAYSTACK_ACCEPTANCE_SANDBOX_SECRET_KEY: "sk_test_closure_disposable_secret_1234",
+      PAYMENT_APP_ORIGIN: "https://ktcouriers.test",
+      RAILWAY_GIT_COMMIT_SHA: releaseSha,
+    };
+    const fakePaystack = {
+      initializeTransaction: async ({ reference }: { reference: string }) => ({
+        reference,
+        authorization_url: `https://checkout.paystack.com/${reference}`,
+      }),
+      verifyTransaction: async (reference: string) => ({
+        id: 987654321,
+        reference,
+        amount: 1000,
+        currency: "ZAR",
+        domain: "test",
+        status: "success",
+        paid_at: new Date().toISOString(),
+        customer: { email: author.email },
+      }),
+    } as unknown as PaystackClient;
+
+    const liveCountsBefore = {
+      orders: await prisma.order.count(),
+      payments: await prisma.payment.count(),
+      livePlatformAccounts: await prisma.ledgerAccount.findMany({
+        where: { wallet: { ownerType: "PLATFORM", ownerId: "platform" } },
+        select: { id: true, currentBalance: true, debitTotal: true, creditTotal: true },
+        orderBy: { id: "asc" },
+      }),
+    };
+
+    const created = await createSandboxGatewayVerification(
+      { id: author.id, email: author.email },
+      "11111111-2222-4333-8444-555555555555",
+      { clientOverride: fakePaystack, env: laneEnv },
+    );
+    expect(created.status).toBe("CHECKOUT_READY");
+    expect(created.releaseSha).toBe(releaseSha);
+
+    const settled = await settleSandboxGatewayVerification(created.reference, {
+      actorId: author.id,
+      refresh: true,
+      clientOverride: fakePaystack,
+      env: laneEnv,
+    });
+    expect(settled?.status).toBe("SUCCEEDED");
+    expect(settled?.ledgerJournalId).toBeTruthy();
+    expect(settled?.resultDigest).toMatch(/^[a-f0-9]{64}$/);
+
+    // Live order/payment/platform accounts remain completely untouched
+    expect(await prisma.order.count()).toBe(liveCountsBefore.orders);
+    expect(await prisma.payment.count()).toBe(liveCountsBefore.payments);
+    const livePlatformAccountsAfter = await prisma.ledgerAccount.findMany({
+      where: { wallet: { ownerType: "PLATFORM", ownerId: "platform" } },
+      select: { id: true, currentBalance: true, debitTotal: true, creditTotal: true },
+      orderBy: { id: "asc" },
+    });
+    expect(livePlatformAccountsAfter).toEqual(liveCountsBefore.livePlatformAccounts);
+
+    // SQL trigger blocks mutating or deleting PaymentReleaseProvenance rows
+    await expect(
+      prisma.$executeRawUnsafe(`UPDATE "PaymentReleaseProvenance" SET "releaseSha" = '${priorReleaseSha}' WHERE "paymentReference" = '${created.reference}'`),
+    ).rejects.toThrow(/immutable/i);
+
+    const baseEvidence = {
+      kind: "SANDBOX" as const,
+      key: "payment_integration_acceptance" as const,
+      releaseSha,
+      observedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 600_000).toISOString(),
+      evidenceReference: `sandbox:${created.reference}`,
+      reason: "PostgreSQL isolated sandbox acceptance verification test",
+      genuineOperatorAcceptance: true as const,
+      provider: "PAYSTACK" as const,
+      paymentReference: created.reference,
+      amount: "10.00",
+      currency: "ZAR" as const,
+    };
+
+    // observedAt before providerConfirmedAt is denied
+    await expect(
+      recordAcceptanceEvidence(author.id, {
+        expectedVersion: 0,
+        evidence: {
+          ...baseEvidence,
+          observedAt: new Date(Date.parse(settled!.verifiedAt!) - 10_000).toISOString(),
+        },
+      }, { env: laneEnv }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // Reusing payment for a different release SHA is denied
+    await expect(
+      recordAcceptanceEvidence(author.id, {
+        expectedVersion: 0,
+        evidence: { ...baseEvidence, releaseSha: priorReleaseSha },
+      }, { env: laneEnv }),
+    ).rejects.toMatchObject({ status: 409 });
+
+    // Saving & independent review succeeds with real observedAt <= now
+    const nowObserved = new Date().toISOString();
+    const draft = await recordAcceptanceEvidence(author.id, {
+      expectedVersion: 0,
+      evidence: { ...baseEvidence, observedAt: nowObserved },
+    }, { env: laneEnv });
+    await expect(
+      reviewAcceptanceEvidence(author.id, { key: "payment_integration_acceptance", expectedVersion: draft.version, action: "APPROVE", reason: "Self approval denied" }, { env: laneEnv }),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      reviewAcceptanceEvidence(reviewer.id, { key: "payment_integration_acceptance", expectedVersion: 99, action: "APPROVE", reason: "Stale conflict test" }, { env: laneEnv }),
+    ).rejects.toMatchObject({ status: 409 });
+    const approved = await reviewAcceptanceEvidence(reviewer.id, {
+      key: "payment_integration_acceptance",
+      expectedVersion: draft.version,
+      action: "APPROVE",
+      reason: "Independent admin approval on verified sandbox provenance",
+    }, { env: laneEnv });
+    expect(evidenceIsCurrent(approved, releaseSha, new Date(), { env: laneEnv })).toBe(true);
+
+    // Revoking blocks reuse of that exact paymentReference even on same SHA
+    const revoked = await reviewAcceptanceEvidence(reviewer.id, {
+      key: "payment_integration_acceptance",
+      expectedVersion: approved.version,
+      action: "REVOKE",
+      reason: "Testing revocation blocks replay of revoked reference",
+    }, { env: laneEnv });
+    expect(revoked.status).toBe("REVOKED");
+    await expect(
+      recordAcceptanceEvidence(author.id, {
+        expectedVersion: revoked.version,
+        evidence: { ...baseEvidence, observedAt: new Date().toISOString() },
+      }, { env: laneEnv }),
+    ).rejects.toMatchObject({ code: "SANDBOX_PAYMENT_REVOKED" });
+  });
+  it("reconciles capabilityMatrix with register readiness in getProductionReadiness on PostgreSQL", async () => {
+    const board = await getProductionReadiness();
+    expect(board.matrixReconciliation).toBeDefined();
+    expect(board.matrixReconciliation.excludedCapabilities).toEqual(["ADVERTISING", "PROMOTERS", "SUBSCRIPTIONS"]);
+    if (board.matrixReconciliation.inScopeMatrixBlockers.length > 0) {
+      expect(board.status).toBe("BLOCKED");
+    }
   });
 });

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
 import { parseEvidenceUtcInput } from "@/lib/production-readiness/evidence-time";
-import { acceptanceStorageKey, parseAcceptanceRecord, assertSandboxPaymentAcceptance, AcceptanceEvidenceSchema, evidenceIsCurrent, type AcceptanceRecord } from "@/lib/production-readiness/evidence";
+import {
+  acceptanceStorageKey,
+  parseAcceptanceRecord,
+  assertSandboxPaymentAcceptance,
+  AcceptanceEvidenceSchema,
+  evidenceIsCurrent,
+  computePaymentProvenanceDigest,
+  type AcceptanceRecord,
+} from "@/lib/production-readiness/evidence";
 const now = new Date("2026-10-07T00:00:00Z");
 const releaseSha = "a".repeat(40);
 const evidence = { kind: "CI" as const, key: "current_ci_certification" as const, releaseSha, observedAt: "2026-10-06T23:00:00Z", expiresAt: "2026-10-07T01:00:00Z", evidenceReference: "disposable:successful-ci", reason: "Disposable certification evidence", runUrl: "https://github.com/analyticsmath/KT-Courier/actions/runs/1", conclusion: "SUCCESS" as const, skippedCriticalTests: 0 as const, testsPassed: 10 };
-const approved: AcceptanceRecord = { evidence, version: 2, status: "APPROVED", authorId: "author", approverId: "reviewer", approvedAt: "2026-10-06T23:30:00Z" };
+const approved: AcceptanceRecord = { evidence, version: 2, status: "APPROVED", authorId: "author", approverId: "reviewer", approvedAt: "2026-10-06T23:30:00Z", verificationMode: "SERVER_VERIFIED" };
 describe("release evidence cannot substitute fixtures, stale releases or self-review for genuine acceptance", () => {
   it("requires successful repo-bound CI with zero critical skips", () => {
     expect(AcceptanceEvidenceSchema.safeParse(evidence).success).toBe(true);
@@ -28,8 +36,64 @@ describe("release evidence cannot substitute fixtures, stale releases or self-re
 });
 
 describe("verified provider sandbox payment integration acceptance", () => {
+  const confirmedAt = new Date("2026-10-06T22:55:00Z");
+  const createdAt = new Date("2026-10-06T22:50:00Z");
   const sandbox = { kind: "SANDBOX" as const, key: "payment_integration_acceptance" as const, releaseSha, observedAt: evidence.observedAt, expiresAt: evidence.expiresAt, evidenceReference: "admin:verified-sandbox-payment", reason: "Provider-hosted test payment and ledger confirmation reviewed", genuineOperatorAcceptance: true as const, provider: "PAYSTACK" as const, paymentReference: "pay_verified_test123", amount: "148.35", currency: "ZAR" as const };
-  const payment: NonNullable<Parameters<typeof assertSandboxPaymentAcceptance>[0]> = { provider: "PAYSTACK", status: "SUCCEEDED", amount: new Prisma.Decimal("148.35"), currency: "ZAR", successLedgerJournalId: "journal1", providerConfirmedAt: now, reconciliationStatus: "CLEAR", successfulAttempt: { provider: "PAYSTACK", status: "SUCCEEDED", providerEnvironment: "SANDBOX", amount: new Prisma.Decimal("148.35"), currency: "ZAR", providerReference: "provider-reference", providerConfirmedAt: now } };
+  const digest = computePaymentProvenanceDigest({
+    paymentReference: "pay_verified_test123",
+    attemptReference: "attempt_1",
+    ledgerJournalId: "journal1",
+    provider: "PAYSTACK",
+    providerEnvironment: "SANDBOX",
+    subjectType: "COURIER_ORDER",
+    subjectNamespace: "courier-order",
+    amount: "148.35",
+    currency: "ZAR",
+    providerReference: "provider-reference",
+    paymentCreatedAt: createdAt,
+    providerConfirmedAt: confirmedAt,
+    releaseSha,
+    deploymentId: null,
+  });
+  const payment: NonNullable<Parameters<typeof assertSandboxPaymentAcceptance>[0]> = {
+    publicReference: "pay_verified_test123",
+    provider: "PAYSTACK",
+    status: "SUCCEEDED",
+    amount: new Prisma.Decimal("148.35"),
+    currency: "ZAR",
+    subjectType: "COURIER_ORDER",
+    createdAt,
+    successLedgerJournalId: "journal1",
+    providerConfirmedAt: confirmedAt,
+    reconciliationStatus: "CLEAR",
+    successfulAttempt: {
+      publicReference: "attempt_1",
+      provider: "PAYSTACK",
+      status: "SUCCEEDED",
+      providerEnvironment: "SANDBOX",
+      amount: new Prisma.Decimal("148.35"),
+      currency: "ZAR",
+      providerReference: "provider-reference",
+      providerConfirmedAt: confirmedAt,
+    },
+    releaseProvenance: {
+      paymentReference: "pay_verified_test123",
+      attemptId: "attempt_1",
+      ledgerJournalId: "journal1",
+      provider: "PAYSTACK",
+      providerEnvironment: "SANDBOX",
+      subjectType: "COURIER_ORDER",
+      subjectNamespace: "courier-order",
+      providerReference: "provider-reference",
+      amount: new Prisma.Decimal("148.35"),
+      currency: "ZAR",
+      releaseSha,
+      deploymentId: null,
+      paymentCreatedAt: createdAt,
+      providerConfirmedAt: confirmedAt,
+      resultDigest: digest,
+    },
+  };
   it("accepts a real provider-hosted test transaction without requiring a real charge or financial authorization", () => {
     expect(AcceptanceEvidenceSchema.safeParse(sandbox).success).toBe(true);
     expect(() => assertSandboxPaymentAcceptance(payment, sandbox)).not.toThrow();
@@ -39,9 +103,24 @@ describe("verified provider sandbox payment integration acceptance", () => {
     for (const key of ["refund_acceptance", "payout_acceptance", "settlement_acceptance", "driver_gps_acceptance"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, key }).success).toBe(false);
     for (const amount of ["0.00", "-1.00", "148.351", "NaN", "invalid", "9".repeat(100) + ".00"]) expect(AcceptanceEvidenceSchema.safeParse({ ...sandbox, amount }).success).toBe(false);
   });
-  it("rejects absent, unverified, mismatched or unreconciled canonical receipts", () => {
-    const invalid = [null, { ...payment, status: "REQUIRES_ACTION" as const }, { ...payment, provider: "PAYFAST" as const }, { ...payment, amount: new Prisma.Decimal("148.34") }, { ...payment, successLedgerJournalId: null }, { ...payment, providerConfirmedAt: null }, { ...payment, reconciliationStatus: "REQUIRED" as const }, { ...payment, successfulAttempt: null }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerEnvironment: "PRODUCTION" as const } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, amount: new Prisma.Decimal("205.85") } }, { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerReference: null } }];
-    for (const candidate of invalid) expect(() => assertSandboxPaymentAcceptance(candidate, sandbox)).toThrow(/verified Paystack sandbox/);
+  it("rejects absent, unverified, mismatched, un-provenanced, or unreconciled canonical receipts", () => {
+    const invalid = [
+      null,
+      { ...payment, status: "REQUIRES_ACTION" as const },
+      { ...payment, provider: "PAYFAST" as const },
+      { ...payment, amount: new Prisma.Decimal("148.34") },
+      { ...payment, successLedgerJournalId: null },
+      { ...payment, providerConfirmedAt: null },
+      { ...payment, reconciliationStatus: "REQUIRED" as const },
+      { ...payment, successfulAttempt: null },
+      { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerEnvironment: "PRODUCTION" as const } },
+      { ...payment, successfulAttempt: { ...payment.successfulAttempt!, amount: new Prisma.Decimal("205.85") } },
+      { ...payment, successfulAttempt: { ...payment.successfulAttempt!, providerReference: null } },
+      { ...payment, releaseProvenance: null },
+      { ...payment, releaseProvenance: { ...payment.releaseProvenance!, releaseSha: "b".repeat(40) } },
+      { ...payment, providerConfirmedAt: new Date("2026-10-06T23:05:00Z") },
+    ];
+    for (const candidate of invalid) expect(() => assertSandboxPaymentAcceptance(candidate, sandbox)).toThrow(/Paystack sandbox|observation timestamp|provenance/i);
   });
 });
 

@@ -30,10 +30,21 @@ jobs:
           RELEASE_SHA: '${{ inputs.releaseSha }}'
           EVIDENCE_REFERENCE: '${{ inputs.evidenceReference }}'
           WORKFLOW_SHA: '${{ github.sha }}'
+          RELEASE_AUTHORITY_ORIGIN: '${{ vars.RELEASE_AUTHORITY_ORIGIN }}'
+          RELEASE_AUTHORITY_ALLOWED_ORIGIN: '${{ vars.RELEASE_AUTHORITY_ALLOWED_ORIGIN }}'
+          RELEASE_AUTHORITY_TRUST_SHA256: '${{ vars.RELEASE_AUTHORITY_TRUST_SHA256 }}'
+          RELEASE_AUTHORITY_TOKEN: '${{ secrets.RELEASE_AUTHORITY_TOKEN }}'
+          RELEASE_AUTHORITY_TRUST_ANCHORS: '${{ secrets.RELEASE_AUTHORITY_TRUST_ANCHORS }}'
         run: node scripts/verify-release-authorization.mjs
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: release-authorization-refusal-${{ github.run_id }}
           path: output/production-closure/release-authorization-refusal.json
           if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: release-authorization-result-${{ github.run_id }}
+          path: output/production-closure/release-authorization-result.json
+          if-no-files-found: error

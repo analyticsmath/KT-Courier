@@ -2471,6 +2471,7 @@ model Payment {
   LegacySubscriptionInvoice      LegacySubscriptionInvoice[]
   SubscriptionRenewalApplication SubscriptionRenewalApplication?
   disputes                       PaymentDispute[]
+  releaseProvenance              PaymentReleaseProvenance?       @relation("PaymentReleaseProvenancePayment")
 
   @@index([userId])
   @@index([orderId])
@@ -3372,6 +3373,8 @@ model LedgerJournal {
   managedMarketingRevenueEvidence ManagedMarketingBillingEvidence[]     @relation("ManagedMarketingRevenueJournal")
 
   SubscriptionRefundAdjustment SubscriptionRefundAdjustment?
+  sandboxVerification          PaystackSandboxVerification?     @relation("PaystackSandboxVerificationJournal")
+  paymentReleaseProvenance     PaymentReleaseProvenance?        @relation("PaymentReleaseProvenanceJournal")
 
   @@index([type, postedAt])
   @@index([currency, postedAt])
@@ -14901,4 +14904,63 @@ model PaystackLiveVerification {
 
   @@index([actorUserId, createdAt])
   @@index([status, createdAt])
+}
+
+model PaystackSandboxVerification {
+  id                    String         @id @default(cuid())
+  reference             String         @unique @db.VarChar(100)
+  attemptReference      String         @unique @db.VarChar(100)
+  idempotencyKey        String         @unique @db.VarChar(80)
+  actorUserId           String
+  payerEmail            String         @db.VarChar(254)
+  amountCents           Int            @default(1000)
+  currency              LedgerCurrency @default(ZAR)
+  status                String         @default("CREATED") @db.VarChar(32)
+  checkoutUrl           String?
+  providerDomain        String?        @db.VarChar(32)
+  providerReference     String?        @db.VarChar(100)
+  providerTransactionId String?        @db.VarChar(80)
+  releaseSha            String         @db.VarChar(40)
+  deploymentId          String?        @db.VarChar(120)
+  ledgerJournalId       String?        @unique
+  failureCode           String?        @db.VarChar(80)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  verifiedAt            DateTime?
+
+  ledgerJournal     LedgerJournal?            @relation("PaystackSandboxVerificationJournal", fields: [ledgerJournalId], references: [id], onDelete: Restrict)
+  releaseProvenance PaymentReleaseProvenance? @relation("SandboxVerificationProvenance")
+
+  @@index([actorUserId, createdAt])
+  @@index([status, createdAt])
+  @@index([releaseSha, status, createdAt])
+}
+
+model PaymentReleaseProvenance {
+  id                    String                     @id @default(cuid())
+  paymentReference      String                     @unique @db.VarChar(100)
+  paymentId             String?                    @unique
+  attemptId             String?                    @db.VarChar(80)
+  sandboxVerificationId String?                    @unique
+  ledgerJournalId       String                     @unique
+  provider              PaymentProvider
+  providerEnvironment   PaymentProviderEnvironment
+  subjectType           String                     @db.VarChar(64)
+  subjectNamespace      String                     @db.VarChar(64)
+  providerReference     String                     @db.VarChar(120)
+  amount                Decimal                    @db.Decimal(18, 2)
+  currency              LedgerCurrency             @default(ZAR)
+  releaseSha            String                     @db.VarChar(40)
+  deploymentId          String?                    @db.VarChar(120)
+  paymentCreatedAt      DateTime
+  providerConfirmedAt   DateTime
+  resultDigest          String                     @db.VarChar(64)
+  createdAt             DateTime                   @default(now())
+
+  payment             Payment?                     @relation("PaymentReleaseProvenancePayment", fields: [paymentId], references: [id], onDelete: Restrict)
+  sandboxVerification PaystackSandboxVerification? @relation("SandboxVerificationProvenance", fields: [sandboxVerificationId], references: [id], onDelete: Restrict)
+  ledgerJournal       LedgerJournal                @relation("PaymentReleaseProvenanceJournal", fields: [ledgerJournalId], references: [id], onDelete: Restrict)
+
+  @@index([releaseSha, createdAt])
+  @@index([provider, providerEnvironment, releaseSha])
 }

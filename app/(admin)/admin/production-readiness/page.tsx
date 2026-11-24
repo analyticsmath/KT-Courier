@@ -21,6 +21,7 @@ export default async function ProductionReadinessPage() {
       <ProductionReadinessBoard
         capabilities={matrix.capabilities}
         capabilityMatrix={matrix.capabilityMatrix}
+        matrixReconciliation={matrix.matrixReconciliation}
         envSchema={matrix.envSchema}
         commerceActivation={matrix.commerceActivation}
         entityConfigurationStatus={matrix.entityConfigurationStatus}
