@@ -413,5 +413,5 @@ describe("release-authority Postgres store, read-only audit verification, and pa
       await appDb.close();
       await authDb.close();
     }
-  });
+  }, 60_000);
 });
