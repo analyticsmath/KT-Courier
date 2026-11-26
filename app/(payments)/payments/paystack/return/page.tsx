@@ -4,6 +4,7 @@ import { ProtectedPageFrame } from "@/components/protected-v2";
 import { PaystackReturnContent } from "@/components/payments/PaystackReturnContent";
 import { requireAuth } from "@/lib/auth/guards";
 import { getCustomerPaymentStatus, getOwnedPaymentIdentity } from "@/lib/services/payment-customer-query.service";
+import { hasPaystackCallbackReference } from "@/lib/payments/providers/paystack/paystack-callback-urls";
 import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 import { CustomerPaymentParamsSchema } from "@/lib/validation/payments";
 
@@ -15,7 +16,12 @@ export const metadata: Metadata = {
 export default async function PaystackReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment?: string | string[]; status?: string | string[] }>;
+  searchParams: Promise<{
+    payment?: string | string[];
+    status?: string | string[];
+    trxref?: string | string[];
+    reference?: string | string[];
+  }>;
 }) {
   const user = await requireAuth();
   const query = await searchParams;
@@ -25,7 +31,7 @@ export default async function PaystackReturnPage({
   if (!payment) notFound();
 
   const isCancelled = query.status === "cancelled";
-  if (!isCancelled && ["CREATED", "REQUIRES_ACTION", "PROCESSING"].includes(payment.status)) {
+  if (!isCancelled && hasPaystackCallbackReference(query) && ["CREATED", "REQUIRES_ACTION", "PROCESSING"].includes(payment.status)) {
     const identity = await getOwnedPaymentIdentity(user.id, parsed.data.publicReference).catch(() => null);
     if (identity) {
       const recovery = await recoverPendingPaystackPaymentForPaymentId(identity.id, {

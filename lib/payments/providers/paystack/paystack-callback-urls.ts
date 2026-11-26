@@ -37,6 +37,15 @@ export function buildPaystackCallbackUrls(appOrigin: string, paymentPublicRefere
 }
 
 
+export function hasPaystackCallbackReference(query: {
+  trxref?: string | string[];
+  reference?: string | string[];
+}): boolean {
+  const hasValue = (value?: string | string[]) =>
+    typeof value === "string" ? value.trim().length > 0 : Array.isArray(value) && value.some((item) => item.trim().length > 0);
+  return hasValue(query.trxref) || hasValue(query.reference);
+}
+
 export function buildMarketplacePaystackCallbackUrls(
   appOrigin: string,
   paymentPublicReference: string,

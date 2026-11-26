@@ -9,6 +9,7 @@ import {
   verifyMarketplaceGuestSecret,
 } from "@/lib/marketplace-checkout/tokens";
 import { CustomerPaymentParamsSchema } from "@/lib/validation/payments";
+import { hasPaystackCallbackReference } from "@/lib/payments/providers/paystack/paystack-callback-urls";
 import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 
 export const metadata: Metadata = {
@@ -19,7 +20,12 @@ export const metadata: Metadata = {
 export default async function MarketplacePaystackReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ payment?: string | string[]; status?: string | string[] }>;
+  searchParams: Promise<{
+    payment?: string | string[];
+    status?: string | string[];
+    trxref?: string | string[];
+    reference?: string | string[];
+  }>;
 }) {
   const query = await searchParams;
   const parsed = CustomerPaymentParamsSchema.safeParse({
@@ -61,6 +67,7 @@ export default async function MarketplacePaystackReturnPage({
   const cancelled = query.status === "cancelled";
   if (
     !cancelled &&
+    hasPaystackCallbackReference(query) &&
     (checkout.status === "PAYMENT_PENDING" || checkout.status === "PAYMENT_PREPARING") &&
     !["SUCCEEDED", "CANCELLED", "EXPIRED", "FAILED"].includes(payment.status)
   ) {

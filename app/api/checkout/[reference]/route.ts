@@ -14,6 +14,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ref
     const { reference } = await context.params;
     let checkout = await getMarketplaceCheckoutForOwner(reference, owner);
     if (
+      process.env.KT_E2E_PAYSTACK_ACCEPTANCE !== "true" &&
       (checkout.status === "PAYMENT_PENDING" || checkout.status === "PAYMENT_PREPARING") &&
       typeof prisma.payment?.findUnique === "function"
     ) {

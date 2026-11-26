@@ -75,6 +75,7 @@ import {
   recoverPaystackAttemptViaVerify,
   recoverPendingPaystackPaymentForPaymentId,
 } from "@/lib/services/paystack-verify-recovery.service";
+import { hasPaystackCallbackReference } from "@/lib/payments/providers/paystack/paystack-callback-urls";
 
 describe("Paystack Verify API authoritative recovery (PAY-04..06)", () => {
   const txMock = {
@@ -674,5 +675,12 @@ describe("Paystack Verify API authoritative recovery (PAY-04..06)", () => {
       txMock,
       expect.objectContaining({ reason: "OUT_OF_ORDER_EVENT", provider: "PAYSTACK" }),
     );
+  });
+
+  it("identifies genuine Paystack return callback references without trusting bare status flags", () => {
+    expect(hasPaystackCallbackReference({ trxref: "kt_ref_1", reference: "kt_ref_1" })).toBe(true);
+    expect(hasPaystackCallbackReference({ reference: ["  ", "mkt_ref_1"] })).toBe(true);
+    expect(hasPaystackCallbackReference({})).toBe(false);
+    expect(hasPaystackCallbackReference({ trxref: "   " })).toBe(false);
   });
 });
