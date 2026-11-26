@@ -48,22 +48,17 @@ for (const width of [1440, 390]) test(`anonymous canonical courier quote, privat
   await expect(page.getByRole("group", { name: "Collection address" })).toHaveCount(0);
   await expect(page.getByLabel("Sender name", { exact: true })).toBeVisible();
   expect((await page.context().cookies()).find(cookie => cookie.name === "kt_public_quote")?.value).toBe(ownedCookie.value);
-  // The signed-in booking renders both options; an unapproved cash method
-  // remains visible and disabled instead of disappearing or being accepted.
-  const onlineChoice = page.getByRole("radio", { name: /Online payment/i });
-  // Distinguish FULL_COD from the separate approved-policy DEPOSIT_PLUS_COD radio.
-  // Both names contain "cash on delivery", so unanchored role queries are ambiguous.
-  const cashChoice = page.getByRole("radio", { name: /^Cash on delivery\b/i });
-  const depositChoice = page.getByRole("radio", { name: /^Online deposit \+ cash on delivery\b/i });
+  // The signed-in booking renders online payment and 50/50 deposit + cash; an unapproved
+  // 50/50 cash method remains visible and disabled instead of disappearing or being accepted.
+  const onlineChoice = page.getByRole("radio", { name: /Card \/ online payment/i });
+  const depositChoice = page.getByRole("radio", { name: /^50% online deposit \+ 50% cash on delivery\b/i });
   await expect(onlineChoice).toBeChecked();
-  await expect(cashChoice).toBeDisabled();
   await expect(depositChoice).toBeDisabled();
   await expect(page.getByRole("status").filter({ hasText: /Cash on delivery is not currently enabled/i })).toBeVisible();
-  const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "FULL_COD" } });
+  const retiredFullCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "FULL_COD" } });
+  expect(retiredFullCash.status(), await retiredFullCash.text()).toBe(422);
+  const forbiddenCash = await page.request.post(endpoint, { headers: { origin: process.env.E2E_BASE_URL! }, data: { pickupContactName: "Disposable sender", pickupContactPhone: "+27820000000", pickupContactEmail: `sender-${width}@ktcouriers.local`, recipientName: "Disposable recipient", recipientPhone: "+27820000001", recipientEmail: `recipient-${width}@ktcouriers.local`, paymentMethod: "DEPOSIT_PLUS_COD" } });
   expect(forbiddenCash.status(), await forbiddenCash.text()).toBe(422);
-  // This disposable quotation has no independently approved FULL_COD policy.
-  // Absence of an applicable policy is different from an existing DIGITAL_ONLY
-  // policy rejecting cash, and must not be misreported in acceptance evidence.
   expect(await forbiddenCash.json()).toMatchObject({ code: "PAYMENT_POLICY_NOT_CONFIGURED" });
   expect(await prisma.pricingQuote.findUnique({ where: { id: dto.id } })).toEqual(before);
   expect(await prisma.order.count({ where: { pricingQuoteId: dto.id } })).toBe(0);

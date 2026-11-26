@@ -19,6 +19,7 @@ export default async function AdminPaymentProvidersPage() {
       <div className="flex flex-wrap gap-4">
         <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/payment-providers/live-verification">Superadmin: R1 live gateway verification</Link>
         <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/payment-providers/sandbox-acceptance">Superadmin: Isolated sandbox acceptance lane</Link>
+        <Link className="inline-block text-sm font-semibold underline underline-offset-4" href="/admin/qa-acceptance">Superadmin: End-to-end QA Acceptance Control Center (Issue #40)</Link>
       </div>
     )}
   </div>;

@@ -114,7 +114,7 @@ export async function prepareMarketplaceCheckoutPayment(
     operationId: string;
     walletAmount?: string | null;
     channel?: PaymentChannel;
-    testApproval?: { approved: true };
+    testApproval?: { approved?: true; qaAcceptanceApproved?: true };
   }>,
 ): Promise<MarketplacePaymentPreparationResult> {
   const checkout = await repository.readCheckout(input.checkoutReference);
@@ -126,9 +126,20 @@ export async function prepareMarketplaceCheckoutPayment(
     throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A valid payer email is required.");
   }
 
+  let effectiveApproval = input.testApproval;
+  if (!effectiveApproval?.approved && !effectiveApproval?.qaAcceptanceApproved && typeof prisma.marketplaceCheckout?.findUnique === "function") {
+    const qaRow = await prisma.marketplaceCheckout.findUnique({
+      where: { id: checkout.id },
+      select: { isQaAcceptance: true },
+    }).catch(() => null);
+    if (qaRow?.isQaAcceptance) {
+      effectiveApproval = { qaAcceptanceApproved: true };
+    }
+  }
+
   const payable = checkout.digitalRequired ?? checkout.grandTotal;
   const assertEffectiveFulfilmentPolicy = async () => {
-    if (input.testApproval?.approved || isLocalFullFlowAllowed()) return;
+    if (effectiveApproval?.approved || isLocalFullFlowAllowed()) return;
     await assertNewMarketplacePaymentPolicyReady(async () => {
       const now = new Date();
       return prisma.storeOrderOperationalPolicy.findFirst({
@@ -153,7 +164,7 @@ export async function prepareMarketplaceCheckoutPayment(
       || (checkout.payment.fingerprint && checkout.payment.fingerprint !== checkout.acceptedFingerprint)) {
       throw new MarketplaceCheckoutError("CHECKOUT_OPERATION_CONFLICT", "Existing payment belongs to different checkout evidence.");
     }
-    if (checkout.payment.providerAction || input.testApproval?.approved || isLocalFullFlowAllowed()) {
+    if (checkout.payment.providerAction || effectiveApproval?.approved || isLocalFullFlowAllowed()) {
       return Object.freeze({
         paymentReference: checkout.payment.publicReference, paymentId: checkout.payment.id, amount: payable,
         currency: "ZAR", providerAction: checkout.payment.providerAction ?? null, replayed: true,
@@ -165,7 +176,7 @@ export async function prepareMarketplaceCheckoutPayment(
     // a provider attempt only for that same Payment and only while held.
     if (checkout.payment.status === "CREATED" && checkout.payment.latestAttemptNumber === 0
       && checkout.reservationActive === true && orchestrator.resumeMarketplaceProviderAction) {
-      assertMarketplaceCheckoutProductionReady("PAYMENT");
+      assertMarketplaceCheckoutProductionReady("PAYMENT", effectiveApproval);
       await assertEffectiveFulfilmentPolicy();
       const providerAction = await orchestrator.resumeMarketplaceProviderAction({
         paymentId: checkout.payment.id, paymentReference: checkout.payment.publicReference,
@@ -188,7 +199,7 @@ export async function prepareMarketplaceCheckoutPayment(
       "The existing payment is awaiting provider confirmation. Check payment status before retrying.");
   }
 
-  assertMarketplaceCheckoutProductionReady("PAYMENT", input.testApproval);
+  assertMarketplaceCheckoutProductionReady("PAYMENT", effectiveApproval);
   await assertEffectiveFulfilmentPolicy();
   const prepared = await orchestrator.prepareMarketplacePayment({
     checkoutId: checkout.id, checkoutReference: checkout.publicReference,

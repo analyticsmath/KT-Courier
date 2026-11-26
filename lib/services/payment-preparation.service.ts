@@ -165,6 +165,10 @@ export async function prepareOrderPayment(
       ) {
         throw new PaymentError("PAYMENT_CONCURRENCY_CONFLICT", "Payment policy changed. Reload before preparing payment.");
       }
+      const qaOrder =
+        typeof tx.order?.findUnique === "function"
+          ? await tx.order.findUnique({ where: { id: subject.subjectId }, select: { isQaAcceptance: true, qaAcceptanceRunId: true } })
+          : null;
       const payment = await tx.payment.create({
         data: {
           publicReference: newPublicPaymentReference(),
@@ -180,6 +184,8 @@ export async function prepareOrderPayment(
           creationRequestHash: requestHash,
           version: 0,
           latestAttemptNumber: 0,
+          isQaAcceptance: Boolean(qaOrder?.isQaAcceptance),
+          qaAcceptanceRunId: qaOrder?.qaAcceptanceRunId ?? null,
           metadata: {
             subjectType: "ORDER",
             policyVersion: PAYMENT_POLICY_VERSION,
@@ -306,7 +312,7 @@ export async function prepareMarketplaceCheckoutPayment(
   });
   return withPaymentDatabaseRetry(() => prisma.$transaction(async (tx) => {
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "MarketplaceCheckout" WHERE "id" = ${command.checkoutId} FOR UPDATE`);
-    const checkout = await tx.marketplaceCheckout.findUnique({ where: { id: command.checkoutId }, select: { id: true, publicReference: true, customerUserId: true, guestAccessTokenHash: true, acceptedFingerprint: true, grandTotal: true, digitalRequired: true, cashRequired: true, currency: true, status: true, storeGroups: true } });
+    const checkout = await tx.marketplaceCheckout.findUnique({ where: { id: command.checkoutId }, select: { id: true, publicReference: true, customerUserId: true, guestAccessTokenHash: true, acceptedFingerprint: true, grandTotal: true, digitalRequired: true, cashRequired: true, currency: true, status: true, isQaAcceptance: true, qaAcceptanceRunId: true, storeGroups: true } });
     if (!checkout || checkout.publicReference !== command.checkoutReference || checkout.acceptedFingerprint !== command.commercialFingerprint || checkout.currency !== "ZAR" || (checkout.digitalRequired ?? checkout.grandTotal).toFixed(2) !== command.amount) {
       throw new PaymentError("PAYMENT_METADATA_INVALID", "Marketplace checkout evidence changed before payment preparation.");
     }
@@ -376,6 +382,8 @@ export async function prepareMarketplaceCheckoutPayment(
             creationRequestHash: requestHash,
             version: 1,
             latestAttemptNumber: 0,
+            isQaAcceptance: Boolean(checkout.isQaAcceptance),
+            qaAcceptanceRunId: checkout.qaAcceptanceRunId ?? null,
             successLedgerJournalId: consume.journalId,
             succeededAt: now,
             metadata: {
@@ -437,6 +445,8 @@ export async function prepareMarketplaceCheckoutPayment(
             creationRequestHash: requestHash,
             version: 0,
             latestAttemptNumber: 0,
+            isQaAcceptance: Boolean(checkout.isQaAcceptance),
+            qaAcceptanceRunId: checkout.qaAcceptanceRunId ?? null,
             metadata: {
               subjectType: "MARKETPLACE_CHECKOUT",
               checkoutReference: command.checkoutReference,
@@ -475,6 +485,8 @@ export async function prepareMarketplaceCheckoutPayment(
       orderId: null, userId: subject.customerUserId ?? null, provider: null, purpose: "ORDER", status: "CREATED",
       amount: new Prisma.Decimal(command.amount), currency: "ZAR", creationIdempotencyKey: command.operationId,
       creationRequestHash: requestHash, version: 0, latestAttemptNumber: 0,
+      isQaAcceptance: Boolean(checkout.isQaAcceptance),
+      qaAcceptanceRunId: checkout.qaAcceptanceRunId ?? null,
       metadata: { subjectType: "MARKETPLACE_CHECKOUT", checkoutReference: command.checkoutReference, commercialFingerprint: command.commercialFingerprint, policyVersion: PAYMENT_POLICY_VERSION },
     } });
     await tx.marketplaceInventoryReservation.update({ where: { id: reservation.id }, data: { status: "PAYMENT_PENDING_HOLD", paymentId: payment.id } });

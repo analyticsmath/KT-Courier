@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ l
           variantReference: line.selection.variantReference,
           quantity,
           modifiers: line.selection.modifiers.map(({ groupReference, optionReference, quantity: modifierQuantity }) => ({ groupReference, optionReference, quantity: modifierQuantity })),
-        }),
+        }, undefined, { qaUserId: owner.type === "CUSTOMER" ? owner.userId : null }),
       });
       const hydrated = await projectHydratedCart(result.cart);
       return marketplaceJson({ cart: { ...result, cart: hydrated, ...hydrated } });
@@ -54,6 +54,8 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ l
         variantReference: line.selection.variantReference,
         quantity: quantity ?? line.quantity,
         modifiers: currentModifiers,
+      }, undefined, {
+        qaUserId: owner.type === "CUSTOMER" ? owner.userId : null,
       }),
     });
     const hydrated = await projectHydratedCart(result.cart);

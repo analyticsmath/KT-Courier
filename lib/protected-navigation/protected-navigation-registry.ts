@@ -103,6 +103,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
 
   { id: "admin-overview", label: "Overview", href: "/admin", icon: "home", group: "Command centre", exact: true, requiredPermissions: [PERMISSIONS.ADMIN_DASHBOARD_READ], contexts: C.ADMIN },
   { id: "super-admin-commerce", label: "Commerce command", href: "/admin/super-admin", icon: "store", group: "Command centre", contexts: C.SUPER_ADMIN },
+  { id: "super-admin-qa-acceptance", label: "QA acceptance lane", href: "/admin/qa-acceptance", icon: "shield", group: "Command centre", requiredPermissions: [PERMISSIONS.SYSTEM_READINESS_MANAGE], contexts: C.SUPER_ADMIN },
   { id: "admin-orders", label: "Orders", href: "/admin/orders", icon: "clipboard", group: "Operations", requiredPermissions: [PERMISSIONS.ORDERS_READ], contexts: C.ADMIN },
   { id: "admin-dispatch", label: "Dispatch", href: "/admin/dispatch", icon: "route", group: "Operations", requiredPermissions: [PERMISSIONS.DISPATCH_READ], contexts: C.ADMIN },
   { id: "admin-pickup-exceptions", label: "Pickup exceptions", href: "/admin/pickup-exceptions", icon: "activity", group: "Operations", requiredPermissions: [PERMISSIONS.DISPATCH_READ], contexts: C.ADMIN },
@@ -133,6 +134,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "admin-emails", label: "Emails", href: "/admin/emails", icon: "file", group: "Platform", requiredPermissions: [PERMISSIONS.EMAILS_READ], contexts: C.ADMIN },
   { id: "admin-notifications", label: "Notifications", href: "/admin/notifications", icon: "bell", group: "Platform", requiredPermissions: [PERMISSIONS.NOTIFICATION_TEMPLATE_READ], contexts: C.ADMIN },
   { id: "admin-permissions", label: "Permissions", href: "/admin/permissions", icon: "shield", group: "Governance", requiredPermissions: [PERMISSIONS.EMPLOYEES_PERMISSIONS_MANAGE], contexts: C.ADMIN },
+  { id: "admin-company-profile", label: "Company profile", href: "/admin/company-profile", icon: "briefcase", group: "Governance", requiredPermissions: [PERMISSIONS.COMPANY_SETTINGS_READ], contexts: C.ADMIN },
   { id: "admin-settings", label: "Settings", href: "/admin/settings", icon: "cog", group: "Governance", requiredPermissions: [PERMISSIONS.SETTINGS_READ], contexts: C.ADMIN },
   { id: "admin-activity", label: "Activity", href: "/admin/activity", icon: "activity", group: "Governance", requiredPermissions: [PERMISSIONS.ACTIVITY_READ], contexts: C.ADMIN },
   { id: "admin-reconciliation", label: "Reconciliation", href: "/admin/reconciliation", icon: "activity", group: "Command centre", requiredPermissions: [PERMISSIONS.PAYMENT_RECONCILIATION_READ], contexts: C.ADMIN },

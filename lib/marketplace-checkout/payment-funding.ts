@@ -6,8 +6,8 @@ import { isCanonicalExternalPaymentReceipt } from "@/lib/payments/canonical-exte
  * the platform's held funds for precisely the digital allocation. */
 export function assertMarketplaceDigitalReceipt(payment: unknown, required: string): void {
   const p = payment as {
-    status?: string; amount?: Prisma.Decimal; currency?: string; subjectType?: string; provider?: string | null; metadata?: unknown;
-    successfulAttempt?: { id?: string; status?: string; amount?: Prisma.Decimal } | null;
+    status?: string; amount?: Prisma.Decimal; currency?: string; subjectType?: string; provider?: string | null; metadata?: unknown; isQaAcceptance?: boolean;
+    successfulAttempt?: { id?: string; status?: string; amount?: Prisma.Decimal; providerReference?: string | null } | null;
     successWebhookEvent?: { processingStatus?: string; signatureVerified?: boolean; merchantVerified?: boolean; amountVerified?: boolean; providerDataVerified?: boolean } | null;
     successLedgerJournal?: { type?: string; currency?: string; totalDebits?: Prisma.Decimal; totalCredits?: Prisma.Decimal; entries?: { direction: string; amount: Prisma.Decimal; account: { code: string; purpose: string; category: string } }[] } | null;
   } | null;
@@ -16,11 +16,13 @@ export function assertMarketplaceDigitalReceipt(payment: unknown, required: stri
   if (!p || p.subjectType !== "MARKETPLACE_CHECKOUT" || p.status !== "SUCCEEDED" || p.currency !== "ZAR") {
     throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
   }
+  const isQa = Boolean(p.isQaAcceptance);
+  const expectedHeldCode = isQa ? "PLATFORM-SANDBOX-ACCEPTANCE-FUNDS-HELD-ZAR" : "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR";
   if (p.provider === "MANUAL") {
     if (!p.amount?.equals(expected) || r?.type !== "ACCOUNT_TRANSFER" || r.currency !== "ZAR" || !r.totalDebits?.equals(expected) || !r.totalCredits?.equals(expected)) {
       throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
     }
-    const creditedHeld = r?.entries?.find(e => e.direction === "CREDIT" && e.amount.equals(expected) && e.account.purpose === "HELD" && e.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR");
+    const creditedHeld = r?.entries?.find(e => e.direction === "CREDIT" && e.amount.equals(expected) && e.account.purpose === "HELD" && e.account.code === expectedHeldCode);
     const debitedWallet = r?.entries?.find(e => e.direction === "DEBIT" && e.amount.equals(expected) && e.account.category === "LIABILITY");
     if (!creditedHeld || !debitedWallet) {
       throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Wallet digital receipt does not credit platform held funds from customer wallet.");
@@ -34,8 +36,10 @@ export function assertMarketplaceDigitalReceipt(payment: unknown, required: stri
   if (!totalDigital.equals(expected)) {
     throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
   }
-  const funded = r?.entries && isCanonicalExternalPaymentReceipt({ amount: p.amount!, entries: r.entries });
-  if (p.successfulAttempt?.status !== "SUCCEEDED" || !w || w.processingStatus !== "APPLIED" || !w.signatureVerified || !w.merchantVerified || !w.amountVerified || !w.providerDataVerified || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(p.amount!) || !r.totalCredits?.equals(p.amount!) || !funded) {
+  const funded = r?.entries && isCanonicalExternalPaymentReceipt({ amount: p.amount!, isQaIsolated: isQa, entries: r.entries });
+  const webhookVerified = Boolean(w && w.processingStatus === "APPLIED" && w.signatureVerified && w.merchantVerified && w.amountVerified && w.providerDataVerified);
+  const verifyApiVerified = p.provider === "PAYSTACK" && meta?.verifiedVia === "PAYSTACK_VERIFY_API" && Boolean(p.successfulAttempt?.providerReference);
+  if (p.successfulAttempt?.status !== "SUCCEEDED" || (!webhookVerified && !verifyApiVerified) || r?.type !== "EXTERNAL_PAYMENT_RECEIPT" || r.currency !== "ZAR" || !r.totalDebits?.equals(p.amount!) || !r.totalCredits?.equals(p.amount!) || !funded) {
     throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "A source-bound verified digital receipt is required for this marketplace payment plan.");
   }
 }
@@ -45,7 +49,7 @@ export const marketplaceDigitalReceiptInclude = {
   successLedgerJournal: { include: { entries: { include: { account: true } } } },
 } as const;
 
-export type MarketplaceCashFunding = Readonly<{ publicReference: string; collectorDriverId: string | null; cashCollected: Prisma.Decimal; cashReconciled: Prisma.Decimal; collectionJournalId: string | null; reconciliationJournalId: string | null }>;
+export type MarketplaceCashFunding = Readonly<{ publicReference: string; isQaAcceptance?: boolean; collectorDriverId: string | null; cashCollected: Prisma.Decimal; cashReconciled: Prisma.Decimal; collectionJournalId: string | null; reconciliationJournalId: string | null }>;
 /** Receipt pointers must identify the actual two custody postings, not merely
  * non-null IDs. Cash remains a separate funding source from provider receipts. */
 export async function assertMarketplaceCashJournals(tx: Pick<Prisma.TransactionClient, "ledgerJournal">, cod: MarketplaceCashFunding): Promise<void> {
@@ -53,6 +57,8 @@ export async function assertMarketplaceCashJournals(tx: Pick<Prisma.TransactionC
   const rows = await tx.ledgerJournal.findMany({ where: { id: { in: ids } }, include: { entries: { include: { account: true } } } });
   const collection = rows.find(r => r.id === cod.collectionJournalId), reconciliation = rows.find(r => r.id === cod.reconciliationJournalId);
   const driverCode = `DRIVER-COD-CASH-${cod.collectorDriverId?.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
+  const expectedHeldCode = cod.isQaAcceptance ? "PLATFORM-SANDBOX-ACCEPTANCE-FUNDS-HELD-ZAR" : "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR";
+  const expectedCashCode = cod.isQaAcceptance ? "PLATFORM-SANDBOX-ACCEPTANCE-CASH-CLEARING-ZAR" : "PLATFORM-CASH-CLEARING-ZAR";
   const entry = (journal: typeof collection, code: string, direction: string, amount: Prisma.Decimal) => journal?.entries.filter(e => e.account.code === code && e.direction === direction && e.amount.equals(amount)).length === 1;
-  if (ids.length !== 2 || !cod.collectorDriverId || !collection || !reconciliation || rows.length !== 2 || [collection,reconciliation].some(r => r.type !== "GENERAL" || r.currency !== "ZAR" || !r.totalDebits.equals(cod.cashCollected) || !r.totalCredits.equals(cod.cashCollected) || r.entries.length !== 2) || collection.sourceReference !== `cod:${cod.publicReference}:collection` || reconciliation.sourceReference !== `cod:${cod.publicReference}:reconciliation` || !entry(collection,driverCode,"DEBIT",cod.cashCollected) || !entry(collection,"PLATFORM-CUSTOMER-FUNDS-HELD-ZAR","CREDIT",cod.cashCollected) || !entry(reconciliation,driverCode,"CREDIT",cod.cashCollected) || !entry(reconciliation,"PLATFORM-CASH-CLEARING-ZAR","DEBIT",cod.cashReconciled)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Cash settlement receipt journals do not match the original driver custody and bank remittance.");
+  if (ids.length !== 2 || !cod.collectorDriverId || !collection || !reconciliation || rows.length !== 2 || [collection,reconciliation].some(r => r.type !== "GENERAL" || r.currency !== "ZAR" || !r.totalDebits.equals(cod.cashCollected) || !r.totalCredits.equals(cod.cashCollected) || r.entries.length !== 2) || collection.sourceReference !== `cod:${cod.publicReference}:collection` || reconciliation.sourceReference !== `cod:${cod.publicReference}:reconciliation` || !entry(collection,driverCode,"DEBIT",cod.cashCollected) || !entry(collection,expectedHeldCode,"CREDIT",cod.cashCollected) || !entry(reconciliation,driverCode,"CREDIT",cod.cashCollected) || !entry(reconciliation,expectedCashCode,"DEBIT",cod.cashReconciled)) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Cash settlement receipt journals do not match the original driver custody and bank remittance.");
 }

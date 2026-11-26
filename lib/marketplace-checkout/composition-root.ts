@@ -7,6 +7,7 @@ import { resolveMarketplaceCartLine, type CartOwner } from "@/lib/marketplace-ch
 import type { PromotionEvaluationAdapter, ReviewLine, RevalidatedLine, WelcomeEligibilityAdapter } from "@/lib/marketplace-checkout/checkout-review.service";
 import { createPrismaCustomerDeliveryEntitlementRepository, SubscriptionAwareMarketplaceDeliveryQuoteAdapter } from "@/lib/subscriptions/subscription-delivery-benefit.service";
 import { resolvePromotionProductionComposition } from "@/lib/promotions/promotion-composition-root";
+import { resolveQaApprovalForCheckout } from "@/lib/qa-acceptance/access";
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { reservePromotions } from "@/lib/promotions/checkout-promotions.service";
@@ -52,19 +53,20 @@ export function resolveMarketplaceCheckoutProductionComposition() {
 
 export function resolveAndAssertMarketplaceCheckoutOperation(
   operation: Parameters<typeof assertMarketplaceCheckoutProductionReady>[0],
+  testApproval?: Parameters<typeof assertMarketplaceCheckoutProductionReady>[1],
 ) {
   const composition = resolveMarketplaceCheckoutProductionComposition();
-  assertMarketplaceCheckoutProductionReady(operation);
+  assertMarketplaceCheckoutProductionReady(operation, testApproval);
   return composition;
 }
 
-function revalidatedLine(line: ReviewLine): Promise<RevalidatedLine> {
+function revalidatedLine(line: ReviewLine, allowQaInternal = false): Promise<RevalidatedLine> {
   return resolveMarketplaceCartLine({
     offerReference: line.offerReference,
     variantReference: line.variantReference,
     quantity: line.quantity,
     modifiers: (line.modifiers ?? []).map((modifier) => ({ groupReference: modifier.groupReference, optionReference: modifier.optionReference, quantity: modifier.quantity })),
-  }).then((resolved) => {
+  }, undefined, allowQaInternal ? { allowQaInternal: true } : undefined).then((resolved) => {
     const modifierUnitTotal = resolved.modifiers.reduce((total, modifier) => total.add(new Prisma.Decimal(modifier.priceDelta).mul(modifier.quantity)), new Prisma.Decimal(0));
     const base = new Prisma.Decimal(resolved.unitPrice);
     return Object.freeze({
@@ -85,7 +87,8 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
   reference: string; owner: CartOwner; operationId: string; requestHash: string; expectedVersion: number;
   welcomeEligibilityAdapter?: WelcomeEligibilityAdapter;
 }>) {
-  const composition = resolveAndAssertMarketplaceCheckoutOperation("CHECKOUT_REVIEW");
+  const qaApproval = await resolveQaApprovalForCheckout(input.reference, input.owner);
+  const composition = resolveAndAssertMarketplaceCheckoutOperation("CHECKOUT_REVIEW", qaApproval);
   const quoteAdapter = input.owner.type === "CUSTOMER"
     ? new SubscriptionAwareMarketplaceDeliveryQuoteAdapter(composition.deliveryQuotes, createPrismaCustomerDeliveryEntitlementRepository(), input.owner.userId, input.operationId)
     : composition.deliveryQuotes;
@@ -95,7 +98,7 @@ export async function executeMarketplaceCheckoutReview(input: Readonly<{
     quoteAdapter,
     promotionAdapter: new Phase23PromotionEvaluationAdapter(),
     welcomeEligibilityAdapter: input.welcomeEligibilityAdapter,
-    resolveLine: revalidatedLine,
+    resolveLine: (line) => revalidatedLine(line, Boolean(qaApproval?.qaAcceptanceApproved)),
   });
   const promotionEvidence = result.promotionEvidence;
   if (result.status === "READY_FOR_REVIEW" && promotionEvidence && typeof promotionEvidence === "object" && "evidence" in promotionEvidence) {
@@ -112,14 +115,16 @@ export async function executeMarketplaceCheckoutAcknowledgement(input: Readonly<
   reference: string; owner: CartOwner; operationId: string; requestHash: string; expectedVersion: number;
   reviewVersion: number; commercialFingerprint: string; acknowledgedTotalReference: string; termsVersion: string; privacyVersion: string; refundPolicyReferences: readonly string[];
 }>) {
-  resolveAndAssertMarketplaceCheckoutOperation("ACKNOWLEDGEMENT");
+  const qaApproval = await resolveQaApprovalForCheckout(input.reference, input.owner);
+  resolveAndAssertMarketplaceCheckoutOperation("ACKNOWLEDGEMENT", qaApproval);
   return acknowledgeMarketplaceCheckoutReviewPersisted(createPrismaMarketplaceAcknowledgementRepository(), input);
 }
 
 export async function executeMarketplaceDeliveryQuotes(input: Readonly<{
   reference: string; owner: CartOwner; expectedVersion: number; courierServiceKey?: string;
 }>) {
-  const composition = resolveAndAssertMarketplaceCheckoutOperation("DELIVERY_QUOTE");
+  const qaApproval = await resolveQaApprovalForCheckout(input.reference, input.owner);
+  const composition = resolveAndAssertMarketplaceCheckoutOperation("DELIVERY_QUOTE", qaApproval);
   const repository = createPrismaMarketplaceReviewRepository();
   return repository.transaction(async () => {
     const checkout = await repository.lockCheckout(input.reference, input.owner);

@@ -429,7 +429,7 @@ export async function generateReportData(
     case "admin-financial-reconciliation": {
       const entries = await db.ledgerEntry.findMany({
         where: {
-          account: { wallet: { ownerId: { not: "platform-sandbox-acceptance" } } },
+          account: { wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false } },
           journal: { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
         },
         take: limit,

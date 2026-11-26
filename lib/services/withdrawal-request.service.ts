@@ -71,9 +71,12 @@ export async function createWithdrawalRequest(input: Readonly<{
     }
     const wallet = await tx.wallet.findUnique({
       where: { ownerType_ownerId_currency: { ownerType: owner.ownerType, ownerId: owner.ownerId, currency: "ZAR" } },
-      select: { id: true, status: true },
+      select: { id: true, status: true, isQaIsolated: true },
     });
     if (!wallet || wallet.status !== "ACTIVE") throw new WithdrawalError("WITHDRAWAL_OWNER_INELIGIBLE", "An active owner wallet is required.");
+    if (wallet.isQaIsolated) {
+      throw new WithdrawalError("WITHDRAWAL_OWNER_INELIGIBLE", "QA acceptance sandbox wallets hold non-withdrawable test funds only.");
+    }
     const policy = await tx.withdrawalPolicy.findUnique({ where: { ownerType_currency: { ownerType: owner.ownerType, currency: "ZAR" } } });
     if (!policy) throw new WithdrawalError("WITHDRAWAL_POLICY_DISABLED", "No withdrawal policy is available for this owner type.");
     assertWithdrawalPolicy({ enabled: policy.enabled, ownerType: policy.ownerType, currency: policy.currency, minimumAmount: policy.minimumAmount?.toFixed(2) ?? null, maximumAmount: policy.maximumAmount?.toFixed(2) ?? null, amount: amount.toString() });

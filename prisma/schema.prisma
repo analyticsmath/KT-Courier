@@ -295,8 +295,19 @@ model User {
   legacyWithdrawalsReviewed            WithdrawalRequest[]                 @relation("WithdrawalRequestLegacyReviewedBy")
   catalogOperationReceipts             CatalogOperationReceipt[]
   claimsFiled                          Claim[]                             @relation("ClaimantClaims")
+  shipmentDocumentsIssued              ShipmentDocument[]                  @relation("ShipmentDocumentIssuedBy")
+  trackingGrantsIssued                 ShipmentTrackingGrant[]             @relation("TrackingGrantIssuedBy")
+  trackingGrantsRevoked                ShipmentTrackingGrant[]             @relation("TrackingGrantRevokedBy")
+  isQaAcceptance                       Boolean                             @default(false)
+  qaAcceptancePrincipal                QaAcceptancePrincipal?              @relation("QaPrincipalUser")
+  qaAcceptancePrincipalsEnrolled       QaAcceptancePrincipal[]             @relation("QaPrincipalEnrolledBy")
+  qaAcceptancePrincipalsRevoked        QaAcceptancePrincipal[]             @relation("QaPrincipalRevokedBy")
+  qaAcceptanceRunsCreated              QaAcceptanceRun[]                   @relation("QaRunCreatedBy")
+  qaAcceptanceRunsAsCustomer           QaAcceptanceRun[]                   @relation("QaRunCustomer")
+  qaAcceptanceRunsArchived             QaAcceptanceRun[]                   @relation("QaRunArchivedBy")
 
   @@index([email])
+  @@index([isQaAcceptance])
   @@index([role])
   @@index([status])
   @@index([createdAt])
@@ -457,6 +468,11 @@ model DriverProfile {
   vehicles                    Vehicle[]
 
   @@index([status])
+  isQaAcceptance         Boolean                 @default(false)
+  qaAcceptancePrincipals QaAcceptancePrincipal[] @relation("QaPrincipalDriver")
+  qaAcceptanceRuns       QaAcceptanceRun[]       @relation("QaRunDriver")
+
+  @@index([isQaAcceptance])
   @@index([availability])
   @@index([onboardingStatus])
   @@index([driverCode])
@@ -614,6 +630,12 @@ model Store {
   CatalogOperationReceipt CatalogOperationReceipt[]
 
   @@index([ownerUserId])
+  isQaAcceptance         Boolean                 @default(false)
+  operatingHours         Json?
+  qaAcceptancePrincipals QaAcceptancePrincipal[] @relation("QaPrincipalStore")
+  qaAcceptanceRuns       QaAcceptanceRun[]       @relation("QaRunStore")
+
+  @@index([isQaAcceptance])
   @@index([defaultPickupAddressId])
   @@index([slug])
   @@index([status])
@@ -800,6 +822,8 @@ model Order {
   preparationObligation        ShipmentPreparationObligation?
   driverResponsibilityReports  DriverDeliveryResponsibilityReport[]
   parcelCancellationResolution ParcelCancellationResolution?
+  shipmentDocuments            ShipmentDocument[]
+  trackingGrants               ShipmentTrackingGrant[]
 
   @@index([orderNumber])
   @@index([source])
@@ -808,11 +832,17 @@ model Order {
   @@index([deliveryType])
   @@index([customerId])
   @@index([storeId])
+  isQaAcceptance    Boolean          @default(false)
+  qaAcceptanceRunId String?
+  qaAcceptanceRun   QaAcceptanceRun? @relation("QaRunOrders", fields: [qaAcceptanceRunId], references: [id], onDelete: SetNull)
+
   @@index([deliveryRegionId])
   @@index([createdAt])
   @@index([scheduledFor])
   @@index([pricingQuoteId])
   @@index([currentDriverProfileId])
+  @@index([isQaAcceptance, createdAt])
+  @@index([qaAcceptanceRunId])
 }
 
 enum CashOnDeliveryStatus {
@@ -865,6 +895,9 @@ model CashOnDelivery {
   events                  CashOnDeliveryEvent[]
   reconciliations         CashOnDeliveryReconciliation[]
 
+  isQaAcceptance Boolean @default(false)
+
+  @@index([isQaAcceptance, status])
   @@index([status, collectorDriverId])
   @@index([status, remittanceDueAt])
   @@index([paymentId])
@@ -2055,10 +2088,11 @@ model ProofOfDelivery {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  order         Order            @relation(fields: [orderId], references: [id])
-  assignment    OrderAssignment? @relation(fields: [assignmentId], references: [id])
-  driverProfile DriverProfile?   @relation(fields: [driverProfileId], references: [id])
-  createdBy     User             @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+  order             Order            @relation(fields: [orderId], references: [id])
+  assignment        OrderAssignment? @relation(fields: [assignmentId], references: [id])
+  driverProfile     DriverProfile?   @relation(fields: [driverProfileId], references: [id])
+  createdBy         User             @relation("CreatedByUser", fields: [createdByUserId], references: [id])
+  shipmentDocuments ShipmentDocument[]
 
   @@index([orderId])
   @@index([assignmentId])
@@ -2481,6 +2515,12 @@ model Payment {
   @@index([createdAt])
   @@index([orderId, status])
   @@index([subjectType, marketplaceCheckoutId])
+  isQaAcceptance    Boolean          @default(false)
+  qaAcceptanceRunId String?
+  qaAcceptanceRun   QaAcceptanceRun? @relation("QaRunPayments", fields: [qaAcceptanceRunId], references: [id], onDelete: SetNull)
+
+  @@index([isQaAcceptance, createdAt])
+  @@index([qaAcceptanceRunId])
   @@index([subjectType, subscriptionInvoiceId])
   @@index([userId, createdAt])
   @@index([provider, status])
@@ -3287,6 +3327,9 @@ model Wallet {
   storeEarnings      StoreEarning[]
   driverEarnings     DriverEarning[]
 
+  isQaIsolated Boolean @default(false)
+
+  @@index([isQaIsolated])
   @@unique([ownerType, ownerId, currency])
   @@index([ownerType, ownerId])
   @@index([status])
@@ -4071,6 +4114,9 @@ model CommissionAccrual {
   driverEarningReconciliations DriverEarningReconciliationCase[]
 
   @@unique([subjectType, subjectId, settlementVersion], map: "CommissionAccrual_subject_settlement_key")
+  isQaAcceptance Boolean @default(false)
+
+  @@index([isQaAcceptance, status])
   @@index([planId, status, createdAt], map: "CommissionAccrual_plan_status_createdAt_idx")
   @@index([subjectPublicReference, createdAt])
 }
@@ -4259,6 +4305,9 @@ model StoreEarning {
 
   @@unique([subjectType, subjectId, storeId, settlementVersion], map: "StoreEarning_subject_store_settlement_key")
   @@index([storeId, status, createdAt], map: "StoreEarning_store_status_createdAt_idx")
+  isQaAcceptance Boolean @default(false)
+
+  @@index([isQaAcceptance, status])
   @@index([walletId, status], map: "StoreEarning_wallet_status_idx")
   @@index([paymentId, createdAt], map: "StoreEarning_payment_createdAt_idx")
   @@index([subjectPublicReference, createdAt], map: "StoreEarning_subjectReference_createdAt_idx")
@@ -4453,6 +4502,9 @@ model DriverEarning {
   @@index([walletId, status], map: "DriverEarning_wallet_status_idx")
   @@index([assignmentId, createdAt], map: "DriverEarning_assignment_createdAt_idx")
   @@index([orderId, createdAt], map: "DriverEarning_order_createdAt_idx")
+  isQaAcceptance Boolean @default(false)
+
+  @@index([isQaAcceptance, status])
   @@index([paymentId, createdAt], map: "DriverEarning_payment_createdAt_idx")
   @@index([subjectPublicReference, createdAt], map: "DriverEarning_subjectReference_createdAt_idx")
   @@index([releaseEligibleAt, status])
@@ -9547,6 +9599,12 @@ model MarketplaceCheckout {
   reconciliationCases MarketplaceCheckoutReconciliationCase[]
   guestContactVerifications MarketplaceGuestContactVerification[]
 
+  isQaAcceptance    Boolean          @default(false)
+  qaAcceptanceRunId String?
+  qaAcceptanceRun   QaAcceptanceRun? @relation("QaRunMarketplaceCheckouts", fields: [qaAcceptanceRunId], references: [id], onDelete: SetNull)
+
+  @@index([isQaAcceptance, createdAt])
+  @@index([qaAcceptanceRunId])
   @@index([cartId, status])
   @@index([customerUserId, createdAt])
   @@index([guestAccessTokenHash])
@@ -9871,6 +9929,12 @@ model MarketplaceOrder {
   reconciliationCases     MarketplaceCheckoutReconciliationCase[]
   advertisingAttributions AdvertisingAttribution[]
 
+  isQaAcceptance    Boolean          @default(false)
+  qaAcceptanceRunId String?
+  qaAcceptanceRun   QaAcceptanceRun? @relation("QaRunMarketplaceOrders", fields: [qaAcceptanceRunId], references: [id], onDelete: SetNull)
+
+  @@index([isQaAcceptance, createdAt])
+  @@index([qaAcceptanceRunId])
   @@index([customerUserId, createdAt])
   @@index([status, createdAt])
 }
@@ -9941,6 +10005,12 @@ model MarketplaceStoreOrder {
 
   @@unique([marketplaceOrderId, storeId], map: "MarketplaceStoreOrder_order_store_key")
   @@index([operationalScope, operationalPolicyId])
+  isQaAcceptance    Boolean          @default(false)
+  qaAcceptanceRunId String?
+  qaAcceptanceRun   QaAcceptanceRun? @relation("QaRunMarketplaceStoreOrders", fields: [qaAcceptanceRunId], references: [id], onDelete: SetNull)
+
+  @@index([isQaAcceptance, status])
+  @@index([qaAcceptanceRunId])
   @@index([storeId, status])
   @@index([storeId, acceptanceStatus, reviewDeadlineAt], map: "MarketplaceStoreOrder_store_review_deadline_idx")
   @@index([storeId, reviewDeadlineAt, scheduledFulfilmentAt, createdAt, publicReference], map: "MarketplaceStoreOrder_store_queue_idx")
@@ -14304,6 +14374,7 @@ model CompanyIssuerSnapshot {
   issuerSnapshot          Json
   createdAt               DateTime              @default(now())
   companyProfileVersion   CompanyProfileVersion @relation(fields: [companyProfileVersionId], references: [id], onDelete: Restrict)
+  shipmentDocuments       ShipmentDocument[]
 
   @@unique([documentType, documentReference])
   @@index([companyProfileVersionId, createdAt])
@@ -14963,4 +15034,147 @@ model PaymentReleaseProvenance {
 
   @@index([releaseSha, createdAt])
   @@index([provider, providerEnvironment, releaseSha], map: "PaymentReleaseProvenance_provider_env_sha_idx")
+}
+
+enum ShipmentDocumentType {
+  WAYBILL
+  POD
+}
+
+enum ShipmentDocumentStatus {
+  ISSUED
+  SUPERSEDED
+  VOID
+}
+
+enum TrackingGrantScope {
+  STATUS_ONLY
+}
+
+model ShipmentDocument {
+  id                String                 @id @default(cuid())
+  documentRef       String                 @unique @db.VarChar(80)
+  orderId           String
+  type              ShipmentDocumentType
+  revision          Int                    @default(1)
+  status            ShipmentDocumentStatus @default(ISSUED)
+  issuerSnapshotId  String
+  proofOfDeliveryId String?
+  payloadSnapshot   Json
+  payloadSha256     String                 @db.VarChar(64)
+  rendererVersion   String                 @default("kt-pdf-v1") @db.VarChar(40)
+  sourceEventRef    String?                @db.VarChar(160)
+  issuedByUserId    String?
+  issuedByRole      String?                @db.VarChar(40)
+  issuedAt          DateTime               @default(now())
+  supersedesId      String?                @unique
+  revisionReason    String?                @db.VarChar(300)
+
+  order           Order                 @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  issuerSnapshot  CompanyIssuerSnapshot @relation(fields: [issuerSnapshotId], references: [id], onDelete: Restrict)
+  proofOfDelivery ProofOfDelivery?      @relation(fields: [proofOfDeliveryId], references: [id], onDelete: Restrict)
+  issuedBy        User?                 @relation("ShipmentDocumentIssuedBy", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  supersedes      ShipmentDocument?     @relation("ShipmentDocumentRevision", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy    ShipmentDocument?     @relation("ShipmentDocumentRevision")
+
+  @@unique([orderId, type, revision])
+  @@index([orderId, type, status])
+  @@index([proofOfDeliveryId])
+  @@index([issuedAt])
+}
+
+model ShipmentTrackingGrant {
+  id              String             @id @default(cuid())
+  grantRef        String             @unique @db.VarChar(80)
+  orderId         String
+  tokenSha256     String             @unique @db.VarChar(64)
+  scope           TrackingGrantScope @default(STATUS_ONLY)
+  issuedByUserId  String?
+  issuedByRole    String?            @db.VarChar(40)
+  issuedAt        DateTime           @default(now())
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  revokedByUserId String?
+  revokeReason    String?            @db.VarChar(300)
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  issuedBy  User? @relation("TrackingGrantIssuedBy", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  revokedBy User? @relation("TrackingGrantRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, revokedAt, expiresAt])
+}
+
+enum QaAcceptanceRole {
+  CUSTOMER
+  VENDOR
+  DRIVER
+  ADMIN
+}
+
+enum QaAcceptanceRunStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+model QaAcceptancePrincipal {
+  id               String           @id @default(cuid())
+  publicReference  String           @unique @db.VarChar(80)
+  userId           String           @unique
+  role             QaAcceptanceRole
+  storeId          String?
+  driverProfileId  String?
+  active           Boolean          @default(true)
+  label            String?          @db.VarChar(120)
+  notes            String?          @db.VarChar(500)
+  enrolledByUserId String
+  enrolledAt       DateTime         @default(now())
+  revokedByUserId  String?
+  revokedAt        DateTime?
+  revokeReason     String?          @db.VarChar(300)
+  updatedAt        DateTime         @updatedAt
+
+  user          User           @relation("QaPrincipalUser", fields: [userId], references: [id], onDelete: Restrict)
+  store         Store?         @relation("QaPrincipalStore", fields: [storeId], references: [id], onDelete: SetNull)
+  driverProfile DriverProfile? @relation("QaPrincipalDriver", fields: [driverProfileId], references: [id], onDelete: SetNull)
+  enrolledBy    User           @relation("QaPrincipalEnrolledBy", fields: [enrolledByUserId], references: [id], onDelete: Restrict)
+  revokedBy     User?          @relation("QaPrincipalRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([role, active])
+  @@index([storeId, active])
+  @@index([driverProfileId, active])
+}
+
+model QaAcceptanceRun {
+  id               String                @id @default(cuid())
+  publicReference  String                @unique @db.VarChar(80)
+  title            String                @db.VarChar(160)
+  status           QaAcceptanceRunStatus @default(ACTIVE)
+  storeId          String?
+  customerUserId   String?
+  driverProfileId  String?
+  createdByUserId  String
+  startedAt        DateTime              @default(now())
+  completedAt      DateTime?
+  archivedAt       DateTime?
+  archivedByUserId String?
+  archiveReason    String?               @db.VarChar(300)
+  stepState        Json?
+  updatedAt        DateTime              @updatedAt
+
+  store                  Store?                  @relation("QaRunStore", fields: [storeId], references: [id], onDelete: SetNull)
+  customerUser           User?                   @relation("QaRunCustomer", fields: [customerUserId], references: [id], onDelete: SetNull)
+  driverProfile          DriverProfile?          @relation("QaRunDriver", fields: [driverProfileId], references: [id], onDelete: SetNull)
+  createdBy              User                    @relation("QaRunCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  archivedBy             User?                   @relation("QaRunArchivedBy", fields: [archivedByUserId], references: [id], onDelete: SetNull)
+  orders                 Order[]                 @relation("QaRunOrders")
+  payments               Payment[]               @relation("QaRunPayments")
+  marketplaceCheckouts   MarketplaceCheckout[]   @relation("QaRunMarketplaceCheckouts")
+  marketplaceOrders      MarketplaceOrder[]      @relation("QaRunMarketplaceOrders")
+  marketplaceStoreOrders MarketplaceStoreOrder[] @relation("QaRunMarketplaceStoreOrders")
+
+  @@index([status, startedAt])
+  @@index([storeId, status])
+  @@index([customerUserId, status])
+  @@index([driverProfileId, status])
 }

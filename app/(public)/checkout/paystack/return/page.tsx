@@ -9,6 +9,7 @@ import {
   verifyMarketplaceGuestSecret,
 } from "@/lib/marketplace-checkout/tokens";
 import { CustomerPaymentParamsSchema } from "@/lib/validation/payments";
+import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 
 export const metadata: Metadata = {
   title: "Marketplace payment confirmation | KT Couriers",
@@ -29,6 +30,8 @@ export default async function MarketplacePaystackReturnPage({
   const payment = await prisma.payment.findUnique({
     where: { publicReference: parsed.data.publicReference },
     select: {
+      id: true,
+      status: true,
       subjectType: true,
       marketplaceCheckout: {
         select: {
@@ -46,7 +49,7 @@ export default async function MarketplacePaystackReturnPage({
   }
 
   const [user, cookieStore] = await Promise.all([getCurrentUser(), cookies()]);
-  const checkout = payment.marketplaceCheckout;
+  let checkout = payment.marketplaceCheckout;
   const guestSecret = cookieStore.get(MARKETPLACE_CHECKOUT_COOKIE)?.value;
 
   const authorized = checkout.customerUserId
@@ -55,11 +58,47 @@ export default async function MarketplacePaystackReturnPage({
 
   if (!authorized) notFound();
 
+  const cancelled = query.status === "cancelled";
+  if (
+    !cancelled &&
+    (checkout.status === "PAYMENT_PENDING" || checkout.status === "PAYMENT_PREPARING") &&
+    !["SUCCEEDED", "CANCELLED", "EXPIRED", "FAILED"].includes(payment.status)
+  ) {
+    const recovery = await recoverPendingPaystackPaymentForPaymentId(payment.id, {
+      trigger: "MARKETPLACE_PAYSTACK_RETURN",
+    }).catch(() => null);
+    if (
+      recovery?.recovered ||
+      recovery?.outcome === "APPLIED_WEBHOOK" ||
+      recovery?.outcome === "SETTLED_VIA_VERIFY" ||
+      recovery?.outcome === "ALREADY_SETTLED" ||
+      recovery?.outcome === "FAILED_VIA_VERIFY" ||
+      recovery?.outcome === "RECONCILIATION_REQUIRED"
+    ) {
+      const refreshed = await prisma.payment.findUnique({
+        where: { id: payment.id },
+        select: {
+          marketplaceCheckout: {
+            select: {
+              publicReference: true,
+              status: true,
+              customerUserId: true,
+              guestAccessTokenHash: true,
+            },
+          },
+        },
+      });
+      if (refreshed?.marketplaceCheckout) {
+        checkout = refreshed.marketplaceCheckout;
+      }
+    }
+  }
+
   return (
     <MarketplacePaymentReturnStatus
       checkoutReference={checkout.publicReference}
       initialStatus={checkout.status}
-      cancelled={query.status === "cancelled"}
+      cancelled={cancelled}
     />
   );
 }

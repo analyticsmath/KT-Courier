@@ -584,7 +584,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
   }
 
   async function bookCodOrder(
-    paymentMethod: "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD" | "FULL_COD" = "DEPOSIT_PLUS_COD",
+    paymentMethod: "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD" = "DEPOSIT_PLUS_COD",
     payer = customerUser,
   ) {
     const publicQuote = await createPublicQuote({
@@ -1619,36 +1619,33 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     });
     await createApprovedDriverEvidence(driver.id, driverUser.id, `drv-${t}`);
 
-    // Activate FULL_COD for second test order
+    // Verify FULL_COD is discontinued while continuing GAP-4 under active 50/50 DEPOSIT_PLUS_COD
     const currentPolicies = await prisma.paymentMethodPolicy.findMany({
       where: { deliveryServiceId: deliveryServiceKey, orderType: "PARCEL_DOCUMENT" },
       select: { versionNumber: true },
     });
     const nextExpectedVersion = Math.max(0, ...currentPolicies.map((p) => p.versionNumber));
-    const fullCodDraft = await savePaymentConfiguration(adminUser, {
-      storeId: null,
-      deliveryServiceId: deliveryServiceKey,
-      provinces: ["Gauteng"],
-      regionId: null,
-      orderId: null,
-      orderType: "PARCEL_DOCUMENT",
-      mode: "FULL_COD",
-      depositPercent: null,
-      maximumCodAmount: "500.00",
-      active: true,
-      expectedVersion: nextExpectedVersion,
-      reason: "Enable FULL_COD for overdue SLA test",
-    });
-    const fullCodApproved = await approvePaymentConfiguration(superAdminUser, {
-      policyId: fullCodDraft.id,
-      expectedVersion: fullCodDraft.version,
-      remittanceVerified: true,
-      settlementTiming: "Daily bank remittance by end of operating day",
-      reason: "Approve FULL_COD for overdue SLA test",
-    });
-    createdPolicyIds.push(fullCodDraft.id, fullCodApproved.id);
+    await expect(
+      savePaymentConfiguration(adminUser, {
+        storeId: null,
+        deliveryServiceId: deliveryServiceKey,
+        provinces: ["Gauteng"],
+        regionId: null,
+        orderId: null,
+        orderType: "PARCEL_DOCUMENT",
+        mode: "FULL_COD" as never,
+        depositPercent: null,
+        maximumCodAmount: "500.00",
+        active: true,
+        expectedVersion: nextExpectedVersion,
+        reason: "Retired FULL_COD must be rejected",
+      }),
+    ).rejects.toThrow();
 
-    const firstCod = await bookCodOrder("FULL_COD");
+    const firstCod = await bookCodOrder("DEPOSIT_PLUS_COD");
+    await payOrderViaVerify(firstCod.id);
+    const firstCodRow = await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: firstCod.id } });
+    const firstCashDue = firstCodRow.cashObligation.toFixed(2);
     await prisma.order.update({ where: { id: firstCod.id }, data: { deliveryRegionId: gautengRegion.id } });
     const offer1 = await offerAssignment(adminUser.id, firstCod.id, { driverProfileId: driver.id });
     await acceptDispatchAssignment(driver.id, offer1.id, { expectedVersion: offer1.version });
@@ -1677,7 +1674,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     await prisma.privateMediaObject.create({ data: { publicReference: mediaRef, ownerType: "PROOF_OF_DELIVERY", ownerId: firstCod.id, purpose: "POD_EVIDENCE", status: "READY", storageProvider: "LOCAL", storageKey: `disposable/${mediaRef}`, originalFileName: "evidence.png", declaredMimeType: "image/png", detectedMimeType: "image/png", byteSize: 12, checksum: "a".repeat(64), createdByUserId: driverUser.id } });
     await prisma.deliveryProofEvidence.create({ data: { publicReference: evidenceRef, orderId: firstCod.id, assignmentId: offer1.id, driverProfileId: driver.id, createdByUserId: driverUser.id, storageProvider: "LOCAL", storageReference: mediaRef, contentType: "image/png", byteSize: 12, privateVisibility: true, status: "READY", validatedAt: new Date() } });
     const report = await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef });
-    expect(report).toMatchObject({ status: "REVIEW_PENDING", cashOutstanding: "101.01" });
+    expect(report).toMatchObject({ status: "REVIEW_PENDING", cashOutstanding: firstCashDue });
     expect(await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef })).toEqual(report);
     await expect(reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Changed report", evidenceReference: evidenceRef })).rejects.toMatchObject({ code: "CONFLICT" });
     await expect(reviewCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-self-review-${t}`, decision: "VERIFY", reason: "Review" })).rejects.toMatchObject({ code: "INDEPENDENT_REVIEW_REQUIRED" });
@@ -1686,9 +1683,9 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     await prisma.privateMediaObject.update({ where: { publicReference: mediaRef }, data: { status: "READY" } });
     expect(await prisma.ledgerJournal.count()).toBe(journals);
     expect((await prisma.cashOnDelivery.findUniqueOrThrow({ where: { orderId: firstCod.id } })).cashCollected.toFixed(2)).toBe("0.00");
-    await recordCashCollection({ orderId: firstCod.id, collectorDriverId: driver.id, actorUserId: driverUser.id, amount: "101.01", operationId: `aud-collect-${t}` });
+    await recordCashCollection({ orderId: firstCod.id, collectorDriverId: driver.id, actorUserId: driverUser.id, amount: firstCashDue, operationId: `aud-collect-${t}` });
     expect(await reportCodPhysicalDeliveryException(superAdminUser, firstCod.id, { operationId: `physical-report-${t}`, reason: "Recipient delivery reported; collection remains unverified", evidenceReference: evidenceRef })).toEqual(report);
-    await expect(reconcileCashCollection({ orderId: firstCod.id, actorUserId: adminUser.id, receivedAmount: "101.01", operationId: `pending-review-reconcile-${t}` })).rejects.toMatchObject({ code: "COD_REVIEW_REQUIRED" });
+    await expect(reconcileCashCollection({ orderId: firstCod.id, actorUserId: adminUser.id, receivedAmount: firstCashDue, operationId: `pending-review-reconcile-${t}` })).rejects.toMatchObject({ code: "COD_REVIEW_REQUIRED" });
     expect(await adminManualDeliveryComplete(firstCod.id, adminUser.id, UserRole.ADMIN, { recipientName: "Recipient", reason: "Review still pending" })).toMatchObject({ ok: false, code: "COD_REVIEW_REQUIRED" });
     const review = await reviewCodPhysicalDeliveryException(adminUser, firstCod.id, { operationId: `physical-review-${t}`, decision: "VERIFY", reason: "Independent review of delivery evidence" });
     expect(review).toMatchObject({ status: "VERIFIED_CASH_COLLECTED", cashOutstanding: "0.00" });
@@ -1701,7 +1698,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
       orderId: firstCod.id,
       collectorDriverId: driver.id,
       actorUserId: driverUser.id,
-      amount: "101.01",
+      amount: firstCashDue,
       operationId: `aud-collect-${t}`,
     });
     expect(collected.remittanceDueAt).not.toBeNull();
@@ -1736,7 +1733,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     const summaryOverdue = await driverCashSummary(driverUser.id);
     expect(summaryOverdue.overdueRemittance.newCodAssignmentsBlocked).toBe(true);
     expect(summaryOverdue.overdueRemittance.overdueCount).toBe(1);
-    expect(summaryOverdue.overdueRemittance.overdueAmountZar).toBe("101.01");
+    expect(summaryOverdue.overdueRemittance.overdueAmountZar).toBe(firstCashDue);
 
     // Run registered SLA processor -> emits alert, does NOT reconcile COD or clear custody
     const slaRun = await executeRegisteredProcessor({
@@ -1771,7 +1768,7 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     });
     const deposit = await submitDriverDeposit(driverUser.id, {
       orderId: firstCod.id,
-      amount: "101.01",
+      amount: firstCashDue,
       bankReference: `FNB-${t.toUpperCase()}`,
       remittanceMethod: "BANK_DEPOSIT",
       privateMediaReference: proof.publicReference,
@@ -1779,7 +1776,8 @@ describe("KT Couriers Targeted Audit Remediation Closure (PostgreSQL + Providers
     });
 
     // Attempt new COD assignment -> BLOCKED by DriverCashRemittanceOverdueError
-    const blockedCodOrder = await bookCodOrder("FULL_COD");
+    const blockedCodOrder = await bookCodOrder("DEPOSIT_PLUS_COD");
+    await payOrderViaVerify(blockedCodOrder.id);
     await prisma.order.update({ where: { id: blockedCodOrder.id }, data: { deliveryRegionId: gautengRegion.id } });
     await expect(
       offerAssignment(adminUser.id, blockedCodOrder.id, { driverProfileId: driver.id }),

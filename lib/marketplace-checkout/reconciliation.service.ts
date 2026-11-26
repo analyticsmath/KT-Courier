@@ -13,7 +13,14 @@ export async function reconcileMarketplaceReservation(reference: string, operati
   const canonical = await repository.findActiveReservation(reservation.checkoutId);
   if (!canonical) return { action: "NO_ACTION" };
   const paymentStatus = reservation.payment?.status as string | undefined;
-  assertMarketplaceCheckoutProductionReady("RESERVATION");
+  const qaCheckout = await (prisma as any).marketplaceCheckout?.findUnique?.({
+    where: { id: reservation.checkoutId },
+    select: { isQaAcceptance: true },
+  }).catch(() => null);
+  assertMarketplaceCheckoutProductionReady(
+    "RESERVATION",
+    qaCheckout?.isQaAcceptance ? { qaAcceptanceApproved: true } : undefined,
+  );
   if (["PENDING", "PROCESSING", "REQUIRES_ACTION", "UNKNOWN"].includes(paymentStatus ?? "")) {
     await holdReservationForUncertainPayment(repository, canonical, reservation.paymentId ?? "payment-unknown");
     return { action: "HELD" };

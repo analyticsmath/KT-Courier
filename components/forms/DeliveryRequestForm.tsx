@@ -322,7 +322,7 @@ export function DeliveryRequestForm({
   );
 
   const [parcel, setParcel] = useState<ParcelFields>({
-    parcelCount: repeatPrefill?.parcelCount ? String(repeatPrefill.parcelCount) : "1",
+    parcelCount: "1",
     parcelDescription: repeatPrefill?.parcelDescription ?? "",
     scheduledFor: "",
     customerNote: repeatPrefill?.customerNote ?? "",
@@ -336,7 +336,7 @@ export function DeliveryRequestForm({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [successOrderNumber, setSuccessOrderNumber] = useState<string | null>(null);
+  const [successOrder, setSuccessOrder] = useState<{ id: string | null; orderNumber: string } | null>(null);
   const quoteRequestRef = useRef(0);
 
   const fetchQuote = useCallback(async () => {
@@ -499,7 +499,7 @@ export function DeliveryRequestForm({
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         recipientEmail: recipientEmail.trim().toLowerCase(),
-        parcelCount: Math.max(1, parseInt(parcel.parcelCount) || 1),
+        parcelCount: 1,
         parcelDescription: parcel.parcelDescription.trim() || undefined,
         scheduledFor: parcel.scheduledFor
           ? new Date(parcel.scheduledFor).toISOString()
@@ -522,7 +522,10 @@ export function DeliveryRequestForm({
       }
 
       if (data.orderNumber) {
-        setSuccessOrderNumber(data.orderNumber);
+        setSuccessOrder({
+          id: (data as { id?: string }).id ?? null,
+          orderNumber: data.orderNumber,
+        });
       }
     } catch {
       setFormError("An unexpected error occurred. Please try again.");
@@ -533,7 +536,12 @@ export function DeliveryRequestForm({
 
   // ── Success state ────────────────────────────────────────────────────────────
 
-  if (successOrderNumber) {
+  if (successOrder) {
+    const detailHref = successOrder.id ? `${ordersHref}/${encodeURIComponent(successOrder.id)}` : ordersHref;
+    const repeatHref =
+      successOrder.id
+        ? `${ordersHref.startsWith("/store") ? "/store/new-delivery" : "/account/request-delivery"}?repeatFrom=${encodeURIComponent(successOrder.id)}`
+        : null;
     return (
       <Card className="text-center py-12">
         <div className="w-14 h-14 rounded-2xl bg-[--kt-green-soft] flex items-center justify-center mx-auto mb-4">
@@ -543,13 +551,23 @@ export function DeliveryRequestForm({
         </div>
         <h2 className="text-xl font-bold text-[--kt-text] mb-1">Delivery request submitted</h2>
         <p className="text-sm text-[--kt-text-muted] mb-1">Your order number is</p>
-        <p className="text-lg font-mono font-bold text-[--kt-brand-blue] mb-6">{successOrderNumber}</p>
-        <p className="text-sm text-[--kt-text-muted] mb-6 max-w-xs mx-auto">
-          We&apos;ll confirm your delivery shortly. You can track status updates from your orders page.
+        <p className="text-lg font-mono font-bold text-[--kt-brand-blue] mb-6">{successOrder.orderNumber}</p>
+        <p className="text-sm text-[--kt-text-muted] mb-6 max-w-sm mx-auto">
+          Complete payment within 24 hours so your order is confirmed and your official Waybill PDF can be issued.
         </p>
-        <Button href={ordersHref} variant="secondary" size="sm">
-          View orders
-        </Button>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button href={detailHref} variant="primary" size="sm">
+            Open booking &amp; payment
+          </Button>
+          {repeatHref && (
+            <Button href={repeatHref} variant="secondary" size="sm">
+              Book another consignment
+            </Button>
+          )}
+          <Button href={ordersHref} variant="secondary" size="sm">
+            All orders
+          </Button>
+        </div>
       </Card>
     );
   }
@@ -690,15 +708,18 @@ export function DeliveryRequestForm({
           <div className="space-y-4">
             <h2 className="text-base font-bold text-[--kt-text]">Parcel & schedule</h2>
             <div>
-              <Label htmlFor="parcel_count" required>Number of parcels</Label>
+              <Label htmlFor="parcel_count" required>Consignments</Label>
               <Input
                 id="parcel_count"
                 type="number"
                 min={1}
-                max={20}
-                value={parcel.parcelCount}
-                onChange={(e) => setParcel((p) => ({ ...p, parcelCount: e.target.value }))}
+                max={1}
+                readOnly
+                value="1"
               />
+              <p className="mt-1 text-xs text-[--kt-text-muted]">
+                Each delivery booking covers 1 parcel consignment so your server-issued quote matches dispatch capacity and Proof of Delivery. After submitting, use <strong>Create similar</strong> if you need another consignment.
+              </p>
               <FieldError message={fieldErrors["parcelCount"]} />
             </div>
             <div>

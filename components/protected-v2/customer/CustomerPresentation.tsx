@@ -118,7 +118,21 @@ export function CustomerOrderRecords({ orders }: { orders: readonly OrderSummary
             { id: "status", header: "Status", priority: "primary", cell: (order) => { const status = getCustomerOrderStatus(order.status); return <ProtectedStatus label={status.label} tone={status.tone} />; } },
             { id: "route", header: "Route", priority: "secondary", cell: (order) => `${order.pickupCity ?? order.pickupSummary} to ${order.dropoffCity ?? order.dropoffSummary}` },
             { id: "date", header: "Updated", priority: "secondary", cell: (order) => formatCustomerDateTime(order.updatedAt) ?? "—" },
-            { id: "action", header: "", align: "end", priority: "optional", cell: (order) => <CustomerAction href={`/account/orders/${order.id}`} tone="quiet">View details</CustomerAction> },
+            { id: "action", header: "", align: "end", priority: "optional", cell: (order) => (
+              <div className="inline-flex flex-wrap items-center justify-end gap-2">
+                {["CONFIRMED", "DISPATCHED", "DRIVER_ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED", "DELIVERED", "COMPLETED"].includes(order.status) && (
+                  <a href={`/api/orders/${encodeURIComponent(order.id)}/documents/waybill`} className="text-xs font-semibold text-[var(--kt-brand-blue)] underline underline-offset-2">
+                    Waybill
+                  </a>
+                )}
+                {["DELIVERED", "COMPLETED"].includes(order.status) && (
+                  <a href={`/api/orders/${encodeURIComponent(order.id)}/documents/pod`} className="text-xs font-semibold text-[var(--kt-ink-navy)] underline underline-offset-2">
+                    POD
+                  </a>
+                )}
+                <CustomerAction href={`/account/orders/${order.id}`} tone="quiet">View details</CustomerAction>
+              </div>
+            ) },
           ]}
         />
       </div>
@@ -129,7 +143,15 @@ export function CustomerOrderRecords({ orders }: { orders: readonly OrderSummary
             <div className={styles.recordHead}><Link className={styles.reference} href={`/account/orders/${order.id}`}>{order.orderNumber}</Link><ProtectedStatus label={status.label} tone={status.tone} /></div>
             <p className={styles.recordRoute}>{order.pickupCity ?? order.pickupSummary} to {order.dropoffCity ?? order.dropoffSummary}</p>
             <p className={styles.recordMeta}>Updated {formatCustomerDateTime(order.updatedAt) ?? "—"}</p>
-            <div><CustomerAction href={`/account/orders/${order.id}`}>View delivery</CustomerAction></div>
+            <div className="flex flex-wrap items-center gap-2">
+              <CustomerAction href={`/account/orders/${order.id}`}>View delivery</CustomerAction>
+              {["CONFIRMED", "DISPATCHED", "DRIVER_ASSIGNED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED", "DELIVERED", "COMPLETED"].includes(order.status) && (
+                <a href={`/api/orders/${encodeURIComponent(order.id)}/documents/waybill`} className="text-xs font-semibold text-[var(--kt-brand-blue)] underline underline-offset-2">Waybill PDF</a>
+              )}
+              {["DELIVERED", "COMPLETED"].includes(order.status) && (
+                <a href={`/api/orders/${encodeURIComponent(order.id)}/documents/pod`} className="text-xs font-semibold text-[var(--kt-ink-navy)] underline underline-offset-2">POD PDF</a>
+              )}
+            </div>
           </li>;
         })}
       </ul>
@@ -141,11 +163,13 @@ export function CustomerOrderDetail({
   order,
   paymentAction,
   cancelAction,
+  documentsSection,
   proof,
 }: {
   order: OrderDetailDto;
   paymentAction?: React.ReactNode;
   cancelAction?: React.ReactNode;
+  documentsSection?: React.ReactNode;
   proof: { methodLabel: string; deliveredAt: Date | string; recipientName: string; publicNote?: string | null } | null;
 }) {
   const status = getCustomerOrderStatus(order.status);
@@ -184,6 +208,7 @@ export function CustomerOrderDetail({
         </dl>
       </OperationalPanel>
       {proof ? <OperationalPanel title="Delivery confirmation" description={`${proof.methodLabel} · ${formatCustomerDateTime(proof.deliveredAt) ?? "—"}`}><dl className={styles.details}><div><dt>Received by</dt><dd>{proof.recipientName}</dd></div>{proof.publicNote ? <div><dt>Note</dt><dd>{proof.publicNote}</dd></div> : null}</dl></OperationalPanel> : null}
+      {documentsSection}
       {timeline.length ? <OperationalPanel title="Status history" description="Customer-safe updates for this delivery."><ActivityTimeline ariaLabel="Delivery status history" items={timeline} /></OperationalPanel> : null}
       <OperationalPanel title="Need help?"><p className={styles.notice}>For questions about this delivery, contact KT Couriers and include the delivery reference.</p><div className={styles.actions}><CustomerAction href="/account/support">Get support</CustomerAction></div></OperationalPanel>
     </CustomerPage>

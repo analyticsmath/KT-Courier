@@ -135,6 +135,8 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
       customerId: storeOrder.marketplaceOrder.customerUserId, storeId: storeOrder.storeId, pickupAddressId: pickupAddress.id, dropoffAddressId: dropoffAddress.id,
       recipientName: destination.recipientName, recipientEmail: checkout.contactSnapshot?.email ?? null, recipientPhone: checkout.contactSnapshot?.phone ?? null, parcelDescription: `Marketplace store order ${storeOrder.publicReference}`, parcelCount: 1,
       scheduledFor: storeOrder.scheduledFulfilmentAt ?? null, priceEstimate: group.deliveryFee, pricingQuoteId: quote.id,
+      isQaAcceptance: Boolean((storeOrder as { isQaAcceptance?: boolean }).isQaAcceptance),
+      qaAcceptanceRunId: (storeOrder as { qaAcceptanceRunId?: string | null }).qaAcceptanceRunId ?? null,
       pricingSubtotal: quote.subtotal, pricingTaxAmount: quote.taxAmount, pricingTaxRate: quote.taxRate,
       pricingSnapshot: {
         source: "PHASE21_FROZEN_MARKETPLACE_QUOTE",
@@ -156,7 +158,11 @@ export async function createMarketplaceCourierOrderFromFrozenEvidence(input: Rea
     } });
     if (isCod && payment && paymentPlan) {
       await createCashOnDeliveryObligationWithinTransaction(tx, { orderId: courierOrder.id, paymentId: payment.id, policyMode: "DEPOSIT_PLUS_COD", authoritativePayable: paymentPlan.authoritativeTotal, digitalRequired: paymentPlan.digitalRequired, policyEvidence: paymentPlan });
-      await activateDepositCashOnDeliveryWithinTransaction(tx, { orderId: courierOrder.id, paymentId: payment.id, amount: payment.amount, verifiedEventReference: payment.successWebhookEventId! });
+      const verifiedReference =
+        payment.successWebhookEventId ??
+        payment.successfulAttempt?.providerReference ??
+        payment.publicReference;
+      await activateDepositCashOnDeliveryWithinTransaction(tx, { orderId: courierOrder.id, paymentId: payment.id, amount: payment.amount, verifiedEventReference: verifiedReference });
     }
     return Object.freeze({ courierOrderId: courierOrder.id, courierOrderReference: courierOrder.orderNumber, replayed: false });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

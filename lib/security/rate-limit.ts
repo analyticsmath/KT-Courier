@@ -12,7 +12,7 @@ export type RateLimitPolicy = RateLimitPolicyWithDistributed;
 
 // ─── Predefined configs ────────────────────────────────────────────────────────
 
-export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
+export const RATE_LIMITS = {
   LOGIN: { max: 10, windowMs: 10 * 60 * 1000, distributedRequired: true },          // 10 per 10 min
   SIGNUP: { max: 5, windowMs: 60 * 60 * 1000, distributedRequired: true },           // 5 per hour
   FORGOT_PASSWORD: { max: 5, windowMs: 60 * 60 * 1000, distributedRequired: true },  // 5 per hour
@@ -75,7 +75,15 @@ export const RATE_LIMITS: Record<string, RateLimitPolicy> = {
   MANAGED_MARKETING_CREATIVE_ATTACH: { max: 20, windowMs: 60 * 60 * 1000, distributedRequired: true },
   MANAGED_MARKETING_PAYMENT_PREPARE: { max: 8, windowMs: 60 * 60 * 1000, distributedRequired: true },
   COOKIE_PREFERENCE_MUTATION: { max: 30, windowMs: 10 * 60 * 1000, distributedRequired: true },
-};
+  SHIPMENT_DOCUMENT_DOWNLOAD: { max: 60, windowMs: 10 * 60 * 1000 },
+  SHIPMENT_DOCUMENT_RECOVER: { max: 15, windowMs: 10 * 60 * 1000 },
+  TRACKING_GRANT_MUTATION: { max: 30, windowMs: 10 * 60 * 1000 },
+  TRACKING_SHARE_EXCHANGE: { max: 30, windowMs: 10 * 60 * 1000, distributedRequired: true },
+  PAYMENT_WEBHOOK: { max: 120, windowMs: 60 * 1000, distributedRequired: true },
+  QA_ACCEPTANCE_MUTATION: { max: 30, windowMs: 15 * 60 * 1000 },
+} as const satisfies Record<string, RateLimitPolicy>;
+
+export type RateLimitPolicyKey = keyof typeof RATE_LIMITS;
 
 // ─── IP extraction ─────────────────────────────────────────────────────────────
 

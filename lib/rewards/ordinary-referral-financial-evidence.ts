@@ -72,7 +72,7 @@ export function verifyOrdinaryReferralPaymentEvidence(
   const journal = payment.successLedgerJournal;
   if (!attempt || !webhook || !journal || payment.status !== "SUCCEEDED" ||
       !payment.succeededAt || !payment.providerConfirmedAt || !payment.provider ||
-      payment.reconciliationStatus !== "CLEAR" ||
+      !["CLEAR", "RESOLVED"].includes(payment.reconciliationStatus) ||
       attempt.paymentId !== payment.id || attempt.status !== "SUCCEEDED" ||
       attempt.provider !== payment.provider || attempt.currency !== "ZAR" ||
       !attempt.amount.equals(payment.amount) ||

@@ -11,6 +11,7 @@ import {
   centsToZar,
 } from "@/lib/marketplace-checkout/policy";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
+import { resolveQaAcceptanceSessionContext, resolveQaApprovalForCheckout } from "@/lib/qa-acceptance/access";
 import { resolveMarketplaceCheckoutProductionComposition } from "@/lib/marketplace-checkout/composition-root";
 import { createPrismaMarketplacePaymentPreparationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-payment-preparation.repository";
 import {
@@ -159,6 +160,36 @@ export async function createMarketplaceCheckout(
       );
     if (!cart.storeGroups.length)
       throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart is empty.");
+    const cartStoreIds = [...new Set(cart.storeGroups.map((g: { storeId: string }) => g.storeId))];
+    let qaAcceptanceRunId: string | null = null;
+    let isQaCheckout = false;
+    const storeDelegate = table("store", db) as unknown as {
+      findMany?: (args: unknown) => Promise<Array<{ id: string; isQaAcceptance?: boolean }>>;
+    };
+    if (cartStoreIds.length > 0 && typeof storeDelegate?.findMany === "function") {
+      const storeRows = await storeDelegate.findMany({
+        where: { id: { in: cartStoreIds } },
+        select: { id: true, isQaAcceptance: true },
+      });
+      const qaCount = storeRows.filter((s: { isQaAcceptance?: boolean }) => Boolean(s.isQaAcceptance)).length;
+      if (qaCount > 0 && qaCount !== storeRows.length) {
+        throw new MarketplaceCheckoutError("CART_LINE_INVALID", "QA acceptance items cannot be combined with standard store items.");
+      }
+      if (qaCount > 0) {
+        if (input.owner.type !== "CUSTOMER") {
+          throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "QA acceptance checkout requires an enrolled customer session.");
+        }
+        const qaCtx = await resolveQaAcceptanceSessionContext(input.owner.userId);
+        if (!qaCtx) {
+          throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
+        }
+        isQaCheckout = true;
+        qaAcceptanceRunId = qaCtx.activeRunId;
+      }
+    }
+    const lineQaOptions = isQaCheckout && input.owner.type === "CUSTOMER"
+      ? { qaUserId: input.owner.userId }
+      : undefined;
     const groups: any[] = [];
     let merchandise = "0";
     let modifiers = "0";
@@ -174,7 +205,7 @@ export async function createMarketplaceCheckout(
             optionReference: modifier.modifierOptionPublicReference,
             quantity: modifier.quantity,
           })),
-        });
+        }, undefined, lineQaOptions);
         const modifierUnit = source.modifiers.reduce(
           (sum, modifier) =>
             addCents(sum, parseZarToCents(lineTotal(modifier.priceDelta, modifier.quantity))),
@@ -300,6 +331,8 @@ export async function createMarketplaceCheckout(
         deliveryFeeTotal: "0.00",
         grandTotal,
         commercialFingerprint,
+        isQaAcceptance: isQaCheckout,
+        qaAcceptanceRunId,
         storeGroups: {
           create: groups.map((group) => ({
             storeId: group.storeId,
@@ -702,7 +735,8 @@ export async function beginMarketplaceReservation(input: {
       };
     }),
   );
-  assertMarketplaceCheckoutProductionReady("RESERVATION", input.testApproval);
+  const effectiveApproval = input.testApproval ?? await resolveQaApprovalForCheckout(input.reference, input.owner);
+  assertMarketplaceCheckoutProductionReady("RESERVATION", effectiveApproval);
   const reserved = await reserveMarketplaceCheckoutInventory(
     createPrismaMarketplaceReservationRepository(),
     {
@@ -755,6 +789,7 @@ export async function prepareMarketplacePayment(input: {
   // Resume unresolved payments without creating another provider attempt if
   // their held quote has since expired.
   if (!await prisma.payment.findUnique({ where: { marketplaceCheckoutId: checkout.id } })) await assertAcceptedCheckoutEvidence(checkout.id);
+  const effectiveApproval = input.testApproval ?? await resolveQaApprovalForCheckout(input.reference, input.owner);
   const prepared = await prepareMarketplaceCheckoutPayment(
     createPrismaMarketplacePaymentPreparationRepository(),
     createPhase10And11MarketplacePaymentOrchestrator(),
@@ -764,7 +799,7 @@ export async function prepareMarketplacePayment(input: {
       operationId: input.operationId,
       walletAmount: input.walletAmount,
       channel,
-      testApproval: input.testApproval,
+      testApproval: effectiveApproval,
     },
   );
   if (prepared.walletSettled) {
@@ -803,7 +838,8 @@ export async function cancelMarketplaceCheckout(input: {
     );
   const repository = createPrismaMarketplaceReservationRepository();
   const reservation = await repository.findActiveReservation(checkout.id);
-  assertMarketplaceCheckoutProductionReady("CANCELLATION", input.testApproval);
+  const effectiveApproval = input.testApproval ?? await resolveQaApprovalForCheckout(input.reference, input.owner);
+  assertMarketplaceCheckoutProductionReady("CANCELLATION", effectiveApproval);
   if (!reservation)
     return Object.freeze({ released: false, status: checkout.status });
   const paymentStatus = checkout.payment?.status ?? null;

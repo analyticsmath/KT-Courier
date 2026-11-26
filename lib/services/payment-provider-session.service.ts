@@ -41,6 +41,43 @@ type SessionDependencies = Readonly<{
   timeoutMs?: number;
 }>;
 
+async function resolveRegistryForPayment(
+  paymentId: string,
+  expectedPayerUserId?: string,
+): Promise<PaymentProviderRegistry> {
+  if (typeof (prisma as { payment?: { findUnique?: unknown } })?.payment?.findUnique === "function") {
+    const paymentMeta = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      select: { isQaAcceptance: true, userId: true },
+    });
+    if (paymentMeta?.isQaAcceptance) {
+      const qaUserId = expectedPayerUserId ?? paymentMeta.userId;
+      if (!qaUserId) {
+        throw new PaymentError(
+          "PAYMENT_PAYER_NOT_AUTHORIZED",
+          "QA sandbox checkout requires an enrolled QA acceptance account.",
+        );
+      }
+      const { resolveQaAcceptanceSessionContext } = await import("@/lib/qa-acceptance/access");
+      const qaCtx = await resolveQaAcceptanceSessionContext(qaUserId);
+      if (!qaCtx) {
+        throw new PaymentError(
+          "PAYMENT_PAYER_NOT_AUTHORIZED",
+          "QA sandbox checkout is restricted to enrolled QA acceptance accounts.",
+        );
+      }
+      const { buildQaSandboxProviderReadiness, createQaPaystackAdapter } = await import("@/lib/qa-acceptance/config");
+      const configuration = buildQaSandboxProviderReadiness();
+      const paystackReady = configuration[0]?.checkoutReadiness.ready;
+      return new PaymentProviderRegistry({
+        adapters: paystackReady ? [createQaPaystackAdapter()] : [],
+        configuration: [...configuration],
+      });
+    }
+  }
+  return createProductionPaymentProviderRegistry();
+}
+
 type ReservedAttemptRecord = Parameters<typeof toPaymentAttemptDto>[0] & Readonly<{
   paymentId: string;
   idempotencyKey: string;
@@ -603,7 +640,7 @@ export async function createProviderCheckoutSession(
   if (!parsed.success) throw new PaymentError("PAYMENT_METADATA_INVALID", "Provider-session request is invalid.");
 
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerPaymentCallbackUrls;
-  const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
+  const registry = dependencies.registry ?? (await resolveRegistryForPayment(parsed.data.paymentId, payer.id));
   // Configuration and the Phase 11 production lock are resolved before a
   // reservation so an unavailable provider never consumes an attempt number.
   const adapter = registry.getAdapter(parsed.data.provider);
@@ -661,7 +698,7 @@ export async function createMarketplaceProviderCheckoutSession(
   dependencies: SessionDependencies = {},
 ): Promise<ProviderSessionDto> {
   const callbackUrlFactory = dependencies.callbackUrls ?? buildServerMarketplacePaymentCallbackUrls;
-  const registry = dependencies.registry ?? createProductionPaymentProviderRegistry();
+  const registry = dependencies.registry ?? (await resolveRegistryForPayment(input.paymentId));
   const adapter = registry.getAdapter("PAYSTACK");
   if ((input.channel ?? "CARD") === "EFT" && !dependencies.registry && !isPaystackEftChannelApproved()) {
     throw new PaymentError("EFT_UNAVAILABLE", "Paystack EFT channel is not enabled on this merchant account.");

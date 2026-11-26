@@ -168,6 +168,10 @@ export default async function ParcelTrackingLookupPage({
                 )}
               </p>
             )}
+            <div className="mt-4 rounded-xl border border-[var(--kt-public-border-subtle)] bg-[var(--kt-public-surface-secondary)] p-4 text-xs leading-relaxed text-[var(--kt-public-text-secondary)]">
+              <strong>Tracking as a parcel recipient?</strong> Senders can share a private, status-only{" "}
+              <code>/track/share</code> link with you. Open the shared link you received to view milestone updates without an account — bare tracking numbers alone never expose personal addresses or live coordinates.
+            </div>
           </div>
         </div>
       </section>

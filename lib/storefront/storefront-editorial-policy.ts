@@ -64,4 +64,8 @@ export function expandStorefrontSynonyms(query: string, terms: readonly Storefro
   return [...values].sort((left, right) => left.localeCompare(right, "en-ZA")).slice(0, 13);
 }
 
-export function publicStoreScheduleStatus(): "HOURS_UNAVAILABLE" { return "HOURS_UNAVAILABLE"; }
+import { parseStoreOperatingHours } from "@/lib/qa-acceptance/operating-hours";
+
+export function publicStoreScheduleStatus(operatingHours?: unknown): "HOURS_UNAVAILABLE" | "TRADING_HOURS_CONFIGURED" {
+  return parseStoreOperatingHours(operatingHours) ? "TRADING_HOURS_CONFIGURED" : "HOURS_UNAVAILABLE";
+}

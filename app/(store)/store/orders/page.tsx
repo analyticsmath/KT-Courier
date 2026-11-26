@@ -59,6 +59,7 @@ export default async function StoreOrdersPage({
         padding="compact"
       >
         <StoreCourierOrderList
+          storeId={ownedStore?.id}
           orders={courierRequests.data.map((order) => ({
             id: order.id,
             orderNumber: order.orderNumber,

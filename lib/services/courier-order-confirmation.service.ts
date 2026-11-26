@@ -8,6 +8,7 @@ import {
 } from "@/lib/services/notification-events.service";
 import { recordAdminAlertIntentInTx } from "@/lib/notifications/admin-alert-dispatch.service";
 import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
+import { issueShipmentDocumentBestEffortInTx } from "@/lib/shipment-documents/service";
 
 /**
  * Called only after the provider's signed payment and exact amount have been
@@ -107,4 +108,11 @@ export async function confirmVerifiedCourierOrderWithinTransaction(
       },
     });
   }
+
+  await issueShipmentDocumentBestEffortInTx(tx, {
+    orderId: payment.orderId,
+    type: "WAYBILL",
+    actorRole: "SYSTEM",
+    sourceEventRef: `payment-confirm:${payment.publicReference}`,
+  });
 }

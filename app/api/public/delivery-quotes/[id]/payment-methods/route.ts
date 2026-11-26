@@ -16,6 +16,8 @@ import {
   resolvePaystackConfiguration,
 } from "@/lib/payments/providers/paystack/paystack-config";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { buildQaSandboxProviderReadiness } from "@/lib/qa-acceptance/config";
 export async function GET(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -87,7 +89,7 @@ export async function GET(
           },
           authoritativeTotal: q.total.toFixed(2),
         });
-        if (b.mode === "FULL_COD" || b.mode === "DEPOSIT_PLUS_COD") {
+        if (b.mode === "DEPOSIT_PLUS_COD") {
           methods.push({
             mode: b.mode,
             digitalRequired: b.digitalRequired,
@@ -112,10 +114,12 @@ export async function GET(
     }
     // A payable quote does not prove an initialized payment gateway.
     // All checkout surfaces share the single canonical evaluateCommerceActivation() authority.
+    const qaCtx = await resolveQaAcceptanceSessionContext(u.id).catch(() => null);
     const activation = evaluateCommerceActivation(process.env, {
       parcelPolicyEligible: true,
       codPolicyEligible: cod.eligible,
     });
+    const qaSandboxReady = Boolean(qaCtx && buildQaSandboxProviderReadiness()[0]?.checkoutReadiness.ready);
     const paystackResolution = resolvePaystackConfiguration();
     const paystackReadiness = evaluatePaystackCheckoutReadiness(paystackResolution.state, {
       adapterPresent: Boolean(paystackResolution.runtime),
@@ -123,9 +127,10 @@ export async function GET(
       requiredChannel: "card",
     });
     const eftReadiness = evaluatePaystackEftReadiness();
-    const cardConfigured = activation.parcelCardAllowed && paystackReadiness.ready;
-    const eftConfigured = activation.eftChannelAllowed && eftReadiness.ready;
+    const cardConfigured = qaCtx ? qaSandboxReady : (activation.parcelCardAllowed && paystackReadiness.ready);
+    const eftConfigured = qaCtx ? false : (activation.eftChannelAllowed && eftReadiness.ready);
     if (
+      !qaCtx &&
       activation.runtime === "production" &&
       !activation.publicCheckoutExposed &&
       !activation.localValidationBypassActive

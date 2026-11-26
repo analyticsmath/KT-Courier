@@ -42,7 +42,7 @@ export async function releaseStoreEarning(input: Readonly<{ earningId: string; o
     const commissionCoherent = allocations.length === allocationIds.length && chargeTotal.equals(earning.attributedCommissionAmount) && earning.commissionCharges.every((charge) => { const allocation = allocationById.get(charge.commissionAllocationId); return Boolean(allocation && allocation.status === "ACCRUED" && allocation.accrual.status === "ACCRUED" && allocation.storeAttributedAmount.greaterThanOrEqualTo(charge.amount) && charge.amount.lessThanOrEqualTo(allocation.amount)); });
     const openStatus = (status: string) => status === "OPEN" || status === "MONITORING";
     const hasRefundCase = earning.fundingAllocations.some((allocation) => allocation.refund.reconciliationCases.some((record) => openStatus(record.status)));
-    const hasPaymentConflict = earning.payment.reconciliationStatus !== "CLEAR" || earning.payment.reconciliationCases.some((record) => openStatus(record.status));
+    const hasPaymentConflict = !["CLEAR", "RESOLVED"].includes(earning.payment.reconciliationStatus) || earning.payment.reconciliationCases.some((record) => openStatus(record.status));
     assertStoreEarningReleaseEligible({
       status: earning.status,
       productionValidationApproved: STORE_EARNINGS_PRODUCTION_VALIDATION_APPROVED || options?.allowTestOnlyBypass === true,

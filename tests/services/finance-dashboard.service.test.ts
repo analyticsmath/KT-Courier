@@ -92,7 +92,7 @@ describe("finance dashboard service", () => {
     expect(mocks.prisma.ledgerAccount.aggregate).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          wallet: { ownerId: { not: "platform-sandbox-acceptance" } },
+          wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false },
         }),
       }),
     );

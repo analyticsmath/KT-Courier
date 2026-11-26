@@ -206,8 +206,15 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
           depositEvidence.walletAmount === walletAmount.toFixed(2) &&
           depositEvidence.providerAmount === provider.toFixed(2)
         : provider.equals(required);
+      const isAwaitingCollection = cod.status === "READY_FOR_COLLECTION";
+      const collected = new Prisma.Decimal(cod.cashCollected?.toFixed(2) ?? "0.00");
+      const remainingCash = outstanding.sub(collected);
+      const isCashCollectedOrReconciled =
+        ["COLLECTED", "UNDER_RECONCILIATION", "RECONCILED"].includes(cod.status ?? "") &&
+        collected.greaterThan(0) &&
+        remainingCash.isZero();
       if (
-        cod.status !== "READY_FOR_COLLECTION" ||
+        (!isAwaitingCollection && !isCashCollectedOrReconciled) ||
         !cod.paymentId || !payment.id || cod.paymentId !== payment.id ||
         !required.isFinite() || required.lessThanOrEqualTo(0) ||
         !funded.equals(required) || outstanding.lessThanOrEqualTo(0) ||
@@ -220,17 +227,34 @@ export function classifyCourierPayment(evidence: CourierOrderPaymentEvidence): C
           cashDue,
         });
       }
+      return Object.freeze({
+        status: isCashCollectedOrReconciled
+          ? cod.status === "RECONCILED"
+            ? "CASH_RECONCILED"
+            : "CASH_COLLECTED"
+          : "DEPOSIT_PAID_CASH_DUE",
+        dispatchEligible: true,
+        paymentReference: payment.publicReference,
+        amount: isCashCollectedOrReconciled
+          ? funded.add(collected).toFixed(2)
+          : payment.amount.toFixed(2),
+        cashDue: isCashCollectedOrReconciled ? "0.00" : cashDue,
+        reasonCode: null,
+        reasonMessage: isCashCollectedOrReconciled
+          ? cod.status === "RECONCILED"
+            ? "Approved 50% digital deposit verified and driver cash collection reconciled."
+            : "Approved 50% digital deposit verified and driver cash collected; bank remittance reconciliation pending."
+          : "Approved 50% digital deposit verified in ledger; remaining cash balance due on delivery.",
+      });
     }
     return Object.freeze({
-      status: depositOnly ? "DEPOSIT_PAID_CASH_DUE" : "PAID",
+      status: "PAID",
       dispatchEligible: true,
       paymentReference: payment.publicReference,
       amount: payment.amount.toFixed(2),
       cashDue,
       reasonCode: null,
-      reasonMessage: depositOnly
-        ? "Approved 50% digital deposit verified in ledger; remaining cash balance due on delivery."
-        : "Verified digital payment and immutable ledger receipt recorded.",
+      reasonMessage: "Verified digital payment and immutable ledger receipt recorded.",
     });
   }
   if (payment?.status === "SUCCEEDED" && !payment.successLedgerJournalId) {

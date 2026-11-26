@@ -61,6 +61,10 @@ export async function addCartLine(repository: MarketplaceCartMutationRepository,
     if (!matching && cart.lines.length >= MAX_CART_LINES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart line limit reached.");
     const stores = new Set(cart.lines.map((line) => line.storeId));
     if (!stores.has(input.selection.storeId) && stores.size >= MAX_CART_STORES) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart store limit reached.");
+    const existingQaFlags = new Set(cart.lines.map((line) => Boolean(line.selection.isQaAcceptance)));
+    if (existingQaFlags.size > 0 && !existingQaFlags.has(Boolean(input.selection.isQaAcceptance))) {
+      throw new MarketplaceCheckoutError("CART_LINE_INVALID", "QA acceptance items cannot be combined with standard store items.");
+    }
     const combinedQuantity = (matching?.quantity ?? 0) + input.selection.quantity;
     if (combinedQuantity > 99) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Quantity limit reached.");
     // A new quantity can cross a bulk-price tier. Re-resolve the full server-authorized

@@ -27,6 +27,7 @@ import {
   recordAdminAlertIntentInTx,
   type AdminAlertEventInput,
 } from "@/lib/notifications/admin-alert-dispatch.service";
+import { issueShipmentDocumentBestEffortInTx } from "@/lib/shipment-documents/service";
 
 export type CanonicalOrderPaymentPreparationIntent = Readonly<{
   subjectType: "ORDER";
@@ -481,7 +482,13 @@ export async function ensureWalletReserveAccountInTx(
 
 export async function ensurePlatformCustomerFundsHeldAccountInTx(
   tx: Prisma.TransactionClient,
+  isQaIsolated = false,
 ) {
+  if (isQaIsolated) {
+    const { ensureQaPlatformSandboxAccountsInTx } = await import("@/lib/qa-acceptance/ledger");
+    const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+    return sandbox.fundsHeld;
+  }
   const platformWallet = await ensureWalletForOwnerInTx(tx, {
     ownerType: "PLATFORM",
     ownerId: "platform",
@@ -680,7 +687,14 @@ export async function consumeWalletSpendWithinTransaction(
     ? await ensureWalletReserveAccountInTx(tx, input.owner)
     : await ensureWalletAvailableAccountInTx(tx, input.owner);
 
-  const platformHeld = await ensurePlatformCustomerFundsHeldAccountInTx(tx);
+  const sourceWallet = await tx.ledgerAccount.findUnique({
+    where: { id: sourceAccount.id },
+    select: { wallet: { select: { isQaIsolated: true } } },
+  });
+  const platformHeld = await ensurePlatformCustomerFundsHeldAccountInTx(
+    tx,
+    Boolean(sourceWallet?.wallet.isQaIsolated),
+  );
 
   // Lock source account row
   const locked = await tx.$queryRaw<Array<{ id: string; currentBalance: Prisma.Decimal }>>(
@@ -1031,6 +1045,8 @@ export async function spendWalletForParcelOrderWithinTransaction(
         creationRequestHash: requestHash,
         version: 1,
         latestAttemptNumber: 0,
+        isQaAcceptance: Boolean((order as { isQaAcceptance?: boolean }).isQaAcceptance),
+        qaAcceptanceRunId: (order as { qaAcceptanceRunId?: string | null }).qaAcceptanceRunId ?? null,
         successLedgerJournalId: consume.journalId,
         succeededAt: now,
         metadata: {
@@ -1113,6 +1129,13 @@ export async function spendWalletForParcelOrderWithinTransaction(
               cashDueZar: split.cashDueZar,
             }
           : {}),
+      });
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId: order.id,
+        type: "WAYBILL",
+        actorUserId: input.payer.id,
+        actorRole: "CUSTOMER",
+        sourceEventRef: `wallet-confirm:${publicReference}`,
       });
       const paidAlert: AdminAlertEventInput = {
         eventType: "PARCEL_ORDER_PAID",
@@ -1412,8 +1435,15 @@ export async function restoreConsumedParcelWalletWithinTransaction(
     };
   }
 
-  const platformHeld = await ensurePlatformCustomerFundsHeldAccountInTx(tx);
   const available = await ensureWalletAvailableAccountInTx(tx, input.owner);
+  const availWallet = await tx.ledgerAccount.findUnique({
+    where: { id: available.id },
+    select: { wallet: { select: { isQaIsolated: true } } },
+  });
+  const platformHeld = await ensurePlatformCustomerFundsHeldAccountInTx(
+    tx,
+    Boolean(availWallet?.wallet.isQaIsolated),
+  );
 
   const lockIds = [platformHeld.id, available.id].sort();
   await tx.$queryRaw<Array<{ id: string }>>(

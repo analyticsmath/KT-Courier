@@ -135,6 +135,7 @@ export const activePublicStoreDocumentSql = Prisma.sql`
     JOIN "StoreCheckoutCertification" cert ON cert."storeId" = store."id"
     WHERE store."id" = "StorefrontStoreDocument"."storeId"
       AND store."status" = 'ACTIVE'
+      AND store."isQaAcceptance" = false
       AND ${approvedCheckoutEvidence}
   )
 `;
@@ -148,6 +149,32 @@ export const activePublicProductDocumentSql = Prisma.sql`
     WHERE store."id" = "StorefrontProductDocument"."storeId"
       AND public_store."publicStatus" = 'ACTIVE'
       AND store."status" = 'ACTIVE'
+      AND store."isQaAcceptance" = false
+      AND ${approvedCheckoutEvidence}
+  )
+`;
+
+/** Private QA acceptance lane queries ONLY. Never expose to anonymous or ordinary public shoppers. */
+export const activeQaStoreDocumentSql = Prisma.sql`
+  EXISTS (
+    SELECT 1 FROM "Store" store
+    JOIN "StoreCheckoutCertification" cert ON cert."storeId" = store."id"
+    WHERE store."id" = "StorefrontStoreDocument"."storeId"
+      AND store."status" = 'ACTIVE'
+      AND store."isQaAcceptance" = true
+      AND ${approvedCheckoutEvidence}
+  )
+`;
+
+export const activeQaProductDocumentSql = Prisma.sql`
+  EXISTS (
+    SELECT 1 FROM "StorefrontStoreDocument" public_store
+    JOIN "Store" store ON store."id" = public_store."storeId"
+    JOIN "StoreCheckoutCertification" cert ON cert."storeId" = store."id"
+    WHERE store."id" = "StorefrontProductDocument"."storeId"
+      AND public_store."publicStatus" = 'ACTIVE'
+      AND store."status" = 'ACTIVE'
+      AND store."isQaAcceptance" = true
       AND ${approvedCheckoutEvidence}
   )
 `;

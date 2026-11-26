@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Button } from "@/components/ui/Button";
+import {
+  DEFAULT_STORE_OPERATING_HOURS,
+  STORE_WEEKDAYS,
+  type StoreOperatingHours,
+  type StoreWeekday,
+} from "@/lib/qa-acceptance/operating-hours";
 
 interface StoreProfileFormProps {
   defaultValues?: {
@@ -17,9 +23,20 @@ interface StoreProfileFormProps {
     city?: string;
     province?: string;
     postalCode?: string;
+    operatingHours?: StoreOperatingHours | null;
   };
   userEmail?: string;
 }
+
+const WEEKDAY_DISPLAY: Record<StoreWeekday, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
 
 export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormProps) {
   const router = useRouter();
@@ -35,6 +52,9 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
     province: defaultValues?.province ?? "",
     postalCode: defaultValues?.postalCode ?? "",
   });
+  const [operatingHours, setOperatingHours] = useState<StoreOperatingHours>(
+    () => defaultValues?.operatingHours ?? DEFAULT_STORE_OPERATING_HOURS,
+  );
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -45,6 +65,23 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
       setSaved(false);
       setFields((f) => ({ ...f, [key]: e.target.value }));
     };
+  }
+
+  function updateDaySchedule(
+    day: StoreWeekday,
+    patch: Partial<{ closed: boolean; open: string; close: string }>,
+  ) {
+    setSaved(false);
+    setOperatingHours((prev) => ({
+      ...prev,
+      days: {
+        ...prev.days,
+        [day]: {
+          ...prev.days[day],
+          ...patch,
+        },
+      },
+    }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -61,6 +98,7 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
       contactPerson: fields.contactPerson.trim(),
       businessPhone: fields.businessPhone.trim(),
       businessEmail: fields.businessEmail.trim(),
+      operatingHours,
     };
 
     try {
@@ -143,6 +181,67 @@ export function StoreProfileForm({ defaultValues, userEmail }: StoreProfileFormP
               onChange={set("businessEmail")}
               placeholder="store@example.com"
               error={errors.businessEmail}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-sm font-bold text-[--kt-text] mb-2">Trading &amp; collection hours ({operatingHours.timezone})</h2>
+        <p className="text-xs text-[--kt-text-soft] mb-4">Set open days, trading windows, and courier collection notes for storefront display.</p>
+        <div className="space-y-3 rounded-xl border border-[--kt-border] p-4">
+          {STORE_WEEKDAYS.map((day) => {
+            const slot = operatingHours.days[day];
+            return (
+              <div key={day} className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_90px_1fr_1fr] sm:items-center">
+                <span className="text-xs font-semibold text-[--kt-text]">{WEEKDAY_DISPLAY[day]}</span>
+                <label className="inline-flex items-center gap-2 text-xs text-[--kt-text-soft]">
+                  <input
+                    type="checkbox"
+                    checked={!slot.closed}
+                    onChange={(e) =>
+                      updateDaySchedule(day, {
+                        closed: !e.target.checked,
+                        ...(e.target.checked && (!slot.open || !slot.close)
+                          ? { open: "08:00", close: "17:00" }
+                          : {}),
+                      })
+                    }
+                  />
+                  Open
+                </label>
+                <Input
+                  id={`sp_hours_${day}_open`}
+                  type="time"
+                  aria-label={`${WEEKDAY_DISPLAY[day]} open time`}
+                  disabled={slot.closed}
+                  value={slot.closed ? "" : (slot.open ?? "08:00")}
+                  onChange={(e) => updateDaySchedule(day, { open: e.target.value })}
+                />
+                <Input
+                  id={`sp_hours_${day}_close`}
+                  type="time"
+                  aria-label={`${WEEKDAY_DISPLAY[day]} close time`}
+                  disabled={slot.closed}
+                  value={slot.closed ? "" : (slot.close ?? "17:00")}
+                  onChange={(e) => updateDaySchedule(day, { close: e.target.value })}
+                />
+              </div>
+            );
+          })}
+          <div className="pt-2">
+            <Label htmlFor="sp_collection_note">Collection window note</Label>
+            <Input
+              id="sp_collection_note"
+              value={operatingHours.collectionWindowNote ?? ""}
+              onChange={(e) => {
+                setSaved(false);
+                setOperatingHours((prev) => ({
+                  ...prev,
+                  collectionWindowNote: e.target.value,
+                }));
+              }}
+              placeholder="Courier collection Monday to Friday, 09:00 to 16:30 SAST."
             />
           </div>
         </div>

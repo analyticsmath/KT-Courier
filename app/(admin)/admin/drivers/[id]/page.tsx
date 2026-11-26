@@ -15,6 +15,7 @@ import { listDeliveryRegions } from "@/lib/services/admin-regions.service";
 import { prisma } from "@/lib/db/prisma";
 
 import { evaluateDriverReadiness } from "@/lib/services/driver-readiness.service";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
 
 export const metadata: Metadata = { title: "Driver record" };
 function driverTone(status: string) { return status === "ACTIVE" ? "success" as const : status === "PENDING_REVIEW" ? "warning" as const : status === "SUSPENDED" || status === "REJECTED" ? "danger" as const : "neutral" as const; }
@@ -30,6 +31,7 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
     hasPermission({ userId: user.id, role: user.role, permissionKey: "cod_operations.manage" }),
   ]);
   if (!driver) notFound();
+  const qaDriver = await prisma.driverProfile.findUnique({ where: { id }, select: { isQaAcceptance: true } });
   const fullConsole = canUpdate && canManageStatus && canManageRegions;
 
   if (fullConsole) {
@@ -87,6 +89,15 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
           title={driver.displayName ?? driver.driverCode}
           description={`Courier profile · ${driver.driverCode} · Vehicle, region and dispatch controls`}
         />
+          {qaDriver?.isQaAcceptance ? (
+            <QaSandboxBanner
+              persona="QA Acceptance Driver"
+              ctaHref="/admin/qa-acceptance"
+              ctaLabel="QA Control Center"
+              description="This driver profile is enrolled in the isolated QA acceptance lane. Only QA-scoped orders may be dispatched to this driver; earnings settle to an isolated non-withdrawable QA wallet."
+              nonWithdrawable
+            />
+          ) : null}
           <DriverDetailsConsole
             initialDriver={driver}
             allRegions={allRegions.map((region) => ({ id: region.id, name: region.name, slug: region.slug }))}
@@ -113,5 +124,5 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
     );
   }
 
-  return <ProtectedPageFrame><ProtectedPageHeader eyebrow="Driver administration" title={driver.driverCode} description="Read-only driver record. Controls are omitted unless the full canonical management permission set is present." /><ProtectedContentGrid contextRail={<OperationalPanel title="Operational state"><ProtectedStatus label={driver.status.replaceAll("_", " ")} tone={driverTone(driver.status)} /><p className="eo-panel-copy">Availability: {driver.availability.replaceAll("_", " ")}</p></OperationalPanel>}><div className="grid gap-5"><OperationalPanel title="Driver context"><dl className="eo-detail-grid"><div><dt>Display name</dt><dd>{driver.displayName ?? "Not recorded"}</dd></div><div><dt>Vehicle</dt><dd>{driver.vehicleType?.replaceAll("_", " ") ?? "Not recorded"}</dd></div><div><dt>Service regions</dt><dd>{driver.serviceRegions.map((region) => region.name).join(", ") || "Not assigned"}</dd></div><div><dt>Compliance summary</dt><dd>{driver.documents.length} recorded document{driver.documents.length === 1 ? "" : "s"}</dd></div></dl></OperationalPanel><OperationalPanel title="Access note" tone="subtle"><p className="eo-panel-copy">Exact location, performance rankings, earnings, background-check evidence, and private security data are not displayed in this record.</p></OperationalPanel></div></ProtectedContentGrid></ProtectedPageFrame>;
+  return <ProtectedPageFrame><ProtectedPageHeader eyebrow="Driver administration" title={driver.driverCode} description="Read-only driver record. Controls are omitted unless the full canonical management permission set is present." />{qaDriver?.isQaAcceptance ? <QaSandboxBanner persona="QA Acceptance Driver" ctaHref="/admin/qa-acceptance" ctaLabel="QA Control Center" nonWithdrawable /> : null}<ProtectedContentGrid contextRail={<OperationalPanel title="Operational state"><ProtectedStatus label={driver.status.replaceAll("_", " ")} tone={driverTone(driver.status)} /><p className="eo-panel-copy">Availability: {driver.availability.replaceAll("_", " ")}</p></OperationalPanel>}><div className="grid gap-5"><OperationalPanel title="Driver context"><dl className="eo-detail-grid"><div><dt>Display name</dt><dd>{driver.displayName ?? "Not recorded"}</dd></div><div><dt>Vehicle</dt><dd>{driver.vehicleType?.replaceAll("_", " ") ?? "Not recorded"}</dd></div><div><dt>Service regions</dt><dd>{driver.serviceRegions.map((region) => region.name).join(", ") || "Not assigned"}</dd></div><div><dt>Compliance summary</dt><dd>{driver.documents.length} recorded document{driver.documents.length === 1 ? "" : "s"}</dd></div></dl></OperationalPanel><OperationalPanel title="Access note" tone="subtle"><p className="eo-panel-copy">Exact location, performance rankings, earnings, background-check evidence, and private security data are not displayed in this record.</p></OperationalPanel></div></ProtectedContentGrid></ProtectedPageFrame>;
 }

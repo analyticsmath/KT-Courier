@@ -50,11 +50,11 @@ export const CreateOrderSchema = z
       .number({ error: "Parcel count must be a number" })
       .int("Parcel count must be a whole number")
       .min(1, "At least 1 parcel is required")
-      .max(20, "Maximum 20 parcels per order")
+      .max(1, "Each courier booking covers 1 parcel consignment so your quote matches dispatch and Proof of Delivery. Use Create similar for extra parcels.")
       .default(1),
     scheduledFor: z.string().datetime({ message: "Scheduled date must be a valid date-time" }).optional(),
     customerNote: z.string().trim().max(1000).optional(),
-    paymentMethod: z.enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"]).optional(),
+    paymentMethod: z.enum(["DIGITAL_ONLY", "DEPOSIT_PLUS_COD"]).optional(),
     // Non-monetary parcel facts are revalidated against the immutable quote.
     // Prices, rates, totals, and route values remain intentionally absent.
     vehicleClass: z.nativeEnum(VehicleType).optional(),

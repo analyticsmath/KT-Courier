@@ -13,11 +13,11 @@ export async function getStoreEarningSummaryForOwner(userId: string) {
 }
 
 export async function summarizeStoreEarnings(storeId?: string) {
-  const where: Prisma.StoreEarningWhereInput = { ...(storeId ? { storeId } : {}) };
+  const where: Prisma.StoreEarningWhereInput = { ...(storeId ? { storeId } : { isQaAcceptance: false }) };
   const periodStart = new Date(); periodStart.setUTCDate(1); periodStart.setUTCHours(0, 0, 0, 0);
   const [rows, payable, reconciliationCount, oldestUnreleasedRows, recentReleases, totalsByStore] = await Promise.all([
     prisma.storeEarning.findMany({ where, select: { amount: true, refundReservedAmount: true, refundedAmount: true, releasedAmount: true, reversedAmount: true, status: true, releaseEligibleAt: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "STORE_EARNINGS_PAYABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", ...(storeId ? { wallet: { ownerType: "STORE", ownerId: storeId } } : {}) }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "STORE_EARNINGS_PAYABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", ...(storeId ? { wallet: { ownerType: "STORE", ownerId: storeId } } : { wallet: { isQaIsolated: false } }) }, _sum: { currentBalance: true } }),
     prisma.storeEarningReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] }, ...(storeId ? { storeEarning: { storeId } } : {}) } }),
     prisma.storeEarning.findMany({ where: { ...where, status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] } }, select: { publicReference: true, amount: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 10 }),
     prisma.storeEarning.findMany({ where: { ...where, status: "RELEASED" }, select: { publicReference: true, releasedAmount: true, releasedAt: true }, orderBy: [{ releasedAt: "desc" }, { id: "desc" }], take: 10 }),

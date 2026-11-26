@@ -5,13 +5,38 @@ import { prisma } from "@/lib/db/prisma";
 import { listCustomerAddresses } from "@/lib/services/customer-addresses.service";
 import { MARKETPLACE_CHECKOUT_COOKIE, MARKETPLACE_ORDER_COOKIE, marketplaceGuestCookieOptions } from "@/lib/marketplace-checkout/tokens";
 import { evaluatePaystackEftReadiness } from "@/lib/payments/providers/paystack/paystack-config";
+import { recoverPendingPaystackPaymentForPaymentId } from "@/lib/services/paystack-verify-recovery.service";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ reference: string }> }) {
   try {
     const owner = await marketplaceOwner(request, "checkout");
     if (!owner) return marketplaceJson({ error: "Checkout access is required." }, 401);
     const { reference } = await context.params;
-    const checkout = await getMarketplaceCheckoutForOwner(reference, owner);
+    let checkout = await getMarketplaceCheckoutForOwner(reference, owner);
+    if (
+      (checkout.status === "PAYMENT_PENDING" || checkout.status === "PAYMENT_PREPARING") &&
+      typeof prisma.payment?.findUnique === "function"
+    ) {
+      const linkedPayment = await prisma.payment.findUnique({
+        where: { marketplaceCheckoutId: checkout.id },
+        select: { id: true, status: true },
+      });
+      if (linkedPayment && !["SUCCEEDED", "CANCELLED", "EXPIRED", "FAILED"].includes(linkedPayment.status)) {
+        const recovery = await recoverPendingPaystackPaymentForPaymentId(linkedPayment.id, {
+          trigger: "CHECKOUT_STATUS_POLL",
+        }).catch(() => null);
+        if (
+          recovery?.recovered ||
+          recovery?.outcome === "APPLIED_WEBHOOK" ||
+          recovery?.outcome === "SETTLED_VIA_VERIFY" ||
+          recovery?.outcome === "ALREADY_SETTLED" ||
+          recovery?.outcome === "FAILED_VIA_VERIFY" ||
+          recovery?.outcome === "RECONCILIATION_REQUIRED"
+        ) {
+          checkout = await getMarketplaceCheckoutForOwner(reference, owner);
+        }
+      }
+    }
     // The cart and checkout already belong to the authenticated customer.
     // Surface that SAME account's saved addresses, never a guest's or another
     // user's, so a parcel customer can use their address book in the shop.

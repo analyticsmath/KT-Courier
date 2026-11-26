@@ -74,6 +74,16 @@ const nextConfig: NextConfig = {
     return edgeRewrites(edgeOrigin);
   },
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/api/orders/[id]/documents/[type]": [
+      "./lib/shipment-documents/assets/**/*",
+      "./public/images/kt-couriers/brand/icon-192.png",
+    ],
+    "/api/marketplace-orders/[reference]/store-orders/[storeOrderReference]/pod": [
+      "./lib/shipment-documents/assets/**/*",
+      "./public/images/kt-couriers/brand/icon-192.png",
+    ],
+  },
   deploymentId: process.env.DEPLOYMENT_VERSION || undefined,
   typescript: {
     // Keep build-time checking enabled alongside the dedicated typecheck.
@@ -119,6 +129,28 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/api/orders/:id/documents/:type",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; base-uri 'none'; object-src 'self' blob:; frame-ancestors 'none'; form-action 'none'",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+      {
+        source: "/api/marketplace-orders/:reference/store-orders/:storeOrderReference/pod",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; base-uri 'none'; object-src 'self' blob:; frame-ancestors 'none'; form-action 'none'",
+          },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
       },
       {
         source: "/admin/:path*",

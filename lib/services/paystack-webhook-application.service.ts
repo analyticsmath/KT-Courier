@@ -48,6 +48,8 @@ import {
   type AdminAlertEventInput,
 } from "@/lib/notifications/admin-alert-dispatch.service";
 import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
+import { createQaPaystackClient, resolveQaAcceptanceLaneConfig, resolveQaPaystackWebhookSecrets } from "@/lib/qa-acceptance/config";
+import { ensureQaPlatformSandboxAccountsInTx } from "@/lib/qa-acceptance/ledger";
 
 export const VERIFIED_PAYMENT_EVENT_TYPE = "PAYMENT_SUCCEEDED_VERIFIED" as const;
 export const VERIFIED_PAYMENT_EVENT_SCHEMA_VERSION = 1 as const;
@@ -116,6 +118,7 @@ export type IngestPaystackWebhookInput = Readonly<{
   rawBody: string | Buffer;
   signature: string | null;
   modernSignature?: string | null;
+  modernWebhookSecrets?: readonly string[];
   sourceAddress?: string;
   secretKey?: string;
   environment?: PaymentProviderEnvironment;
@@ -254,14 +257,19 @@ async function appendVerifiedPaymentEventWithinTransaction(
 export async function ingestPaystackWebhook(
   input: IngestPaystackWebhookInput,
 ): Promise<IngestPaystackWebhookResult> {
-  const secretKey = input.secretKey ?? resolvePaystackWebhookSecretKey();
-  if (!secretKey) {
+  let secretKey = input.secretKey ?? resolvePaystackWebhookSecretKey();
+  const qaSecrets = resolveQaAcceptanceLaneConfig().eligible
+    ? resolveQaPaystackWebhookSecrets()
+    : [];
+  const qaWhsecSecrets = qaSecrets.filter((candidate) => candidate.startsWith("whsec_"));
+  const qaApiSecrets = qaSecrets.filter((candidate) => candidate.startsWith("sk_test_"));
+  if (!secretKey && qaSecrets.length === 0) {
     throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack secret key is not configured.");
   }
 
-  const environment: PaymentProviderEnvironment = input.environment
-    ?? (secretKey.startsWith("sk_live_") ? "PRODUCTION" : "SANDBOX");
-  const credentialVersion = secretKey.startsWith("sk_live_") ? "live-v1" : "test-v1";
+  let environment: PaymentProviderEnvironment = input.environment
+    ?? (secretKey?.startsWith("sk_live_") ? "PRODUCTION" : "SANDBOX");
+  let credentialVersion = secretKey?.startsWith("sk_live_") ? "live-v1" : "test-v1";
 
   // During signing-key migration, old events can carry only legacy HMAC.
   // When an explicitly configured signing secret and modern header both exist,
@@ -270,10 +278,46 @@ export async function ingestPaystackWebhook(
     process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET,
     process.env.PAYSTACK_WEBHOOK_SIGNING_SECRET_PREVIOUS,
   ].filter((value): value is string => typeof value === "string" && value.startsWith("whsec_"));
-  const verifyModern = Boolean(input.modernSignature && signingSecrets.length);
-  const signatureValid = verifyModern
-    ? verifyPaystackWebhookSecretSignature(input.rawBody, input.modernSignature, signingSecrets)
-    : verifyPaystackSignature(input.rawBody, input.signature, secretKey);
+  const explicitModernSecrets = (input.modernWebhookSecrets ?? []).filter((value) =>
+    value.startsWith("whsec_"),
+  );
+  const primaryModernSecrets = explicitModernSecrets.length
+    ? explicitModernSecrets
+    : input.environment === "SANDBOX" && qaWhsecSecrets.length > 0
+      ? qaWhsecSecrets
+      : signingSecrets;
+  const verifyModern = Boolean(input.modernSignature && primaryModernSecrets.length);
+  let signatureValid = secretKey
+    ? (verifyModern
+      ? verifyPaystackWebhookSecretSignature(input.rawBody, input.modernSignature, primaryModernSecrets)
+      : verifyPaystackSignature(input.rawBody, input.signature, secretKey))
+    : false;
+  if (!signatureValid && qaSecrets.length > 0) {
+    if (
+      input.modernSignature &&
+      qaWhsecSecrets.length > 0 &&
+      verifyPaystackWebhookSecretSignature(input.rawBody, input.modernSignature, qaWhsecSecrets)
+    ) {
+      signatureValid = true;
+      secretKey = qaApiSecrets[0] ?? secretKey;
+      environment = "SANDBOX";
+      credentialVersion = "test-v1";
+    } else if (
+      qaApiSecrets.length > 0 &&
+      input.signature &&
+      !(input.environment === "SANDBOX" && verifyModern)
+    ) {
+      for (const candidate of qaApiSecrets) {
+        if (verifyPaystackSignature(input.rawBody, input.signature, candidate)) {
+          signatureValid = true;
+          secretKey = candidate;
+          environment = "SANDBOX";
+          credentialVersion = "test-v1";
+          break;
+        }
+      }
+    }
+  }
   if (!signatureValid) {
     throw new PaymentError("PAYSTACK_SIGNATURE_INVALID", "Paystack signature verification failed.");
   }
@@ -391,10 +435,21 @@ export async function applyPaystackWebhookEvent(
         : null;
   }
 
-  const secretKey = input.secretKey ?? (event?.environment
+  const storedOrLiveSecret = event?.environment
     ? resolvePaystackStoredEventSecretKey(event.environment, event.signatureVerified === true)
-    : resolvePaystackWebhookSecretKey());
+    : resolvePaystackWebhookSecretKey();
+  const qaFallbackSecret =
+    !input.secretKey && !storedOrLiveSecret && event?.environment === "SANDBOX" && resolveQaAcceptanceLaneConfig().eligible
+      ? (resolveQaPaystackWebhookSecrets().find((candidate) => candidate.startsWith("sk_test_")) ?? null)
+      : null;
+  const secretKey = input.secretKey ?? storedOrLiveSecret ?? qaFallbackSecret;
   if (!secretKey) throw new PaymentError("PAYSTACK_NOT_CONFIGURED", "Paystack credentials for this verified event environment are unavailable.");
+
+  const effectiveClientOverride =
+    input.clientOverride ??
+    (qaFallbackSecret || (event?.environment === "SANDBOX" && !storedOrLiveSecret && resolveQaAcceptanceLaneConfig().eligible)
+      ? createQaPaystackClient()
+      : undefined);
 
   const payload = (input.rawPayload ?? (event?.safePayloadSnapshot as unknown as PaystackWebhookPayload)) as PaystackWebhookPayload | undefined;
   if (!payload || payload.event !== "charge.success" || !payload.data) {
@@ -459,7 +514,7 @@ export async function applyPaystackWebhookEvent(
   const payment = attempt.payment;
 
   // Secondary confirmation via Verify API
-  const client = input.clientOverride ?? new PaystackClient({ secretKey });
+  const client = effectiveClientOverride ?? new PaystackClient({ secretKey });
   let verifiedTx: Awaited<ReturnType<typeof client.verifyTransaction>>;
   try {
     verifiedTx = await client.verifyTransaction(reference);
@@ -758,18 +813,26 @@ export async function applyPaystackWebhookEvent(
       }
 
       // Ledger posting: PLATFORM-CASH-CLEARING-ZAR (Debit) and PLATFORM-CUSTOMER-FUNDS-HELD-ZAR (Credit)
-      const accounts = await tx.ledgerAccount.findMany({
-        where: {
-          wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
-          code: { in: ["PLATFORM-CASH-CLEARING-ZAR", "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"] },
-          currency: "ZAR",
-          status: "ACTIVE",
-        },
-        select: { id: true, code: true, purpose: true, category: true },
-      });
+      let cash: { id: string; code: string; purpose: string; category: string } | undefined;
+      let held: { id: string; code: string; purpose: string; category: string } | undefined;
+      if (freshPayment.isQaAcceptance) {
+        const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+        cash = sandbox.cashClearing;
+        held = sandbox.fundsHeld;
+      } else {
+        const accounts = await tx.ledgerAccount.findMany({
+          where: {
+            wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
+            code: { in: ["PLATFORM-CASH-CLEARING-ZAR", "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"] },
+            currency: "ZAR",
+            status: "ACTIVE",
+          },
+          select: { id: true, code: true, purpose: true, category: true },
+        });
 
-      const cash = accounts.find((a) => a.code === "PLATFORM-CASH-CLEARING-ZAR" && a.purpose === "CASH_CLEARING" && a.category === "ASSET");
-      const held = accounts.find((a) => a.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" && a.purpose === "HELD" && a.category === "LIABILITY");
+        cash = accounts.find((a) => a.code === "PLATFORM-CASH-CLEARING-ZAR" && a.purpose === "CASH_CLEARING" && a.category === "ASSET");
+        held = accounts.find((a) => a.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" && a.purpose === "HELD" && a.category === "LIABILITY");
+      }
 
       if (!cash || !held) {
         throw new PaymentError("PAYMENT_PROVIDER_UNAVAILABLE", "Required payment receipt ledger accounts are unavailable.", true);
@@ -1152,8 +1215,10 @@ export async function applyPaystackWebhookEvent(
 
 export async function processPaystackWebhook(
   input: Readonly<{
-    rawBody: string;
+    rawBody: Buffer | string;
     signature: string | null;
+    modernSignature?: string | null;
+    modernWebhookSecrets?: readonly string[];
     sourceAddress?: string;
     secretKey?: string;
     environment?: PaymentProviderEnvironment;

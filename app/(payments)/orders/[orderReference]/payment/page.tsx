@@ -8,6 +8,8 @@ import {
 } from "@/components/protected-v2";
 import { PaymentCheckoutClient } from "@/components/payments/PaymentCheckoutClient";
 import { requireAuth } from "@/lib/auth/guards";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { buildQaSandboxProviderReadiness } from "@/lib/qa-acceptance/config";
 import { listPaymentProviders } from "@/lib/services/payment-query.service";
 import { getCustomerPaymentPage } from "@/lib/services/payment-customer-query.service";
 import { CustomerPaymentPageParamsSchema } from "@/lib/validation/payments";
@@ -28,10 +30,27 @@ export default async function OrderPaymentPage({
   if (!parsed.success) notFound();
   const page = await getCustomerPaymentPage(user, parsed.data.orderReference);
   if (!page) notFound();
-  const providerConfig = listPaymentProviders().data.find(
-    (entry) => entry.code === "PAYSTACK",
-  );
+  const qaCtx = page.isQaAcceptance
+    ? await resolveQaAcceptanceSessionContext(user.id).catch(() => null)
+    : null;
+  const providerConfig = page.isQaAcceptance
+    ? (qaCtx
+        ? buildQaSandboxProviderReadiness().find((entry) => entry.code === "PAYSTACK")
+        : {
+            code: "PAYSTACK" as const,
+            environment: "sandbox" as const,
+            blockReason: "QA_ACCEPTANCE_INACTIVE",
+            checkoutReadiness: { ready: false },
+            eftReadiness: { ready: false },
+          })
+    : listPaymentProviders().data.find((entry) => entry.code === "PAYSTACK");
   if (!providerConfig) notFound();
+
+  const effectiveCanCheckout = page.isQaAcceptance && !qaCtx ? false : page.canCheckout;
+  const effectiveBlockReason =
+    page.isQaAcceptance && !qaCtx
+      ? "QA sandbox payment is restricted to active enrolled QA acceptance accounts."
+      : page.checkoutBlockReason;
 
   return (
     <ProtectedPageFrame className="max-w-2xl">
@@ -73,9 +92,9 @@ export default async function OrderPaymentPage({
             <dd className="mt-1">Paystack</dd>
           </div>
         </dl>
-        {page.canCheckout === false ? (
+        {effectiveCanCheckout === false ? (
           <p role="status" className="text-sm">
-            {page.checkoutBlockReason}
+            {effectiveBlockReason}
           </p>
         ) : (
           <PaymentCheckoutClient

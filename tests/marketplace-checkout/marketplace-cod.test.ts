@@ -36,8 +36,8 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
     });
   });
 
-  describe("FULL_COD Mode", () => {
-    it("allocates 0 to digital and full total to cashRequired", async () => {
+  describe("FULL_COD Mode (Retired)", () => {
+    it("rejects FULL_COD under the enforced 50/50 COD policy", async () => {
       mockPrisma.paymentMethodPolicy.findMany.mockResolvedValueOnce([
         {
           ...basePolicy,
@@ -48,16 +48,12 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
         },
       ]);
 
-      const result = await resolvePaymentBreakdown({
-        storeId: "approved-store",
-        authoritativeTotal: "450.00",
-      });
-
-      expect(result.mode).toBe("FULL_COD");
-      expect(result.authoritativeTotal).toBe("450.00");
-      expect(result.digitalRequired).toBe("0.00");
-      expect(result.cashRequired).toBe("450.00");
-      expect(result.cashOutstanding).toBe("450.00");
+      await expect(
+        resolvePaymentBreakdown({
+          storeId: "approved-store",
+          authoritativeTotal: "450.00",
+        }),
+      ).rejects.toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
     });
   });
 
@@ -113,17 +109,17 @@ describe("Phase 1 Acceptance: Marketplace Cash-On-Delivery (COD) & Breakdown Pol
       mockPrisma.paymentMethodPolicy.findMany.mockResolvedValue([
         {
           ...basePolicy,
-          mode: "FULL_COD",
+          mode: "DEPOSIT_PLUS_COD",
           maximumCodAmount: new Prisma.Decimal("500.00"),
           depositAmount: null,
-          depositPercent: null,
+          depositPercent: new Prisma.Decimal("0.5"),
         },
       ]);
 
       await expect(
         resolvePaymentBreakdown({
           storeId: "approved-store",
-          authoritativeTotal: "500.01", // Exceeds 500 limit
+          authoritativeTotal: "1000.02", // Cash portion 500.01 exceeds 500 limit
         }),
       ).rejects.toMatchObject({ code: "COD_LIMIT_EXCEEDED" });
     });

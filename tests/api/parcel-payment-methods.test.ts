@@ -34,15 +34,14 @@ beforeEach(() => {
   mocks.quote.mockResolvedValue(quote);
 });
 describe("parcel booking payment choices", () => {
-  it("returns both payment choices with exact R0 upfront when full COD is authorized", async () => {
+  it("refuses retired FULL_COD and returns DIGITAL_ONLY only when breakdown resolves FULL_COD", async () => {
     mocks.breakdown.mockResolvedValue({ mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "205.85" });
     const result = await read();
     expect(result.status).toBe(200);
     expect(result.body.methods).toEqual([
       { mode: "DIGITAL_ONLY", digitalRequired: "205.85", cashRequired: "0.00" },
-      { mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "205.85" },
     ]);
-    expect(result.body.cod).toMatchObject({ eligible: true, amountDueAtDelivery: "205.85" });
+    expect(result.body.cod).toMatchObject({ eligible: false });
     expect(mocks.breakdown).toHaveBeenCalledWith(expect.objectContaining({ storeId: null, orderType: "PARCEL_DOCUMENT" }));
     expect(mocks.breakdown).toHaveBeenCalledWith(expect.objectContaining({
       originLocality: { city: "Johannesburg", suburb: "Hillbrow", province: "Gauteng" },

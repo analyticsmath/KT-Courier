@@ -2,6 +2,7 @@
 import { DriverDeliveryEvidencePanel } from "@/components/driver/DriverDeliveryEvidencePanel";
 import { DriverLiveLocationSharing } from "@/components/driver/DriverLiveLocationSharing";
 import { Conversations } from "@/components/forms/Conversations";
+import { downloadAuthorizedPdfBlob } from "@/lib/shipment-documents/client-download";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -151,6 +152,25 @@ export default function DriverAssignmentDetailPage() {
   const [pickupOtpCode, setPickupOtpCode] = useState("");
   const [pickupOtpSending, setPickupOtpSending] = useState(false);
   const [pickupOtpFeedback, setPickupOtpFeedback] = useState("");
+  const [downloadingDoc, setDownloadingDoc] = useState<"waybill" | "pod" | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
+
+  async function handleDriverPdfDownload(kind: "waybill" | "pod", orderId: string, orderNumber: string) {
+    setDownloadingDoc(kind);
+    setDocError(null);
+    try {
+      const fileLabel = kind === "waybill" ? "Waybill" : "POD";
+      const result = await downloadAuthorizedPdfBlob(
+        `/api/orders/${encodeURIComponent(orderId)}/documents/${kind}`,
+        `KT-Couriers-${fileLabel}-${orderNumber}.pdf`,
+      );
+      if (!result.ok) {
+        setDocError(result.message);
+      }
+    } finally {
+      setDownloadingDoc(null);
+    }
+  }
 
   // Fail pickup form
   const [failReason, setFailReason] = useState("");
@@ -624,7 +644,7 @@ export default function DriverAssignmentDetailPage() {
   }));
 
   const isDeliveryStatus = ["PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus);
-  const isDelivered = assignment.orderStatus === "DELIVERED";
+  const isDelivered = ["DELIVERED", "COMPLETED"].includes(assignment.orderStatus);
 
   return (
     <div className={`${styles.scope} space-y-6 max-w-2xl`}>
@@ -1146,11 +1166,74 @@ export default function DriverAssignmentDetailPage() {
       {/* Delivered state */}
       {isAccepted && isDelivered && (
         <div className="p-4 rounded-2xl bg-[var(--kt-mint-wash)] border border-[var(--kt-teal-emerald)]/20">
-          <p className="text-sm font-semibold text-[var(--kt-teal-emerald)]">Delivery Completed</p>
-          <p className="text-xs text-[var(--kt-text-muted)] mt-1">
-            This parcel has been successfully delivered and the delivery is confirmed.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--kt-teal-emerald)]">Delivery Completed</p>
+              <p className="text-xs text-[var(--kt-text-muted)] mt-1">
+                This parcel has been successfully delivered and the delivery is confirmed.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={downloadingDoc !== null}
+                onClick={() => void handleDriverPdfDownload("pod", assignment.orderId, assignment.orderNumber)}
+                className="inline-flex min-h-9 items-center rounded-lg bg-[var(--kt-ink-navy)] px-3 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {downloadingDoc === "pod" ? "Downloading…" : "Download POD PDF"}
+              </button>
+              <button
+                type="button"
+                disabled={downloadingDoc !== null}
+                onClick={() => void handleDriverPdfDownload("waybill", assignment.orderId, assignment.orderNumber)}
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--kt-soft-border)] bg-white px-3 text-xs font-semibold text-[var(--kt-ink-navy)] disabled:opacity-60"
+              >
+                {downloadingDoc === "waybill" ? "Downloading…" : "Download Waybill PDF"}
+              </button>
+            </div>
+            {docError && (
+              <p role="alert" className="mt-2 w-full text-xs font-semibold text-[var(--kt-signal-red)]">
+                {docError}
+              </p>
+            )}
+          </div>
         </div>
+      )}
+
+      {isAccepted && !isDelivered && (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold text-[var(--kt-ink-navy)]">Operational Waybill</h2>
+              <p className="text-xs text-[var(--kt-text-muted)] mt-0.5">
+                Official A4 shipment waybill with collection and destination instructions for this accepted assignment.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={downloadingDoc !== null}
+                onClick={() => void handleDriverPdfDownload("waybill", assignment.orderId, assignment.orderNumber)}
+                className="inline-flex min-h-9 items-center rounded-lg bg-[var(--kt-brand-blue)] px-3 text-xs font-bold text-white disabled:opacity-60"
+              >
+                {downloadingDoc === "waybill" ? "Downloading…" : "Download Waybill PDF"}
+              </button>
+              <a
+                href={`/api/orders/${encodeURIComponent(assignment.orderId)}/documents/waybill?disposition=inline`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-9 items-center rounded-lg border border-[var(--kt-soft-border)] bg-white px-3 text-xs font-semibold text-[var(--kt-ink-navy)]"
+              >
+                Print A4 Waybill
+              </a>
+            </div>
+            {docError && (
+              <p role="alert" className="mt-2 w-full text-xs font-semibold text-[var(--kt-signal-red)]">
+                {docError}
+              </p>
+            )}
+          </div>
+        </Card>
       )}
 
       {isAccepted && isDeliveryStatus && (

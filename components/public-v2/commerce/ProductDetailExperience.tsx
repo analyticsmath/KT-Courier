@@ -44,6 +44,7 @@ interface ProductDetailExperienceProps {
   selectedVariantReference?: string;
   modifierGroupsByOffer?: Record<string, StorefrontModifierGroupDTO[]>;
   categoryHierarchy?: readonly CommerceCategoryNode[];
+  qaMode?: boolean;
 }
 
 export function ProductDetailExperience({
@@ -55,6 +56,7 @@ export function ProductDetailExperience({
   selectedVariantReference,
   modifierGroupsByOffer,
   categoryHierarchy = [],
+  qaMode = false,
 }: ProductDetailExperienceProps) {
   const router = useRouter();
 
@@ -68,8 +70,10 @@ export function ProductDetailExperience({
       ? [product.primaryMedia]
       : [];
 
-  const categoryHref = marketplaceCategoryHref(product.categoryPath);
-  const storeHref = store ? marketplaceStoreHref(store.slug) : null;
+  const categoryHref = qaMode ? "/shop/qa" : marketplaceCategoryHref(product.categoryPath);
+  const storeHref = store
+    ? (qaMode ? `/shop/qa/stores/${encodeURIComponent(store.slug)}` : marketplaceStoreHref(store.slug))
+    : null;
 
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
@@ -428,11 +432,17 @@ export function ProductDetailExperience({
     }
   };
 
-  const breadcrumbItems = [
-    { label: "Shop", href: marketplaceHref() },
-    ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })),
-    { label: product.title },
-  ];
+  const breadcrumbItems = qaMode
+    ? [
+        { label: "QA Storefront", href: "/shop/qa" },
+        ...(store ? [{ label: store.name, href: `/shop/qa/stores/${encodeURIComponent(store.slug)}` }] : []),
+        { label: product.title },
+      ]
+    : [
+        { label: "Shop", href: marketplaceHref() },
+        ...categoryHierarchy.map((item) => ({ label: item.name, href: item.href })),
+        { label: product.title },
+      ];
 
   return (
     <div className={cn(styles.commerceInner, styles.pdpExperience)}>

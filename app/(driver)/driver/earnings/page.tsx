@@ -14,19 +14,31 @@ import { getDriverEarningSummaryForOwner } from "@/lib/services/driver-earning-s
 import type { DriverEarningListItemDto } from "@/lib/dto/driver-earning.dto";
 import { UserRole } from "@/types/db";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "Driver earnings" };
 
 export default async function DriverEarningsPage() {
   const user = await requireRole(UserRole.DRIVER);
-  const result = await Promise.all([getDriverEarningSummaryForOwner(user.id), listDriverEarningsForOwner(user.id, { page: 1, pageSize: 50 })]).catch((error: unknown) => {
-    if (error instanceof DriverEarningError && error.code === "DRIVER_EARNING_FORBIDDEN") return null;
-    throw error;
-  });
+  const [result, qaContext] = await Promise.all([
+    Promise.all([getDriverEarningSummaryForOwner(user.id), listDriverEarningsForOwner(user.id, { page: 1, pageSize: 50 })]).catch((error: unknown) => {
+      if (error instanceof DriverEarningError && error.code === "DRIVER_EARNING_FORBIDDEN") return null;
+      throw error;
+    }),
+    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
+  ]);
   if (!result) return <DriverEarningsUnavailable />;
   const [summary, earnings] = result;
   return <div className={styles.scope}><ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Driver account" title="Earnings" description="Review your payable balance, released funds and delivery earnings." />
+    {qaContext ? (
+      <QaSandboxBanner
+        persona="QA Driver Earnings"
+        description="Isolated QA acceptance driver earnings only. Payouts and live transfers remain blocked for QA-isolated driver wallets."
+        nonWithdrawable
+      />
+    ) : null}
     <div className="space-y-6"><div className="eo-driver-metric-grid" aria-label="Driver earnings summary"><MetricTile tone="blue" label="Payable balance" value={`ZAR ${summary.payableBalance}`} description="Current source-backed balance" /><MetricTile tone="citrus" label="Released" value={`ZAR ${summary.releasedToOwnerWithdrawable}`} description="Released to the owner balance" /><MetricTile label="Refund reserved" value={`ZAR ${summary.refundReserved}`} description="Reserved amount in the source projection" /></div>
       <OperationalPanel accent="blue" title="Earning records" description="Financial execution and withdrawals are not exposed on this driver route while their existing production controls remain incomplete." padding="compact">{!earnings.data.length ? <ProtectedState kind="empty" title="No earning records" description="A record appears here only after the canonical earning service creates it." illustration={<SecureLedgerIllustration className="h-24 w-32" />} /> : <ol className="eo-driver-record-list" aria-label="Driver earning records">{earnings.data.map((earning: DriverEarningListItemDto) => <li key={earning.publicReference} className="eo-driver-record"><Link className="eo-driver-record__link" href={`/driver/earnings/${earning.publicReference}`}><div className="eo-driver-record__header"><div><p className="eo-driver-record__reference">{earning.publicReference}</p><p className="eo-driver-record__route">Assignment {earning.assignmentPublicReference}</p></div><ProtectedStatus label={earning.status.replaceAll("_", " ")} tone="neutral" /></div><p className="eo-driver-record__facts"><span>Available: ZAR {earning.availablePayableAmount}</span><span>Service completed: {earning.serviceCompletedAt}</span></p></Link></li>)}</ol>}</OperationalPanel>
     </div>

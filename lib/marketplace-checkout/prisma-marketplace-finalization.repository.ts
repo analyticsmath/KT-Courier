@@ -119,7 +119,34 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
     },
     createMarketplaceOrder: async ({ checkout: paid, paymentId, paymentReference, guestConfirmationHash }) => {
       void paymentReference;
-      const created = await db.marketplaceOrder.create({ data: { publicReference: reference("morder"), checkoutId: paid.id, paymentId, customerUserId: paid.customerUserId, guestConfirmationHash, currency: "ZAR", merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)), modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)), deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)), promotionDiscount: paid.promotionDiscount ?? "0.00", grandTotal: paid.grandTotal, digitalRequired: paid.digitalRequired ?? paid.grandTotal, cashRequired: paid.cashRequired ?? "0.00", commercialFingerprint: paid.commercialFingerprint, status: "CONFIRMED" } });
+      const checkoutQa =
+        typeof db.marketplaceCheckout?.findUnique === "function"
+          ? await db.marketplaceCheckout.findUnique({
+              where: { id: paid.id },
+              select: { isQaAcceptance: true, qaAcceptanceRunId: true },
+            })
+          : null;
+      const created = await db.marketplaceOrder.create({
+        data: {
+          publicReference: reference("morder"),
+          checkoutId: paid.id,
+          paymentId,
+          customerUserId: paid.customerUserId,
+          guestConfirmationHash,
+          currency: "ZAR",
+          merchandiseSubtotal: total(paid.storeGroups.map((group) => group.merchandiseSubtotal)),
+          modifierSubtotal: total(paid.storeGroups.map((group) => group.modifierSubtotal)),
+          deliveryFeeTotal: total(paid.storeGroups.map((group) => group.deliveryFee)),
+          promotionDiscount: paid.promotionDiscount ?? "0.00",
+          grandTotal: paid.grandTotal,
+          digitalRequired: paid.digitalRequired ?? paid.grandTotal,
+          cashRequired: paid.cashRequired ?? "0.00",
+          commercialFingerprint: paid.commercialFingerprint,
+          status: "CONFIRMED",
+          isQaAcceptance: Boolean(checkoutQa?.isQaAcceptance),
+          qaAcceptanceRunId: checkoutQa?.qaAcceptanceRunId ?? null,
+        },
+      });
       await db.payment.update({ where: { id: paymentId }, data: { marketplaceOrderId: created.id } });
       const promoDiscount = new Prisma.Decimal(paid.promotionDiscount ?? "0.00");
       if (promoDiscount.greaterThan(0)) {
@@ -170,7 +197,30 @@ export function createPrismaMarketplaceFinalizationRepository(database: any = pr
     },
     createMarketplaceStoreOrder: async ({ marketplaceOrderId, group }) => {
       if (!group.checkoutStoreGroupId) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Finalization is missing the immutable checkout store-group identity.");
-      const created = await db.marketplaceStoreOrder.create({ data: { publicReference: reference("msorder"), marketplaceOrderId, checkoutStoreGroupId: group.checkoutStoreGroupId, storeId: group.storeId, status: "PENDING_SETTLEMENT", currency: "ZAR", merchandiseSubtotal: group.merchandiseSubtotal, modifierSubtotal: group.modifierSubtotal, deliveryFee: group.deliveryFee, groupTotal: group.groupTotal, sellerIdentityEvidence: group.sellerIdentityEvidence, taxEvidence: group.taxEvidence, termsReference: group.termsReference, refundPolicyReference: group.refundPolicyReference } });
+      const parentOrder = await db.marketplaceOrder.findUnique({
+        where: { id: marketplaceOrderId },
+        select: { isQaAcceptance: true, qaAcceptanceRunId: true },
+      });
+      const created = await db.marketplaceStoreOrder.create({
+        data: {
+          publicReference: reference("msorder"),
+          marketplaceOrderId,
+          checkoutStoreGroupId: group.checkoutStoreGroupId,
+          storeId: group.storeId,
+          status: "PENDING_SETTLEMENT",
+          currency: "ZAR",
+          merchandiseSubtotal: group.merchandiseSubtotal,
+          modifierSubtotal: group.modifierSubtotal,
+          deliveryFee: group.deliveryFee,
+          groupTotal: group.groupTotal,
+          sellerIdentityEvidence: group.sellerIdentityEvidence,
+          taxEvidence: group.taxEvidence,
+          termsReference: group.termsReference,
+          refundPolicyReference: group.refundPolicyReference,
+          isQaAcceptance: Boolean(parentOrder?.isQaAcceptance),
+          qaAcceptanceRunId: parentOrder?.qaAcceptanceRunId ?? null,
+        },
+      });
       return { id: created.id, publicReference: created.publicReference };
     },
     createOrderLineEvidence: async ({ marketplaceStoreOrderId, line: evidence }) => {

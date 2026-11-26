@@ -6,6 +6,7 @@ import { assertMarketplacePaymentPlanTotals } from "./payment-plan";
 import { prisma } from "@/lib/db/prisma";
 import { createTransactionContext } from "@/lib/db/transaction-context";
 import { accrueCommissionInTransaction } from "@/lib/services/commission-accrual.service";
+import { ensureStoreEarningPayableAccount } from "@/lib/services/store-earning-account.service";
 import { accrueStoreEarningInTransaction } from "@/lib/services/store-earning-accrual.service";
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import type { CanonicalMarketplaceSettlement, MarketplaceSettlementRepository, SettlementOperationReceipt } from "@/lib/marketplace-checkout/settlement.service";
@@ -63,8 +64,8 @@ export function createPrismaMarketplaceSettlementRepository(database: any = pris
       const cod = row.deliveryBridge?.courierOrder?.cashOnDelivery;
       if (cod) await client.$queryRaw(Prisma.sql`SELECT "id" FROM "CashOnDelivery" WHERE "id" = ${cod.id} FOR UPDATE`);
       if (cod?.status === "RECONCILED" && cod.remittanceDiscrepancy.isZero()) await assertMarketplaceCashJournals(client, cod);
-      const wallet = await client.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: "STORE", ownerId: row.storeId, currency: "ZAR" } }, select: { id: true } });
-      if (!wallet) throw new MarketplaceCheckoutError("CHECKOUT_REVIEW_REQUIRED", "Canonical store wallet evidence is missing.");
+      const provisioned = await ensureStoreEarningPayableAccount(row.storeId, client);
+      const wallet = provisioned.wallet;
       return Object.freeze({
         digitalRequired: money(row.marketplaceOrder.digitalRequired), cashRequired: money(row.marketplaceOrder.cashRequired),
         cashFunding: cod ? { status: cod.status, paymentId: cod.paymentId, authoritativePayable: money(cod.authoritativePayable), digitalRequired: money(cod.digitalRequired), digitalPaid: money(cod.digitalPaid), cashObligation: money(cod.cashObligation), cashCollected: money(cod.cashCollected), cashReconciled: money(cod.cashReconciled), remittanceDiscrepancy: money(cod.remittanceDiscrepancy), collectionJournalId: cod.collectionJournalId, reconciliationJournalId: cod.reconciliationJournalId } : null,

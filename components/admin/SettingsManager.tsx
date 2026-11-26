@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { SystemSettingType } from "@/types/db";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -143,16 +144,37 @@ interface SettingsManagerProps {
 }
 
 export function SettingsManager({ settings }: SettingsManagerProps) {
+  const companyBanner = (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+      <div>
+        <p className="text-sm font-bold text-slate-900">Company issuer identity &amp; PDF letterhead</p>
+        <p className="text-xs text-slate-600">
+          Manage the active registered legal name, CIPC registration, VAT status, and support contacts captured on Waybills and POD PDFs.
+        </p>
+      </div>
+      <Link
+        href="/admin/company-profile"
+        className="inline-flex min-h-10 items-center rounded-lg bg-[--kt-brand-blue] px-4 text-xs font-bold text-white"
+      >
+        Manage Company Profile
+      </Link>
+    </div>
+  );
+
   if (settings.length === 0) {
     return (
-      <p className="text-sm text-[--kt-text-muted]">
-        No system settings have been configured yet.
-      </p>
+      <div className="space-y-4">
+        {companyBanner}
+        <p className="text-sm text-[--kt-text-muted]">
+          No system settings have been configured yet.
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {companyBanner}
       {settings.map((setting) => (
         <SettingRow key={setting.key} setting={setting} />
       ))}

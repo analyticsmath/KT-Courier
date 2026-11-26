@@ -1,7 +1,12 @@
 import { selectFeaturedMarketplaceCategories } from "@/lib/public-marketplace/featured-categories";
 import { matchesStorefrontCategory } from "@/lib/storefront/storefront-category-discovery";
 import { Prisma } from "@prisma/client";
-import { activePublicStoreDocumentSql, activePublicProductDocumentSql } from "@/lib/storefront/sql-store-publication";
+import {
+  activePublicStoreDocumentSql,
+  activePublicProductDocumentSql,
+  activeQaStoreDocumentSql,
+} from "@/lib/storefront/sql-store-publication";
+import { formatStoreOperatingHoursSummary } from "@/lib/qa-acceptance/operating-hours";
 import { prisma } from "@/lib/db/prisma";
 import { loadStorefrontDocuments, PostgresStorefrontSearchAdapter } from "@/lib/storefront/search/storefront-search-adapter";
 import { StorefrontSearchService } from "@/lib/storefront/search/storefront-search.service";
@@ -310,4 +315,66 @@ export async function getStorefrontCollection(slug: string) {
   const validItems = items.filter(Boolean);
   const coverMediaReference = validItems.map((item) => item?.product?.primaryMedia?.publicReference ?? item?.variant?.primaryMedia?.publicReference ?? item?.category?.imageReference ?? item?.store?.heroMediaReference ?? item?.store?.logoMediaReference).find((reference): reference is string => Boolean(reference));
   return { reference: row.publicReference, slug: row.slug, name: row.name, ...(row.description ? { description: row.description } : {}), type: row.collectionType, indexable: row.seoIndexable, itemCount: validItems.length, ...(coverMediaReference ? { coverMediaReference } : {}), items: validItems };
+}
+
+export async function listQaStorefrontStores() {
+  type QaStoreRow = { storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publicCategoryCodes: unknown; fulfilmentModes: unknown; serviceAreaReferences: unknown; publishedOfferCount: number };
+  const rows = await prisma.$queryRaw<QaStoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} ORDER BY "name" ASC, "slug" ASC LIMIT 24`);
+  if (!rows.length) return [];
+  const storeMeta = await prisma.store.findMany({
+    where: { slug: { in: rows.map((r) => r.slug) }, isQaAcceptance: true },
+    select: { slug: true, operatingHours: true },
+  });
+  const hoursBySlug = new Map(storeMeta.map((s) => [s.slug, s.operatingHours]));
+  return rows.map((row) => {
+    const rawHours = hoursBySlug.get(row.slug);
+    const hours = formatStoreOperatingHoursSummary(rawHours);
+    return {
+      reference: row.storePublicReference,
+      slug: row.slug,
+      name: row.name,
+      ...(row.shortDescription ? { description: row.shortDescription } : {}),
+      ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}),
+      ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}),
+      publishedOfferCount: row.publishedOfferCount,
+      scheduleStatus: publicStoreScheduleStatus(rawHours),
+      operatingHoursSummary: hours.summary,
+    };
+  });
+}
+
+export async function getQaStorefrontStore(slug: string) {
+  type QaStoreRow = { storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publicCategoryCodes: unknown; fulfilmentModes: unknown; serviceAreaReferences: unknown; publishedOfferCount: number };
+  const rows = await prisma.$queryRaw<QaStoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} AND "slug" = ${slug} LIMIT 1`);
+  const row = rows[0];
+  if (!row) return null;
+  const [storeRecord, products] = await Promise.all([
+    prisma.store.findUnique({ where: { slug: row.slug }, select: { id: true, isQaAcceptance: true, operatingHours: true } }),
+    loadStorefrontDocuments({ storeSlug: row.slug, qaAcceptanceStoreOnly: true, limit: 100 }),
+  ]);
+  if (!storeRecord?.isQaAcceptance) return null;
+  const hours = formatStoreOperatingHoursSummary(storeRecord.operatingHours);
+  return {
+    reference: row.storePublicReference,
+    slug: row.slug,
+    name: row.name,
+    ...(row.shortDescription ? { description: row.shortDescription } : {}),
+    ...(row.logoMediaReference ? { logoMediaReference: row.logoMediaReference } : {}),
+    ...(row.heroMediaReference ? { heroMediaReference: row.heroMediaReference } : {}),
+    publishedOfferCount: row.publishedOfferCount,
+    scheduleStatus: publicStoreScheduleStatus(storeRecord.operatingHours),
+    operatingHoursSummary: hours.summary,
+    products: products.map((doc) => ({ ...doc, storeName: row.name })),
+  };
+}
+
+export async function getQaStorefrontProduct(productReference: string): Promise<{ product: StorefrontDocument; offers: StorefrontDocument[]; modifierGroupsByOffer: Record<string, StorefrontModifierGroupDTO[]> } | null> {
+  const offers = await loadStorefrontDocuments({ productReference, qaAcceptanceStoreOnly: true, limit: 100 });
+  if (!offers.length) return null;
+  const storeSlugs = [...new Set(offers.map((item) => item.storeSlug))];
+  const stores = await prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} AND "slug" IN (${Prisma.join(storeSlugs)})`);
+  const storeNames = new Map(stores.map((s) => [s.slug, s.name]));
+  const enrichedOffers = offers.map((offer) => ({ ...offer, ...(storeNames.get(offer.storeSlug) ? { storeName: storeNames.get(offer.storeSlug)! } : {}) }));
+  const modifierGroupsByOffer = await getStorefrontModifierGroupsForOffers(enrichedOffers.map((item) => item.offerReference));
+  return { product: enrichedOffers[0]!, offers: enrichedOffers, modifierGroupsByOffer };
 }

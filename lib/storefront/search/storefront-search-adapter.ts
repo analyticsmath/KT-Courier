@@ -1,7 +1,7 @@
 import { matchesStorefrontCategory, storefrontCategoryPredicate } from "@/lib/storefront/storefront-category-discovery";
 import { CatalogFulfilmentMode, CatalogProductCondition, Prisma, StorefrontAvailabilityState } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
-import { activePublicProductDocumentSql } from "@/lib/storefront/sql-store-publication";
+import { activePublicProductDocumentSql, activeQaProductDocumentSql } from "@/lib/storefront/sql-store-publication";
 import { normalizeStorefrontQuery } from "@/lib/storefront/search/storefront-query-normalization";
 import type { StorefrontDocument } from "@/lib/storefront/storefront-types";
 
@@ -198,8 +198,11 @@ export class PostgresStorefrontSearchAdapter implements StorefrontSearchAdapter 
   }
 }
 
-export async function loadStorefrontDocuments(input: { productReference?: string; productReferences?: readonly string[]; variantReference?: string; variantReferences?: readonly string[]; storeSlug?: string; categoryPath?: string; limit?: number }): Promise<StorefrontDocument[]> {
-  const clauses = [Prisma.sql`"status" = 'ACTIVE'`, activePublicProductDocumentSql];
+export async function loadStorefrontDocuments(input: { productReference?: string; productReferences?: readonly string[]; variantReference?: string; variantReferences?: readonly string[]; storeSlug?: string; categoryPath?: string; limit?: number; qaAcceptanceStoreOnly?: boolean }): Promise<StorefrontDocument[]> {
+  const clauses = [
+    Prisma.sql`"status" = 'ACTIVE'`,
+    input.qaAcceptanceStoreOnly ? activeQaProductDocumentSql : activePublicProductDocumentSql,
+  ];
   if (input.productReference) clauses.push(Prisma.sql`"productPublicReference" = ${input.productReference}`);
   if (input.variantReference) clauses.push(Prisma.sql`"variantPublicReference" = ${input.variantReference}`);
   const referenceClauses = [

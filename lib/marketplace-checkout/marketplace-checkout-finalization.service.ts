@@ -22,7 +22,7 @@ export type MarketplaceFinalizationRepository = Readonly<{
   completeCheckoutAndConvertCart(checkoutId: string, cartId: string): Promise<void>;
 }>;
 
-export async function finalizePaidMarketplaceCheckout(repository: MarketplaceFinalizationRepository, input: Readonly<{ paymentId: string; checkoutId: string; operationId: string; guestConfirmationHash?: string | null; testApproval?: { approved: true } }>): Promise<{ publicReference: string; replayed: boolean }> {
+export async function finalizePaidMarketplaceCheckout(repository: MarketplaceFinalizationRepository, input: Readonly<{ paymentId: string; checkoutId: string; operationId: string; guestConfirmationHash?: string | null; testApproval?: { approved?: true; qaAcceptanceApproved?: true } }>): Promise<{ publicReference: string; replayed: boolean }> {
   assertMarketplaceCheckoutProductionReady("ORDER_FINALIZATION", input.testApproval);
   return repository.transaction(async () => {
     const payment = await repository.lockVerifiedSuccessfulPayment(input.paymentId);

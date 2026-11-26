@@ -43,7 +43,9 @@ describe("P1R-001: Static Source Audit — Distributed Rate Limiting Coverage & 
       "MANAGED_MARKETING_CREATIVE_ATTACH",
       "MANAGED_MARKETING_PAYMENT_PREPARE",
       "COOKIE_PREFERENCE_MUTATION",
-    ];
+      "TRACKING_SHARE_EXCHANGE",
+      "PAYMENT_WEBHOOK",
+    ] as const satisfies ReadonlyArray<keyof typeof RATE_LIMITS>;
 
     for (const name of distributedPolicies) {
       const policy = RATE_LIMITS[name];

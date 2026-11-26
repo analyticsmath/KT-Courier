@@ -22,11 +22,13 @@ interface StoreHeroProps {
     publishedOfferCount: number;
     ratingAverage?: number | null;
     ratingCount?: number;
+    operatingHoursSummary?: string | null;
     storeCategories?: readonly StoreCategory[];
   };
+  qaMode?: boolean;
 }
 
-export function StoreHero({ store }: StoreHeroProps) {
+export function StoreHero({ store, qaMode = false }: StoreHeroProps) {
   const categories = store.storeCategories ?? [];
 
   return (
@@ -50,7 +52,13 @@ export function StoreHero({ store }: StoreHeroProps) {
       {/* Brand Identity & Breadcrumbs Plane */}
       <div className={styles.commerceInner} style={{ position: "relative", zIndex: 5 }}>
         <div className={styles.storeHeroContentOverlay}>
-          <CommerceBreadcrumbs items={[{ label: "Shop", href: "/shop" }, { label: "Stores", href: "/shop/stores" }, { label: store.name }]} />
+          <CommerceBreadcrumbs
+            items={
+              qaMode
+                ? [{ label: "QA Storefront", href: "/shop/qa" }, { label: store.name }]
+                : [{ label: "Shop", href: "/shop" }, { label: "Stores", href: "/shop/stores" }, { label: store.name }]
+            }
+          />
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {store.logoMediaReference && (
@@ -71,6 +79,11 @@ export function StoreHero({ store }: StoreHeroProps) {
               <span style={{ fontSize: "0.85rem", color: "var(--kt-public-text-muted)" }}>
                 {store.publishedOfferCount} {store.publishedOfferCount === 1 ? "product" : "products"} listed
               </span>
+              {store.operatingHoursSummary && (
+                <p style={{ fontSize: "0.85rem", marginTop: 4, color: "var(--kt-public-text-muted)" }}>
+                  Trading &amp; collection hours: <strong>{store.operatingHoursSummary}</strong>
+                </p>
+              )}
               <div aria-label={store.ratingCount ? `Customer store rating ${store.ratingAverage} out of 5 from ${store.ratingCount} verified delivery reviews` : "No verified store ratings yet"} style={{ fontSize: "0.875rem", marginTop: 6, color: "var(--kt-public-text-muted)" }}>
                 {store.ratingCount && store.ratingAverage != null
                   ? <><span aria-hidden="true">★</span> <strong>{store.ratingAverage.toFixed(1)}/5</strong> · {store.ratingCount} verified {store.ratingCount === 1 ? "review" : "reviews"}</>

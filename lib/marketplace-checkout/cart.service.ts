@@ -6,6 +6,8 @@ import { priceForOrderQuantity, type VolumePriceTier } from "@/lib/catalog/volum
 import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
 import { assertStorefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
+import { resolveQaAcceptanceLaneConfig } from "@/lib/qa-acceptance/config";
+import { resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 
 type MarketplaceDelegate = {
   findFirst: (args: unknown) => Promise<any>;
@@ -31,6 +33,7 @@ export type CartLineSelection = {
   offerReference: string; variantReference: string; productReference: string; storeId: string;
   fulfilmentMode: string; sellingUnit: string; publicationVersion: string; priceVersion: string; unitPrice: string; quantity: number;
   modifiers: { groupReference: string; optionReference: string; quantity: number; priceDelta: string }[];
+  isQaAcceptance?: boolean;
 };
 
 export function ownerWhere(owner: CartOwner): Record<string, unknown> {
@@ -38,13 +41,37 @@ export function ownerWhere(owner: CartOwner): Record<string, unknown> {
 }
 
 /** Resolves client references against Phase 18 records; clients never supply store, price or modifier amounts. */
-export async function resolveMarketplaceCartLine(input: { offerReference: string; variantReference: string; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; quantity: number }, database: Pick<Prisma.TransactionClient, "storeCatalogOffer" | "storeOfferPriceVersion"> = prisma): Promise<CartLineSelection> {
-  assertStorefrontPublicExposureAllowed();
+export async function resolveMarketplaceCartLine(
+  input: { offerReference: string; variantReference: string; modifiers: readonly { groupReference: string; optionReference: string; quantity: number }[]; quantity: number },
+  database: Pick<Prisma.TransactionClient, "storeCatalogOffer" | "storeOfferPriceVersion"> = prisma,
+  options?: { qaUserId?: string | null; allowQaInternal?: boolean },
+): Promise<CartLineSelection> {
+  const hasQaAuthorityParam = Boolean(options?.allowQaInternal || options?.qaUserId);
+  if (!hasQaAuthorityParam) {
+    assertStorefrontPublicExposureAllowed();
+  }
   assertSupportedQuantity(input.quantity);
   const offer = await database.storeCatalogOffer.findFirst({
     where: { publicReference: input.offerReference, variant: { publicReference: input.variantReference }, status: "ACTIVE", publicationStatus: "PUBLISHED" },
-    include: { product: true, variant: true, modifierGroups: { include: { group: { include: { options: true } } } } },
+    include: {
+      store: { select: { id: true, isQaAcceptance: true } },
+      product: true,
+      variant: true,
+      modifierGroups: { include: { group: { include: { options: true } } } },
+    },
   });
+  const offerIsQa = Boolean((offer as { store?: { isQaAcceptance?: boolean } } | null)?.store?.isQaAcceptance);
+  if (offerIsQa) {
+    const qaAllowed = resolveQaAcceptanceLaneConfig().eligible && (
+      options?.allowQaInternal === true ||
+      Boolean(options?.qaUserId && (await resolveQaPrincipalForUser(options.qaUserId)))
+    );
+    if (!qaAllowed) {
+      throw new MarketplaceCheckoutError("CART_LINE_INVALID", "The selected item is unavailable.");
+    }
+  } else if (hasQaAuthorityParam) {
+    assertStorefrontPublicExposureAllowed();
+  }
   if (!offer) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "The selected item is unavailable.");
   if (offer.sellingUnit === "VARIABLE_WEIGHT" && !offer.packagedQuantity) throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Variable-weight items cannot be checked out yet.");
   const price = await database.storeOfferPriceVersion.findFirst({ where: { offerId: offer.id, status: "ACTIVE", effectiveFrom: { lte: new Date() }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: new Date() } }] }, orderBy: { versionNumber: "desc" } });
@@ -64,7 +91,7 @@ export async function resolveMarketplaceCartLine(input: { offerReference: string
   let unitPrice: string;
   try { unitPrice=priceForOrderQuantity(price.amount.toFixed(2), (price.volumeTiers ?? []) as VolumePriceTier[],input.quantity); }
   catch { throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Store pricing is unavailable for this quantity."); }
-  return { offerReference: offer.publicReference, variantReference: offer.variant.publicReference, productReference: offer.product.publicReference, storeId: offer.storeId, fulfilmentMode: offer.fulfilmentMode, sellingUnit: offer.sellingUnit ?? "EACH", publicationVersion: String(offer.version), priceVersion: price.publicReference, unitPrice, quantity: input.quantity, modifiers: selections };
+  return { offerReference: offer.publicReference, variantReference: offer.variant.publicReference, productReference: offer.product.publicReference, storeId: offer.storeId, fulfilmentMode: offer.fulfilmentMode, sellingUnit: offer.sellingUnit ?? "EACH", publicationVersion: String(offer.version), priceVersion: price.publicReference, unitPrice, quantity: input.quantity, modifiers: selections, isQaAcceptance: offerIsQa };
 }
 
 export async function getOrCreateMarketplaceCart(input: { owner: CartOwner; serviceAreaReference?: string | null }, database = db): Promise<any> {

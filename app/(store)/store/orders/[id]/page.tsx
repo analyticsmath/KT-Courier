@@ -19,6 +19,9 @@ import { prisma } from "@/lib/db/prisma";
 import { getDeliveryTypeConfig } from "@/lib/constants/statuses";
 import { CUSTOMER_CANCELLABLE_STATUSES } from "@/lib/constants/order-status";
 import { formatDate, formatDateTime } from "@/lib/utils/formatters";
+import { getOrderDocumentAvailability } from "@/lib/shipment-documents/service";
+import { listTrackingShareGrants } from "@/lib/tracking/recipient-access.server";
+import { OrderShipmentDocumentsPanel } from "@/components/shipment-documents/OrderShipmentDocumentsPanel";
 
 export const metadata: Metadata = { title: "Store delivery request" };
 
@@ -45,7 +48,11 @@ export default async function StoreOrderDetailPage({
     access.owner || membershipAllows(access.permissions, "finance");
   const canChat = access.owner || membershipAllows(access.permissions, "chat");
   const canTrackDelivery = access.owner || membershipAllows(access.permissions, "deliveries");
-  const pod = ["DELIVERED", "COMPLETED"].includes(order.status) ? await getPublicPodForOrder(order.id) : null;
+  const [pod, documentAvailability, grantsResult] = await Promise.all([
+    ["DELIVERED", "COMPLETED"].includes(order.status) ? getPublicPodForOrder(order.id) : Promise.resolve(null),
+    getOrderDocumentAvailability(order.id),
+    listTrackingShareGrants({ user, orderId: order.id, explicitStoreId: access.store.id }).catch(() => ({ grants: [] })),
+  ]);
   const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(
     order.status as (typeof CUSTOMER_CANCELLABLE_STATUSES)[number],
   );
@@ -178,6 +185,14 @@ export default async function StoreOrderDetailPage({
           <p className="mt-3 text-xs text-[var(--eo-text-secondary)]">Live driver location is no longer shared after delivery.</p>
         </OperationalPanel>
       )}
+      <OrderShipmentDocumentsPanel
+        orderId={order.id}
+        orderNumber={order.orderNumber}
+        viewerRole="STORE"
+        explicitStoreId={access.store.id}
+        availability={documentAvailability}
+        initialGrants={grantsResult.grants}
+      />
       {canChat && (
         <OperationalPanel title="Delivery chat">
           <Conversations scope="STORE" deliveryOrderId={order.id} />

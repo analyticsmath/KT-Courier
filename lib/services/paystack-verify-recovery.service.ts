@@ -36,6 +36,9 @@ import {
 import { appendCourierPaymentFailedInTx } from "@/lib/services/notification-events.service";
 import { describeCourierOrderPaymentSplitFromDb } from "@/lib/services/courier-payment-split-summary";
 import type { PaymentReconciliationReasonCode, PaymentState } from "@/lib/payments/types";
+import { createQaPaystackClient } from "@/lib/qa-acceptance/config";
+import { ensureQaPlatformSandboxAccountsInTx } from "@/lib/qa-acceptance/ledger";
+import { onVerifiedMarketplacePaymentSucceededInProduction } from "@/lib/marketplace-checkout/marketplace-payment-success-hook.service";
 
 export type PaystackVerifyRecoveryOutcome =
   | "APPLIED_WEBHOOK"
@@ -68,8 +71,15 @@ const SKIPPED = (
     ledgerJournalReference: null,
   });
 
-function resolveClient(clientOverride?: PaystackClient): PaystackClient | null {
+function resolveClient(clientOverride?: PaystackClient, isQaAcceptance?: boolean): PaystackClient | null {
   if (clientOverride) return clientOverride;
+  if (isQaAcceptance) {
+    try {
+      return createQaPaystackClient();
+    } catch {
+      return null;
+    }
+  }
   try {
     const config = resolvePaystackConfiguration();
     if (config.runtime?.secretKey) {
@@ -372,7 +382,8 @@ export async function recoverPaystackAttemptViaVerify(input: {
     });
   }
 
-  const client = resolveClient(input.clientOverride);
+  const isQaPayment = Boolean((payment as { isQaAcceptance?: boolean }).isQaAcceptance);
+  const client = resolveClient(input.clientOverride, isQaPayment);
   if (!client) {
     return SKIPPED("SKIPPED", {
       paymentId: payment.id,
@@ -593,21 +604,29 @@ export async function recoverPaystackAttemptViaVerify(input: {
           };
         }
 
-        const accounts = await tx.ledgerAccount.findMany({
-          where: {
-            wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
-            code: { in: ["PLATFORM-CASH-CLEARING-ZAR", "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"] },
-            currency: "ZAR",
-            status: "ACTIVE",
-          },
-          select: { id: true, code: true, purpose: true, category: true },
-        });
-        const cash = accounts.find(
-          (a) => a.code === "PLATFORM-CASH-CLEARING-ZAR" && a.purpose === "CASH_CLEARING" && a.category === "ASSET",
-        );
-        const held = accounts.find(
-          (a) => a.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" && a.purpose === "HELD" && a.category === "LIABILITY",
-        );
+        let cash: { id: string; code: string; purpose: string; category: string } | undefined;
+        let held: { id: string; code: string; purpose: string; category: string } | undefined;
+        if (freshPayment.isQaAcceptance) {
+          const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+          cash = sandbox.cashClearing;
+          held = sandbox.fundsHeld;
+        } else {
+          const accounts = await tx.ledgerAccount.findMany({
+            where: {
+              wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" },
+              code: { in: ["PLATFORM-CASH-CLEARING-ZAR", "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR"] },
+              currency: "ZAR",
+              status: "ACTIVE",
+            },
+            select: { id: true, code: true, purpose: true, category: true },
+          });
+          cash = accounts.find(
+            (a) => a.code === "PLATFORM-CASH-CLEARING-ZAR" && a.purpose === "CASH_CLEARING" && a.category === "ASSET",
+          );
+          held = accounts.find(
+            (a) => a.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR" && a.purpose === "HELD" && a.category === "LIABILITY",
+          );
+        }
         if (!cash || !held) {
           throw new PaymentError("PAYMENT_PROVIDER_UNAVAILABLE", "Required payment receipt ledger accounts are unavailable.", true);
         }
@@ -896,6 +915,19 @@ export async function recoverPaystackAttemptViaVerify(input: {
 
   if (txResult.outcome === "SETTLED_VIA_VERIFY" && txResult.postCommitAlert) {
     void emitAdminAlertNonBlocking(txResult.postCommitAlert);
+  }
+
+  if (
+    (txResult.outcome === "SETTLED_VIA_VERIFY" || txResult.outcome === "ALREADY_SETTLED") &&
+    payment.subjectType === "MARKETPLACE_CHECKOUT"
+  ) {
+    const latest = await prisma.payment.findUnique({
+      where: { id: payment.id },
+      select: { status: true, marketplaceOrderId: true },
+    });
+    if (latest?.status === "SUCCEEDED" && !latest.marketplaceOrderId) {
+      await onVerifiedMarketplacePaymentSucceededInProduction(payment.id).catch(() => undefined);
+    }
   }
 
   return Object.freeze({

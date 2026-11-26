@@ -476,6 +476,7 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
       id: true,
       name: true,
       status: true,
+      isQaAcceptance: true,
       commerceReadinessRevision: true,
       contactEmail: true,
       contactPhone: true,
@@ -688,7 +689,9 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
 
   const providerList =
     options?.paymentProviderReadiness ??
-    createProductionPaymentProviderRegistry().readiness();
+    ((store as { isQaAcceptance?: boolean }).isQaAcceptance
+      ? (await import("@/lib/qa-acceptance/config")).buildQaSandboxProviderReadiness()
+      : createProductionPaymentProviderRegistry().readiness());
   const paystackState = providerList.find((item) => item.code === "PAYSTACK") ?? null;
   const paystackReadiness = evaluatePaystackCheckoutReadiness(paystackState);
   const paymentProviderReady = paystackReadiness.ready;

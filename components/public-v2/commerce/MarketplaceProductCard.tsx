@@ -12,16 +12,18 @@ import styles from "./marketplace-product-card.module.css";
 
 export type MarketplaceProductCardVariant = "shelf" | "grid" | "related";
 
-export function MarketplaceProductCard({ product, variant, priority = false, className = "" }: {
+export function MarketplaceProductCard({ product, variant, priority = false, className = "", qaMode = false }: {
   product: StorefrontProductCard;
   variant: MarketplaceProductCardVariant;
   priority?: boolean;
   className?: string;
+  qaMode?: boolean;
 }) {
   const { captureSourceMedia } = useTransitionContext();
   const [quickBuyOpen, setQuickBuyOpen] = useState(false);
   const closeQuickBuy = useCallback(() => setQuickBuyOpen(false), []);
-  const href = marketplaceProductHref(product.productSlug, product.productReference);
+  const publicHref = marketplaceProductHref(product.productSlug, product.productReference);
+  const href = qaMode && publicHref ? publicHref.replace(/^\/shop\/products\//, "/shop/qa/products/") : publicHref;
   const canQuickBuy = Boolean(href) && (product.availability === "IN_STOCK" || product.availability === "LOW_STOCK");
   const src = product.primaryMedia ? `/api/catalog/media/${product.primaryMedia.publicReference}` : undefined;
   const meta = product.brandName || (product.storeCount > 1 ? `Available from ${product.storeCount} stores` : availabilityLabel(product.availability));

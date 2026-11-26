@@ -84,24 +84,57 @@ export async function activateCompanyProfile(actorUserId: string, input: Company
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-/**
- * Captures issuer data once for a formal document. Existing snapshots are never
- * replaced: retrying the same operation returns the original authoritative row.
- */
-export async function captureIssuerSnapshot(input: {
-  documentType: string;
-  documentReference: string;
-  companyProfileVersionId?: string;
-}) {
-  const existing = await prisma.companyIssuerSnapshot.findUnique({
-    where: { documentType_documentReference: { documentType: input.documentType, documentReference: input.documentReference } },
+export class CompanyProfileRequiredError extends Error {
+  readonly code = "COMPANY_PROFILE_REQUIRED" as const;
+  readonly actionHref = "/admin/company-profile" as const;
+  constructor(message = "An active company issuer profile is required before generating formal shipment documents.") {
+    super(message);
+    this.name = "CompanyProfileRequiredError";
+  }
+}
+
+export function canonicalizeIssuerDocumentType(documentType: string): string {
+  const value = documentType.trim().replace(/\s+/g, "_").toUpperCase().slice(0, 80);
+  if (!value) throw new Error("Document type is required to capture issuer snapshot.");
+  return value;
+}
+
+export function canonicalizeIssuerDocumentReference(documentReference: string): string {
+  const value = documentReference.trim().replace(/\s+/g, " ").toUpperCase().slice(0, 160);
+  if (!value) throw new Error("Document reference is required to capture issuer snapshot.");
+  return value;
+}
+
+type CompanyProfileDb = Pick<Prisma.TransactionClient, "companyProfileVersion" | "companyIssuerSnapshot"> & {
+  $executeRaw?: Prisma.TransactionClient["$executeRaw"];
+};
+
+export async function currentCompanyProfileWithDb(db: Pick<Prisma.TransactionClient, "companyProfileVersion">) {
+  return db.companyProfileVersion.findFirst({ where: { status: "ACTIVE" } });
+}
+
+export async function captureIssuerSnapshotInTx(
+  db: CompanyProfileDb,
+  input: {
+    documentType: string;
+    documentReference: string;
+    companyProfileVersionId?: string;
+  },
+) {
+  const documentType = canonicalizeIssuerDocumentType(input.documentType);
+  const documentReference = canonicalizeIssuerDocumentReference(input.documentReference);
+
+  const existing = await db.companyIssuerSnapshot.findUnique({
+    where: { documentType_documentReference: { documentType, documentReference } },
   });
   if (existing) return existing;
 
   const company = input.companyProfileVersionId
-    ? await prisma.companyProfileVersion.findUnique({ where: { id: input.companyProfileVersionId } })
-    : await currentCompanyProfile();
-  if (!company) throw new Error("An active company issuer profile is required before generating formal documents.");
+    ? await db.companyProfileVersion.findUnique({ where: { id: input.companyProfileVersionId } })
+    : await currentCompanyProfileWithDb(db);
+  if (!company) {
+    throw new CompanyProfileRequiredError();
+  }
 
   const issuerSnapshot = {
     publicReference: company.publicReference,
@@ -118,22 +151,60 @@ export async function captureIssuerSnapshot(input: {
     documentIdentityMetadata: company.documentIdentityMetadata,
   };
 
+  if (typeof db.$executeRaw === "function" && db !== prisma) {
+    await db.$executeRaw`SAVEPOINT kt_capture_issuer_snapshot`;
+    try {
+      const created = await db.companyIssuerSnapshot.create({
+        data: {
+          companyProfileVersionId: company.id,
+          documentType,
+          documentReference,
+          issuerSnapshot: issuerSnapshot as Prisma.InputJsonValue,
+        },
+      });
+      await db.$executeRaw`RELEASE SAVEPOINT kt_capture_issuer_snapshot`;
+      return created;
+    } catch (error) {
+      await db.$executeRaw`ROLLBACK TO SAVEPOINT kt_capture_issuer_snapshot`;
+      await db.$executeRaw`RELEASE SAVEPOINT kt_capture_issuer_snapshot`;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const snapshot = await db.companyIssuerSnapshot.findUnique({
+          where: { documentType_documentReference: { documentType, documentReference } },
+        });
+        if (snapshot) return snapshot;
+      }
+      throw error;
+    }
+  }
+
   try {
-    return await prisma.companyIssuerSnapshot.create({
+    return await db.companyIssuerSnapshot.create({
       data: {
         companyProfileVersionId: company.id,
-        documentType: input.documentType.trim().slice(0, 80),
-        documentReference: input.documentReference.trim().slice(0, 160),
+        documentType,
+        documentReference,
         issuerSnapshot: issuerSnapshot as Prisma.InputJsonValue,
       },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const snapshot = await prisma.companyIssuerSnapshot.findUnique({
-        where: { documentType_documentReference: { documentType: input.documentType, documentReference: input.documentReference } },
+      const snapshot = await db.companyIssuerSnapshot.findUnique({
+        where: { documentType_documentReference: { documentType, documentReference } },
       });
       if (snapshot) return snapshot;
     }
     throw error;
   }
+}
+
+/**
+ * Captures issuer data once for a formal document. Existing snapshots are never
+ * replaced: retrying the same operation returns the original authoritative row.
+ */
+export async function captureIssuerSnapshot(input: {
+  documentType: string;
+  documentReference: string;
+  companyProfileVersionId?: string;
+}) {
+  return captureIssuerSnapshotInTx(prisma, input);
 }

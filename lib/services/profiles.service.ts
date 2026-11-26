@@ -1,4 +1,6 @@
+import type { Prisma } from "@prisma/client";
 import { storeAccess } from "@/lib/client-platform/store-access";
+import type { StoreOperatingHours } from "@/lib/qa-acceptance/operating-hours";
 import { prisma } from "@/lib/db/prisma";
 import { rebuildStorefrontStoreDocument } from "@/lib/services/storefront-store.service";
 import {
@@ -93,6 +95,7 @@ export interface UpdateStoreProfileInput {
   province?: string;
   postalCode?: string;
   country?: string;
+  operatingHours?: StoreOperatingHours;
 }
 
 export async function updateStoreProfile(
@@ -152,6 +155,9 @@ export async function updateStoreProfile(
       postalCode: input.postalCode || null,
     }),
     ...(input.country !== undefined && { country: input.country }),
+    ...(input.operatingHours !== undefined && {
+      operatingHours: input.operatingHours as Prisma.InputJsonValue,
+    }),
     ...(addressChanged ? { featured: false } : {}),
     ...(nameChanged || addressChanged ? { commerceReadinessRevision: { increment: 1 } } : {}),
   };

@@ -16,6 +16,7 @@ import { validateDriverSettlementSnapshot, type DriverSettlementSnapshot } from 
 import { assignmentPublicReference } from "@/lib/driver-earnings/driver-earning-subject";
 import { ensureDriverEarningPayableAccount, resolveDriverEarningAccountsWithinTransaction } from "./driver-earning-account.service";
 import { postLedgerJournalWithinTransaction } from "./ledger-posting.service";
+import { platformFundsHeldCodeForIsolation } from "@/lib/qa-acceptance/ledger";
 
 const db = prisma as any;
 const OPERATION = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,119}$/;
@@ -33,11 +34,14 @@ function assertPayment(payment: any, snapshot: DriverSettlementSnapshot, marketp
       throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "Wallet-funded payment requires a valid account transfer journal.");
     }
   } else {
-    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) {
+    const meta = payment.metadata && typeof payment.metadata === "object" ? (payment.metadata as Record<string, unknown>) : null;
+    const webhookVerified = Boolean(webhook && webhook.processingStatus === "APPLIED" && webhook.signatureVerified && webhook.merchantVerified && webhook.amountVerified && webhook.providerDataVerified);
+    const verifyApiVerified = payment.provider === "PAYSTACK" && meta?.verifiedVia === "PAYSTACK_VERIFY_API" && Boolean(payment.successfulAttempt?.providerReference);
+    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || (!webhookVerified && !verifyApiVerified)) {
       throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "A verified successful matching ZAR payment is required.");
     }
   }
-  if (!payment.totalRefundedAmount.isZero() || !payment.totalRefundReservedAmount.isZero() || payment.reconciliationStatus !== "CLEAR") {
+  if (!payment.totalRefundedAmount.isZero() || !payment.totalRefundReservedAmount.isZero() || !["CLEAR", "RESOLVED"].includes(payment.reconciliationStatus)) {
     throw new DriverEarningError("DRIVER_EARNING_REFUND_EVIDENCE_REQUIRED", "Payment has incompatible refund or reconciliation exposure.");
   }
 }
@@ -90,7 +94,8 @@ export async function accrueDriverEarningInTransaction(transaction: Prisma.Trans
         if (cod.status !== "RECONCILED" || cod.paymentId !== payment.id || cod.currency !== "ZAR" || !cod.authoritativePayable.equals(gross) || !cod.digitalPaid.equals(cod.digitalRequired) || !cod.digitalRequired.add(cod.cashObligation).equals(gross) || !cod.cashCollected.equals(cod.cashObligation) || !cod.cashReconciled.equals(cod.cashObligation) || !cod.remittanceDiscrepancy.isZero()) throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "Courier cash requires exact collection and verified bank remittance.");
         await assertMarketplaceCashJournals(tx, cod);
       }
-      const heldCredit = receipt.entries.filter((entry: any) => entry.direction === "CREDIT" && entry.account.code === "PLATFORM-CUSTOMER-FUNDS-HELD-ZAR").reduce((sum: Prisma.Decimal, entry: any) => sum.add(entry.amount), new Prisma.Decimal(0));
+      const expectedHeldCode = platformFundsHeldCodeForIsolation(Boolean(payment.isQaAcceptance));
+      const heldCredit = receipt.entries.filter((entry: any) => entry.direction === "CREDIT" && entry.account.code === expectedHeldCode).reduce((sum: Prisma.Decimal, entry: any) => sum.add(entry.amount), new Prisma.Decimal(0));
       if (!payment.amount.equals(expected) || receipt.currency !== "ZAR" || !receipt.totalDebits.equals(expected) || !receipt.totalCredits.equals(expected) || !heldCredit.equals(expected)) throw new DriverEarningError("DRIVER_EARNING_PAYMENT_INVALID", "Courier earning requires its exact fully funded source receipt.");
     }
     const ids = snapshot.commissionCharges.map((row) => row.commissionAllocationId).sort();
@@ -101,11 +106,38 @@ export async function accrueDriverEarningInTransaction(transaction: Prisma.Trans
     const duplicate = await tx.driverEarning.findFirst({ where: { subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, assignmentId: snapshot.assignmentId, driverId: snapshot.driverId, settlementVersion: snapshot.settlementVersion }, select: { id: true } });
     if (duplicate) throw new DriverEarningError("DRIVER_EARNING_SETTLEMENT_ALREADY_ACCRUED", "This assignment, driver, and settlement version is already accrued.");
     const accounts = await resolveDriverEarningAccountsWithinTransaction(tx, { driverId: snapshot.driverId, walletId: snapshot.walletId, payableAccountId: provisioned.account.id });
-    const held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+    const [qaOrder, qaPayment] = await Promise.all([
+      typeof tx.order?.findUnique === "function"
+        ? tx.order.findUnique({ where: { id: snapshot.orderId }, select: { isQaAcceptance: true } })
+        : Promise.resolve(null),
+      typeof tx.payment?.findUnique === "function"
+        ? tx.payment.findUnique({ where: { id: snapshot.paymentId }, select: { isQaAcceptance: true } })
+        : Promise.resolve(null),
+    ]);
+    const isQaAcceptance = Boolean(qaOrder?.isQaAcceptance || qaPayment?.isQaAcceptance || accounts.wallet?.isQaIsolated || accounts.driver?.isQaAcceptance);
+    if (
+      isQaAcceptance &&
+      (
+        Boolean(qaOrder?.isQaAcceptance) !== isQaAcceptance ||
+        Boolean(qaPayment?.isQaAcceptance) !== isQaAcceptance ||
+        Boolean(accounts.wallet?.isQaIsolated) !== isQaAcceptance ||
+        Boolean(accounts.driver?.isQaAcceptance) !== isQaAcceptance
+      )
+    ) {
+      throw new DriverEarningError("DRIVER_EARNING_ACCOUNT_INVALID", "QA sandbox driver earning accounts and orders must stay strictly isolated from live commercial accounts.");
+    }
+    let held: { id: string; currentBalance: Prisma.Decimal } | null = null;
+    if (isQaAcceptance) {
+      const { ensureQaPlatformSandboxAccountsInTx } = await import("@/lib/qa-acceptance/ledger");
+      const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+      held = await tx.ledgerAccount.findUnique({ where: { id: sandbox.fundsHeld.id } });
+    } else {
+      held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+    }
     const amount = new Prisma.Decimal(snapshot.netDriverEarningAmount); if (!held || held.currentBalance.lessThan(amount)) throw new DriverEarningError("DRIVER_EARNING_INSUFFICIENT_HELD_FUNDS", "Customer funds held are insufficient.");
     const journal = await postLedgerJournalWithinTransaction(tx, driverEarningAccrualPosting({ earningReference, amount: snapshot.netDriverEarningAmount, customerFundsHeldAccountId: held.id, driverPayableAccountId: accounts.payable.id, driverPublicReference: snapshot.driverPublicReference, assignmentPublicReference: snapshot.assignmentPublicReference, assignmentVersion: snapshot.assignmentVersion, orderPublicReference: snapshot.orderPublicReference, settlementVersion: snapshot.settlementVersion, completionEvidenceReference: snapshot.completionEvidenceReference, actorUserId: command.actorUserId }));
     for (const charge of snapshot.commissionCharges) await tx.commissionAllocation.update({ where: { id: charge.commissionAllocationId }, data: { driverAttributedAmount: { increment: new Prisma.Decimal(charge.amount) } } });
-    return tx.driverEarning.create({ data: { publicReference: earningReference, driverId: snapshot.driverId, driverPublicReference: snapshot.driverPublicReference, walletId: snapshot.walletId, payableAccountId: accounts.payable.id, subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, subjectPublicReference: snapshot.subjectPublicReference, assignmentId: snapshot.assignmentId, assignmentPublicReference: snapshot.assignmentPublicReference, assignmentVersion: snapshot.assignmentVersion, orderId: snapshot.orderId, orderPublicReference: snapshot.orderPublicReference, paymentId: snapshot.paymentId, paymentPublicReference: snapshot.paymentPublicReference, settlementReference: snapshot.settlementReference, settlementVersion: snapshot.settlementVersion, calculationVersion: snapshot.calculationVersion, completionEvidenceReference: snapshot.completionEvidenceReference, serviceCompletedAt: new Date(snapshot.serviceCompletedAt), authoritativeAt: new Date(snapshot.authoritativeAt), releaseEligibleAt: snapshot.releaseEligibleAt ? new Date(snapshot.releaseEligibleAt) : null, settlementBasisAmount: new Prisma.Decimal(snapshot.driverSettlementBasisAmount), attributedCommissionAmount: new Prisma.Decimal(snapshot.attributedCommissionAmount), amount, currency: "ZAR", status: "ACCRUED", creationIdempotencyKey: command.operationId, creationRequestHash: calculationHash, calculationHash, accrualLedgerJournalId: journal.id, commissionCharges: { create: snapshot.commissionCharges.map((charge) => ({ publicReference: ref("DEC"), commissionAllocationId: charge.commissionAllocationId, amount: new Prisma.Decimal(charge.amount), currency: "ZAR" })) }, statusHistory: { create: [{ fromStatus: null, toStatus: "ACCRUED", actorType: command.actorUserId ? "USER" : "SYSTEM", actorId: command.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, settlementReference: snapshot.settlementReference } }, { fromStatus: null, toStatus: "ACCRUED", actorType: "SYSTEM", reasonCode: "COMMISSION_CHARGES_ATTRIBUTED", safeMetadata: { chargeCount: String(snapshot.commissionCharges.length) } }] } }, include: journalInclude });
+    return tx.driverEarning.create({ data: { publicReference: earningReference, driverId: snapshot.driverId, driverPublicReference: snapshot.driverPublicReference, walletId: snapshot.walletId, payableAccountId: accounts.payable.id, subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, subjectPublicReference: snapshot.subjectPublicReference, assignmentId: snapshot.assignmentId, assignmentPublicReference: snapshot.assignmentPublicReference, assignmentVersion: snapshot.assignmentVersion, orderId: snapshot.orderId, orderPublicReference: snapshot.orderPublicReference, paymentId: snapshot.paymentId, paymentPublicReference: snapshot.paymentPublicReference, settlementReference: snapshot.settlementReference, settlementVersion: snapshot.settlementVersion, calculationVersion: snapshot.calculationVersion, completionEvidenceReference: snapshot.completionEvidenceReference, serviceCompletedAt: new Date(snapshot.serviceCompletedAt), authoritativeAt: new Date(snapshot.authoritativeAt), releaseEligibleAt: snapshot.releaseEligibleAt ? new Date(snapshot.releaseEligibleAt) : null, settlementBasisAmount: new Prisma.Decimal(snapshot.driverSettlementBasisAmount), attributedCommissionAmount: new Prisma.Decimal(snapshot.attributedCommissionAmount), amount, currency: "ZAR", status: "ACCRUED", isQaAcceptance, creationIdempotencyKey: command.operationId, creationRequestHash: calculationHash, calculationHash, accrualLedgerJournalId: journal.id, commissionCharges: { create: snapshot.commissionCharges.map((charge) => ({ publicReference: ref("DEC"), commissionAllocationId: charge.commissionAllocationId, amount: new Prisma.Decimal(charge.amount), currency: "ZAR" })) }, statusHistory: { create: [{ fromStatus: null, toStatus: "ACCRUED", actorType: command.actorUserId ? "USER" : "SYSTEM", actorId: command.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, settlementReference: snapshot.settlementReference } }, { fromStatus: null, toStatus: "ACCRUED", actorType: "SYSTEM", reasonCode: "COMMISSION_CHARGES_ATTRIBUTED", safeMetadata: { chargeCount: String(snapshot.commissionCharges.length) } }] } }, include: journalInclude });
 }
 
 export async function accrueDriverEarning(command: DriverEarningAccrualCommand, options?: Readonly<{ allowTestOnlyBypass?: boolean }>) {

@@ -65,9 +65,18 @@ async function selectPlanWithinTransaction(tx: Prisma.TransactionClient, command
   return plan;
 }
 
-async function resolveAccounts(tx: Prisma.TransactionClient, components: ReturnType<typeof calculateCommission>["components"]) {
-  const platform = await tx.ledgerAccount.findFirst({ where: { purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR", status: "ACTIVE", wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
-  const held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+async function resolveAccounts(tx: Prisma.TransactionClient, components: ReturnType<typeof calculateCommission>["components"], isQaAcceptance = false) {
+  let platform: { id: string } | null = null;
+  let held: { id: string } | null = null;
+  if (isQaAcceptance) {
+    const { ensureQaPlatformSandboxAccountsInTx } = await import("@/lib/qa-acceptance/ledger");
+    const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+    platform = { id: sandbox.commissionRevenue.id };
+    held = { id: sandbox.fundsHeld.id };
+  } else {
+    platform = await tx.ledgerAccount.findFirst({ where: { purpose: "PLATFORM_REVENUE", category: "REVENUE", currency: "ZAR", status: "ACTIVE", wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+    held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+  }
   if (!platform || !held) throw new CommissionError("COMMISSION_ACCOUNT_INVALID", "Canonical platform commission accounts have not been provisioned.");
   const allocations: ResolvedCommissionAllocationForPosting[] = [];
   for (const component of components) {
@@ -99,14 +108,22 @@ export async function accrueCommissionInTransaction(tx: Prisma.TransactionClient
   }
   const duplicate = await tx.commissionAccrual.findUnique({ where: { subjectType_subjectId_settlementVersion: { subjectType: command.subjectType as never, subjectId: command.subjectId, settlementVersion: command.settlementVersion } }, select: { id: true } });
   if (duplicate) throw new CommissionError("COMMISSION_SETTLEMENT_ALREADY_ACCRUED", "The subject settlement version already has a commission accrual.");
-  const accounts = await resolveAccounts(tx, calculation.components);
+  let isQaAcceptance = false;
+  if (command.subjectType === "COURIER_ORDER") {
+    const qaOrder = await tx.order.findUnique({ where: { id: command.subjectId }, select: { isQaAcceptance: true } });
+    isQaAcceptance = Boolean(qaOrder?.isQaAcceptance);
+  } else if (command.subjectType === "MARKETPLACE_STORE_ORDER") {
+    const qaStoreOrder = await tx.marketplaceStoreOrder.findUnique({ where: { id: command.subjectId }, select: { isQaAcceptance: true } });
+    isQaAcceptance = Boolean(qaStoreOrder?.isQaAcceptance);
+  }
+  const accounts = await resolveAccounts(tx, calculation.components, isQaAcceptance);
   const accountIds = [...new Set([accounts.held.id, ...accounts.allocations.map((allocation) => allocation.ledgerAccountId)])].sort();
   await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "LedgerAccount" WHERE "id" IN (${Prisma.join(accountIds)}) ORDER BY "id" ASC FOR UPDATE`);
   const freshHeld = await tx.ledgerAccount.findUnique({ where: { id: accounts.held.id }, select: { currentBalance: true } });
   if (!freshHeld || freshHeld.currentBalance.lessThan(new Prisma.Decimal(calculation.totalAmount))) throw new CommissionError("COMMISSION_ACCOUNT_INVALID", "Customer funds held are insufficient for the commission accrual.");
   const publicReference = ref("CA");
   const journal = await postLedgerJournalWithinTransaction(tx, commissionAccrualPosting({ accrualReference: publicReference, heldAccountId: accounts.held.id, allocations: accounts.allocations, actorUserId: command.actorUserId, safeMetadata: { accrualReference: publicReference, subjectReference: command.subjectPublicReference, settlementVersion: command.settlementVersion, planReference: plan.publicReference, planVersion: String(plan.versionNumber), allocationReferences: accounts.allocations.map((allocation) => allocation.rulePublicReference), calculationVersion: plan.calculationVersion } }));
-  const accrual = await tx.commissionAccrual.create({ data: { publicReference, subjectType: command.subjectType as never, subjectId: command.subjectId, subjectPublicReference: command.subjectPublicReference, settlementVersion: command.settlementVersion, planId: plan.id, planVersionNumber: plan.versionNumber, basisType: plan.basisType, basisAmount: new Prisma.Decimal(calculation.basisAmount), basisSnapshot: command.basis as unknown as Prisma.InputJsonValue, authoritativeAt, currency: "ZAR", totalAmount: new Prisma.Decimal(calculation.totalAmount), status: "ACCRUED", creationIdempotencyKey: command.operationId, creationRequestHash: requestHash, calculationHash: calculation.calculationHash, calculationVersion: plan.calculationVersion, ledgerJournalId: journal.id, allocations: { create: accounts.allocations.map((allocation) => ({ publicReference: ref("CAL"), ruleId: allocation.ruleId, allocationType: allocation.allocationType, beneficiaryType: allocation.beneficiaryType, beneficiaryOwnerId: allocation.beneficiaryOwnerId, beneficiaryWalletId: allocation.beneficiaryWalletId, ledgerAccountId: allocation.ledgerAccountId, amount: new Prisma.Decimal(allocation.amount), currency: "ZAR", status: "ACCRUED", attributionReference: allocation.beneficiary?.attributionReference ?? null, attributionVersion: allocation.beneficiary?.attributionVersion ?? null })) }, statusHistory: { create: { fromStatus: null, toStatus: "ACCRUED", actorType: command.actorUserId ? "USER" : "SYSTEM", actorId: command.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, planReference: plan.publicReference } } } }, include: { ledgerJournal: { select: { reference: true } }, reversalLedgerJournal: { select: { reference: true } }, allocations: { select: { id: true, publicReference: true, amount: true } } } });
+  const accrual = await tx.commissionAccrual.create({ data: { publicReference, subjectType: command.subjectType as never, subjectId: command.subjectId, subjectPublicReference: command.subjectPublicReference, settlementVersion: command.settlementVersion, planId: plan.id, planVersionNumber: plan.versionNumber, basisType: plan.basisType, basisAmount: new Prisma.Decimal(calculation.basisAmount), basisSnapshot: command.basis as unknown as Prisma.InputJsonValue, authoritativeAt, currency: "ZAR", totalAmount: new Prisma.Decimal(calculation.totalAmount), status: "ACCRUED", isQaAcceptance, creationIdempotencyKey: command.operationId, creationRequestHash: requestHash, calculationHash: calculation.calculationHash, calculationVersion: plan.calculationVersion, ledgerJournalId: journal.id, allocations: { create: accounts.allocations.map((allocation) => ({ publicReference: ref("CAL"), ruleId: allocation.ruleId, allocationType: allocation.allocationType, beneficiaryType: allocation.beneficiaryType, beneficiaryOwnerId: allocation.beneficiaryOwnerId, beneficiaryWalletId: allocation.beneficiaryWalletId, ledgerAccountId: allocation.ledgerAccountId, amount: new Prisma.Decimal(allocation.amount), currency: "ZAR", status: "ACCRUED", attributionReference: allocation.beneficiary?.attributionReference ?? null, attributionVersion: allocation.beneficiary?.attributionVersion ?? null })) }, statusHistory: { create: { fromStatus: null, toStatus: "ACCRUED", actorType: command.actorUserId ? "USER" : "SYSTEM", actorId: command.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, planReference: plan.publicReference } } } }, include: { ledgerJournal: { select: { reference: true } }, reversalLedgerJournal: { select: { reference: true } }, allocations: { select: { id: true, publicReference: true, amount: true } } } });
   return Object.freeze({ ...safeAccrualDto(accrual), replayed: false, allocationEvidence: Object.freeze(accrual.allocations.map((allocation) => Object.freeze({ id: allocation.id, publicReference: allocation.publicReference, amount: allocation.amount.toFixed(2), currency: "ZAR" as const }))) });
 }
 

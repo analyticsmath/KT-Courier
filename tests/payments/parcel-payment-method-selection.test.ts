@@ -8,14 +8,13 @@ describe("parcel payment selection authority", () => {
       .toThrowError(expect.objectContaining({ code: "PAYMENT_METHOD_NOT_ALLOWED" }));
     expect(() => assertSelectedPaymentMode("DEPOSIT_PLUS_COD", "DEPOSIT_PLUS_COD")).not.toThrow();
   });
-  it("accepts full cash as a requested payment choice pending server policy approval", () => {
-    expect(() => assertParcelPaymentChoice("PARCEL_DOCUMENT", "FULL_COD")).not.toThrow();
-  });
-  it("rejects a full-COD request where the only server policy authorizes online payment", () => {
+
+  it("rejects discontinued 100% FULL_COD choices across selection helpers", () => {
+    expect(() => assertParcelPaymentChoice("PARCEL_DOCUMENT", "FULL_COD"))
+      .toThrowError(expect.objectContaining({ code: "PAYMENT_METHOD_NOT_ALLOWED" }));
     expect(() => assertSelectedPaymentMode("FULL_COD", "DIGITAL_ONLY"))
       .toThrowError(expect.objectContaining({ code: "PAYMENT_METHOD_NOT_ALLOWED" }));
-  });
-  it("accepts a server-authorized full-COD match", () => {
-    expect(() => assertSelectedPaymentMode("FULL_COD", "FULL_COD")).not.toThrow();
+    expect(() => assertSelectedPaymentMode("FULL_COD", "FULL_COD"))
+      .toThrowError(expect.objectContaining({ code: "PAYMENT_METHOD_NOT_ALLOWED" }));
   });
 });

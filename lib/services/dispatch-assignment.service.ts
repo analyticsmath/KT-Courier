@@ -58,12 +58,20 @@ async function reconcileExpired(tx: Tx, orderId: string, actorUserId: string | n
 }
 
 async function validateDriver(tx: Tx, driverProfileId: string, order: { id: string; deliveryRegionId: string | null }, excludeAssignmentId?: string) {
-  const [driver, currentCount, config] = await Promise.all([
+  const [driver, currentCount, config, orderQa] = await Promise.all([
     tx.driverProfile.findUnique({ where: { id: driverProfileId }, include: { user: true, serviceRegions: true, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } } }),
     tx.orderAssignment.count({ where: { driverProfileId, ...(excludeAssignmentId ? { id: { not: excludeAssignmentId } } : {}), status: { in: CURRENT }, OR: [{ status: OrderAssignmentStatus.ACCEPTED }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: { gt: new Date() } }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: null }] } }),
     settings(tx),
+    tx.order.findUnique({ where: { id: order.id }, select: { isQaAcceptance: true } }),
   ]);
   if (!driver) throw dispatchError.driverIneligible("Driver profile not found.");
+  if (Boolean(driver.isQaAcceptance) !== Boolean(orderQa?.isQaAcceptance)) {
+    throw dispatchError.driverIneligible(
+      orderQa?.isQaAcceptance
+        ? "QA acceptance orders can only be dispatched to an enrolled QA acceptance driver."
+        : "QA acceptance drivers cannot be dispatched to live commercial orders.",
+    );
+  }
   const now = new Date();
   const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
   const result = evaluateDriverEligibility({ userActive: driver.user.role === UserRole.DRIVER && driver.user.status === UserStatus.ACTIVE, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch: !!order.deliveryRegionId && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId), activeLoad: currentCount, capacity: driver.maxConcurrentAssignments || config.defaultCapacity, complianceEligible: compliance.eligible });

@@ -29,6 +29,7 @@ import { consumeProofEvidenceInTx } from "@/lib/driver-operations/proof-evidence
 import { projectMarketplaceCourierExecutionInTx } from "@/lib/services/marketplace-courier-order.service";
 import { requireVerifiedDeliveryLocationInTx } from "@/lib/services/driver-location-evidence.service";
 import { assertDriverDeliveryResponsibilitiesInTx, ShippingObligationError } from "@/lib/services/shipping-obligations.service";
+import { issueShipmentDocumentBestEffortInTx } from "@/lib/shipment-documents/service";
 
 type TxClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
 
@@ -122,9 +123,11 @@ async function createOpEvent(
     assignmentId: string;
     driverProfileId: string;
     actorUserId: string;
+    actorRole?: UserRole;
     eventType: OrderOperationalEventType;
     statusBefore?: OrderStatus | null;
     statusAfter?: OrderStatus | null;
+    occurredAt?: Date;
     publicNote?: string | null;
     internalNote?: string | null;
     deliveryExceptionReason?: import("@/types/db").DeliveryExceptionReason | null;
@@ -138,11 +141,11 @@ async function createOpEvent(
       assignmentId: params.assignmentId,
       driverProfileId: params.driverProfileId,
       actorUserId: params.actorUserId,
-      actorRole: "DRIVER",
+      actorRole: params.actorRole ?? "DRIVER",
       eventType: params.eventType,
       statusBefore: params.statusBefore ?? null,
       statusAfter: params.statusAfter ?? null,
-      occurredAt: new Date(),
+      occurredAt: params.occurredAt ?? new Date(),
       publicNote: params.publicNote ?? null,
       internalNote: params.internalNote ?? null,
       deliveryExceptionReason: params.deliveryExceptionReason ?? null,
@@ -161,6 +164,7 @@ async function createAssignEvent(
     orderId: string;
     driverProfileId: string;
     actorUserId: string;
+    actorRole?: UserRole;
     eventType: OrderAssignmentEventType;
     previousStatus: OrderAssignmentStatus;
     newStatus: OrderAssignmentStatus;
@@ -173,7 +177,7 @@ async function createAssignEvent(
       orderId: params.orderId,
       driverProfileId: params.driverProfileId,
       actorUserId: params.actorUserId,
-      actorRole: "DRIVER",
+      actorRole: params.actorRole ?? "DRIVER",
       eventType: params.eventType,
       previousStatus: params.previousStatus,
       newStatus: params.newStatus,
@@ -520,6 +524,21 @@ export async function completeDelivery(
         previousStatus: OrderAssignmentStatus.ACCEPTED,
         newStatus: OrderAssignmentStatus.COMPLETED,
       });
+
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId: order.id,
+        type: "WAYBILL",
+        actorUserId: driverUserId,
+        actorRole: "DRIVER",
+        sourceEventRef: `delivery-otp:${input.operationId}`,
+      });
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId: order.id,
+        type: "POD",
+        actorUserId: driverUserId,
+        actorRole: "DRIVER",
+        sourceEventRef: `delivery-otp:${input.operationId}`,
+      });
     }));
     if (outcome?.otpRejected) return { ok: false, error: outcome.otpRejected };
   } catch (error) {
@@ -819,7 +838,11 @@ export async function adminManualDeliveryComplete(
     return { ok: false, error: `Cannot manually complete delivery from status: ${order.status}.` };
   }
 
-  const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : new Date();
+  const now = new Date();
+  const deliveredAt = input.deliveredAt ? new Date(input.deliveredAt) : now;
+  if (deliveredAt.getTime() > now.getTime() + 5 * 60_000) {
+    return { ok: false, error: "Delivered timestamp cannot be in the future." };
+  }
 
   try {
     await withLedgerRetry(() => prisma.$transaction(async (tx) => {
@@ -888,14 +911,49 @@ export async function adminManualDeliveryComplete(
       });
 
       // Complete the assignment if it exists
-      if (activeAssignment) {
+      if (activeAssignment && assignmentId && driverProfileId) {
         await tx.orderAssignment.update({
           where: { id: activeAssignment.id },
-        data: { status: OrderAssignmentStatus.COMPLETED, completedAt: deliveredAt, activeOrderGuard: null, version: { increment: 1 } },
+          data: { status: OrderAssignmentStatus.COMPLETED, completedAt: deliveredAt, activeOrderGuard: null, version: { increment: 1 } },
         });
         await tx.order.update({
           where: { id: orderId },
           data: { currentDriverProfileId: null },
+        });
+        await createOpEvent(tx, {
+          orderId,
+          assignmentId,
+          driverProfileId,
+          actorUserId: adminUserId,
+          actorRole: adminRole,
+          eventType: OrderOperationalEventType.DELIVERY_COMPLETED,
+          statusBefore,
+          statusAfter,
+          occurredAt: deliveredAt,
+          publicNote: publicDeliveryCompletionNote(input.publicNote),
+          internalNote: `Admin manual delivery completed. Reason: ${input.reason}`,
+        });
+        await createAssignEvent(tx, {
+          assignmentId,
+          orderId,
+          driverProfileId,
+          actorUserId: adminUserId,
+          actorRole: adminRole,
+          eventType: OrderAssignmentEventType.DELIVERY_COMPLETED,
+          previousStatus: OrderAssignmentStatus.ACCEPTED,
+          newStatus: OrderAssignmentStatus.COMPLETED,
+          note: `Admin manual delivery completed: ${input.recipientName}`,
+        });
+        await createAssignEvent(tx, {
+          assignmentId,
+          orderId,
+          driverProfileId,
+          actorUserId: adminUserId,
+          actorRole: adminRole,
+          eventType: OrderAssignmentEventType.ASSIGNMENT_COMPLETED,
+          previousStatus: OrderAssignmentStatus.ACCEPTED,
+          newStatus: OrderAssignmentStatus.COMPLETED,
+          note: `Admin manual delivery completed: ${input.recipientName}`,
         });
       }
       await projectMarketplaceCourierExecutionInTx(tx, {
@@ -905,6 +963,21 @@ export async function adminManualDeliveryComplete(
         actorUserId: adminUserId,
       });
       await tx.adminActivityLog.create({ data: { actorUserId: adminUserId, action: "STATUS_CHANGE", entityType: "Order", entityId: orderId, message: `Manually confirmed delivery for order ${locked.orderNumber}.`, metadata: sanitizeLogContext({ reason: input.reason }) as Prisma.InputJsonValue } });
+
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId,
+        type: "WAYBILL",
+        actorUserId: adminUserId,
+        actorRole: adminRole,
+        sourceEventRef: `admin-manual-pod:${orderId}`,
+      });
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId,
+        type: "POD",
+        actorUserId: adminUserId,
+        actorRole: adminRole,
+        sourceEventRef: `admin-manual-pod:${orderId}`,
+      });
     }, { isolationLevel: "Serializable" }));
   } catch (error) {
     if (error instanceof DriverOperationError) return { ok: false, error: error.message };

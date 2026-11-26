@@ -122,7 +122,7 @@ export async function assertAcceptedCheckoutEvidence(checkoutId: string, at = ne
     const rule = quote.ruleSnapshot as { policyVersion?: number; policyAuthority?: string };
     if (rule.policyAuthority === "marketplace_delivery_matrix" && rule.policyVersion !== currentMatrixVersion) fail();
     for (const line of group.lines.filter((l: any) => l.reviewVersion === checkout.reviewVersion)) {
-      const source = await resolveMarketplaceCartLine({ offerReference: line.offerReference, variantReference: line.variantReference, quantity: line.quantity, modifiers: line.modifiers.map((m: any) => ({ groupReference: m.groupReference, optionReference: m.optionReference, quantity: m.quantity })) });
+      const source = await resolveMarketplaceCartLine({ offerReference: line.offerReference, variantReference: line.variantReference, quantity: line.quantity, modifiers: line.modifiers.map((m: any) => ({ groupReference: m.groupReference, optionReference: m.optionReference, quantity: m.quantity })) }, undefined, { allowQaInternal: Boolean((checkout as { isQaAcceptance?: boolean }).isQaAcceptance) });
       const modifierTotal = source.modifiers.reduce((total: Prisma.Decimal, modifier: any) => total.add(new Prisma.Decimal(modifier.priceDelta).mul(modifier.quantity)), new Prisma.Decimal(0));
       if (source.storeId !== group.storeId || source.priceVersion !== line.priceVersion || source.publicationVersion !== line.publicationVersion || !line.baseUnitPrice.equals(source.unitPrice) || !line.modifierUnitTotal.equals(modifierTotal) || !line.lineTotal.equals(new Prisma.Decimal(source.unitPrice).add(modifierTotal).mul(line.quantity))) fail();
     }

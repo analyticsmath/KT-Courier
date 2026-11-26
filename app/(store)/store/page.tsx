@@ -17,6 +17,8 @@ import {
   getStoreCourierBreakdown,
 } from "@/lib/dashboard-insights/store-dashboard-insights";
 import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 
@@ -44,6 +46,7 @@ export default async function StoreDashboardPage({
     courierInsight,
     courierBreakdown,
     onboarding,
+    qaContext,
   ] = await Promise.all([
     getStorePickupAddress(user.id, "deliveries"),
     listOrders(user, { page: 1, pageSize: 5 }, true),
@@ -67,12 +70,25 @@ export default async function StoreDashboardPage({
     getStoreCourierInsights(period),
     getStoreCourierBreakdown(period),
     store ? getStoreOnboardingByStoreId(store.id) : Promise.resolve(null),
+    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
   ]);
 
   const queue = marketplaceQueue as StoreFulfilmentQueue;
   return (
     <StoreOverviewPage
-      onboardingBanner={<StoreOnboardingStatusBanner onboarding={onboarding} />}
+      onboardingBanner={
+        <>
+          {qaContext ? (
+            <QaSandboxBanner
+              persona="QA Vendor Store"
+              ctaHref="/shop/qa"
+              ctaLabel="View Private QA Storefront"
+              nonWithdrawable
+            />
+          ) : null}
+          <StoreOnboardingStatusBanner onboarding={onboarding} />
+        </>
+      }
       storeName={store?.name ?? storeUser?.name ?? user.name ?? "Store"}
       storeStatus={store?.status ?? null}
       queue={queue}

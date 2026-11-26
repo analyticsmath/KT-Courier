@@ -11,7 +11,7 @@ type Policy = Data["policies"][number];
 export function PaymentPolicyConfiguration({ data }: { data: Data }) {
   const router = useRouter();
   const [editing, setEditing] = useState<Policy | null>(null),
-    [mode, setMode] = useState("FULL_COD"),
+    [mode, setMode] = useState("DEPOSIT_PLUS_COD"),
     [selectedStoreId, setSelectedStoreId] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -108,9 +108,8 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
             className="w-full min-h-12 border-b"
           >
             <option value="DIGITAL">Full online payment</option>
-            <option value="FULL_COD">100% cash on delivery · no online deposit</option>
             <option value="DEPOSIT_PLUS_COD">
-              Online deposit + cash on delivery
+              50% online deposit + 50% cash on delivery
             </option>
           </select>
         </div>
@@ -118,7 +117,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
           type="hidden"
           name="orderType"
           value={
-            mode === "FULL_COD" || (mode === "DEPOSIT_PLUS_COD" && !(editing ? editing.storeId : selectedStoreId))
+            mode === "DEPOSIT_PLUS_COD" && !(editing ? editing.storeId : selectedStoreId)
               ? "PARCEL_DOCUMENT"
               : (editing?.orderType ?? "")
           }
@@ -269,7 +268,7 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
               onClick={() => {
                 setEditing(null);
                 setSelectedStoreId("");
-                setMode("FULL_COD");
+                setMode("DEPOSIT_PLUS_COD");
               }}
             >
               New policy
@@ -310,20 +309,25 @@ export function PaymentPolicyConfiguration({ data }: { data: Data }) {
                   onClick={() => {
                     setEditing(p);
                     setSelectedStoreId(p.storeId ?? "");
-                    setMode(p.mode);
+                    setMode(p.mode === "FULL_COD" ? "DEPOSIT_PLUS_COD" : p.mode);
                     setError("");
                     setNotice("");
                   }}
                 >
-                  Edit policy
+                  {p.mode === "FULL_COD" ? "Migrate to 50/50 split" : "Edit policy"}
                 </Button>
               )}
-              {p.editable && p.approvalRequired && <form className="w-full space-y-3" onSubmit={(e) => { e.preventDefault(); void approve(p, e.currentTarget); }}>
+              {p.editable && p.approvalRequired && p.mode !== "FULL_COD" && <form className="w-full space-y-3" onSubmit={(e) => { e.preventDefault(); void approve(p, e.currentTarget); }}>
                 <Label htmlFor={`settlement-${p.id}`}>Approved settlement timing</Label><Input id={`settlement-${p.id}`} name="settlementTiming" required minLength={5} maxLength={150} />
                 <label className="flex gap-3"><input name="remittanceVerified" type="checkbox" required />I reviewed the secure remittance instructions and operating procedure.</label>
                 <Label htmlFor={`approval-${p.id}`}>Approval reason</Label><Input id={`approval-${p.id}`} name="reason" required minLength={10} maxLength={500} />
-                <Button type="submit" loading={busy}>Approve and activate {p.mode === "FULL_COD" ? "100% parcel COD" : "deposit + COD"}</Button>
+                <Button type="submit" loading={busy}>Approve and activate 50% deposit + COD</Button>
               </form>}
+              {p.editable && p.approvalRequired && p.mode === "FULL_COD" && (
+                <p className="w-full text-sm text-amber-800">
+                  Legacy 100% Full COD policy retired under the 50% online + 50% driver cash mandate and cannot be activated.
+                </p>
+              )}
             </article>
           ))
         ) : (

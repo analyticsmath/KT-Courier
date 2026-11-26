@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { withLedgerRetry } from "@/lib/ledger/retry";
 import { ensureLedgerAccount, ensureWalletForOwner } from "@/lib/services/wallet-account.service";
 import { postLedgerJournalWithinTransaction } from "@/lib/services/ledger-posting.service";
+import { ensureOwnerWalletIsolatedForQaInTx, ensureQaPlatformSandboxAccountsInTx } from "@/lib/qa-acceptance/ledger";
 
 export class CashOnDeliveryError extends Error {
   constructor(readonly code: string, message: string) { super(message); }
@@ -20,7 +21,21 @@ const money = (value: string) => {
 const hash = (value: unknown) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const reference = (prefix: string, id: string) => `${prefix}-${id.replace(/[^a-zA-Z0-9]/g, "").toUpperCase()}`;
 
-async function custodyAccounts(driverId: string, tx: Prisma.TransactionClient) {
+async function custodyAccounts(driverId: string, tx: Prisma.TransactionClient, isQaAcceptance = false) {
+  if (isQaAcceptance) {
+    const [sandbox, driverWallet] = await Promise.all([
+      ensureQaPlatformSandboxAccountsInTx(tx),
+      ensureOwnerWalletIsolatedForQaInTx(tx, { ownerType: "DRIVER", ownerId: driverId }),
+    ]);
+    const driverCash = await ensureLedgerAccount({ walletId: driverWallet.id, code: reference("DRIVER-COD-CASH", driverId), purpose: "CASH_CLEARING", category: "ASSET", currency: "ZAR" }, tx);
+    return {
+      held: sandbox.fundsHeld,
+      driverCash,
+      platformCash: sandbox.cashClearing,
+      shortageSuspense: sandbox.codShortageSuspense,
+      platformAdjustment: sandbox.adjustment,
+    };
+  }
   const [platformWallet, driverWallet] = await Promise.all([
     ensureWalletForOwner({ ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" }, tx),
     ensureWalletForOwner({ ownerType: "DRIVER", ownerId: driverId, currency: "ZAR" }, tx),
@@ -37,7 +52,7 @@ async function custodyAccounts(driverId: string, tx: Prisma.TransactionClient) {
 
 export async function createCashOnDeliveryObligation(input: {
   orderId: string; paymentId?: string; policyMode: "FULL_COD" | "DEPOSIT_PLUS_COD";
-  authoritativePayable: string; digitalRequired: string; digitalPaid?: string;
+  authoritativePayable: string; digitalRequired: string; digitalPaid?: string; isQaAcceptance?: boolean;
 }) {
   const payable = money(input.authoritativePayable); const digitalRequired = money(input.digitalRequired); const digitalPaid = money(input.digitalPaid ?? "0");
   const cashObligation = payable.sub(digitalRequired);
@@ -47,7 +62,7 @@ export async function createCashOnDeliveryObligation(input: {
   return createCashOnDeliveryObligationWithinTransaction(prisma, { ...input, authoritativePayable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2), digitalPaid: digitalPaid.toFixed(2) });
 }
 
-export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma.TransactionClient, input: { orderId: string; paymentId?: string; policyMode: "FULL_COD" | "DEPOSIT_PLUS_COD"; authoritativePayable: string; digitalRequired: string; digitalPaid?: string; policyEvidence?: unknown }) {
+export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma.TransactionClient, input: { orderId: string; paymentId?: string; policyMode: "FULL_COD" | "DEPOSIT_PLUS_COD"; authoritativePayable: string; digitalRequired: string; digitalPaid?: string; policyEvidence?: unknown; isQaAcceptance?: boolean }) {
   if (isHighRiskCashPolicyEvidence(input.policyEvidence)) {
     throw new CashOnDeliveryError("HIGH_RISK_CASH_RESTRICTED", "Cash cannot be committed for a high-risk parcel pickup or drop-off area.");
   }
@@ -55,7 +70,15 @@ export async function createCashOnDeliveryObligationWithinTransaction(tx: Prisma
   if (cashObligation.isNegative() || digitalPaid.greaterThan(digitalRequired) ||
       (input.policyMode === "FULL_COD" && (!digitalRequired.isZero() || !digitalPaid.isZero())))
     throw new CashOnDeliveryError("COD_AMOUNT_MISMATCH", "COD payment split is invalid.");
-  return tx.cashOnDelivery.create({ data: { publicReference: `COD-${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`, orderId: input.orderId, paymentId: input.paymentId, policyMode: input.policyMode, authoritativePayable: payable, digitalRequired, digitalPaid, cashObligation, status: input.policyMode === "FULL_COD" ? "READY_FOR_COLLECTION" : "PENDING", events: { create: { operationId: `commit:${input.orderId}`, requestHash: hash({ orderId: input.orderId, policyMode: input.policyMode, payable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2) }), eventType: "COMMITTED", safeEvidence: input.policyEvidence as Prisma.InputJsonValue | undefined } } } });
+  let isQaAcceptance = input.isQaAcceptance;
+  if (isQaAcceptance === undefined) {
+    const orderRow =
+      typeof tx.order?.findUnique === "function"
+        ? await tx.order.findUnique({ where: { id: input.orderId }, select: { isQaAcceptance: true } }).catch(() => null)
+        : null;
+    isQaAcceptance = Boolean(orderRow?.isQaAcceptance);
+  }
+  return tx.cashOnDelivery.create({ data: { publicReference: `COD-${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`, orderId: input.orderId, paymentId: input.paymentId, policyMode: input.policyMode, authoritativePayable: payable, digitalRequired, digitalPaid, cashObligation, isQaAcceptance: Boolean(isQaAcceptance), status: input.policyMode === "FULL_COD" ? "READY_FOR_COLLECTION" : "PENDING", events: { create: { operationId: `commit:${input.orderId}`, requestHash: hash({ orderId: input.orderId, policyMode: input.policyMode, payable: payable.toFixed(2), digitalRequired: digitalRequired.toFixed(2) }), eventType: "COMMITTED", safeEvidence: input.policyEvidence as Prisma.InputJsonValue | undefined } } } });
 }
 
 /**
@@ -220,7 +243,7 @@ export async function recordCashCollection(input: { orderId: string; collectorDr
     // Never allow a legacy/manual assignment to bypass the money custody cap.
     // This locks the same driver row as the assignment entrypoint.
     await assertDriverCashCapacityForCollection(tx, input.collectorDriverId, input.orderId, amount);
-    const accounts = await custodyAccounts(input.collectorDriverId, tx);
+    const accounts = await custodyAccounts(input.collectorDriverId, tx, Boolean(cod.isQaAcceptance || cod.order.isQaAcceptance));
     const journal = await postLedgerJournalWithinTransaction(tx, { idempotencyKey: `cod-collect:${input.operationId}`, type: "GENERAL", currency: "ZAR", sourceReference: `cod:${cod.publicReference}:collection`, correlationId: cod.publicReference, memo: "COD cash collection into driver custody", actor: { kind: "USER", userId: input.actorUserId }, metadata: { codReference: cod.publicReference, collectorDriverId: input.collectorDriverId }, entries: [{ accountId: accounts.driverCash.id, direction: "DEBIT", amount: amount.toFixed(2), lineCode: "DRIVER_CASH_CUSTODY" }, { accountId: accounts.held.id, direction: "CREDIT", amount: amount.toFixed(2), lineCode: "CUSTOMER_FUNDS_HELD" }] });
     const collectedAt = new Date();
     const remittanceDueAt = computeDriverCashRemittanceDueAt(collectedAt);
@@ -258,7 +281,7 @@ export async function reconcileCashCollection(input: { orderId: string; actorUse
     if (cod.status !== "COLLECTED") throw new CashOnDeliveryError("COD_NOT_RECONCILABLE", "COD cash cannot be reconciled from current state.");
     if (received.greaterThan(cod.cashCollected)) throw new CashOnDeliveryError("COD_OVER_COLLECTION", "Received remittance cannot exceed collected cash.");
 
-    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx, Boolean(cod.isQaAcceptance));
     const hasDiscrepancy = received.lessThan(cod.cashCollected);
     const discrepancy = hasDiscrepancy ? cod.cashCollected.sub(received) : new Prisma.Decimal(0);
 
@@ -360,7 +383,7 @@ export async function adjustCashOnDelivery(input: {
       throw new CashOnDeliveryError("COD_NOT_ADJUSTABLE", "COD order has no outstanding remittance discrepancy to adjust.");
     }
 
-    const accounts = await custodyAccounts(cod.collectorDriverId, tx);
+    const accounts = await custodyAccounts(cod.collectorDriverId, tx, Boolean(cod.isQaAcceptance));
     const amount = cod.remittanceDiscrepancy;
 
     const debitAccount = input.adjustmentType === "FORGIVE_SHORTAGE"

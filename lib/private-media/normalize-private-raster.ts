@@ -1,5 +1,3 @@
-import sharp from "sharp";
-
 export class PrivateRasterError extends Error {}
 
 /** Preserve image dimensions/content without carrying embedded upload metadata. */
@@ -7,6 +5,7 @@ export async function normalizePrivateRaster(bytes: Uint8Array, mimeType: string
   const format = mimeType === "image/jpeg" ? "jpeg" : mimeType === "image/png" ? "png" : mimeType === "image/webp" ? "webp" : null;
   if (!format) throw new PrivateRasterError("Unsupported private raster type.");
   try {
+    const { default: sharp } = await import("sharp");
     const image = sharp(bytes, { limitInputPixels: 25_000_000, animated: false, failOn: "warning" });
     const metadata = await image.metadata();
     if (!metadata.width || !metadata.height || metadata.format !== format || (metadata.pages ?? 1) > 1) throw new Error("Invalid private image.");

@@ -30,7 +30,7 @@ describe("ledger query service", () => {
     expect(result.data[0]).toMatchObject({ currentBalance: "1.00", owner: { label: "KT Couriers platform" } });
     expect(mocks.prisma.ledgerAccount.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }),
+        where: expect.objectContaining({ wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false } }),
         orderBy: [{ code: "asc" }, { id: "asc" }],
       }),
     );
@@ -45,7 +45,7 @@ describe("ledger query service", () => {
         where: expect.objectContaining({
           AND: expect.arrayContaining([
             { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
-            { entries: { none: { account: { wallet: { ownerId: "platform-sandbox-acceptance" } } } } },
+            { entries: { none: { account: { wallet: { OR: [{ ownerId: "platform-sandbox-acceptance" }, { isQaIsolated: true }] } } } } },
           ]),
         }),
         orderBy: [{ postedAt: "desc" }, { id: "desc" }],

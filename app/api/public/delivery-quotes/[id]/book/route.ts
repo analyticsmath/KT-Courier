@@ -18,6 +18,7 @@ import { getStorePickupAddressForStore } from "@/lib/services/store-addresses.se
 import { recoverCommittedParcelBooking } from "@/lib/client-platform/parcel-booking-recovery";
 import { assertQuoteStoreScope } from "@/lib/client-platform/parcel-quote-store-scope";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 export async function POST(
   req: NextRequest,
   c: { params: Promise<{ id: string }> },
@@ -48,8 +49,10 @@ export async function POST(
     // Recovery is read-only, owner-scoped and checks identical booking facts.
     const recovered = await recoverCommittedParcelBooking(replayInput);
     if (recovered) return json(recovered, 200);
+    const qaCtx = await resolveQaAcceptanceSessionContext(user.id).catch(() => null);
     const activation = evaluateCommerceActivation(process.env);
     if (
+      !qaCtx &&
       !activation.localValidationBypassActive &&
       ((activation.runtime === "production" && !activation.publicCheckoutExposed) ||
         (activation.switchSource === "KT_COMMERCE_ENABLED" && !activation.globalRequested))
@@ -130,7 +133,14 @@ export async function POST(
         if (claimed.count !== 1) throw new PlatformError("QUOTE_EXPIRED", "Request a new quote before booking.", 409);
         // Ownership, consumption, contacts and the canonical order commit together.
         // A refused payment policy must leave the anonymous quote usable by its owner.
-        return createOrder(user, input, business, tx, explicitStoreId);
+        return createOrder(
+          user,
+          input,
+          business,
+          tx,
+          explicitStoreId,
+          qaCtx ? { isQaAcceptance: true, qaAcceptanceRunId: qaCtx.activeRunId } : undefined,
+        );
       });
     } catch (cause) {
       // Another concurrent POST can win the single-use quote race after our

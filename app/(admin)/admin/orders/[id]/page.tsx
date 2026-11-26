@@ -27,6 +27,9 @@ import { getOrderActiveAssignment, getOrderAssignmentHistory } from "@/lib/servi
 import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
 import { getOrderOperationalEvents } from "@/lib/services/admin-pickup-operations.service";
 import { formatDateTime } from "@/lib/utils/formatters";
+import { getOrderDocumentAvailability } from "@/lib/shipment-documents/service";
+import { listTrackingShareGrants } from "@/lib/tracking/recipient-access.server";
+import { OrderShipmentDocumentsPanel } from "@/components/shipment-documents/OrderShipmentDocumentsPanel";
 
 export const metadata: Metadata = { title: "Courier order" };
 
@@ -47,8 +50,13 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   // This page already requires ORDERS_READ. Restrict gallery reads to
   // order-owned delivery-proof objects at the private-media boundary.
-  const [deliveryEvidence, handoverEmails, paymentReadiness, codReadiness] = await Promise.all([
-    listAdminDeliveryEvidence(id), listAdminHandoverEmailEvidence(id), getCourierPaymentReadiness(id), getAdminCodDeliveryReadiness(user, id),
+  const [deliveryEvidence, handoverEmails, paymentReadiness, codReadiness, documentAvailability, grantsResult] = await Promise.all([
+    listAdminDeliveryEvidence(id),
+    listAdminHandoverEmailEvidence(id),
+    getCourierPaymentReadiness(id),
+    getAdminCodDeliveryReadiness(user, id),
+    getOrderDocumentAvailability(id),
+    listTrackingShareGrants({ user, orderId: id }).catch(() => ({ grants: [] })),
   ]);
   const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
@@ -104,6 +112,14 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           {order.adminNote ? <p className="eo-internal-note"><strong>Internal note:</strong> {order.adminNote}</p> : null}
         </OperationalPanel>
 
+        <OrderShipmentDocumentsPanel
+          orderId={id}
+          orderNumber={order.orderNumber}
+          viewerRole="ADMIN"
+          availability={documentAvailability}
+          initialGrants={grantsResult.grants}
+        />
+
         <OperationalPanel title="Assignment" description="Eligibility, region compatibility, availability, audit, and version conflicts remain server-authoritative.">
           {order.manualDispatchRequired ? (
             <div className="mb-4 p-3 rounded border border-amber-500/30 bg-amber-500/10 text-sm">
@@ -120,7 +136,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </div>
           ) : null}
           {activeAssignment ? <div className="eo-assignment-summary"><div><strong>{activeAssignment.driverDisplayName ?? activeAssignment.driverCode}</strong><p>{activeAssignment.driverCode} · {activeAssignment.vehicleType ?? "Vehicle not recorded"}</p></div><ProtectedStatus {...(() => { const state = presentAssignmentStatus(activeAssignment.status); return { label: state.label, tone: state.tone }; })()} /></div> : <ProtectedState kind="unavailable" title="No active assignment" description="The order has no active assignment in the canonical dispatch projection." />}
-          {!paymentReadiness.dispatchEligible && <p role="status" className="mt-4 text-sm font-medium text-[var(--eo-text-secondary)]">Dispatch is unavailable until the required digital payment is confirmed in the ledger. Approved full cash-on-delivery orders remain eligible.</p>}
+          {!paymentReadiness.dispatchEligible && <p role="status" className="mt-4 text-sm font-medium text-[var(--eo-text-secondary)]">Dispatch is unavailable until the required digital payment or 50% deposit is confirmed in the ledger (legacy historic full COD orders remain eligible).</p>}
           <div className="mt-4"><AdminAssignmentActions orderId={id} assignment={activeAssignment ? { id: activeAssignment.id, driverProfileId: activeAssignment.driverProfileId, version: activeAssignment.version } : null} candidates={candidates} canAssign={canAssign && paymentReadiness.dispatchEligible} canReassign={canReassign && paymentReadiness.dispatchEligible} /></div>
           {!order.deliveryRegionId ? <p role="status" className="mt-3">This order has no matched delivery region. Resolve its coverage before assigning a driver.</p> : null}
           {eligible ? <div className="mt-4"><DispatchDriverReadiness drivers={eligible} /></div> : null}

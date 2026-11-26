@@ -16,18 +16,23 @@ import { listStoreEarningsForOwner } from "@/lib/services/store-earning-query.se
 import { StoreEarningError } from "@/lib/store-earnings/errors";
 import { StoreEarningsUnavailable } from "./StoreEarningsUnavailable";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 
 export default async function StoreEarningsPage() {
   await requireBusinessPage("/store/earnings");
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const data = await Promise.all([
-    getStoreEarningSummaryForOwner(user.id),
-    listStoreEarningsForOwner(user.id, { page: 1, pageSize: 50 }),
-  ]).catch((error: unknown) => {
-    if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return null;
-    throw error;
-  });
+  const [data, qaContext] = await Promise.all([
+    Promise.all([
+      getStoreEarningSummaryForOwner(user.id),
+      listStoreEarningsForOwner(user.id, { page: 1, pageSize: 50 }),
+    ]).catch((error: unknown) => {
+      if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return null;
+      throw error;
+    }),
+    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
+  ]);
   if (!data) return <StoreEarningsUnavailable />;
   const [summary, earnings] = data;
   return (
@@ -37,6 +42,13 @@ export default async function StoreEarningsPage() {
         title="Earnings"
         description="Server-authoritative store earning projections. Amounts are displayed with their explicit currency and do not calculate in the browser."
       />
+      {qaContext ? (
+        <QaSandboxBanner
+          persona="QA Vendor Earnings"
+          description="Isolated Paystack test-mode settlement balances only. Withdrawals and live payouts are blocked for QA-isolated store wallets."
+          nonWithdrawable
+        />
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricTile
           label="Payable balance"

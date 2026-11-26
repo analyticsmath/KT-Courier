@@ -14,18 +14,31 @@ function isUniqueConflict(error: unknown): boolean {
   return (error as { code?: string })?.code === "P2002";
 }
 
-async function assertOwnerExists(tx: Prisma.TransactionClient, input: EnsureWalletInput): Promise<void> {
+async function assertOwnerExists(
+  tx: Prisma.TransactionClient,
+  input: EnsureWalletInput,
+): Promise<Readonly<{ isQaIsolated: boolean }>> {
   let exists = false;
+  let isQaIsolated = false;
   switch (input.ownerType) {
-    case "CUSTOMER":
-      exists = Boolean(await tx.user.findFirst({ where: { id: input.ownerId, role: "CUSTOMER" }, select: { id: true } }));
+    case "CUSTOMER": {
+      const row = await tx.user.findFirst({ where: { id: input.ownerId, role: "CUSTOMER" }, select: { id: true, isQaAcceptance: true } });
+      exists = Boolean(row);
+      isQaIsolated = Boolean((row as { isQaAcceptance?: boolean } | null)?.isQaAcceptance);
       break;
-    case "STORE":
-      exists = Boolean(await tx.store.findUnique({ where: { id: input.ownerId }, select: { id: true } }));
+    }
+    case "STORE": {
+      const row = await tx.store.findUnique({ where: { id: input.ownerId }, select: { id: true, isQaAcceptance: true } });
+      exists = Boolean(row);
+      isQaIsolated = Boolean((row as { isQaAcceptance?: boolean } | null)?.isQaAcceptance);
       break;
-    case "DRIVER":
-      exists = Boolean(await tx.driverProfile.findUnique({ where: { id: input.ownerId }, select: { id: true } }));
+    }
+    case "DRIVER": {
+      const row = await tx.driverProfile.findUnique({ where: { id: input.ownerId }, select: { id: true, isQaAcceptance: true } });
+      exists = Boolean(row);
+      isQaIsolated = Boolean((row as { isQaAcceptance?: boolean } | null)?.isQaAcceptance);
       break;
+    }
     case "PROMOTER":
       exists = Boolean(await tx.promoterAccount.findUnique({ where: { id: input.ownerId }, select: { id: true } }));
       break;
@@ -34,6 +47,7 @@ async function assertOwnerExists(tx: Prisma.TransactionClient, input: EnsureWall
       break;
   }
   if (!exists) throw new LedgerError("LEDGER_OWNER_INVALID", "Ledger wallet owner is invalid.");
+  return Object.freeze({ isQaIsolated });
 }
 
 function walletSnapshot(wallet: {
@@ -42,6 +56,7 @@ function walletSnapshot(wallet: {
   ownerId: string;
   currency: string;
   status: string;
+  isQaIsolated?: boolean;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -96,7 +111,7 @@ export async function ensureWalletForOwnerInTx(
     throw new LedgerError("LEDGER_OWNER_INVALID", "A valid owner and ZAR currency are required.");
   }
 
-  await assertOwnerExists(tx, input);
+  const ownerMeta = await assertOwnerExists(tx, input);
   const existing = await tx.wallet.findUnique({
     where: { ownerType_ownerId_currency: input },
   });
@@ -113,6 +128,7 @@ export async function ensureWalletForOwnerInTx(
       ownerId: input.ownerId,
       currency: input.currency,
       status: "ACTIVE",
+      isQaIsolated: ownerMeta.isQaIsolated,
     },
   });
   return walletSnapshot(created);
@@ -172,28 +188,7 @@ export async function ensureWalletForOwner(input: EnsureWalletInput, tx?: Prisma
   }
 
   try {
-    const wallet = await withLedgerRetry(() => prisma.$transaction(async (innerTx) => {
-      await assertOwnerExists(innerTx, input);
-      const existing = await innerTx.wallet.findUnique({
-        where: { ownerType_ownerId_currency: input },
-      });
-      if (existing) {
-        if (existing.status !== "ACTIVE") {
-          throw new LedgerError("LEDGER_WALLET_INACTIVE", "Ledger wallet is not active.");
-        }
-        return existing;
-      }
-
-      return innerTx.wallet.create({
-        data: {
-          ownerType: input.ownerType,
-          ownerId: input.ownerId,
-          currency: input.currency,
-          status: "ACTIVE",
-        },
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
-    return walletSnapshot(wallet);
+    return await withLedgerRetry(() => prisma.$transaction((innerTx) => ensureWalletForOwnerInTx(innerTx, input), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
   } catch (error) {
     if (!isUniqueConflict(error)) throw error;
     const winner = await prisma.wallet.findUnique({ where: { ownerType_ownerId_currency: input } });

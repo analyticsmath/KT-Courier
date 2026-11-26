@@ -322,47 +322,41 @@ describe("scoped cash payment policies", () => {
     });
     expect(db.paymentMethodPolicy.findMany).not.toHaveBeenCalled();
   });
-  it("accepts an explicitly scoped 100% cash parcel policy for individual customers", () => {
+  it("rejects new FULL_COD policies and accepts an explicitly scoped 50/50 deposit parcel policy for individual customers", () => {
     expect(PaymentConfigurationSchema.safeParse({
       ...input, storeId: null, mode: "FULL_COD", depositPercent: null,
-    }).success).toBe(true);
-    expect(PaymentConfigurationSchema.safeParse({
-      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD",
     }).success).toBe(false);
     expect(PaymentConfigurationSchema.safeParse({
-      ...input, storeId: null, mode: "FULL_COD", deliveryServiceId: null,
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", depositPercent: "0.5",
+    }).success).toBe(true);
+    expect(PaymentConfigurationSchema.safeParse({
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", deliveryServiceId: null, orderType: "PARCEL_DOCUMENT", depositPercent: "0.5",
     }).success).toBe(false);
   });
 
-  it("creates a review-required parcel-only full COD policy without approving it", async () => {
+  it("creates a review-required parcel-only 50/50 deposit+COD policy without auto-approving it", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([]);
     await savePaymentConfiguration(actor, {
-      ...input, storeId: null, mode: "FULL_COD", depositPercent: null,
+      ...input, storeId: null, mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", depositPercent: "0.5",
       maximumCodAmount: "300.00", expectedVersion: 0,
-      reason: "Offer full COD for eligible parcel customers",
+      reason: "Offer 50/50 deposit+COD for eligible parcel customers",
     });
     expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({
-      storeId: null, orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
-      depositPercent: null, status: "INACTIVE",
+      storeId: null, orderType: "PARCEL_DOCUMENT", mode: "DEPOSIT_PLUS_COD", status: "INACTIVE",
     });
     expect(db.store.findUnique).not.toHaveBeenCalled();
   });
 
-  it("requires zero upfront payment for eligible full cash parcel delivery", async () => {
+  it("rejects retired FULL_COD breakdown and calculates 50/50 DEPOSIT_PLUS_COD cleanly", async () => {
     db.paymentMethodPolicy.findMany.mockResolvedValue([{
       ...base, storeId: null, orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
       deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
       depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
     }]);
-    const full = await resolvePaymentBreakdown({
+    await expect(resolvePaymentBreakdown({
       orderType: "PARCEL_DOCUMENT", deliveryServiceKey: "CLIENT_STANDARD",
       provinces: ["Gauteng"], authoritativeTotal: "249.00",
-    });
-    expect(full).toMatchObject({
-      mode: "FULL_COD", digitalRequired: "0.00",
-      cashRequired: "249.00", cashOutstanding: "249.00",
-    });
-    expect(db.store.findUnique).not.toHaveBeenCalled();
+    })).rejects.toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
     await expect(resolvePaymentBreakdown({
       orderType: "GROCERY", deliveryServiceKey: "CLIENT_STANDARD",
       provinces: ["Gauteng"], authoritativeTotal: "249.00",
@@ -381,16 +375,16 @@ describe("scoped cash payment policies", () => {
       ? { type: "JSON", value: INITIAL_HIGH_RISK_AREAS }
       : null;
 
-  it("requires documented independent approval before production 100% cash checkout", async () => {
+  it("requires documented independent approval before production 50/50 deposit+cash checkout", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("KT_RUNTIME_ENV", "production");
     try {
       db.systemSetting.findUnique.mockImplementation(async (input: { where: { key: string } }) => areaSettings(input.where.key));
       db.paymentMethodPolicy.findMany.mockResolvedValue([{
         ...base, createdByUserId: "author", storeId: null,
-        orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+        orderType: "PARCEL_DOCUMENT", mode: "DEPOSIT_PLUS_COD",
         deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
-        depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
+        depositPercent: new Prisma.Decimal("0.5"), maximumCodAmount: new Prisma.Decimal("300.00"),
         policyEvidence: {},
       }]);
       await expect(resolvePaymentBreakdown({
@@ -400,7 +394,7 @@ describe("scoped cash payment policies", () => {
     } finally { vi.unstubAllEnvs(); }
   });
 
-  it("permits production zero-deposit COD only with approved cash remittance instructions", async () => {
+  it("permits production 50/50 deposit+COD only with approved cash remittance instructions", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("KT_RUNTIME_ENV", "production");
     try {
@@ -408,9 +402,9 @@ describe("scoped cash payment policies", () => {
       db.systemSetting.findUnique.mockImplementation(async (input: { where: { key: string } }) => areaSettings(input.where.key));
       db.paymentMethodPolicy.findMany.mockResolvedValue([{
         ...base, createdByUserId: "author", storeId: null,
-        orderType: "PARCEL_DOCUMENT", mode: "FULL_COD",
+        orderType: "PARCEL_DOCUMENT", mode: "DEPOSIT_PLUS_COD",
         deliveryServiceId: "CLIENT_STANDARD", provinceScope: ["Gauteng"],
-        depositPercent: null, maximumCodAmount: new Prisma.Decimal("300.00"),
+        depositPercent: new Prisma.Decimal("0.5"), maximumCodAmount: new Prisma.Decimal("300.00"),
         policyEvidence: { approvedByUserId: "reviewer", approvedAt: date.toISOString(),
           remittanceApproved: true, remittanceUpdatedAt: date.toISOString(), settlementTiming: "Bank receipt within 24 hours" },
       }]);
@@ -424,16 +418,27 @@ describe("scoped cash payment policies", () => {
         } : areaSettings(args.where.key),
       );
       expect(await resolvePaymentBreakdown(args)).toMatchObject({
-        mode: "FULL_COD", digitalRequired: "0.00", cashRequired: "179.00",
+        mode: "DEPOSIT_PLUS_COD", digitalRequired: "89.50", cashRequired: "89.50",
       });
     } finally { vi.unstubAllEnvs(); }
   });
 
-  it("activates reviewed full parcel COD without mutating older 50/50 scopes", async () => {
-    const draft = { ...base, id: "cm00000000000000000000001", status: "INACTIVE",
+  it("refuses activating retired FULL_COD drafts while activating reviewed 50/50 DEPOSIT_PLUS_COD drafts", async () => {
+    const legacyDraft = { ...base, id: "cm00000000000000000000000", status: "INACTIVE",
       createdByUserId: "different-author", storeId: null, mode: "FULL_COD",
       orderType: "PARCEL_DOCUMENT", deliveryServiceId: "CLIENT_STANDARD",
       provinceScope: ["Gauteng"], depositPercent: null,
+      maximumCodAmount: new Prisma.Decimal("300.00") };
+    db.paymentMethodPolicy.findUnique.mockResolvedValueOnce(legacyDraft);
+    await expect(approvePaymentConfiguration(actor, {
+      policyId: legacyDraft.id, expectedVersion: 1, remittanceVerified: true,
+      settlementTiming: "Bank receipt within 24 hours", reason: "Attempt to approve legacy FULL_COD",
+    })).rejects.toMatchObject({ code: "PAYMENT_POLICY_DISCONTINUED", status: 422 });
+
+    const draft = { ...base, id: "cm00000000000000000000001", status: "INACTIVE",
+      createdByUserId: "different-author", storeId: null, mode: "DEPOSIT_PLUS_COD",
+      orderType: "PARCEL_DOCUMENT", deliveryServiceId: "CLIENT_STANDARD",
+      provinceScope: ["Gauteng"], depositPercent: new Prisma.Decimal("0.5"),
       maximumCodAmount: new Prisma.Decimal("300.00") };
     db.paymentMethodPolicy.findUnique.mockResolvedValue(draft);
     db.paymentMethodPolicy.findMany.mockResolvedValue([draft]);
@@ -446,10 +451,10 @@ describe("scoped cash payment policies", () => {
     db.adminActivityLog.findFirst.mockResolvedValue({ actorUserId: "bank-author" });
     await approvePaymentConfiguration(actor, {
       policyId: draft.id, expectedVersion: 1, remittanceVerified: true,
-      settlementTiming: "Bank receipt within 24 hours", reason: "Verified parcel full cash operations",
+      settlementTiming: "Bank receipt within 24 hours", reason: "Verified 50/50 deposit + cash operations",
     });
     expect(db.paymentMethodPolicy.create.mock.calls[0][0].data).toMatchObject({
-      mode: "FULL_COD", orderType: "PARCEL_DOCUMENT", status: "ACTIVE",
+      mode: "DEPOSIT_PLUS_COD", orderType: "PARCEL_DOCUMENT", status: "ACTIVE",
       storeId: null, createdByUserId: "different-author",
       policyEvidence: { approvedByUserId: "admin", remittanceApproved: true },
     });
@@ -535,8 +540,8 @@ describe("scoped cash payment policies", () => {
         ...input,
         storeId: null,
         regionId: "cm00000000000000000000099",
-        mode: "FULL_COD",
-        depositPercent: null,
+        mode: "DEPOSIT_PLUS_COD",
+        depositPercent: "0.5",
         orderType: "PARCEL_DOCUMENT",
         expectedVersion: 0,
       }),

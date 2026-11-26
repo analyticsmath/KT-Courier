@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { noStoreJson, paymentApiError, readBoundedPaymentJsonRequest, resolveExplicitStoreContextId } from "@/lib/payments/customer-api-policy";
-import { createProductionPaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
+import { createProductionPaymentProviderRegistry, PaymentProviderRegistry } from "@/lib/payments/providers/payment-provider-registry";
 import { isPaystackEftChannelApproved } from "@/lib/payments/providers/paystack/paystack-config";
+import { buildQaSandboxProviderReadiness, createQaPaystackAdapter } from "@/lib/qa-acceptance/config";
+import { prisma } from "@/lib/db/prisma";
 import { validatePaystackAuthorizationUrl } from "@/lib/payments/providers/paystack/paystack-client";
 import { PaymentError } from "@/lib/payments/errors";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
@@ -46,7 +48,26 @@ export async function POST(
     if (payment.status === "SUCCEEDED") {
       throw new PaymentError("PAYMENT_ORDER_ALREADY_PAID", "Payment has already been verified and recorded.");
     }
-    const registry = createProductionPaymentProviderRegistry();
+    const qaPaymentRecord = await prisma.payment.findUnique({
+      where: { id: payment.id },
+      select: { isQaAcceptance: true },
+    });
+    let registry: PaymentProviderRegistry;
+    if (qaPaymentRecord?.isQaAcceptance) {
+      const { resolveQaAcceptanceSessionContext } = await import("@/lib/qa-acceptance/access");
+      const qaCtx = await resolveQaAcceptanceSessionContext(user.id);
+      if (!qaCtx) {
+        return noStoreJson({ error: "QA sandbox checkout is restricted to enrolled QA acceptance accounts." }, 403);
+      }
+      const configuration = buildQaSandboxProviderReadiness();
+      const paystackReady = configuration[0]?.checkoutReadiness.ready;
+      registry = new PaymentProviderRegistry({
+        adapters: paystackReady ? [createQaPaystackAdapter()] : [],
+        configuration: [...configuration],
+      });
+    } else {
+      registry = createProductionPaymentProviderRegistry();
+    }
     registry.getAdapter("PAYSTACK");
     const channel = parsed.data.channel ?? "CARD";
     if (channel === "EFT" && !isPaystackEftChannelApproved()) {

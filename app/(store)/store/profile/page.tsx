@@ -16,6 +16,7 @@ import { StoreSellerIdentityForm } from "@/components/store/StoreSellerIdentityF
 import { getStoreSellerIdentityState } from "@/lib/services/store-seller-identity.service";
 import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
 import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
+import { parseStoreOperatingHours } from "@/lib/qa-acceptance/operating-hours";
 
 export const metadata: Metadata = { title: "Store settings" };
 
@@ -44,6 +45,9 @@ export default async function StoreProfilePage() {
     city: profile?.store?.address.city ?? "",
     province: profile?.store?.address.province ?? "",
     postalCode: profile?.store?.address.postalCode ?? "",
+    operatingHours:
+      profile?.store?.operatingHours ??
+      parseStoreOperatingHours((access.store as { operatingHours?: unknown }).operatingHours),
   };
   return (
     <ProtectedPageFrame>

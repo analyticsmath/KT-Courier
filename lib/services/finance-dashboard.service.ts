@@ -10,16 +10,16 @@ export async function getFinanceDashboard() {
   const driverEarnings = await summarizeDriverEarnings();
   const [byStatus, held, paid, cases, platformWallet, platformCommission, beneficiaryPayable, commissionAccrued, commissionReversed, commissionCases, commissionByPlan] = await Promise.all([
     prisma.withdrawalRequest.groupBy({ by: ["status"], _sum: { amount: true }, _count: { _all: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "WITHDRAWAL_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "WITHDRAWAL_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false } }, _sum: { currentBalance: true } }),
     prisma.withdrawalRequest.aggregate({ where: { status: "PAID" }, _sum: { amount: true } }),
     prisma.withdrawalReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] } } }),
     prisma.wallet.findUnique({ where: { ownerType_ownerId_currency: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR" } }, select: { id: true } }),
-    prisma.commissionAllocation.aggregate({ where: { allocationType: "PLATFORM_COMMISSION_REVENUE", status: "ACCRUED", currency: "ZAR" }, _sum: { amount: true } }),
-    prisma.commissionAllocation.aggregate({ where: { allocationType: "BENEFICIARY_COMMISSION_PAYABLE", status: "ACCRUED", currency: "ZAR" }, _sum: { amount: true } }),
-    prisma.commissionAccrual.aggregate({ where: { status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] }, currency: "ZAR" }, _sum: { totalAmount: true } }),
-    prisma.commissionAccrual.aggregate({ where: { status: "REVERSED", currency: "ZAR" }, _sum: { totalAmount: true } }),
+    prisma.commissionAllocation.aggregate({ where: { allocationType: "PLATFORM_COMMISSION_REVENUE", status: "ACCRUED", currency: "ZAR", accrual: { isQaAcceptance: false } }, _sum: { amount: true } }),
+    prisma.commissionAllocation.aggregate({ where: { allocationType: "BENEFICIARY_COMMISSION_PAYABLE", status: "ACCRUED", currency: "ZAR", accrual: { isQaAcceptance: false } }, _sum: { amount: true } }),
+    prisma.commissionAccrual.aggregate({ where: { status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] }, currency: "ZAR", isQaAcceptance: false }, _sum: { totalAmount: true } }),
+    prisma.commissionAccrual.aggregate({ where: { status: "REVERSED", currency: "ZAR", isQaAcceptance: false }, _sum: { totalAmount: true } }),
     prisma.commissionReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] } } }),
-    prisma.commissionAccrual.groupBy({ by: ["planId", "planVersionNumber"], where: { status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] }, currency: "ZAR" }, _sum: { totalAmount: true }, orderBy: { _sum: { totalAmount: "desc" } }, take: 10 }),
+    prisma.commissionAccrual.groupBy({ by: ["planId", "planVersionNumber"], where: { status: { in: ["ACCRUED", "RECONCILIATION_REQUIRED"] }, currency: "ZAR", isQaAcceptance: false }, _sum: { totalAmount: true }, orderBy: { _sum: { totalAmount: "desc" } }, take: 10 }),
   ]);
   const cash = platformWallet ? await prisma.ledgerAccount.findUnique({ where: { walletId_purpose_currency: { walletId: platformWallet.id, purpose: "CASH_CLEARING", currency: "ZAR" }, }, select: { currentBalance: true } }) : null;
   const status = Object.fromEntries(byStatus.map((item) => [item.status, Object.freeze({ count: item._count._all, amount: stringAmount(item._sum.amount) })]));
@@ -32,15 +32,15 @@ export async function getFinanceDashboard() {
   const periodStart = new Date(); periodStart.setUTCDate(1); periodStart.setUTCHours(0, 0, 0, 0);
   const [refundByStatus, walletLiability, refundHeldLiability, walletRefunds, externalRefunds, refundedByPeriod, refundCases, commissionClawbacks, oldestPendingRefunds, refundablePayments] = await Promise.all([
     prisma.paymentRefund.groupBy({ by: ["status"], _sum: { amount: true }, _count: { _all: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_WALLET_AVAILABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
-    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" } } }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_WALLET_AVAILABLE", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false } }, _sum: { currentBalance: true } }),
+    prisma.ledgerAccount.aggregate({ where: { purpose: "CUSTOMER_REFUND_HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", wallet: { ownerId: { not: "platform-sandbox-acceptance" }, isQaIsolated: false } }, _sum: { currentBalance: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", method: "CUSTOMER_WALLET" }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", method: "ORIGINAL_PAYMENT_METHOD" }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.paymentRefund.aggregate({ where: { status: "SUCCEEDED", completedAt: { gte: periodStart } }, _sum: { amount: true }, _count: { _all: true } }),
     prisma.refundReconciliationCase.count({ where: { status: { in: ["OPEN", "MONITORING"] } } }),
     prisma.refundFundingAllocation.aggregate({ where: { sourceType: { in: ["PLATFORM_COMMISSION_REVENUE", "BENEFICIARY_COMMISSION_PAYABLE"] }, refund: { status: { notIn: ["REJECTED", "CANCELLED"] } } }, _sum: { amount: true } }),
     prisma.paymentRefund.findMany({ where: { status: { in: ["REQUESTED", "UNDER_REVIEW", "APPROVED", "PROCESSING", "RECONCILIATION_REQUIRED"] } }, select: { id: true, publicReference: true, amount: true, method: true, status: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 10 }),
-    prisma.payment.findMany({ where: { status: "SUCCEEDED", currency: "ZAR", publicReference: { not: { startsWith: "pay_sbox_" } } }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } }),
+    prisma.payment.findMany({ where: { status: "SUCCEEDED", currency: "ZAR", isQaAcceptance: false, publicReference: { not: { startsWith: "pay_sbox_" } } }, select: { amount: true, totalRefundedAmount: true, totalRefundReservedAmount: true } }),
   ]);
   const refundStatus = Object.fromEntries(refundByStatus.map((item) => [item.status, Object.freeze({ count: item._count._all, amount: stringAmount(item._sum.amount) })]));
   const remainingRefundableLiabilities = refundablePayments.reduce((total, payment) => {

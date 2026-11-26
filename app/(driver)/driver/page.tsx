@@ -15,6 +15,8 @@ import { evaluateDriverReadiness } from "@/lib/services/driver-readiness.service
 import { UserRole } from "@/types/db";
 import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "Driver home" };
 
@@ -45,20 +47,30 @@ export default async function DriverDashboardPage({
 
   const driverProfileId = await getDriverProfileIdForUser(user.id);
   const period = parseDashboardPeriod((await searchParams).period);
-  const [assignments, insight, readiness] = await Promise.all([
+  const [assignments, insight, readiness, qaContext] = await Promise.all([
     driverProfileId ? listDriverAssignments(driverProfileId, "all") : [],
     getDriverDashboardInsights(period),
     evaluateDriverReadiness(driver.id).catch(() => null),
+    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
   ]);
 
   return (
-    <DriverHomePage
-      driver={driver}
-      assignments={assignments}
-      readiness={readiness}
-      insight={insight}
-      refreshControl={<WorkspaceRefresh checkedAt={new Date().toISOString()} />}
-      period={period}
-    />
+    <>
+      {qaContext ? (
+        <QaSandboxBanner
+          persona="QA Driver"
+          description="You are enrolled in the Issue #40 isolated QA lane. Assignments and delivery earnings settle inside isolated non-withdrawable QA wallets."
+          nonWithdrawable
+        />
+      ) : null}
+      <DriverHomePage
+        driver={driver}
+        assignments={assignments}
+        readiness={readiness}
+        insight={insight}
+        refreshControl={<WorkspaceRefresh checkedAt={new Date().toISOString()} />}
+        period={period}
+      />
+    </>
   );
 }

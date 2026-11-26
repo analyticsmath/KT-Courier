@@ -5,6 +5,7 @@ import type {
   Store,
 } from "@/types/db";
 import type { UserRole, UserStatus, StoreStatus } from "@/types/db";
+import { parseStoreOperatingHours, type StoreOperatingHours } from "@/lib/qa-acceptance/operating-hours";
 
 // ─── Safe public user fields (never passwordHash, tokenHash, OTP data) ────────
 
@@ -91,6 +92,7 @@ export interface StoreProfileDto {
     contactEmail: string | null;
     contactPhone: string | null;
     featured: boolean;
+    operatingHours?: StoreOperatingHours | null;
     address: StoreAddressDto;
     createdAt: Date;
   } | null;
@@ -123,6 +125,9 @@ export function toStoreProfileDto(
           contactEmail: store.contactEmail,
           contactPhone: store.contactPhone,
           featured: store.featured,
+          operatingHours: parseStoreOperatingHours(
+            (store as { operatingHours?: unknown }).operatingHours,
+          ),
           address: {
             addressLine1: store.addressLine1,
             addressLine2: store.addressLine2,

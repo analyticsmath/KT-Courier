@@ -9,6 +9,8 @@ import {
 } from "@/lib/dashboard-insights/customer-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 import { CustomerDashboardHome } from "@/components/protected-v2/customer/CustomerDashboardHome";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "My delivery desk" };
 
@@ -32,7 +34,7 @@ export default async function AccountDashboardPage({
   const activeStatuses = [...CUSTOMER_ACTIVE_ORDER_STATUSES];
   const period = parseDashboardPeriod((await searchParams).period);
 
-  const [latestActiveRaw, recentRaw, activeCount, attentionCount, insight, breakdown] =
+  const [latestActiveRaw, recentRaw, activeCount, attentionCount, insight, breakdown, qaContext] =
     await Promise.all([
       prisma.order.findFirst({
         where: { customerId: userId, status: { in: activeStatuses } },
@@ -52,21 +54,32 @@ export default async function AccountDashboardPage({
       }),
       getCustomerDashboardInsights(period),
       getCustomerDashboardBreakdown(),
+      resolveQaAcceptanceSessionContext(userId).catch(() => null),
     ]);
 
   const latestActive = latestActiveRaw ? toOrderSummaryDto(latestActiveRaw) : null;
   const recentOrders = recentRaw.map(toOrderSummaryDto);
 
   return (
-    <CustomerDashboardHome
-      firstName={firstName(user!.name ?? user!.email)}
-      latestActive={latestActive}
-      recentOrders={recentOrders}
-      activeCount={activeCount}
-      attentionCount={attentionCount}
-      insight={insight}
-      breakdown={breakdown}
-      period={period}
-    />
+    <>
+      {qaContext ? (
+        <QaSandboxBanner
+          persona="QA Customer"
+          ctaHref="/shop/qa"
+          ctaLabel="Open Private QA Storefront"
+          nonWithdrawable
+        />
+      ) : null}
+      <CustomerDashboardHome
+        firstName={firstName(user!.name ?? user!.email)}
+        latestActive={latestActive}
+        recentOrders={recentOrders}
+        activeCount={activeCount}
+        attentionCount={attentionCount}
+        insight={insight}
+        breakdown={breakdown}
+        period={period}
+      />
+    </>
   );
 }

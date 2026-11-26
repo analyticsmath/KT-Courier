@@ -10,6 +10,9 @@ import { getPublicPodForOrder } from "@/lib/services/proof-of-delivery.service";
 import { membershipAllows } from "@/lib/client-platform/store-permissions";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { getOrderDocumentAvailability } from "@/lib/shipment-documents/service";
+import { listTrackingShareGrants } from "@/lib/tracking/recipient-access.server";
+import { OrderShipmentDocumentsPanel } from "@/components/shipment-documents/OrderShipmentDocumentsPanel";
 
 export default async function MarketplaceStoreOrderPage({
   params,
@@ -40,9 +43,15 @@ export default async function MarketplaceStoreOrderPage({
   // Only reveal courier evidence when the bridge points back to this verified store.
   const courier = bridge?.courierOrder?.storeId === access.store.id ? bridge.courierOrder : null;
   const canTrack = access.owner || membershipAllows(access.permissions, "deliveries");
-  const pod = courier && ["DELIVERED", "COMPLETED"].includes(courier.status)
-    ? await getPublicPodForOrder(courier.id)
-    : null;
+  const [pod, courierDocuments, grantsResult] = await Promise.all([
+    courier && ["DELIVERED", "COMPLETED"].includes(courier.status)
+      ? getPublicPodForOrder(courier.id)
+      : Promise.resolve(null),
+    courier ? getOrderDocumentAvailability(courier.id) : Promise.resolve(null),
+    courier
+      ? listTrackingShareGrants({ user, orderId: courier.id, explicitStoreId: access.store.id }).catch(() => ({ grants: [] }))
+      : Promise.resolve({ grants: [] }),
+  ]);
   const replacements = await prisma.storeCatalogOffer.findMany({ where: { storeId: access.store.id, status: "ACTIVE", publicationStatus: "PUBLISHED" }, select: { publicReference: true, product: { select: { title: true } }, variant: { select: { publicReference: true, title: true } } }, orderBy: { publicReference: "asc" }, take: 100 });
 
   return (
@@ -76,6 +85,18 @@ export default async function MarketplaceStoreOrderPage({
             <div><dt className="font-semibold">Recipient</dt><dd>{pod.recipientName}</dd></div>
             {pod.publicNote && <div><dt className="font-semibold">Delivery note</dt><dd>{pod.publicNote}</dd></div>}
           </dl>}
+          {courierDocuments && (
+            <div className="mt-4">
+              <OrderShipmentDocumentsPanel
+                orderId={courier.id}
+                orderNumber={courier.orderNumber}
+                viewerRole="STORE"
+                explicitStoreId={access.store.id}
+                availability={courierDocuments}
+                initialGrants={grantsResult.grants}
+              />
+            </div>
+          )}
         </section>
       )}
       <StoreFulfilmentDetail

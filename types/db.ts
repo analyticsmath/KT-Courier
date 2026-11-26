@@ -149,6 +149,8 @@ export type {
   ApplicationStatusHistory,
   Notification,
   ReportJob,
+  ShipmentDocument,
+  ShipmentTrackingGrant,
 } from "@prisma/client";
 
 export {
@@ -329,6 +331,9 @@ export {
   NotificationChannel,
   NotificationStatus,
   ReportJobStatus,
+  ShipmentDocumentType,
+  ShipmentDocumentStatus,
+  TrackingGrantScope,
 } from "@prisma/client";
 
 // Convenience type for a User with their profile loaded.

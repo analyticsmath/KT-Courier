@@ -116,7 +116,7 @@ export const QuoteBookingSchema = z
     recipientPhone: z.string().trim().min(7).max(30),
     recipientEmail: z.string().trim().toLowerCase().email("Enter a valid recipient email.").max(254),
     // Deposit plus COD is offered only when a scoped, independently approved policy permits it.
-    paymentMethod: z.enum(["DIGITAL_ONLY", "FULL_COD", "DEPOSIT_PLUS_COD"]).optional(),
+    paymentMethod: z.enum(["DIGITAL_ONLY", "DEPOSIT_PLUS_COD"]).optional(),
     parcelDescription: z.string().trim().max(500).optional(),
     scheduledFor: z.iso
       .datetime()

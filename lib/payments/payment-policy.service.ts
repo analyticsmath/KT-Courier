@@ -238,7 +238,12 @@ export async function resolvePaymentBreakdown(
     }
   }
   let required = total;
-  if (mode === "FULL_COD") required = new Prisma.Decimal(0);
+  if (mode === "FULL_COD") {
+    throw new PaymentPolicyError(
+      "PAYMENT_METHOD_NOT_ALLOWED",
+      "100% cash on delivery is retired. Select online payment or the approved 50% online deposit + 50% driver cash method.",
+    );
+  }
   if (mode === "DEPOSIT_PLUS_COD") {
     if (p.depositAmount != null && p.depositPercent != null)
       throw new PaymentPolicyError(

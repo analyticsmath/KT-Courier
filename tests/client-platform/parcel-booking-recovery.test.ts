@@ -91,7 +91,7 @@ describe("lost parcel booking response: fail-safe canonical replay", () => {
   it("does not let a retry switch an existing digital booking into cash or vice versa", async () => {
     await expect(recoverCommittedParcelBooking({
       quoteId: "quote-123", userId: "user-123", storeId: null,
-      booking: { ...booking, paymentMethod: "FULL_COD" },
+      booking: { ...booking, paymentMethod: "DEPOSIT_PLUS_COD" },
     }, fakeDatabase(savedOrder()) as never)).rejects.toMatchObject({ code: "BOOKING_REPLAY_MISMATCH" });
     await expect(recoverCommittedParcelBooking({
       quoteId: "quote-123", userId: "user-123", storeId: null,

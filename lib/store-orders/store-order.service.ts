@@ -256,7 +256,7 @@ export async function updateStoreOrderSubstitutionPreference(input: Readonly<{ s
       assertStoreOrder(parsed.success, "STORE_ORDER_PREAPPROVED_CHOICE_REQUIRED", "Select one to three exact replacement items before saving this preference.");
       for (const choice of parsed.data) {
         assertStoreOrder(choice.quantity <= line.quantity, "STORE_ORDER_QUANTITY_INVALID", "Replacement quantity exceeds the original line.");
-        const resolved = await resolveMarketplaceCartLine({ ...choice, modifiers: [] }, tx as unknown as Prisma.TransactionClient);
+        const resolved = await resolveMarketplaceCartLine({ ...choice, modifiers: [] }, tx as unknown as Prisma.TransactionClient, { allowQaInternal: Boolean(order.isQaAcceptance) });
         assertStoreOrder(resolved.storeId === order.storeId, "STORE_ORDER_SUBSTITUTION_WRONG_STORE", "A replacement must belong to the original store.");
         assertSubstitutionPriceCap({ substituteCharge: money(cents(resolved.unitPrice) * BigInt(choice.quantity)), originalRemainingCharge: line.lineTotal.toFixed(2) });
         frozenChoices.push({ ...choice, publicationVersion: resolved.publicationVersion, priceVersion: resolved.priceVersion, unitPrice: resolved.unitPrice });
@@ -283,7 +283,7 @@ export async function proposeStoreOrderSubstitution(input: Readonly<{ storeOrder
     assertStoreOrder(issue.lineFulfilment.substitutionPreference === "CONTACT_ME" || issue.lineFulfilment.substitutionPreference === "PREAPPROVED_CHOICES_ONLY", "STORE_ORDER_SUBSTITUTION_NOT_PERMITTED", "Customer preference does not permit a proposal.");
     assertStoreOrder(issue.proposals.length < policy.maximumSubstitutionProposalsPerLine, "STORE_ORDER_SUBSTITUTION_LIMIT", "The frozen policy proposal limit has been reached.");
     assertStoreOrder(input.quantity <= issue.affectedQuantity, "STORE_ORDER_QUANTITY_INVALID", "Substitute quantity exceeds the unavailable quantity.");
-    const resolved = await resolveMarketplaceCartLine({ offerReference: input.substituteOfferReference, variantReference: input.substituteVariantReference, quantity: input.quantity, modifiers: [] }, tx as unknown as Prisma.TransactionClient);
+    const resolved = await resolveMarketplaceCartLine({ offerReference: input.substituteOfferReference, variantReference: input.substituteVariantReference, quantity: input.quantity, modifiers: [] }, tx as unknown as Prisma.TransactionClient, { allowQaInternal: Boolean(order.isQaAcceptance) });
     if (issue.lineFulfilment.substitutionPreference === "PREAPPROVED_CHOICES_ONLY") {
       const preference = await model(tx, "marketplaceStoreOrderHistory").findFirst({ where: { marketplaceStoreOrderId: order.id, eventType: "SUBSTITUTION_PREFERENCE_UPDATED", safeEvidence: { path: ["orderLineId"], equals: issue.orderLine.id } }, orderBy: { createdAt: "desc" } });
       const choices = preference?.safeEvidence?.choices;
@@ -340,7 +340,7 @@ export async function decideStoreOrderSubstitution(input: Readonly<{ storeOrderR
     await model(tx, "marketplaceStoreOrderCustomerDecision").create({ data: { publicReference: decisionReference, proposalId: proposal.id, marketplaceStoreOrderId: order.id, decision: input.decision, customerUserId: input.customerUserId ?? null, guestDecisionHash: input.customerUserId ? null : hashMarketplaceGuestSecret(input.guestSecret ?? ""), operationId: input.operationId, requestHash: input.requestHash, evidence } });
     let adjustmentReference: string | null = null;
     if (input.decision === "APPROVE") {
-      const current = await resolveMarketplaceCartLine({ offerReference: proposal.substituteOfferReference, variantReference: proposal.substituteVariantReference, quantity: proposal.substituteQuantity, modifiers: [] }, tx as unknown as Prisma.TransactionClient);
+      const current = await resolveMarketplaceCartLine({ offerReference: proposal.substituteOfferReference, variantReference: proposal.substituteVariantReference, quantity: proposal.substituteQuantity, modifiers: [] }, tx as unknown as Prisma.TransactionClient, { allowQaInternal: Boolean(order.isQaAcceptance) });
       assertStoreOrder(current.storeId === order.storeId && current.publicationVersion === proposal.publicationVersion && current.priceVersion === proposal.priceVersion && cents(current.unitPrice) * BigInt(proposal.substituteQuantity) === cents(proposal.customerCharge.toFixed(2)), "STORE_ORDER_SUBSTITUTION_STALE", "Substitute publication or price changed; a new proposal is required.");
       assertStoreOrder(proposal.reservation?.status === "ACTIVE" && proposal.reservation.expiresAt > new Date(), "STORE_ORDER_INVENTORY_INCOHERENT", "An active substitute reservation is required.");
       const level = await (tx as unknown as { catalogInventoryLevel: Delegate }).catalogInventoryLevel.findUnique({ where: { id: proposal.reservation.inventoryLevelId } });

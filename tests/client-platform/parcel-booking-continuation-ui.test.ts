@@ -9,7 +9,7 @@ describe("successful parcel booking continuation", () => {
     const href = parcelBookingDestination({ business: false, paymentMethod: "DIGITAL_ONLY", orderId: "id-123", orderNumber: "KT-2026-0005" });
     const html = renderToStaticMarkup(createElement(ParcelBookedNextStep, { href, paymentMethod: "DIGITAL_ONLY" }));
     expect(html).toContain('href="/orders/KT-2026-0005/payment"');
-    expect(html).toContain("Continue to secure card payment");
+    expect(html).toContain("Continue to secure online payment");
     expect(html).toContain("Payment is not yet confirmed.");
     expect(html).not.toContain("Payment successful");
   });
@@ -19,11 +19,11 @@ describe("successful parcel booking continuation", () => {
     expect(html).toContain('href="/orders/KT-2026-0012/payment"');
     expect(html).toContain("Payment is not yet confirmed.");
   });
-  it("keeps fully COD-funded bookings on their own order detail, without a card handoff", () => {
+  it("keeps legacy full COD-funded detail fallback without a card handoff", () => {
     const href = parcelBookingDestination({ business: true, paymentMethod: "FULL_COD", orderId: "id-789", orderNumber: "KT-2026-0020" });
     const html = renderToStaticMarkup(createElement(ParcelBookedNextStep, { href, paymentMethod: "FULL_COD" }));
     expect(html).toContain('href="/store/orders/id-789"');
     expect(html).toContain("View parcel booking");
-    expect(html).not.toContain("Continue to secure card payment");
+    expect(html).not.toContain("Continue to secure online payment");
   });
 });

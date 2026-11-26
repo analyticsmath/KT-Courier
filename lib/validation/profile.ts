@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { StoreOperatingHoursSchema } from "@/lib/qa-acceptance/operating-hours";
 
 // ─── Customer profile update ──────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ export const StoreProfileUpdateSchema = z.object({
   province: z.string().max(100, "Province name is too long").trim().optional(),
   postalCode: z.string().max(20, "Postal code is too long").trim().optional(),
   country: z.string().max(100, "Country name is too long").trim().optional(),
+  operatingHours: StoreOperatingHoursSchema.optional(),
 });
 
 export type StoreProfileUpdateInput = z.infer<typeof StoreProfileUpdateSchema>;

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { assertAccountCanPost } from "@/lib/ledger/account-policy";
 import { calculateAccountProjection } from "@/lib/ledger/balance-policy";
 import { LedgerError } from "@/lib/ledger/errors";
+import { assertLedgerPostingNamespaceIsolation } from "@/lib/qa-acceptance/ledger";
 import { normalizeLedgerPosting } from "@/lib/ledger/posting-normalization";
 import { hashLedgerPosting } from "@/lib/ledger/posting-hash";
 import { withLedgerRetry } from "@/lib/ledger/retry";
@@ -171,29 +172,13 @@ async function postNormalizedLedgerJournalWithinTransaction(
 
   const accounts = await tx.ledgerAccount.findMany({
     where: { id: { in: accountIds } },
-    include: { wallet: { select: { id: true, ownerType: true, ownerId: true, currency: true, status: true } } },
+    include: { wallet: { select: { id: true, ownerType: true, ownerId: true, currency: true, status: true, isQaIsolated: true } } },
     orderBy: { id: "asc" },
   });
 
   const validatedWalletIds = new Set<string>();
   const projections: ReturnType<typeof calculateAccountProjection>[] = [];
-  const hasSandboxAcceptanceAccount = accounts.some(
-    (account) => account.wallet.ownerType === "PLATFORM" && account.wallet.ownerId === "platform-sandbox-acceptance",
-  );
-  if (hasSandboxAcceptanceAccount) {
-    const allSandboxAccounts = accounts.every(
-      (account) =>
-        account.wallet.ownerType === "PLATFORM" &&
-        account.wallet.ownerId === "platform-sandbox-acceptance" &&
-        account.code.startsWith("PLATFORM-SANDBOX-ACCEPTANCE-"),
-    );
-    if (!allSandboxAccounts) {
-      throw new LedgerError(
-        "LEDGER_NAMESPACE_ISOLATION_VIOLATION",
-        "Sandbox acceptance ledger accounts must remain strictly isolated from live accounts.",
-      );
-    }
-  }
+  assertLedgerPostingNamespaceIsolation(accounts);
   for (const account of accounts) {
     if (account.wallet.status !== "ACTIVE") throw new LedgerError("LEDGER_WALLET_INACTIVE", "A ledger account wallet is not active.");
     if (account.wallet.currency !== account.currency) {

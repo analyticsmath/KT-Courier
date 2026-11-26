@@ -154,4 +154,49 @@ describe("admin courier progress payment gate", () => {
       requirePaymentBeforeCourierProgress("PICKED_UP", { ...unpaid, status: "CASH_DUE_ON_DELIVERY", dispatchEligible: true }),
     ).not.toThrow();
   });
+  it("keeps 50/50 DEPOSIT_PLUS_COD eligible once exact driver cash is COLLECTED or RECONCILED, while blocking under-collected cash", async () => {
+    for (const [codStatus, expectedStatus] of [
+      ["COLLECTED", "CASH_COLLECTED"],
+      ["UNDER_RECONCILIATION", "CASH_COLLECTED"],
+      ["RECONCILED", "CASH_RECONCILED"],
+    ] as const) {
+      const db = query({
+        ...base,
+        payments: [{ ...payment, amount: { toFixed: () => "85.00" } }],
+        cashOnDelivery: {
+          policyMode: "DEPOSIT_PLUS_COD",
+          status: codStatus,
+          paymentId: "payment-id",
+          digitalRequired: { toNumber: () => 85 },
+          digitalPaid: { toFixed: () => "85.00" },
+          cashObligation: { toFixed: () => "85.00" },
+          cashCollected: { toFixed: () => "85.00" },
+        },
+      });
+      expect(await getCourierPaymentReadiness("order-1", db as never)).toMatchObject({
+        status: expectedStatus,
+        dispatchEligible: true,
+        cashDue: "0.00",
+        amount: "170.00",
+      });
+    }
+
+    const shortCollected = query({
+      ...base,
+      payments: [{ ...payment, amount: { toFixed: () => "85.00" } }],
+      cashOnDelivery: {
+        policyMode: "DEPOSIT_PLUS_COD",
+        status: "COLLECTED",
+        paymentId: "payment-id",
+        digitalRequired: { toNumber: () => 85 },
+        digitalPaid: { toFixed: () => "85.00" },
+        cashObligation: { toFixed: () => "85.00" },
+        cashCollected: { toFixed: () => "50.00" },
+      },
+    });
+    expect(await getCourierPaymentReadiness("order-1", shortCollected as never)).toMatchObject({
+      status: "RECONCILIATION_REQUIRED",
+      dispatchEligible: false,
+    });
+  });
 });

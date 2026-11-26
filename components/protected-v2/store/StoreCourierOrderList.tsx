@@ -18,19 +18,51 @@ function displayStatus(value: string) {
   return value.replaceAll("_", " ");
 }
 
-export function StoreCourierOrderList({ orders, compact = false }: { orders: readonly StoreCourierOrderRecord[]; compact?: boolean }) {
+export function StoreCourierOrderList({ orders, compact = false, storeId }: { orders: readonly StoreCourierOrderRecord[]; compact?: boolean; storeId?: string }) {
+  const storeQuery = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
+  const waybillStatuses = new Set(["CONFIRMED", "PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED", "DELIVERED", "COMPLETED"]);
+  const podStatuses = new Set(["DELIVERED", "COMPLETED"]);
   if (!orders.length) return <div className={styles.scope}><ProtectedState kind="empty" title="No store delivery requests" description="Create a courier delivery when a store-owned parcel needs collection." illustration={<ParcelDeskIllustration className="h-24 w-32" />} action={<Link className="eo-button eo-button--primary" href="/store/new-delivery">New delivery</Link>} /></div>;
-  if (compact) return <div className={styles.scope}><ul aria-label="Recent store delivery requests" className="eo-store-record-list">{orders.map((order) => <li className="eo-store-record-list__item" key={order.id}><Link className="eo-store-record-list__link" href={`/store/orders/${order.id}`}><div><p className="font-mono text-sm font-semibold">{order.orderNumber}</p><p className="eo-store-record-list__meta">{order.deliveryType.replaceAll("_", " ")}{order.dropoffCity ? ` · ${order.dropoffCity}` : ""}</p></div><ProtectedStatus label={displayStatus(order.status)} /></Link></li>)}</ul></div>;
+  if (compact) return <div className={styles.scope}><ul aria-label="Recent store delivery requests" className="eo-store-record-list">{orders.map((order) => <li className="eo-store-record-list__item" key={order.id}><Link className="eo-store-record-list__link" href={`/store/orders/${order.id}${storeQuery}`}><div><p className="font-mono text-sm font-semibold">{order.orderNumber}</p><p className="eo-store-record-list__meta">{order.deliveryType.replaceAll("_", " ")}{order.dropoffCity ? ` · ${order.dropoffCity}` : ""}</p></div><ProtectedStatus label={displayStatus(order.status)} /></Link></li>)}</ul></div>;
   return <div className={styles.scope}><EditorialTable
     caption="Store-created courier delivery requests"
     mobileMode="stack"
     rows={orders}
     emptyState={null}
     columns={[
-      { id: "reference", header: "Request", priority: "primary", cell: (order) => <Link className="font-mono font-semibold" href={`/store/orders/${order.id}`}>{order.orderNumber}</Link> },
+      { id: "reference", header: "Request", priority: "primary", cell: (order) => <Link className="font-mono font-semibold" href={`/store/orders/${order.id}${storeQuery}`}>{order.orderNumber}</Link> },
       { id: "type", header: "Service", priority: "secondary", cell: (order) => order.deliveryType.replaceAll("_", " ") },
       { id: "destination", header: "Destination", priority: "optional", cell: (order) => order.dropoffCity ?? "Destination details on record" },
       { id: "status", header: "Status", priority: "secondary", cell: (order) => <ProtectedStatus label={displayStatus(order.status)} /> },
+      {
+        id: "documents",
+        header: "Documents",
+        align: "end",
+        priority: "optional",
+        cell: (order) => (
+          <div className="inline-flex flex-wrap items-center justify-end gap-2">
+            {waybillStatuses.has(order.status) && (
+              <a
+                href={`/api/orders/${encodeURIComponent(order.id)}/documents/waybill${storeQuery}`}
+                className="text-xs font-semibold text-[var(--eo-signal)] underline underline-offset-2"
+              >
+                Waybill
+              </a>
+            )}
+            {podStatuses.has(order.status) && (
+              <a
+                href={`/api/orders/${encodeURIComponent(order.id)}/documents/pod${storeQuery}`}
+                className="text-xs font-semibold text-[var(--eo-text)] underline underline-offset-2"
+              >
+                POD
+              </a>
+            )}
+            <Link className="text-xs font-semibold underline underline-offset-2" href={`/store/orders/${order.id}${storeQuery}`}>
+              Details
+            </Link>
+          </div>
+        ),
+      },
     ]}
   /></div>;
 }

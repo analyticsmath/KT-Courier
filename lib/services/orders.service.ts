@@ -4,7 +4,11 @@ import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
 import { OrderSource, OrderStatus } from "@/types/db";
 import type { AuthenticatedUser } from "@/types/domain";
-import { generateOrderNumber } from "@/lib/utils/order-number";
+import {
+  generateOrderNumber,
+  isOrderNumberUniqueConstraintError,
+} from "@/lib/utils/order-number";
+import { issueShipmentDocumentBestEffortInTx } from "@/lib/shipment-documents/service";
 import {
   toOrderSummaryDto,
   toOrderDetailDto,
@@ -83,6 +87,7 @@ export async function createOrder(
   business = user.role === "STORE",
   transaction?: Prisma.TransactionClient,
   explicitStoreId?: string | null,
+  qaAcceptance?: { isQaAcceptance: true; qaAcceptanceRunId?: string | null },
 ): Promise<OrderDetailDto> {
   let storeId: string | null = null;
   let customerId: string | null = null;
@@ -103,7 +108,6 @@ export async function createOrder(
     throw new Error("Only customers and store accounts can create orders.");
   }
 
-  const orderNumber = await generateOrderNumber();
   // Must match the input snapshot created by the quote endpoint. Pricing inputs
   // are never accepted as order fields, only the quote identifier is.
   const quoteInputHash = hashPricingInput(pricingInputSnapshot(input));
@@ -199,73 +203,102 @@ export async function createOrder(
         ? new Date(createdAt.getTime() + 24 * 60 * 60 * 1000)
         : null;
 
-    const order = await tx.order.create({
-      data: {
-        orderNumber,
-        source,
-        status: bookingStatus,
-        deliveryType: input.deliveryType,
-        currency: quote.currency,
-        customerId,
-        storeId,
-        pickupAddressId: pickup.id,
-        dropoffAddressId: dropoff.id,
-        recipientName: input.recipientName,
-        recipientPhone: input.recipientPhone,
-        recipientEmail: input.recipientEmail ?? null,
-        parcelDescription: input.parcelDescription ?? null,
-        parcelCount: input.parcelCount,
-        scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
-        createdAt,
-        paymentDueAt,
-        priceEstimate: quote.total,
-        pricingQuoteId: quote.id,
-        pricingSubtotal: quote.subtotal,
-        pricingTaxAmount: quote.taxAmount,
-        pricingTaxRate: quote.taxRate,
-        pricingSnapshot: {
-          senderContact: { email: input.senderEmail ?? null },
-          quoteId: quote.id,
-          calculationVersion: quote.calculationVersion,
-          input: quote.inputSnapshot,
-          rule: quote.ruleSnapshot,
-          regions: quote.regionSnapshot,
-          tax: quote.taxSnapshot,
-          lineItems: quote.lineItems.map((item) => ({
-            code: item.code,
-            label: item.label,
-            quantity: item.quantity?.toString() ?? null,
-            unitRate: item.unitRate?.toString() ?? null,
-            amount: item.amount.toFixed(2),
-            currency: item.currency,
-          })),
-          paymentPolicy: committedPayment
-            ? {
-                ...committedPayment.policyEvidence,
-                digitalRequired: committedPayment.digitalRequired,
-                cashRequired: committedPayment.cashRequired,
-              }
-            : null,
-        },
-        customerNote: input.customerNote ?? null,
-        distanceMeters: quote.distanceMeters,
-        durationSeconds: quote.durationSeconds,
-        routeSummary:
-          (quote.metadata as { routeSummary?: string } | null)?.routeSummary ??
-          null,
-        routeProvider: quote.routeProvider,
-        routeCalculatedAt: quote.createdAt,
-        deliveryRegionId: quote.destinationRegionId,
-      },
-      include: ORDER_FULL_INCLUDE,
-    });
+    const hasSavepoint = typeof (tx as { $executeRawUnsafe?: unknown }).$executeRawUnsafe === "function";
+    let order: Awaited<ReturnType<typeof tx.order.create>> | null = null;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const orderNumber = await generateOrderNumber(tx);
+      if (hasSavepoint) {
+        await tx.$executeRawUnsafe("SAVEPOINT kt_order_number_insert");
+      }
+      try {
+        order = await tx.order.create({
+          data: {
+            orderNumber,
+            source,
+            status: bookingStatus,
+            deliveryType: input.deliveryType,
+            currency: quote.currency,
+            customerId,
+            storeId,
+            pickupAddressId: pickup.id,
+            dropoffAddressId: dropoff.id,
+            recipientName: input.recipientName,
+            recipientPhone: input.recipientPhone,
+            recipientEmail: input.recipientEmail ?? null,
+            parcelDescription: input.parcelDescription ?? null,
+            parcelCount: input.parcelCount,
+            scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
+            createdAt,
+            paymentDueAt,
+            priceEstimate: quote.total,
+            pricingQuoteId: quote.id,
+            pricingSubtotal: quote.subtotal,
+            pricingTaxAmount: quote.taxAmount,
+            pricingTaxRate: quote.taxRate,
+            isQaAcceptance: Boolean(qaAcceptance?.isQaAcceptance),
+            qaAcceptanceRunId: qaAcceptance?.qaAcceptanceRunId ?? null,
+            pricingSnapshot: {
+              senderContact: { email: input.senderEmail ?? null },
+              quoteId: quote.id,
+              calculationVersion: quote.calculationVersion,
+              input: quote.inputSnapshot,
+              rule: quote.ruleSnapshot,
+              regions: quote.regionSnapshot,
+              tax: quote.taxSnapshot,
+              serviceName: (quote.metadata as { serviceName?: string } | null)?.serviceName ?? null,
+              lineItems: quote.lineItems.map((item) => ({
+                code: item.code,
+                label: item.label,
+                quantity: item.quantity?.toString() ?? null,
+                unitRate: item.unitRate?.toString() ?? null,
+                amount: item.amount.toFixed(2),
+                currency: item.currency,
+              })),
+              paymentPolicy: committedPayment
+                ? {
+                    ...committedPayment.policyEvidence,
+                    digitalRequired: committedPayment.digitalRequired,
+                    cashRequired: committedPayment.cashRequired,
+                  }
+                : null,
+            },
+            customerNote: input.customerNote ?? null,
+            distanceMeters: quote.distanceMeters,
+            durationSeconds: quote.durationSeconds,
+            routeSummary:
+              (quote.metadata as { routeSummary?: string } | null)?.routeSummary ??
+              null,
+            routeProvider: quote.routeProvider,
+            routeCalculatedAt: quote.createdAt,
+            deliveryRegionId: quote.destinationRegionId,
+          },
+          include: ORDER_FULL_INCLUDE,
+        });
+        if (hasSavepoint) {
+          await tx.$executeRawUnsafe("RELEASE SAVEPOINT kt_order_number_insert");
+        }
+        break;
+      } catch (err) {
+        if (hasSavepoint) {
+          await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT kt_order_number_insert");
+          await tx.$executeRawUnsafe("RELEASE SAVEPOINT kt_order_number_insert");
+        }
+        if (isOrderNumberUniqueConstraintError(err) && attempt < 5) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    if (!order) {
+      throw new Error("ORDER_REFERENCE_EXHAUSTED");
+    }
 
     await tx.orderStatusHistory.create({
       data: {
         orderId: order.id,
         status: bookingStatus,
         note: bookingStatus === OrderStatus.CONFIRMED
-          ? "Approved full cash-on-delivery booking accepted; payment remains due on delivery."
+          ? "Approved cash-on-delivery booking accepted under approved terms; balance remains due on delivery."
           : "Order created; digital payment is pending.",
         actorUserId: user.id,
       },
@@ -277,6 +310,7 @@ export async function createOrder(
         authoritativePayable: committedPayment.authoritativeTotal,
         digitalRequired: committedPayment.digitalRequired,
         policyEvidence: committedPayment.policyEvidence,
+        isQaAcceptance: Boolean(qaAcceptance?.isQaAcceptance),
       });
     }
 
@@ -285,21 +319,28 @@ export async function createOrder(
       await appendOrderConfirmedInTx(tx, order);
       await appendCourierOrderAcceptedInTx(tx, {
         ...order,
-        paymentMode: "FULL_COD",
-        depositPaidZar: "0.00",
+        paymentMode: committedPayment?.mode ?? "DEPOSIT_PLUS_COD",
+        depositPaidZar: committedPayment?.digitalRequired ?? "0.00",
         cashDueZar: committedPayment?.cashRequired ?? quote.total.toFixed(2),
+      });
+      await issueShipmentDocumentBestEffortInTx(tx, {
+        orderId: order.id,
+        type: "WAYBILL",
+        actorUserId: user.id,
+        actorRole: user.role,
+        sourceEventRef: `order-confirmed:${order.orderNumber}`,
       });
       const cashDue = committedPayment?.cashRequired ?? quote.total.toFixed(2);
       bookingAdminAlert = {
         eventType: "PARCEL_ORDER_ACCEPTED",
         aggregateReference: `parcel-accepted:${order.id}`,
         title: `Approved COD parcel accepted (${order.orderNumber})`,
-        summary: `Full COD parcel booking ${order.orderNumber} accepted under approved cash terms; R${cashDue} cash due to driver at delivery.`,
+        summary: `Approved COD parcel booking ${order.orderNumber} accepted under approved cash terms; R${cashDue} cash due to driver at delivery.`,
         adminPath: `/admin/orders/${order.id}`,
         relatedOrderId: order.id,
         metadata: {
           orderNumber: order.orderNumber,
-          paymentMode: committedPayment?.mode ?? "FULL_COD",
+          paymentMode: committedPayment?.mode ?? "DEPOSIT_PLUS_COD",
           cashDueZar: cashDue,
           status: order.status,
         },

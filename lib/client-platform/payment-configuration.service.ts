@@ -34,7 +34,7 @@ export const PaymentConfigurationSchema = z
     regionId: z.string().cuid().nullable(),
     orderId: z.string().cuid().nullable(),
     orderType: z.literal("PARCEL_DOCUMENT").nullable().optional(),
-    mode: z.enum(["DIGITAL", "FULL_COD", "DEPOSIT_PLUS_COD"]),
+    mode: z.enum(["DIGITAL", "DEPOSIT_PLUS_COD"]),
     depositPercent: z
       .string()
       .regex(/^0\.\d{1,4}$/)
@@ -57,10 +57,8 @@ export const PaymentConfigurationSchema = z
       v.mode === "DEPOSIT_PLUS_COD" &&
       v.orderType === "PARCEL_DOCUMENT" &&
       (v.depositPercent === "0.5" || v.depositPercent === "0.5000");
-    if (v.mode !== "DIGITAL" && !v.storeId && v.mode !== "FULL_COD" && !isScopedStorelessDeposit)
-      c.addIssue({ code: "custom", message: "Only 100% parcel COD or 50% parcel deposit-plus-COD can be approved without a store." });
-    if (v.mode === "FULL_COD" && v.orderType != null && v.orderType !== "PARCEL_DOCUMENT")
-      c.addIssue({ code: "custom", message: "Full COD is limited to courier parcel deliveries." });
+    if (v.mode !== "DIGITAL" && !v.storeId && !isScopedStorelessDeposit)
+      c.addIssue({ code: "custom", message: "Only 50% online deposit + 50% driver cash on delivery is supported without a store." });
     if (v.mode === "DEPOSIT_PLUS_COD" && !v.depositPercent)
       c.addIssue({
         code: "custom",
@@ -175,11 +173,10 @@ async function saveReviewedPaymentConfiguration(
     businessModuleId: null,
     storeId: input.storeId,
     deliveryServiceId: input.deliveryServiceId,
-    // Store-less COD (FULL_COD or 50/50 DEPOSIT_PLUS_COD) applies to personal parcel
-    // delivery, never unrelated marketplace orders. Keep the scope stable.
+    // Store-less COD applies strictly to 50/50 DEPOSIT_PLUS_COD personal parcel delivery.
     orderType:
       input.orderType ??
-      (input.mode === "FULL_COD" || (input.mode === "DEPOSIT_PLUS_COD" && !input.storeId)
+      (input.mode === "DEPOSIT_PLUS_COD" && !input.storeId
         ? "PARCEL_DOCUMENT"
         : null),
     provinceScope: input.provinces,
@@ -311,12 +308,11 @@ async function saveReviewedPaymentConfiguration(
         throw new PlatformError("PAYMENT_ORDER_PERIOD_INVALID", "An immediate order override must already be effective.", 422);
       let approvalEvidence: Prisma.InputJsonObject = {};
       if (review) {
-        const validCash = input.mode === "FULL_COD"
-          ? scope.orderType === "PARCEL_DOCUMENT" && !input.depositPercent
-          : input.mode === "DEPOSIT_PLUS_COD" &&
-            (input.depositPercent === "0.5" || input.depositPercent === "0.5000") &&
-            (!input.storeId ? scope.orderType === "PARCEL_DOCUMENT" : true);
-        if (review.authorId === u.id || !validCash || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires parcel-only 100% COD (or the approved 50/50 scheme), an explicit service, area and remittance controls.", 422);
+        const validCash =
+          input.mode === "DEPOSIT_PLUS_COD" &&
+          (input.depositPercent === "0.5" || input.depositPercent === "0.5000") &&
+          (!input.storeId ? scope.orderType === "PARCEL_DOCUMENT" : true);
+        if (review.authorId === u.id || !validCash || !input.deliveryServiceId || (!input.regionId && !input.provinces?.length)) throw new PlatformError("COD_APPROVAL_INVALID", "Independent approval requires the approved 50% online deposit + 50% cash policy, an explicit service, area and remittance controls.", 422);
         const source = existing.find((p) => p.id === review.policyId && p.versionNumber === input.expectedVersion && p.status === "INACTIVE");
         if (!source || source.createdByUserId !== review.authorId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft for this scope.", 409);
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'client_cash_deposit_bank'}))`;
@@ -449,8 +445,7 @@ async function saveReviewedPaymentConfiguration(
               authoritativePayable: new Prisma.Decimal(b.authoritativeTotal),
               digitalRequired: new Prisma.Decimal(b.digitalRequired),
               cashObligation: new Prisma.Decimal(b.cashRequired),
-              status:
-                b.mode === "FULL_COD" ? "READY_FOR_COLLECTION" : "PENDING",
+              status: "PENDING",
               version: { increment: 1 },
               events: {
                 create: {
@@ -505,6 +500,13 @@ export async function approvePaymentConfiguration(u: AuthenticatedUser, input: z
   const data = PaymentApprovalSchema.parse(input);
   const draft = await prisma.paymentMethodPolicy.findUnique({ where: { id: data.policyId } });
   if (!draft || draft.versionNumber !== data.expectedVersion || draft.status !== "INACTIVE" || !draft.createdByUserId) throw new PlatformError("COD_APPROVAL_CONFLICT", "Review the latest inactive draft.", 409);
+  if (draft.mode === "FULL_COD") {
+    throw new PlatformError(
+      "PAYMENT_POLICY_DISCONTINUED",
+      "100% cash on delivery is retired under the approved 50% online + 50% driver cash policy and cannot be activated.",
+      422,
+    );
+  }
   if (draft.createdByUserId === u.id) throw new PlatformError("COD_INDEPENDENT_REVIEW_REQUIRED", "A different authorized administrator must approve this policy.", 403);
   return saveReviewedPaymentConfiguration(u, {
     storeId: draft.storeId, deliveryServiceId: draft.deliveryServiceId, provinces: Array.isArray(draft.provinceScope) ? draft.provinceScope as z.infer<typeof PaymentConfigurationSchema>["provinces"] : null,

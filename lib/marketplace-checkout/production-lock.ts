@@ -4,6 +4,7 @@ import {
 } from "@/lib/testing/safe-postgres-validator";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
 import { isActualProductionInstance } from "@/lib/promotions/production-lock";
+import { resolveQaAcceptanceLaneConfig } from "@/lib/qa-acceptance/config";
 
 export const MARKETPLACE_CHECKOUT_PRODUCTION_VALIDATION_APPROVED =
   true as const;
@@ -47,7 +48,7 @@ export function evaluateMarketplaceCheckoutPublicGate(
 
 export function assertMarketplaceCheckoutProductionReady(
   operation: MarketplaceCheckoutProductionLockedError["operation"],
-  testApproval?: { approved: true },
+  testApproval?: { approved?: true; qaAcceptanceApproved?: true },
   source: Record<string, string | undefined> = process.env,
 ): void {
   if (testApproval?.approved === true) {
@@ -58,6 +59,11 @@ export function assertMarketplaceCheckoutProductionReady(
       );
     }
     return;
+  }
+  if (testApproval?.qaAcceptanceApproved === true) {
+    if (resolveQaAcceptanceLaneConfig(source).eligible) {
+      return;
+    }
   }
   if (
     isLocalFullFlowAllowed(source as NodeJS.ProcessEnv) ||

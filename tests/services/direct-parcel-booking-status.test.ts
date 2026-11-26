@@ -111,26 +111,16 @@ describe("source-bound direct parcel booking status in the same transaction", ()
     mocks.confirmed.mockResolvedValue({});
   });
 
-  it("accepts a fully scoped and approved cash-on-delivery booking for driver dispatch", async () => {
+  it("rejects new FULL_COD requests under the retired full-cash policy for both customers and stores", async () => {
     mocks.policy.mockResolvedValue(cashPolicy("FULL_COD"));
     const tx = transaction();
-    const order = await createOrder(customer as never, { ...input, paymentMethod: "FULL_COD" } as never, false, tx as never);
-    expect(order).toMatchObject({ status: OrderStatus.CONFIRMED, source: "CUSTOMER" });
-    expect(tx.order.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CONFIRMED }) }));
-    expect(tx.orderStatusHistory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: OrderStatus.CONFIRMED }) }));
-    expect(mocks.cash).toHaveBeenCalledWith(tx, expect.objectContaining({
-      orderId: "order-1", policyMode: "FULL_COD", digitalRequired: "0.00",
-    }));
-    expect(mocks.confirmed).toHaveBeenCalledOnce();
-  });
-
-  it("allows store-originated full COD only under the same validated policy", async () => {
-    mocks.policy.mockResolvedValue(cashPolicy("FULL_COD"));
-    const tx = transaction();
-    const order = await createOrder(business as never, { ...input, paymentMethod: "FULL_COD" } as never, true, tx as never);
-    expect(order).toMatchObject({ status: OrderStatus.CONFIRMED, storeId: "store-1", source: "STORE" });
-    expect(mocks.storeAccess).toHaveBeenCalledWith("store-owner-1", "deliveries");
-    expect(mocks.policy).toHaveBeenCalledWith(expect.objectContaining({ storeId: "store-1" }), tx);
+    await expect(createOrder(customer as never, { ...input, paymentMethod: "FULL_COD" } as never, false, tx as never))
+      .rejects.toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
+    await expect(createOrder(business as never, { ...input, paymentMethod: "FULL_COD" } as never, true, tx as never))
+      .rejects.toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
+    expect(tx.order.create).not.toHaveBeenCalled();
+    expect(mocks.cash).not.toHaveBeenCalled();
+    expect(mocks.confirmed).not.toHaveBeenCalled();
   });
 
   it("does not confirm unpaid online or deposit-only bookings", async () => {
@@ -155,10 +145,10 @@ describe("source-bound direct parcel booking status in the same transaction", ()
     }
   });
 
-  it("rejects a different unapproved cash choice before creating an order", async () => {
-    mocks.policy.mockResolvedValue(cashPolicy("FULL_COD"));
+  it("rejects a mismatched cash selection before creating an order", async () => {
+    mocks.policy.mockResolvedValue(cashPolicy("DEPOSIT_PLUS_COD"));
     const tx = transaction();
-    await expect(createOrder(customer as never, { ...input, paymentMethod: "DEPOSIT_PLUS_COD" } as never, false, tx as never))
+    await expect(createOrder(customer as never, { ...input, paymentMethod: "FULL_COD" } as never, false, tx as never))
       .rejects.toMatchObject({ code: "PAYMENT_METHOD_NOT_ALLOWED" });
     expect(tx.order.create).not.toHaveBeenCalled();
     expect(mocks.cash).not.toHaveBeenCalled();

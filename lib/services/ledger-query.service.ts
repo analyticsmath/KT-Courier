@@ -158,6 +158,7 @@ export async function listLedgerAccounts(query: LedgerAccountQuery): Promise<Led
     wallet: {
       ...(query.ownerType && { ownerType: query.ownerType }),
       ownerId: { not: "platform-sandbox-acceptance" },
+      isQaIsolated: false,
     },
   };
   const [total, rows] = await prisma.$transaction([
@@ -211,7 +212,7 @@ export async function listLedgerJournals(query: LedgerJournalQuery): Promise<Led
   const where: Prisma.LedgerJournalWhereInput = {
     AND: [
       { reference: { not: { startsWith: "PAYSTACK-SANDBOX-ACCEPTANCE-" } } },
-      { entries: { none: { account: { wallet: { ownerId: "platform-sandbox-acceptance" } } } } },
+      { entries: { none: { account: { wallet: { OR: [{ ownerId: "platform-sandbox-acceptance" }, { isQaIsolated: true }] } } } } },
     ],
     ...(query.from || query.to ? { postedAt: { ...(query.from && { gte: new Date(query.from) }), ...(query.to && { lte: new Date(query.to) }) } } : {}),
     ...(query.reference && { reference: { contains: query.reference, mode: "insensitive" } }),

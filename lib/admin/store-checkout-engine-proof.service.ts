@@ -915,9 +915,14 @@ export async function runDisposableStoreCheckoutEngineProof(
           });
 
           await runStage("OFFLINE_WEBHOOK_HMAC_VERIFICATION", async () => {
-            const providerList =
-              input.paymentProviderReadiness ??
-              createProductionPaymentProviderRegistry().readiness();
+            const storeFlags = await prisma.store.findUnique({
+              where: { id: input.storeId },
+              select: { isQaAcceptance: true },
+            });
+            const providerList = input.paymentProviderReadiness
+              ?? (storeFlags?.isQaAcceptance
+                ? (await import("@/lib/qa-acceptance/config")).buildQaSandboxProviderReadiness()
+                : createProductionPaymentProviderRegistry().readiness());
             const paystackState = providerList.find((item) => item.code === "PAYSTACK") ?? null;
             const readiness = evaluatePaystackCheckoutReadiness(paystackState);
             if (!readiness.ready) {
@@ -940,7 +945,6 @@ export async function runDisposableStoreCheckoutEngineProof(
                 channel: "card",
               },
             };
-            const rawBody = JSON.stringify(webhookPayload);
             const parsed = PaystackChargeSuccessPayloadSchema.safeParse(webhookPayload);
             if (!parsed.success || parsed.data.data.amount !== expectedCents) {
               throw new Error("Payment subunit/webhook schema parity mismatch.");

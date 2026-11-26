@@ -18,6 +18,7 @@ import { OrderStatus } from "@/types/db";
 import { checkIpRateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { PricingError } from "@/lib/pricing/errors";
+import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
 
 const ALLOWED_ROLES = ["CUSTOMER", "STORE"] as const;
 
@@ -54,10 +55,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const qaCtx = await resolveQaAcceptanceSessionContext(user.id).catch(() => null);
     const order = await createOrder(
       user,
       parsed.data,
       user.role === "STORE" || req.headers.get("X-KT-Workspace") === "STORE",
+      undefined,
+      undefined,
+      qaCtx ? { isQaAcceptance: true, qaAcceptanceRunId: qaCtx.activeRunId } : undefined,
     );
     return created(order);
   } catch (err) {

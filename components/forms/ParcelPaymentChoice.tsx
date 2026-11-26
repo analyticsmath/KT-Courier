@@ -8,10 +8,10 @@ export type ParcelCodAvailability = {
   reasonCode?: string;
   message?: string;
 };
-export type ParcelPaymentMethod = "DIGITAL_ONLY" | "FULL_COD" | "DEPOSIT_PLUS_COD";
+export type ParcelPaymentMethod = "DIGITAL_ONLY" | "DEPOSIT_PLUS_COD";
 export type ParcelCardAvailability = { eligible: boolean; message?: string };
 
-/** Explicitly show all payment choices; never confuse an ineligible COD policy with a missing feature. */
+/** Explicitly show approved payment choices under the 100% online or 50/50 deposit+cash policy. */
 export function ParcelPaymentChoice({ total, value, onChange, cod, card, authorizedMethods = [], loading = false, error }: {
   total: string;
   value: ParcelPaymentMethod;
@@ -25,9 +25,7 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, card, authori
   const legendId = useId();
   const cardReady = card?.eligible !== false && !loading && !error;
   const codEnabled = cod?.eligible === true && !loading && !error;
-  const cashMethod = authorizedMethods.find(method => method.mode === "FULL_COD");
   const depositMethod = authorizedMethods.find(method => method.mode === "DEPOSIT_PLUS_COD");
-  const fullCashEligible = codEnabled && !!cashMethod;
   const depositEligible = codEnabled && !!depositMethod;
   const methods = [
     {
@@ -39,19 +37,11 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, card, authori
       disabled: !cardReady,
     },
     {
-      id: "FULL_COD" as const,
-      label: "Cash on delivery",
-      summary: "Pay the assigned driver when your parcel arrives",
-      amount: `R ${cod?.amountDueAtDelivery ?? total}`,
-      badge: fullCashEligible ? "R0 upfront" : "Not available yet",
-      disabled: !fullCashEligible,
-    },
-    {
       id: "DEPOSIT_PLUS_COD" as const,
-      label: "Online deposit + cash on delivery",
-      summary: "Pay the approved deposit securely now, then settle the balance with your driver",
-      amount: depositEligible ? "R " + depositMethod!.digitalRequired + " now + R " + depositMethod!.cashRequired + " cash" : "Requires approval",
-      badge: depositEligible ? "Approved split" : "Not available yet",
+      label: "50% online deposit + 50% cash on delivery",
+      summary: "Pay 50% securely online now, then settle the remaining 50% in cash with your assigned driver on delivery",
+      amount: depositEligible ? "R " + depositMethod!.digitalRequired + " now + R " + depositMethod!.cashRequired + " cash" : "Requires route & service eligibility",
+      badge: depositEligible ? "Approved 50/50 split" : "Not available yet",
       disabled: !depositEligible,
     },
   ];
@@ -107,9 +97,8 @@ export function ParcelPaymentChoice({ total, value, onChange, cod, card, authori
       <p className="mt-3 text-sm leading-6 text-[var(--kt-text-soft)]" role="status" aria-live="polite">
         {loading ? "Checking cash availability for this address and service…"
           : error ? "Cash availability could not be checked. " + error + " You can still pay online."
-          : fullCashEligible && value === "FULL_COD" ? "Pay R " + cashMethod!.cashRequired + " to your assigned driver upon delivery. Driver cash must be recorded and reconciled."
           : depositEligible && value === "DEPOSIT_PLUS_COD" ? "Pay R " + depositMethod!.digitalRequired + " securely before dispatch, then R " + depositMethod!.cashRequired + " to your assigned driver on delivery."
-          : fullCashEligible || depositEligible ? "Choose the approved cash option or pay fully online."
+          : depositEligible ? "Choose the approved 50/50 deposit + cash option or pay fully online."
           : cod?.message ?? "Cash on delivery is unavailable for this booking. Online payment remains available."}
       </p>
     </fieldset>

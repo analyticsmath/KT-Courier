@@ -238,6 +238,7 @@ export async function getCustomerPaymentPage(
       orderNumber: true,
       storeId: true,
       priceEstimate: true,
+      isQaAcceptance: true,
       cashOnDelivery: {
         select: {
           policyMode: true,
@@ -261,6 +262,7 @@ export async function getCustomerPaymentPage(
     return Object.freeze({
       orderId: order.id,
       orderReference: order.orderNumber,
+      isQaAcceptance: order.isQaAcceptance,
       amount: payment.amount.toFixed(2),
       canCheckout,
       checkoutBlockReason: !canCheckout
@@ -274,6 +276,7 @@ export async function getCustomerPaymentPage(
     return Object.freeze({
       orderId: order.id,
       orderReference: order.orderNumber,
+      isQaAcceptance: order.isQaAcceptance,
       amount: "0.00",
       currency: "ZAR",
       payment: null,
@@ -295,6 +298,7 @@ export async function getCustomerPaymentPage(
       return Object.freeze({
         orderId: order.id,
         orderReference: order.orderNumber,
+        isQaAcceptance: order.isQaAcceptance,
         amount: order.priceEstimate?.toFixed(2) ?? "0.00",
         currency: "ZAR",
         payment: null,
@@ -313,6 +317,7 @@ export async function getCustomerPaymentPage(
   return Object.freeze({
     orderId: order.id,
     orderReference: order.orderNumber,
+    isQaAcceptance: order.isQaAcceptance,
     amount: subject.amount.toString(),
     currency: "ZAR",
     payment: null,

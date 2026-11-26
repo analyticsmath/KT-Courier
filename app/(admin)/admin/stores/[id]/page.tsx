@@ -20,6 +20,7 @@ import { OperationalPanel } from "@/components/protected-v2/surfaces/Operational
 import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
 import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-engine-proof.service";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
 
 export const metadata: Metadata = { title: "Vendor account dossier" };
 
@@ -43,7 +44,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   ]);
   if (!store) notFound();
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision, activeOperationalPolicy] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision, activeOperationalPolicy, qaStoreFlag] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
@@ -73,6 +74,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       },
       select: { id: true },
     }),
+    prisma.store.findUnique({ where: { id }, select: { isQaAcceptance: true } }),
   ]);
   const owner = store.ownerUser;
   const pickupCandidate = pickupState?.pickupAddress ?? null;
@@ -187,6 +189,15 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
   });
   return <ProtectedPageFrame>
     <ProtectedPageHeader title={store.name} description={`Vendor account dossier · ${store.status.toLowerCase()} · joined ${date(store.createdAt)}`} />
+    {qaStoreFlag?.isQaAcceptance ? (
+      <QaSandboxBanner
+        persona="QA Acceptance Store"
+        ctaHref="/admin/qa-acceptance"
+        ctaLabel="QA Control Center"
+        description="This vendor store is enrolled in the isolated QA acceptance lane. Public /shop listing stays closed; authorized QA accounts view it privately at /shop/qa."
+        nonWithdrawable
+      />
+    ) : null}
     <Link href="/admin/stores" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-4">Back to stores</Link>
     <StoreRepairCockpit storeId={store.id} storeName={store.name} isPubliclyVisible={isPubliclyVisible} blockers={blockers} gates={gates} />
     <OperationalPanel title="Review before business account approval" description="Business account approval verifies owner registration, verified email, and reachable business contact so the vendor can prepare onboarding. Public shop listing stays closed until seller identity, collection readiness, catalog moderation, and real-source checkout capability certification pass.">

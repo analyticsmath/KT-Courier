@@ -34,8 +34,8 @@ function internalDto(row: Readonly<{ id: string; publicReference: string; status
 }
 
 function assertVerifiedPayment(payment: Readonly<{
-  id: string; publicReference: string; orderId: string | null; status: string; currency: string; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; successLedgerJournalId: string | null; provider?: string | null;
-  successfulAttempt: { status: string } | null; successWebhookEvent: { processingStatus: string; signatureVerified: boolean; merchantVerified: boolean; amountVerified: boolean; providerDataVerified: boolean } | null;
+  id: string; publicReference: string; orderId: string | null; status: string; currency: string; totalRefundedAmount: Prisma.Decimal; totalRefundReservedAmount: Prisma.Decimal; successLedgerJournalId: string | null; provider?: string | null; metadata?: unknown;
+  successfulAttempt: { status: string; providerReference?: string | null } | null; successWebhookEvent: { processingStatus: string; signatureVerified: boolean; merchantVerified: boolean; amountVerified: boolean; providerDataVerified: boolean } | null;
   successLedgerJournal: { type: string; currency: string } | null;
 }>): void {
   const webhook = payment.successWebhookEvent;
@@ -47,7 +47,10 @@ function assertVerifiedPayment(payment: Readonly<{
       throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Wallet-funded payment requires a valid account transfer journal.");
     }
   } else {
-    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || !webhook || webhook.processingStatus !== "APPLIED" || !webhook.signatureVerified || !webhook.merchantVerified || !webhook.amountVerified || !webhook.providerDataVerified) {
+    const meta = payment.metadata && typeof payment.metadata === "object" ? (payment.metadata as Record<string, unknown>) : null;
+    const webhookVerified = Boolean(webhook && webhook.processingStatus === "APPLIED" && webhook.signatureVerified && webhook.merchantVerified && webhook.amountVerified && webhook.providerDataVerified);
+    const verifyApiVerified = payment.provider === "PAYSTACK" && meta?.verifiedVia === "PAYSTACK_VERIFY_API" && Boolean(payment.successfulAttempt?.providerReference);
+    if (payment.successfulAttempt?.status !== "SUCCEEDED" || payment.successLedgerJournal?.type !== "EXTERNAL_PAYMENT_RECEIPT" || (!webhookVerified && !verifyApiVerified)) {
       throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Store earning accrual requires a verified successful ZAR payment and receipt journal.");
     }
   }
@@ -74,7 +77,7 @@ export async function accrueStoreEarningInTransaction(tx: Prisma.TransactionClie
   if (!store || store.status !== "ACTIVE" || store.slug !== snapshot.storePublicReference) throw new StoreEarningError("STORE_EARNING_ACCOUNT_INVALID", "Authoritative settlement does not identify the active canonical store.");
   const paymentLock = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`SELECT "id" FROM "Payment" WHERE "id" = ${snapshot.paymentId} FOR UPDATE`);
   if (paymentLock.length !== 1) throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Verified payment disappeared during store settlement accrual.");
-  const lockedPayment = await tx.payment.findUnique({ where: { id: snapshot.paymentId }, include: { successfulAttempt: { select: { status: true } }, successWebhookEvent: { select: { processingStatus: true, signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true } }, successLedgerJournal: { select: { type: true, currency: true } } } });
+  const lockedPayment = await tx.payment.findUnique({ where: { id: snapshot.paymentId }, include: { successfulAttempt: { select: { status: true, providerReference: true } }, successWebhookEvent: { select: { processingStatus: true, signatureVerified: true, merchantVerified: true, amountVerified: true, providerDataVerified: true } }, successLedgerJournal: { select: { type: true, currency: true } } } });
   if (!lockedPayment || lockedPayment.publicReference !== snapshot.paymentPublicReference) throw new StoreEarningError("STORE_EARNING_PAYMENT_INVALID", "Payment identity changed during store settlement accrual.");
   assertVerifiedPayment(lockedPayment);
   const chargeIds = [...snapshot.commissionCharges.map((charge) => charge.commissionAllocationId)].sort();
@@ -93,13 +96,32 @@ export async function accrueStoreEarningInTransaction(tx: Prisma.TransactionClie
   const duplicate = await tx.storeEarning.findUnique({ where: { subjectType_subjectId_storeId_settlementVersion: { subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, storeId: snapshot.storeId, settlementVersion: snapshot.settlementVersion } }, select: { id: true } });
   if (duplicate) throw new StoreEarningError("STORE_EARNING_SETTLEMENT_ALREADY_ACCRUED", "This subject, store and settlement version already has an earning.");
   const accounts = await resolveStoreEarningPayableAccountWithinTransaction(tx, { storeId: snapshot.storeId, walletId: snapshot.walletId, accountId: operationEvidence.payableAccountId });
-  const held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+  const [qaStore, qaPayment] = await Promise.all([
+    tx.store.findUnique({ where: { id: snapshot.storeId }, select: { isQaAcceptance: true } }),
+    tx.payment.findUnique({ where: { id: snapshot.paymentId }, select: { isQaAcceptance: true } }),
+  ]);
+  const isQaAcceptance = Boolean(qaStore?.isQaAcceptance || qaPayment?.isQaAcceptance || accounts.wallet.isQaIsolated);
+  if (
+    Boolean(qaStore?.isQaAcceptance) !== isQaAcceptance ||
+    Boolean(qaPayment?.isQaAcceptance) !== isQaAcceptance ||
+    Boolean(accounts.wallet.isQaIsolated) !== isQaAcceptance
+  ) {
+    throw new StoreEarningError("STORE_EARNING_ACCOUNT_INVALID", "QA sandbox store earning accounts and payments must stay strictly isolated from live commercial accounts.");
+  }
+  let held: { id: string; currentBalance: Prisma.Decimal } | null = null;
+  if (isQaAcceptance) {
+    const { ensureQaPlatformSandboxAccountsInTx } = await import("@/lib/qa-acceptance/ledger");
+    const sandbox = await ensureQaPlatformSandboxAccountsInTx(tx);
+    held = await tx.ledgerAccount.findUnique({ where: { id: sandbox.fundsHeld.id } });
+  } else {
+    held = await tx.ledgerAccount.findFirst({ where: { purpose: "HELD", category: "LIABILITY", currency: "ZAR", status: "ACTIVE", allowNegative: false, wallet: { ownerType: "PLATFORM", ownerId: "platform", currency: "ZAR", status: "ACTIVE" } } });
+  }
   const amount = new Prisma.Decimal(snapshot.netStoreEarningAmount);
   if (!held || held.currentBalance.lessThan(amount)) throw new StoreEarningError("STORE_EARNING_INSUFFICIENT_HELD_FUNDS", "Customer funds held are insufficient for the store entitlement.");
   for (const charge of snapshot.commissionCharges) await tx.commissionAllocation.update({ where: { id: charge.commissionAllocationId }, data: { storeAttributedAmount: { increment: new Prisma.Decimal(charge.amount) } } });
   const earningReference = reference("SE");
   const journal = await postLedgerJournalWithinTransaction(tx, storeEarningAccrualPosting({ earningReference, amount: snapshot.netStoreEarningAmount, customerFundsHeldAccountId: held.id, storePayableAccountId: accounts.account.id, storePublicReference: snapshot.storePublicReference, subjectPublicReference: snapshot.subjectPublicReference, settlementVersion: snapshot.settlementVersion, paymentPublicReference: snapshot.paymentPublicReference, actorUserId: operationEvidence.actorUserId }));
-  const created = await tx.storeEarning.create({ data: { publicReference: earningReference, storeId: snapshot.storeId, storePublicReference: snapshot.storePublicReference, walletId: snapshot.walletId, payableAccountId: accounts.account.id, subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, subjectPublicReference: snapshot.subjectPublicReference, paymentId: snapshot.paymentId, paymentPublicReference: snapshot.paymentPublicReference, settlementReference: snapshot.settlementReference, settlementVersion: snapshot.settlementVersion, calculationVersion: snapshot.calculationVersion, authoritativeAt: new Date(snapshot.authoritativeAt), settlementBasisAmount: new Prisma.Decimal(snapshot.sellerSettlementBasisAmount), attributedCommissionAmount: new Prisma.Decimal(snapshot.attributedCommissionAmount), amount, currency: "ZAR", status: "ACCRUED", creationIdempotencyKey: operationEvidence.operationId, creationRequestHash: calculationHash, calculationHash, accrualLedgerJournalId: journal.id, commissionCharges: { create: snapshot.commissionCharges.map((charge) => ({ publicReference: reference("SEC"), commissionAllocationId: charge.commissionAllocationId, amount: new Prisma.Decimal(charge.amount), currency: "ZAR" })) }, statusHistory: { create: [{ fromStatus: null, toStatus: "ACCRUED", actorType: operationEvidence.actorUserId ? "USER" : "SYSTEM", actorId: operationEvidence.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, settlementReference: snapshot.settlementReference } }, { fromStatus: null, toStatus: "ACCRUED", actorType: "SYSTEM", reasonCode: "COMMISSION_CHARGES_ATTRIBUTED", safeMetadata: { chargeCount: String(snapshot.commissionCharges.length) } }] } }, include });
+  const created = await tx.storeEarning.create({ data: { publicReference: earningReference, storeId: snapshot.storeId, storePublicReference: snapshot.storePublicReference, walletId: snapshot.walletId, payableAccountId: accounts.account.id, subjectType: snapshot.subjectType, subjectId: snapshot.subjectId, subjectPublicReference: snapshot.subjectPublicReference, paymentId: snapshot.paymentId, paymentPublicReference: snapshot.paymentPublicReference, settlementReference: snapshot.settlementReference, settlementVersion: snapshot.settlementVersion, calculationVersion: snapshot.calculationVersion, authoritativeAt: new Date(snapshot.authoritativeAt), settlementBasisAmount: new Prisma.Decimal(snapshot.sellerSettlementBasisAmount), attributedCommissionAmount: new Prisma.Decimal(snapshot.attributedCommissionAmount), amount, currency: "ZAR", status: "ACCRUED", isQaAcceptance, creationIdempotencyKey: operationEvidence.operationId, creationRequestHash: calculationHash, calculationHash, accrualLedgerJournalId: journal.id, commissionCharges: { create: snapshot.commissionCharges.map((charge) => ({ publicReference: reference("SEC"), commissionAllocationId: charge.commissionAllocationId, amount: new Prisma.Decimal(charge.amount), currency: "ZAR" })) }, statusHistory: { create: [{ fromStatus: null, toStatus: "ACCRUED", actorType: operationEvidence.actorUserId ? "USER" : "SYSTEM", actorId: operationEvidence.actorUserId ?? null, reasonCode: "ACCRUAL_POSTED", safeMetadata: { ledgerReference: journal.reference, settlementReference: snapshot.settlementReference } }, { fromStatus: null, toStatus: "ACCRUED", actorType: "SYSTEM", reasonCode: "COMMISSION_CHARGES_ATTRIBUTED", safeMetadata: { chargeCount: String(snapshot.commissionCharges.length) } }] } }, include });
   return Object.freeze({ ...internalDto(created), replayed: false });
 }
 
