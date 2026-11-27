@@ -59,6 +59,7 @@ const DOCUMENT_ORDER_SELECT = Prisma.validator<Prisma.OrderSelect>()({
   parcelDescription: true,
   customerNote: true,
   pricingSnapshot: true,
+  isQaAcceptance: true,
   recipientName: true,
   recipientPhone: true,
   priceEstimate: true,
@@ -497,7 +498,11 @@ export async function downloadAuthorizedShipmentDocumentPdf(args: {
     );
   }
 
-  const viewerPayload = sanitizePayloadForViewerRole(storedPayload, context.viewerRole);
+  const authoritativePayload: ShipmentWaybillPayload | ShipmentPodPayload =
+    (order as { isQaAcceptance?: boolean }).isQaAcceptance
+      ? { ...storedPayload, isQaAcceptance: true }
+      : storedPayload;
+  const viewerPayload = sanitizePayloadForViewerRole(authoritativePayload, context.viewerRole);
   const bytes = await renderShipmentDocumentPdf(viewerPayload);
   const safeRef = order.orderNumber.replace(/[^A-Za-z0-9-]/g, "");
   const fileName =

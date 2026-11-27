@@ -16,7 +16,7 @@ import { UserRole } from "@/types/db";
 import { getDriverDashboardInsights } from "@/lib/dashboard-insights/driver-dashboard-insights";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "Driver home" };
 
@@ -51,7 +51,7 @@ export default async function DriverDashboardPage({
     driverProfileId ? listDriverAssignments(driverProfileId, "all") : [],
     getDriverDashboardInsights(period),
     evaluateDriverReadiness(driver.id).catch(() => null),
-    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
+    resolveQaPrincipalForUser(user.id).catch(() => null),
   ]);
 
   return (

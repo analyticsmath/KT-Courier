@@ -30,6 +30,8 @@ import { formatDateTime } from "@/lib/utils/formatters";
 import { getOrderDocumentAvailability } from "@/lib/shipment-documents/service";
 import { listTrackingShareGrants } from "@/lib/tracking/recipient-access.server";
 import { OrderShipmentDocumentsPanel } from "@/components/shipment-documents/OrderShipmentDocumentsPanel";
+import { prisma } from "@/lib/db/prisma";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
 
 export const metadata: Metadata = { title: "Courier order" };
 
@@ -50,20 +52,36 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   const canViewTracking = await hasPermission({ userId: user.id, role: user.role, permissionKey: PERMISSIONS.DISPATCH_READ });
   // This page already requires ORDERS_READ. Restrict gallery reads to
   // order-owned delivery-proof objects at the private-media boundary.
-  const [deliveryEvidence, handoverEmails, paymentReadiness, codReadiness, documentAvailability, grantsResult] = await Promise.all([
+  const [deliveryEvidence, handoverEmails, paymentReadiness, codReadiness, documentAvailability, grantsResult, orderQa] = await Promise.all([
     listAdminDeliveryEvidence(id),
     listAdminHandoverEmailEvidence(id),
     getCourierPaymentReadiness(id),
     getAdminCodDeliveryReadiness(user, id),
     getOrderDocumentAvailability(id),
     listTrackingShareGrants({ user, orderId: id }).catch(() => ({ grants: [] })),
+    prisma.order.findUnique({ where: { id }, select: { isQaAcceptance: true, qaAcceptanceRunId: true } }),
   ]);
-  const eligible = canAssign || canReassign ? await listEligibleDrivers(order.deliveryRegionId ?? null) : null;
+  const eligible = canAssign || canReassign
+    ? await listEligibleDrivers(order.deliveryRegionId ?? null, {
+        orderId: order.id,
+        isQaAcceptance: Boolean(orderQa?.isQaAcceptance),
+        qaAcceptanceRunId: orderQa?.qaAcceptanceRunId ?? null,
+      })
+    : null;
   const candidates = eligible && order.deliveryRegionId ? [...eligible.recommended, ...eligible.available].map((driver) => ({ id: driver.id, driverCode: driver.driverCode, displayName: driver.displayName })) : [];
   const orderState = presentOrderStatus(order.status);
 
   return <ProtectedPageFrame>
     <ProtectedPageHeader eyebrow="Courier order" title={order.orderNumber} description={`${order.deliveryType.replaceAll("_", " ")} · created ${formatDateTime(order.createdAt)}`} breadcrumbs={[{ label: "Orders", href: "/admin/orders" }, { label: order.orderNumber }]} actions={<Link className="eo-inline-action" href="/admin/orders">Back to queue</Link>} />
+    {orderQa?.isQaAcceptance ? (
+      <QaSandboxBanner
+        persona="QA Acceptance Order"
+        ctaHref="/admin/qa-acceptance"
+        ctaLabel="QA Control Center"
+        description="Isolated QA acceptance order. Dispatch is restricted to active enrolled QA drivers scoped to this active QA run; documents and ledger entries remain strictly non-commercial."
+        nonWithdrawable
+      />
+    ) : null}
     <ProtectedContentGrid
       contextRail={<>
         <OperationalPanel title="Current status"><ProtectedStatus label={orderState.label} tone={orderState.tone} /><p className="eo-panel-copy">{orderState.description}</p></OperationalPanel>

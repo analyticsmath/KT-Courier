@@ -15,7 +15,7 @@ import type { DriverEarningListItemDto } from "@/lib/dto/driver-earning.dto";
 import { UserRole } from "@/types/db";
 import styles from "@/components/protected-v2/driver/driver-pages.module.css";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "Driver earnings" };
 
@@ -26,7 +26,7 @@ export default async function DriverEarningsPage() {
       if (error instanceof DriverEarningError && error.code === "DRIVER_EARNING_FORBIDDEN") return null;
       throw error;
     }),
-    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
+    resolveQaPrincipalForUser(user.id).catch(() => null),
   ]);
   if (!result) return <DriverEarningsUnavailable />;
   const [summary, earnings] = result;

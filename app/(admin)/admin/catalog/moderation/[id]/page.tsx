@@ -11,14 +11,29 @@ import { presentCommerceStatus } from "@/lib/commerce-admin-presentation/commerc
 import { requireAdminPagePermission } from "@/lib/auth/guards";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getCatalogModerationCase } from "@/lib/services/catalog-moderation.service";
+import { prisma } from "@/lib/db/prisma";
+import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
 import { formatDateTime } from "@/lib/utils/formatters";
 
 export default async function CatalogModerationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPagePermission(PERMISSIONS.CATALOG_MODERATION_READ);
   const moderationCase = await getCatalogModerationCase((await params).id).catch(() => null); if (!moderationCase) notFound();
+  const subjectStoreId = moderationCase.product?.sourceStoreId ?? moderationCase.offer?.storeId ?? null;
+  const qaStore = subjectStoreId
+    ? await prisma.store.findUnique({ where: { id: subjectStoreId }, select: { isQaAcceptance: true } })
+    : null;
   const state = presentCommerceStatus(moderationCase.status);
   return <ProtectedPageFrame>
     <ProtectedPageHeader breadcrumbs={[{ label: "Catalog", href: "/admin/catalog" }, { label: "Moderation", href: "/admin/catalog/moderation" }, { label: moderationCase.publicReference }]} eyebrow="Catalog administration" title="Moderation case" description={moderationCase.safeSummary} />
+    {qaStore?.isQaAcceptance ? (
+      <QaSandboxBanner
+        persona="QA Acceptance Catalog"
+        ctaHref="/admin/qa-acceptance"
+        ctaLabel="QA Control Center"
+        description="Approving this QA store catalog submission exercises normal moderation workflows for /shop/qa acceptance testing only; it never publishes products to commercial /shop listings."
+        nonWithdrawable
+      />
+    ) : null}
     <CatalogAdministrationNav currentPath="/admin/catalog/moderation" />
     <ProtectedContentGrid contextRail={<OperationalPanel title="Case state" padding="compact"><ProtectedStatus label={state.label} tone={state.tone} /></OperationalPanel>}>
       <OperationalPanel title="Canonical review evidence" description="Only the review-safe record is shown. Private moderation evidence and actor identity remain unavailable in this presentation.">

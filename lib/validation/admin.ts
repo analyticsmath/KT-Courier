@@ -42,8 +42,12 @@ export const StoreStatusUpdateSchema = z.object({
   }),
   reason: z.string().trim().max(500).optional(),
 }).strict().superRefine((value, context) => {
-  if (["SUSPENDED", "DISABLED"].includes(value.status) && (!value.reason || value.reason.length < 12))
+  if (["SUSPENDED", "DISABLED"].includes(value.status) && (!value.reason || value.reason.length < 12)) {
     context.addIssue({ code: "custom", path: ["reason"], message: "A reason of at least 12 characters is required to restrict a store." });
+  }
+  if (value.status === "ACTIVE" && value.reason !== undefined && value.reason.length < 12) {
+    context.addIssue({ code: "custom", path: ["reason"], message: "A review statement of at least 12 characters is required when recording an approval reason." });
+  }
 });
 
 export type StoreStatusUpdateInput = z.infer<typeof StoreStatusUpdateSchema>;

@@ -176,22 +176,28 @@ interface PdfContext {
   orderNumber: string;
   documentRef: string;
   isSample: boolean;
+  isQaAcceptance: boolean;
 }
 
 function clean(ctx: PdfContext, value: string | null | undefined): string {
   return sanitizePdfText(value, ctx.fallbackTextMode);
 }
 
-function drawWatermarkIfSample(ctx: PdfContext, page: PDFPage) {
-  if (!ctx.isSample) return;
-  page.drawText(clean(ctx, "SAMPLE FIXTURE - NON-PRODUCTION DOCUMENT"), {
+function drawWatermarkOverlay(ctx: PdfContext, page: PDFPage) {
+  if (!ctx.isSample && !ctx.isQaAcceptance) return;
+  const watermarkText = ctx.isQaAcceptance
+    ? ctx.isSample
+      ? "QA SANDBOX TEST - SAMPLE FIXTURE"
+      : "QA SANDBOX TEST - NOT COMMERCIAL"
+    : "SAMPLE FIXTURE - NON-PRODUCTION DOCUMENT";
+  page.drawText(clean(ctx, watermarkText), {
     x: 92,
     y: 300,
     size: 18.5,
     font: ctx.bold,
-    color: COLOR_WATERMARK,
+    color: ctx.isQaAcceptance ? COLOR_AMBER : COLOR_WATERMARK,
     rotate: degrees(32),
-    opacity: 0.42,
+    opacity: ctx.isQaAcceptance ? 0.22 : 0.42,
   });
 }
 
@@ -199,7 +205,7 @@ function addNewPage(ctx: PdfContext, continuation: boolean) {
   const page = ctx.doc.addPage([A4_WIDTH, A4_HEIGHT]);
   ctx.pages.push(page);
   ctx.page = page;
-  drawWatermarkIfSample(ctx, page);
+  drawWatermarkOverlay(ctx, page);
 
   if (continuation) {
     page.drawRectangle({
@@ -560,7 +566,10 @@ function finalizeFooters(ctx: PdfContext) {
       thickness: 0.6,
       color: COLOR_BORDER,
     });
-    p.drawText(clean(ctx, `${ctx.documentTitle} · ${ctx.documentRef} · Order ${ctx.orderNumber}`), {
+    const footerText = ctx.isQaAcceptance
+      ? `${ctx.documentTitle} · ${ctx.documentRef} · Order ${ctx.orderNumber} · QA SANDBOX TEST — NON-COMMERCIAL`
+      : `${ctx.documentTitle} · ${ctx.documentRef} · Order ${ctx.orderNumber}`;
+    p.drawText(clean(ctx, footerText), {
       x: MARGIN,
       y: 26,
       size: 7.5,
@@ -580,9 +589,17 @@ function finalizeFooters(ctx: PdfContext) {
 }
 
 async function createPdfContext(payload: AnyShipmentDocumentPayload, title: string): Promise<PdfContext> {
+  const isQaAcceptance = Boolean(payload.isQaAcceptance);
   const doc = await PDFDocument.create();
-  doc.setTitle(`${title} — ${payload.orderNumber}`);
-  doc.setSubject(`KT Couriers ${payload.kind} ${payload.documentRef}`);
+  doc.setTitle(isQaAcceptance ? `${title} — QA SANDBOX TEST — ${payload.orderNumber}` : `${title} — ${payload.orderNumber}`);
+  doc.setSubject(
+    isQaAcceptance
+      ? `KT Couriers ${payload.kind} ${payload.documentRef} (QA SANDBOX TEST - NON-COMMERCIAL)`
+      : `KT Couriers ${payload.kind} ${payload.documentRef}`,
+  );
+  if (isQaAcceptance) {
+    doc.setKeywords(["QA SANDBOX TEST", "NON-COMMERCIAL"]);
+  }
   doc.setCreator("KT Couriers Document Engine (kt-pdf-v1)");
   doc.setProducer("KT Couriers (Pty) Ltd");
   doc.setCreationDate(new Date(payload.issuedAtIso));
@@ -628,6 +645,7 @@ async function createPdfContext(payload: AnyShipmentDocumentPayload, title: stri
     orderNumber: payload.orderNumber,
     documentRef: payload.documentRef,
     isSample: Boolean(payload.isSample),
+    isQaAcceptance,
   };
 
   addNewPage(ctx, false);
@@ -637,12 +655,23 @@ async function createPdfContext(payload: AnyShipmentDocumentPayload, title: stri
 function renderWaybillContent(ctx: PdfContext, payload: ShipmentWaybillPayload) {
   drawHeaderBanner(
     ctx,
-    payload.issuer.vatNumber
-      ? "Commercial Shipment Waybill · Valid for collection & transit"
-      : "Shipment Waybill · Non-VAT commercial consignment record",
-    payload.statusLabel,
+    payload.isQaAcceptance
+      ? "QA Acceptance Sandbox Test Waybill · Non-Commercial — Not For Live Dispatch"
+      : payload.issuer.vatNumber
+        ? "Commercial Shipment Waybill · Valid for collection & transit"
+        : "Shipment Waybill · Non-VAT commercial consignment record",
+    payload.isQaAcceptance ? `QA TEST · ${payload.statusLabel}` : payload.statusLabel,
     payload,
   );
+
+  if (payload.isQaAcceptance) {
+    drawKeyValueRow(
+      ctx,
+      "Document classification",
+      "QA SANDBOX TEST DOCUMENT — NON-COMMERCIAL / ISOLATED ACCEPTANCE LANE ONLY",
+      { highlight: "amber" },
+    );
+  }
 
   drawSectionHeading(ctx, "Consignment & Booking Summary");
   drawKeyValueRow(ctx, "Order reference", `${payload.orderNumber} (Rev ${payload.revision})`, { mono: true, highlight: "navy" });
@@ -739,10 +768,27 @@ function renderWaybillContent(ctx: PdfContext, payload: ShipmentWaybillPayload) 
 function renderPodContent(ctx: PdfContext, payload: ShipmentPodPayload) {
   drawHeaderBanner(
     ctx,
-    "Official Proof of Delivery Record",
-    payload.proofMethod === "OTP" ? "OTP VERIFIED" : "ADMIN MANUAL POD",
+    payload.isQaAcceptance
+      ? "QA Acceptance Sandbox Test Proof of Delivery · Non-Commercial"
+      : "Official Proof of Delivery Record",
+    payload.isQaAcceptance
+      ? payload.proofMethod === "OTP"
+        ? "QA TEST · OTP VERIFIED"
+        : "QA TEST · MANUAL POD"
+      : payload.proofMethod === "OTP"
+        ? "OTP VERIFIED"
+        : "ADMIN MANUAL POD",
     payload,
   );
+
+  if (payload.isQaAcceptance) {
+    drawKeyValueRow(
+      ctx,
+      "Document classification",
+      "QA SANDBOX TEST DOCUMENT — NON-COMMERCIAL / ISOLATED ACCEPTANCE LANE ONLY",
+      { highlight: "amber" },
+    );
+  }
 
   drawSectionHeading(ctx, "Delivery Verification Evidence");
   drawKeyValueRow(ctx, "Order reference", `${payload.orderNumber} (Rev ${payload.revision})`, { mono: true, highlight: "navy" });
@@ -789,7 +835,14 @@ function renderPodContent(ctx: PdfContext, payload: ShipmentPodPayload) {
 }
 
 export async function renderShipmentDocumentPdf(payload: AnyShipmentDocumentPayload): Promise<Uint8Array> {
-  const title = payload.kind === "WAYBILL" ? "Official Waybill" : "Proof of Delivery";
+  const title =
+    payload.kind === "WAYBILL"
+      ? payload.isQaAcceptance
+        ? "QA Test Waybill"
+        : "Official Waybill"
+      : payload.isQaAcceptance
+        ? "QA Test Proof of Delivery"
+        : "Proof of Delivery";
   const ctx = await createPdfContext(payload, title);
 
   if (payload.kind === "WAYBILL") {

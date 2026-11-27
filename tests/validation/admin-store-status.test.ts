@@ -6,8 +6,11 @@ describe("store status changes", () => {
     expect(StoreStatusUpdateSchema.safeParse({ status, reason: "Unpaid" }).success).toBe(false);
     expect(StoreStatusUpdateSchema.safeParse({ status, reason: "Repeated unpaid delivery invoices" }).success).toBe(true);
   });
-  it("preserves existing approval requests", () => {
+  it("preserves legacy reason-omitted approvals while rejecting blank or trivial approval reasons when supplied", () => {
     expect(StoreStatusUpdateSchema.safeParse({ status: "ACTIVE" }).success).toBe(true);
+    expect(StoreStatusUpdateSchema.safeParse({ status: "ACTIVE", reason: "" }).success).toBe(false);
+    expect(StoreStatusUpdateSchema.safeParse({ status: "ACTIVE", reason: "ok" }).success).toBe(false);
+    expect(StoreStatusUpdateSchema.safeParse({ status: "ACTIVE", reason: "Verified owner email and phone contact details" }).success).toBe(true);
   });
   it("denies direct status and featured changes through generic store updates", () => {
     expect(AdminStoreUpdateSchema.safeParse({ status: "DISABLED" }).success).toBe(false);

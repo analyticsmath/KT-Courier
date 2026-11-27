@@ -6,7 +6,7 @@ import styles from "@/components/public-v2/commerce/commerce.module.css";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { getCommerceCategoryHierarchy } from "@/lib/public-marketplace/category-presentation";
 import { parseMarketplaceProductParameter } from "@/lib/public-marketplace/routes";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceSessionContext, resolveQaVisibleStoreIdsForViewer } from "@/lib/qa-acceptance/access";
 import { getQaStorefrontProduct, getQaStorefrontStore } from "@/lib/services/storefront-catalog.service";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +26,13 @@ export default async function QaPrivateProductDetailPage({
 
   const parsed = parseMarketplaceProductParameter((await params).product);
   if (!parsed) notFound();
-  const data = await getQaStorefrontProduct(parsed.reference);
+  const visibleStoreIds = await resolveQaVisibleStoreIdsForViewer(user!.id).catch(() => []);
+  const data = await getQaStorefrontProduct(parsed.reference, visibleStoreIds);
   if (!data || data.product.productSlug !== parsed.slug) notFound();
 
   const { product, offers, modifierGroupsByOffer } = data;
   const [store, categoryHierarchy] = await Promise.all([
-    getQaStorefrontStore(product.storeSlug),
+    getQaStorefrontStore(product.storeSlug, visibleStoreIds),
     getCommerceCategoryHierarchy(product.categoryPath),
   ]);
 

@@ -20,6 +20,7 @@ import { OperationalPanel } from "@/components/protected-v2/surfaces/Operational
 import { getGlobalCommercePolicyRevision } from "@/lib/admin/commerce-readiness-revision";
 import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blockers";
 import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-engine-proof.service";
+import { classifySellerRegistration } from "@/lib/admin/seller-identity-display";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
 
 export const metadata: Metadata = { title: "Vendor account dossier" };
@@ -61,7 +62,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         evidenceType: true, engineProofReference: true, engineProofDigest: true,
         engineProofSuiteSha: true, policyFingerprint: true, stageResults: true,
         sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
-        proofOfferReference: true, proofPriceVersionReference: true,
+        proofOfferReference: true, proofPriceVersionReference: true, proofMetadata: true,
       },
     }) : Promise.resolve(null),
     getStorePickupAddressForStore(id),
@@ -93,10 +94,12 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
     hasActiveCommissionPlan,
     storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 1,
     currentGlobalPolicyRevision: globalPolicyRevision,
+    isQaAcceptanceStore: Boolean(qaStoreFlag?.isQaAcceptance),
     now,
   });
 
-  const isPubliclyVisible = blockers.length === 0;
+  const isPubliclyVisible = !qaStoreFlag?.isQaAcceptance && blockers.length === 0;
+  const sellerRegistrationSummary = classifySellerRegistration(legalSeller);
 
   const gates: StoreRepairGateItem[] = [
     {
@@ -104,9 +107,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       category: "IDENTITY",
       title: "Seller Legal Identity",
       ready: hasApprovedSellerIdentity,
-      explanation: hasApprovedSellerIdentity
-        ? `Approved: ${legalSeller?.legalName} (${legalSeller?.registrationReference || "Registered"})`
-        : "Missing approved legal entity verification. Required by South African law prior to public sale.",
+      explanation: sellerRegistrationSummary.explanation,
       actionHref: `/admin/stores/${encodeURIComponent(id)}/seller-identity`,
       actionLabel: "Review Seller Identity",
     },
@@ -194,7 +195,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         persona="QA Acceptance Store"
         ctaHref="/admin/qa-acceptance"
         ctaLabel="QA Control Center"
-        description="This vendor store is enrolled in the isolated QA acceptance lane. Public /shop listing stays closed; authorized QA accounts view it privately at /shop/qa."
+        description="This vendor store is enrolled in the isolated QA acceptance lane. Normal account, seller-identity, catalog, and sandbox certification reviews validate workflow mechanics for private /shop/qa testing only and never grant commercial /shop eligibility."
         nonWithdrawable
       />
     ) : null}
@@ -285,7 +286,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       <dl className="grid gap-4 sm:grid-cols-2">
         {fact("Legal seller", !canReviewSeller ? "Requires legal-document access" : legalSeller?.legalName ?? "Not independently approved")}
         {fact("Trading name", !canReviewSeller ? "Restricted" : legalSeller?.tradingName)}
-        {fact("Registration reference", !canReviewSeller ? "Restricted" : legalSeller?.registrationReference)}
+        {fact("Registration reference", !canReviewSeller ? "Restricted" : sellerRegistrationSummary.shortStatusLabel)}
         {fact("VAT registration", !canReviewSeller ? "Restricted" : legalSeller?.vatRegistrationStatus)}
         {fact("Catalog offers", String(catalogOfferCount))}
         {fact("Published offers", String(publishedOfferCount))}

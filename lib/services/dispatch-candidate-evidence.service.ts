@@ -7,6 +7,7 @@ import { rankDispatchCandidates } from "@/lib/dispatch/candidate-ranking";
 import { evaluateDriverEligibility, type DispatchEligibilityReason } from "@/lib/dispatch/eligibility";
 import { dispatchError } from "@/lib/dispatch/errors";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
 
 type Tx = Prisma.TransactionClient;
 type DynamicDelegate = {
@@ -168,7 +169,7 @@ export async function createDispatchCandidateEvaluationInTx(
 
   const order = await tx.order.findUnique({
     where: { id: input.courierOrderId },
-    select: { id: true, status: true, deliveryRegionId: true, pickupAddress: { select: { city: true } } },
+    select: { id: true, status: true, deliveryRegionId: true, isQaAcceptance: true, qaAcceptanceRunId: true, pickupAddress: { select: { city: true } } },
   });
   if (!order) throw dispatchError.orderNotFound();
   const pickupEligibleStatuses: OrderStatus[] = [OrderStatus.CONFIRMED, OrderStatus.PICKUP_SCHEDULED];
@@ -182,7 +183,7 @@ export async function createDispatchCandidateEvaluationInTx(
     policy(tx),
     db.marketplaceStoreOrderDeliveryBridge?.findFirst({ where: { courierOrderId: order.id }, select: { marketplaceStoreOrderId: true, publicReference: true } }),
     tx.driverProfile.findMany({
-      include: { user: { select: { status: true, role: true } }, serviceRegions: { select: { deliveryRegionId: true } }, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } },
+      include: { user: { select: { status: true, role: true, isQaAcceptance: true } }, serviceRegions: { select: { deliveryRegionId: true } }, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } },
       orderBy: [{ driverCode: "asc" }, { id: "asc" }],
       take: 500,
     }),
@@ -202,11 +203,18 @@ export async function createDispatchCandidateEvaluationInTx(
   ]);
   const counts = new Map(groupedAssignments.map((row) => [row.driverProfileId, row._count.id]));
   const evaluatedAt = new Date();
-  const evaluated = drivers.map((driver) => {
+  const orderIsQa = Boolean((order as { isQaAcceptance?: boolean }).isQaAcceptance);
+  const evaluated = await Promise.all(drivers.map(async (driver) => {
     const activeLoad = counts.get(driver.id) ?? 0;
     const regionMatch = Boolean(order.deliveryRegionId) && driver.serviceRegions.some((region) => region.deliveryRegionId === order.deliveryRegionId);
     const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now: evaluatedAt });
-    const eligibility = evaluateDriverEligibility({
+    const driverIsQa = Boolean((driver as { isQaAcceptance?: boolean }).isQaAcceptance);
+    let qaScopeAllowed = driverIsQa === orderIsQa;
+    if (qaScopeAllowed && orderIsQa) {
+      const qaCheck = await checkOrderDriverQaScope(tx, { orderId: order.id, driverProfileId: driver.id });
+      qaScopeAllowed = qaCheck.ok;
+    }
+    const baseEligibility = evaluateDriverEligibility({
       userActive: driver.user.status === UserStatus.ACTIVE && driver.user.role === UserRole.DRIVER,
       profileActive: driver.status === DriverStatus.ACTIVE,
       available: driver.availability === DriverAvailability.AVAILABLE,
@@ -216,8 +224,17 @@ export async function createDispatchCandidateEvaluationInTx(
       orderAlreadyAssigned: Boolean(activeAssignment) && !input.allowExistingAssignment,
       complianceEligible: compliance.eligible,
     });
+    const eligibility = qaScopeAllowed
+      ? baseEligibility
+      : {
+          ...baseEligibility,
+          eligible: false,
+          reasons: baseEligibility.reasons.includes("DRIVER_PROFILE_INACTIVE")
+            ? baseEligibility.reasons
+            : ([...baseEligibility.reasons, "DRIVER_PROFILE_INACTIVE"] as DispatchEligibilityReason[]),
+        };
     return { driver, activeLoad, regionMatch, eligibility };
-  });
+  }));
   const ranked = rankDispatchCandidates(evaluated.map(({ driver, activeLoad, regionMatch, eligibility }) => ({
     id: driver.id,
     driverCode: driver.driverCode,

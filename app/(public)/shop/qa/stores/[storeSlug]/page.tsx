@@ -6,7 +6,7 @@ import { StoreHero } from "@/components/public-v2/commerce/StoreHero";
 import styles from "@/components/public-v2/commerce/commerce.module.css";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { marketplaceSlug } from "@/lib/public-marketplace/routes";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceSessionContext, resolveQaVisibleStoreIdsForViewer } from "@/lib/qa-acceptance/access";
 import { getQaStorefrontStore } from "@/lib/services/storefront-catalog.service";
 import type { StorefrontProductCard } from "@/lib/storefront/storefront-types";
 
@@ -27,7 +27,8 @@ export default async function QaPrivateStoreDetailPage({
 
   const storeSlug = marketplaceSlug((await params).storeSlug);
   if (!storeSlug) notFound();
-  const store = await getQaStorefrontStore(storeSlug);
+  const visibleStoreIds = await resolveQaVisibleStoreIdsForViewer(user!.id).catch(() => []);
+  const store = await getQaStorefrontStore(storeSlug, visibleStoreIds);
   if (!store) notFound();
 
   const cards: StorefrontProductCard[] = store.products.map((doc) => ({

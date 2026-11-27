@@ -15,6 +15,7 @@ import {
 import { getStoreCommissionReadiness, type StoreCommissionReadiness } from "@/lib/admin/store-commission-readiness";
 import { isActiveDeliveryServiceForPickup } from "@/lib/admin/store-service-matching";
 import {
+  isQaOnlyCheckoutProofMetadata,
   isStoreOperationalPolicyEffective,
   isStoreSellerIdentityEffective,
 } from "@/lib/storefront/store-publication-readiness";
@@ -107,6 +108,7 @@ async function lockedStorePickup(tx: Prisma.TransactionClient, storeId: string) 
     where: { id: storeId },
     select: {
       status: true,
+      isQaAcceptance: true,
       commerceReadinessRevision: true,
       defaultPickupAddress: true,
       savedAddresses: { where: { type: "PICKUP" } },
@@ -289,6 +291,12 @@ export async function approveStoreCheckoutCertification(
       throw new StoreCertificationError(
         "CERTIFICATION_STALE",
         "Live certification requires a verified real-source store catalog checkout capability proof.",
+      );
+    }
+    if (!store.isQaAcceptance && isQaOnlyCheckoutProofMetadata(cert.proofMetadata)) {
+      throw new StoreCertificationError(
+        "CERTIFICATION_STALE",
+        "QA sandbox demonstration evidence cannot satisfy commercial store certification.",
       );
     }
     const now = new Date();
@@ -730,6 +738,7 @@ export async function evaluateStoreCheckoutCapabilityPreflight(
   const engineProofDrift = Boolean(
     cert && (
       !isEngineProofEvidenceType(cert.evidenceType) ||
+      (!store.isQaAcceptance && isQaOnlyCheckoutProofMetadata(cert.proofMetadata)) ||
       cert.engineProofSuiteSha !== STORE_CHECKOUT_ENGINE_PROOF_SUITE_SHA ||
       !/^[a-f0-9]{64}$/.test(cert.engineProofDigest ?? "") ||
       !cert.policyFingerprint ||
@@ -1027,6 +1036,9 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
         );
       }
       const expiresAt = new Date(Date.now() + 30 * 86400_000);
+      const effectiveProofMetadata = store.isQaAcceptance
+        ? { ...engineProof.proofMetadata, qaAcceptanceOnly: true }
+        : engineProof.proofMetadata;
       const cert = await tx.storeCheckoutCertification.upsert({
         where: { storeId },
         create: {
@@ -1048,7 +1060,7 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
           globalPolicyRevision: engineProof.globalPolicyRevision,
           proofOfferReference: engineProof.proofOfferReference,
           proofPriceVersionReference: engineProof.proofPriceVersionReference,
-          proofMetadata: engineProof.proofMetadata as unknown as Prisma.InputJsonValue,
+          proofMetadata: effectiveProofMetadata as unknown as Prisma.InputJsonValue,
           stageResults: engineProof.stageResults as unknown as Prisma.InputJsonValue,
           preparedByUserId: preparerId,
           status: "PENDING_REVIEW",
@@ -1073,7 +1085,7 @@ export async function prepareStoreCheckoutCertificationFromPreflight(
           globalPolicyRevision: engineProof.globalPolicyRevision,
           proofOfferReference: engineProof.proofOfferReference,
           proofPriceVersionReference: engineProof.proofPriceVersionReference,
-          proofMetadata: engineProof.proofMetadata as unknown as Prisma.InputJsonValue,
+          proofMetadata: effectiveProofMetadata as unknown as Prisma.InputJsonValue,
           stageResults: engineProof.stageResults as unknown as Prisma.InputJsonValue,
           preparedByUserId: preparerId,
           approvedByUserId: null,

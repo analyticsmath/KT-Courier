@@ -17,7 +17,7 @@ import { StoreEarningError } from "@/lib/store-earnings/errors";
 import { StoreEarningsUnavailable } from "./StoreEarningsUnavailable";
 import { getStoreEarningSummaryForOwner } from "@/lib/services/store-earning-summary.service";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 
 export default async function StoreEarningsPage() {
   await requireBusinessPage("/store/earnings");
@@ -31,7 +31,7 @@ export default async function StoreEarningsPage() {
       if (error instanceof StoreEarningError && error.code === "STORE_EARNING_FORBIDDEN") return null;
       throw error;
     }),
-    resolveQaAcceptanceSessionContext(user.id).catch(() => null),
+    resolveQaPrincipalForUser(user.id).catch(() => null),
   ]);
   if (!data) return <StoreEarningsUnavailable />;
   const [summary, earnings] = data;

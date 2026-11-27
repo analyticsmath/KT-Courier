@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceSessionContext, resolveQaVisibleStoreIdsForViewer } from "@/lib/qa-acceptance/access";
 import { listQaStorefrontStores } from "@/lib/services/storefront-catalog.service";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,8 @@ export default async function QaPrivateStorefrontIndexPage() {
   const qaCtx = user ? await resolveQaAcceptanceSessionContext(user.id).catch(() => null) : null;
   if (!qaCtx) notFound();
 
-  const stores = await listQaStorefrontStores();
+  const visibleStoreIds = await resolveQaVisibleStoreIdsForViewer(user!.id).catch(() => []);
+  const stores = await listQaStorefrontStores(visibleStoreIds);
 
   return (
     <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8 sm:px-6" id="storefront-content">

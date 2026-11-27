@@ -24,18 +24,37 @@ it("activates the reviewed vendor account through the permission-protected statu
     await act(async () => root.render(React.createElement(StoreAccountApproval, { storeId: "store-123" })));
     const button = [...host.querySelectorAll("button")].find((item) => item.textContent?.includes("Approve business account"));
     const acknowledgement = host.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
+    const reasonInput = host.querySelector('input[type="text"]') as HTMLInputElement | null;
     expect(button).toBeDefined();
     expect(acknowledgement).not.toBeNull();
+    expect(reasonInput).not.toBeNull();
+    expect(reasonInput?.value).toBe("");
     expect(button?.disabled).toBe(true);
     await act(async () => {
       button!.click();
       await Promise.resolve();
     });
     expect(fetchMock).not.toHaveBeenCalled();
+
+    // Checkbox alone is not enough when review statement is empty or too short.
     await act(async () => {
       acknowledgement!.click();
     });
+    expect(button?.disabled).toBe(true);
+
+    const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    await act(async () => {
+      setValue?.call(reasonInput, "Too short");
+      reasonInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(button?.disabled).toBe(true);
+
+    await act(async () => {
+      setValue?.call(reasonInput, "Verified owner identity email, phone number, and South African trading contact.");
+      reasonInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    });
     expect(button?.disabled).toBe(false);
+
     await act(async () => {
       button!.click();
       await Promise.resolve();
@@ -47,7 +66,7 @@ it("activates the reviewed vendor account through the permission-protected statu
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: "ACTIVE",
-        reason: "Owner identity email verified and business contact confirmed.",
+        reason: "Verified owner identity email, phone number, and South African trading contact.",
       }),
     }));
     expect(host.textContent).toContain("Business account approved.");

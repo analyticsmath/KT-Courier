@@ -18,7 +18,7 @@ import {
 } from "@/lib/dashboard-insights/store-dashboard-insights";
 import { StoreOnboardingStatusBanner } from "@/components/store/StoreOnboardingStatusBanner";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceSessionContext, resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 import { getStoreOnboardingByStoreId } from "@/lib/services/store-onboarding.service";
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 
@@ -46,6 +46,7 @@ export default async function StoreDashboardPage({
     courierInsight,
     courierBreakdown,
     onboarding,
+    qaPrincipal,
     qaContext,
   ] = await Promise.all([
     getStorePickupAddress(user.id, "deliveries"),
@@ -70,6 +71,7 @@ export default async function StoreDashboardPage({
     getStoreCourierInsights(period),
     getStoreCourierBreakdown(period),
     store ? getStoreOnboardingByStoreId(store.id) : Promise.resolve(null),
+    resolveQaPrincipalForUser(user.id).catch(() => null),
     resolveQaAcceptanceSessionContext(user.id).catch(() => null),
   ]);
 
@@ -78,11 +80,11 @@ export default async function StoreDashboardPage({
     <StoreOverviewPage
       onboardingBanner={
         <>
-          {qaContext ? (
+          {qaPrincipal ? (
             <QaSandboxBanner
               persona="QA Vendor Store"
-              ctaHref="/shop/qa"
-              ctaLabel="View Private QA Storefront"
+              ctaHref={qaContext ? "/shop/qa" : undefined}
+              ctaLabel={qaContext ? "View Private QA Storefront" : undefined}
               nonWithdrawable
             />
           ) : null}

@@ -1,4 +1,5 @@
 import { PaymentPolicyError } from "@/lib/payments/payment-policy.service";
+import { PricingError } from "@/lib/pricing/errors";
 import { ZodError } from "zod";
 import { NextResponse, type NextRequest } from "next/server";
 import { PlatformError } from "./contracts";
@@ -34,6 +35,8 @@ export function failure(error: unknown) {
       { error: error.message, code: error.code },
       error.code === "PAYMENT_POLICY_CONFLICT" ? 409 : 422,
     );
+  if (error instanceof PricingError)
+    return json({ error: error.message, code: error.code }, error.status);
   if (error instanceof PlatformError)
     return json({ error: error.message, code: error.code }, error.status);
   if (

@@ -103,6 +103,7 @@ export interface ShipmentWaybillPayload {
   trackingUrl: string;
   issuer: IssuerIdentitySnapshot;
   isSample?: boolean;
+  isQaAcceptance?: boolean;
 }
 
 export interface ShipmentPodPayload {
@@ -138,6 +139,7 @@ export interface ShipmentPodPayload {
   trackingUrl: string;
   issuer: IssuerIdentitySnapshot;
   isSample?: boolean;
+  isQaAcceptance?: boolean;
 }
 
 export type AnyShipmentDocumentPayload = ShipmentWaybillPayload | ShipmentPodPayload;

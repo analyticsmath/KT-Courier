@@ -2,6 +2,7 @@ import { pickupCertificationFingerprint } from "@/lib/admin/store-checkout-certi
 import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-proof-constants";
 import { describeStoreCollectionEvidence } from "@/lib/admin/store-pickup-readiness";
 import {
+  isQaOnlyCheckoutProofMetadata,
   isStorePubliclyCheckoutReady,
   type PublicStoreCheckoutCertificate,
 } from "@/lib/storefront/store-publication-readiness";
@@ -18,6 +19,7 @@ export type AdminStoreCheckoutFacts = Readonly<{
   hasActiveCommissionPlan: boolean;
   storeCommerceReadinessRevision: number;
   currentGlobalPolicyRevision: number;
+  isQaAcceptanceStore?: boolean;
   now?: Date;
 }>;
 
@@ -59,6 +61,9 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
     if (cert.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE) {
       blockers.push("Real sellable-offer checkout proof required");
     }
+    if (input.isQaAcceptanceStore !== true && isQaOnlyCheckoutProofMetadata(cert.proofMetadata)) {
+      blockers.push("QA-only sandbox certification cannot qualify a commercial store");
+    }
     if (!/^[a-f0-9]{64}$/.test(cert.engineProofDigest ?? "") ||
       typeof cert.proofOfferReference !== "string" || cert.proofOfferReference.trim().length === 0 ||
       typeof cert.proofPriceVersionReference !== "string" || cert.proofPriceVersionReference.trim().length === 0) {
@@ -96,6 +101,7 @@ export function describeStoreCheckoutBlockers(input: AdminStoreCheckoutFacts): s
     hasActiveCommissionPlan: input.hasActiveCommissionPlan,
     storeCommerceReadinessRevision: input.storeCommerceReadinessRevision,
     currentGlobalPolicyRevision: input.currentGlobalPolicyRevision,
+    isQaAcceptanceStore: input.isQaAcceptanceStore,
     now,
   }) && blockers.length === 0) {
     blockers.push("Reconfirm the saved pickup against current approved checkout evidence");

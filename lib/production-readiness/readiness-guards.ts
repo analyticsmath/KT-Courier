@@ -172,7 +172,7 @@ export async function applyReleaseAndParityGuardsToEntries(
         },
       }),
       prisma.store.findMany({
-        where: { status: "ACTIVE" },
+        where: { status: "ACTIVE", isQaAcceptance: false },
         select: { id: true },
       }),
     ]);

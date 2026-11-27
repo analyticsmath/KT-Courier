@@ -19,9 +19,19 @@ export type PublicStoreCheckoutCertificate = Readonly<{
   engineProofDigest?: string | null;
   proofOfferReference?: string | null;
   proofPriceVersionReference?: string | null;
+  proofMetadata?: unknown;
   sourceCommerceReadinessRevision?: number | null;
   globalPolicyRevision?: number | null;
 }>;
+
+export function isQaOnlyCheckoutProofMetadata(metadata: unknown): boolean {
+  return Boolean(
+    metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      (metadata as { qaAcceptanceOnly?: unknown }).qaAcceptanceOnly === true,
+  );
+}
 
 export type StoreSellerIdentityReadinessFact = Readonly<{
   status: string;
@@ -81,6 +91,7 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
   hasActiveCommissionPlan: boolean;
   storeCommerceReadinessRevision: number;
   currentGlobalPolicyRevision: number;
+  isQaAcceptanceStore?: boolean;
   now?: Date;
 }>): boolean {
   const { pickup, certification } = input;
@@ -103,6 +114,9 @@ export function isStorePubliclyCheckoutReady(input: Readonly<{
       !Number.isSafeInteger(input.documentsCount) || input.documentsCount <= 0 ||
       !pickup?.id || !pickup.storeId || pickup.type !== "PICKUP" ||
       !completeStorePickupAddress(pickup) || !certification) return false;
+  if (input.isQaAcceptanceStore !== true && isQaOnlyCheckoutProofMetadata(certification.proofMetadata)) {
+    return false;
+  }
   if (certification.status !== "APPROVED" ||
       certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE ||
       !certification.approvedByUserId || !certification.preparedByUserId ||

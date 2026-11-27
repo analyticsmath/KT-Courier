@@ -20,6 +20,7 @@ import { createDispatchCandidateEvaluationInTx, selectDispatchCandidateInTx, set
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
 import { DISPATCH_SYSTEM_ACTOR } from "@/lib/dispatch/automation-policy";
 export { DISPATCH_SYSTEM_ACTOR };
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
 import type { AdminAssignOrderInput, AdminCancelAssignmentInput, AdminReassignOrderInput, DriverAcceptAssignmentInput, DriverRejectAssignmentInput } from "@/lib/validation/assignment";
 
 export type SystemDispatchOfferAuthority = {
@@ -58,19 +59,15 @@ async function reconcileExpired(tx: Tx, orderId: string, actorUserId: string | n
 }
 
 async function validateDriver(tx: Tx, driverProfileId: string, order: { id: string; deliveryRegionId: string | null }, excludeAssignmentId?: string) {
-  const [driver, currentCount, config, orderQa] = await Promise.all([
+  const [driver, currentCount, config, qaScope] = await Promise.all([
     tx.driverProfile.findUnique({ where: { id: driverProfileId }, include: { user: true, serviceRegions: true, documents: true, vehicles: { where: { status: "APPROVED", archivedAt: null }, include: { documents: true } } } }),
     tx.orderAssignment.count({ where: { driverProfileId, ...(excludeAssignmentId ? { id: { not: excludeAssignmentId } } : {}), status: { in: CURRENT }, OR: [{ status: OrderAssignmentStatus.ACCEPTED }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: { gt: new Date() } }, { status: OrderAssignmentStatus.ASSIGNED, expiresAt: null }] } }),
     settings(tx),
-    tx.order.findUnique({ where: { id: order.id }, select: { isQaAcceptance: true } }),
+    checkOrderDriverQaScope(tx, { orderId: order.id, driverProfileId }),
   ]);
   if (!driver) throw dispatchError.driverIneligible("Driver profile not found.");
-  if (Boolean(driver.isQaAcceptance) !== Boolean(orderQa?.isQaAcceptance)) {
-    throw dispatchError.driverIneligible(
-      orderQa?.isQaAcceptance
-        ? "QA acceptance orders can only be dispatched to an enrolled QA acceptance driver."
-        : "QA acceptance drivers cannot be dispatched to live commercial orders.",
-    );
+  if (!qaScope.ok) {
+    throw dispatchError.driverIneligible(qaScope.reason);
   }
   const now = new Date();
   const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });

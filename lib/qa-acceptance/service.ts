@@ -71,7 +71,13 @@ export async function getQaAcceptanceDashboard(searchQuery?: string) {
               { ownerUser: { email: { contains: q, mode: "insensitive" } } },
             ],
           }
-        : undefined,
+        : {
+            OR: [
+              { isQaAcceptance: true },
+              { name: { contains: "kaventra", mode: "insensitive" } },
+              { slug: { contains: "qa", mode: "insensitive" } },
+            ],
+          },
       orderBy: [{ isQaAcceptance: "desc" }, { createdAt: "desc" }],
       take: 25,
       select: {
@@ -235,13 +241,30 @@ export async function enrollQaAcceptancePrincipal(input: Readonly<{
       OR: [{ id: identifier }, { email: identifier.toLowerCase() }],
     },
     include: {
-      ownedStores: { select: { id: true, name: true, slug: true }, take: 5 },
-      driverProfile: { select: { id: true, driverCode: true } },
+      ownedStores: { select: { id: true, name: true, slug: true, isQaAcceptance: true }, take: 5 },
+      driverProfile: { select: { id: true, driverCode: true, isQaAcceptance: true } },
     },
   });
 
   if (!user) {
     throw new QaAcceptanceError("QA_NOT_FOUND", `Account not found for identifier '${identifier}'.`);
+  }
+
+  if (user.status !== "ACTIVE") {
+    throw new QaAcceptanceError("QA_INVALID_INPUT", "Only ACTIVE user accounts may be enrolled in QA acceptance.");
+  }
+
+  const expectedUserRoles: Record<QaAcceptanceRole, readonly string[]> = {
+    ADMIN: ["ADMIN", "SUPER_ADMIN"],
+    CUSTOMER: ["CUSTOMER"],
+    VENDOR: ["STORE"],
+    DRIVER: ["DRIVER"],
+  };
+  if (!expectedUserRoles[input.role].includes(user.role)) {
+    throw new QaAcceptanceError(
+      "QA_INVALID_INPUT",
+      `User role ${user.role} does not match QA principal role ${input.role}.`,
+    );
   }
 
   let resolvedStoreId: string | null = null;
@@ -250,7 +273,7 @@ export async function enrollQaAcceptancePrincipal(input: Readonly<{
     if (storeIdent) {
       const store = await prisma.store.findFirst({
         where: { OR: [{ id: storeIdent }, { slug: storeIdent }, { name: { equals: storeIdent, mode: "insensitive" } }] },
-        select: { id: true, ownerUserId: true },
+        select: { id: true, ownerUserId: true, isQaAcceptance: true },
       });
       if (!store) {
         throw new QaAcceptanceError("QA_NOT_FOUND", `Store not found for '${storeIdent}'.`);
@@ -276,6 +299,154 @@ export async function enrollQaAcceptancePrincipal(input: Readonly<{
 
   const principal = await prisma.$transaction(
     async (tx) => {
+      // Prevent accidental enrolment of live/commercial users, stores, or drivers
+      // before flipping any QA isolation flag.
+      if (!user.isQaAcceptance) {
+        const [nonQaOrders, nonQaPayments, nonQaCheckouts, nonQaMarketplaceOrders, customerWallet] =
+          await Promise.all([
+            tx.order.count({ where: { customerId: user.id, isQaAcceptance: false } }),
+            tx.payment.count({ where: { userId: user.id, isQaAcceptance: false } }),
+            tx.marketplaceCheckout.count({ where: { customerUserId: user.id, isQaAcceptance: false } }),
+            tx.marketplaceOrder.count({ where: { customerUserId: user.id, isQaAcceptance: false } }),
+            tx.wallet.findUnique({
+              where: { ownerType_ownerId_currency: { ownerType: "CUSTOMER", ownerId: user.id, currency: "ZAR" } },
+              include: { accounts: { select: { id: true, currentBalance: true } } },
+            }),
+          ]);
+        const customerWalletEntryCount =
+          customerWallet && !customerWallet.isQaIsolated && customerWallet.accounts.length > 0
+            ? await tx.ledgerEntry.count({
+                where: { accountId: { in: customerWallet.accounts.map((a) => a.id) } },
+              })
+            : 0;
+        const customerWalletHasBalance = Boolean(
+          customerWallet &&
+            !customerWallet.isQaIsolated &&
+            customerWallet.accounts.some((a) => !a.currentBalance.isZero()),
+        );
+        if (
+          nonQaOrders > 0 ||
+          nonQaPayments > 0 ||
+          nonQaCheckouts > 0 ||
+          nonQaMarketplaceOrders > 0 ||
+          customerWalletEntryCount > 0 ||
+          customerWalletHasBalance
+        ) {
+          throw new QaAcceptanceError(
+            "QA_ISOLATION_VIOLATION",
+            "Cannot enroll an existing commercial account with live orders, payments, or wallet history into QA acceptance.",
+          );
+        }
+      }
+
+      if (resolvedStoreId) {
+        const storeRow = await tx.store.findUnique({
+          where: { id: resolvedStoreId },
+          select: { isQaAcceptance: true },
+        });
+        if (!storeRow?.isQaAcceptance) {
+          const [
+            storeOrders,
+            mpStoreOrders,
+            storeEarnings,
+            liveStoreDoc,
+            liveProductDocs,
+            publishedOffers,
+            cert,
+            storeWallet,
+          ] = await Promise.all([
+            tx.order.count({ where: { storeId: resolvedStoreId, isQaAcceptance: false } }),
+            tx.marketplaceStoreOrder.count({ where: { storeId: resolvedStoreId, isQaAcceptance: false } }),
+            tx.storeEarning.count({ where: { storeId: resolvedStoreId, isQaAcceptance: false } }),
+            tx.storefrontStoreDocument.count({ where: { storeId: resolvedStoreId, publicStatus: "ACTIVE" } }),
+            tx.storefrontProductDocument.count({ where: { storeId: resolvedStoreId, status: "ACTIVE" } }),
+            tx.storeCatalogOffer.count({ where: { storeId: resolvedStoreId, publicationStatus: "PUBLISHED" } }),
+            tx.storeCheckoutCertification.findUnique({
+              where: { storeId: resolvedStoreId },
+              select: { status: true, proofMetadata: true },
+            }),
+            tx.wallet.findUnique({
+              where: { ownerType_ownerId_currency: { ownerType: "STORE", ownerId: resolvedStoreId, currency: "ZAR" } },
+              include: { accounts: { select: { id: true, currentBalance: true } } },
+            }),
+          ]);
+          const storeWalletEntryCount =
+            storeWallet && !storeWallet.isQaIsolated && storeWallet.accounts.length > 0
+              ? await tx.ledgerEntry.count({
+                  where: { accountId: { in: storeWallet.accounts.map((a) => a.id) } },
+                })
+              : 0;
+          const storeWalletHasBalance = Boolean(
+            storeWallet &&
+              !storeWallet.isQaIsolated &&
+              storeWallet.accounts.some((a) => !a.currentBalance.isZero()),
+          );
+          const hasCommercialCert = Boolean(
+            cert?.status === "APPROVED" &&
+              !(cert.proofMetadata && typeof cert.proofMetadata === "object" && (cert.proofMetadata as { qaAcceptanceOnly?: unknown }).qaAcceptanceOnly === true),
+          );
+          if (
+            storeOrders > 0 ||
+            mpStoreOrders > 0 ||
+            storeEarnings > 0 ||
+            liveStoreDoc > 0 ||
+            liveProductDocs > 0 ||
+            publishedOffers > 0 ||
+            hasCommercialCert ||
+            storeWalletEntryCount > 0 ||
+            storeWalletHasBalance
+          ) {
+            throw new QaAcceptanceError(
+              "QA_ISOLATION_VIOLATION",
+              "Cannot enroll a live or commercial store with commercial orders, published catalog offers, earnings, or public certification into QA acceptance.",
+            );
+          }
+        }
+      }
+
+      if (resolvedDriverProfileId) {
+        const driverRow = await tx.driverProfile.findUnique({
+          where: { id: resolvedDriverProfileId },
+          select: { isQaAcceptance: true },
+        });
+        if (!driverRow?.isQaAcceptance) {
+          const [nonQaAssignments, nonQaDriverEarnings, driverWallet] = await Promise.all([
+            tx.orderAssignment.count({
+              where: { driverProfileId: resolvedDriverProfileId, order: { isQaAcceptance: false } },
+            }),
+            tx.driverEarning.count({
+              where: { driverId: resolvedDriverProfileId, isQaAcceptance: false },
+            }),
+            tx.wallet.findUnique({
+              where: { ownerType_ownerId_currency: { ownerType: "DRIVER", ownerId: resolvedDriverProfileId, currency: "ZAR" } },
+              include: { accounts: { select: { id: true, currentBalance: true } } },
+            }),
+          ]);
+          const driverWalletEntryCount =
+            driverWallet && !driverWallet.isQaIsolated && driverWallet.accounts.length > 0
+              ? await tx.ledgerEntry.count({
+                  where: { accountId: { in: driverWallet.accounts.map((a) => a.id) } },
+                })
+              : 0;
+          const driverWalletHasBalance = Boolean(
+            driverWallet &&
+              !driverWallet.isQaIsolated &&
+              driverWallet.accounts.some((a) => !a.currentBalance.isZero()),
+          );
+          if (
+            nonQaAssignments > 0 ||
+            nonQaDriverEarnings > 0 ||
+            driverWalletEntryCount > 0 ||
+            driverWalletHasBalance
+          ) {
+            throw new QaAcceptanceError(
+              "QA_ISOLATION_VIOLATION",
+              "Cannot enroll an active commercial driver with non-QA dispatch assignments, earnings, or wallet history into QA acceptance.",
+            );
+          }
+        }
+      }
+
       await ensureQaPlatformSandboxAccountsInTx(tx);
 
       if (resolvedStoreId) {
@@ -423,6 +594,51 @@ export async function startQaAcceptanceRun(input: Readonly<{
 
   const run = await prisma.$transaction(
     async (tx) => {
+      if (input.storeId) {
+        const [store, storePrincipal] = await Promise.all([
+          tx.store.findUnique({ where: { id: input.storeId }, select: { id: true, isQaAcceptance: true } }),
+          tx.qaAcceptancePrincipal.findFirst({
+            where: { storeId: input.storeId, role: QaAcceptanceRole.VENDOR, active: true, revokedAt: null },
+            select: { id: true },
+          }),
+        ]);
+        if (!store?.isQaAcceptance || !storePrincipal) {
+          throw new QaAcceptanceError(
+            "QA_ISOLATION_VIOLATION",
+            "Run storeId must reference an actively enrolled QA vendor store.",
+          );
+        }
+      }
+      if (input.customerUserId) {
+        const [cust, custPrincipal] = await Promise.all([
+          tx.user.findUnique({ where: { id: input.customerUserId }, select: { id: true, isQaAcceptance: true, status: true } }),
+          tx.qaAcceptancePrincipal.findFirst({
+            where: { userId: input.customerUserId, role: QaAcceptanceRole.CUSTOMER, active: true, revokedAt: null },
+            select: { id: true },
+          }),
+        ]);
+        if (!cust?.isQaAcceptance || cust.status !== "ACTIVE" || !custPrincipal) {
+          throw new QaAcceptanceError(
+            "QA_ISOLATION_VIOLATION",
+            "Run customerUserId must reference an actively enrolled QA customer.",
+          );
+        }
+      }
+      if (input.driverProfileId) {
+        const [drv, drvPrincipal] = await Promise.all([
+          tx.driverProfile.findUnique({ where: { id: input.driverProfileId }, select: { id: true, isQaAcceptance: true } }),
+          tx.qaAcceptancePrincipal.findFirst({
+            where: { driverProfileId: input.driverProfileId, role: QaAcceptanceRole.DRIVER, active: true, revokedAt: null },
+            select: { id: true },
+          }),
+        ]);
+        if (!drv?.isQaAcceptance || !drvPrincipal) {
+          throw new QaAcceptanceError(
+            "QA_ISOLATION_VIOLATION",
+            "Run driverProfileId must reference an actively enrolled QA driver.",
+          );
+        }
+      }
       await ensureQaPlatformSandboxAccountsInTx(tx);
       return tx.qaAcceptanceRun.create({
         data: {

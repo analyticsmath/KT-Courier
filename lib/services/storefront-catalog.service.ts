@@ -317,12 +317,20 @@ export async function getStorefrontCollection(slug: string) {
   return { reference: row.publicReference, slug: row.slug, name: row.name, ...(row.description ? { description: row.description } : {}), type: row.collectionType, indexable: row.seoIndexable, itemCount: validItems.length, ...(coverMediaReference ? { coverMediaReference } : {}), items: validItems };
 }
 
-export async function listQaStorefrontStores() {
+export async function listQaStorefrontStores(allowedStoreIds?: readonly string[]) {
+  if (allowedStoreIds && allowedStoreIds.length === 0) return [];
   type QaStoreRow = { storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publicCategoryCodes: unknown; fulfilmentModes: unknown; serviceAreaReferences: unknown; publishedOfferCount: number };
-  const rows = await prisma.$queryRaw<QaStoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} ORDER BY "name" ASC, "slug" ASC LIMIT 24`);
+  const storeScopeSql = allowedStoreIds?.length
+    ? Prisma.sql`AND "storeId" IN (${Prisma.join(allowedStoreIds)})`
+    : Prisma.empty;
+  const rows = await prisma.$queryRaw<QaStoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} ${storeScopeSql} ORDER BY "name" ASC, "slug" ASC LIMIT 24`);
   if (!rows.length) return [];
   const storeMeta = await prisma.store.findMany({
-    where: { slug: { in: rows.map((r) => r.slug) }, isQaAcceptance: true },
+    where: {
+      slug: { in: rows.map((r) => r.slug) },
+      isQaAcceptance: true,
+      ...(allowedStoreIds?.length ? { id: { in: [...allowedStoreIds] } } : {}),
+    },
     select: { slug: true, operatingHours: true },
   });
   const hoursBySlug = new Map(storeMeta.map((s) => [s.slug, s.operatingHours]));
@@ -343,7 +351,8 @@ export async function listQaStorefrontStores() {
   });
 }
 
-export async function getQaStorefrontStore(slug: string) {
+export async function getQaStorefrontStore(slug: string, allowedStoreIds?: readonly string[]) {
+  if (allowedStoreIds && allowedStoreIds.length === 0) return null;
   type QaStoreRow = { storePublicReference: string; slug: string; name: string; shortDescription: string | null; logoMediaReference: string | null; heroMediaReference: string | null; publicCategoryCodes: unknown; fulfilmentModes: unknown; serviceAreaReferences: unknown; publishedOfferCount: number };
   const rows = await prisma.$queryRaw<QaStoreRow[]>(Prisma.sql`SELECT "storePublicReference", "slug", "name", "shortDescription", "logoMediaReference", "heroMediaReference", "publicCategoryCodes", "fulfilmentModes", "serviceAreaReferences", "publishedOfferCount" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} AND "slug" = ${slug} LIMIT 1`);
   const row = rows[0];
@@ -353,6 +362,7 @@ export async function getQaStorefrontStore(slug: string) {
     loadStorefrontDocuments({ storeSlug: row.slug, qaAcceptanceStoreOnly: true, limit: 100 }),
   ]);
   if (!storeRecord?.isQaAcceptance) return null;
+  if (allowedStoreIds && !allowedStoreIds.includes(storeRecord.id)) return null;
   const hours = formatStoreOperatingHoursSummary(storeRecord.operatingHours);
   return {
     reference: row.storePublicReference,
@@ -368,8 +378,19 @@ export async function getQaStorefrontStore(slug: string) {
   };
 }
 
-export async function getQaStorefrontProduct(productReference: string): Promise<{ product: StorefrontDocument; offers: StorefrontDocument[]; modifierGroupsByOffer: Record<string, StorefrontModifierGroupDTO[]> } | null> {
-  const offers = await loadStorefrontDocuments({ productReference, qaAcceptanceStoreOnly: true, limit: 100 });
+export async function getQaStorefrontProduct(productReference: string, allowedStoreIds?: readonly string[]): Promise<{ product: StorefrontDocument; offers: StorefrontDocument[]; modifierGroupsByOffer: Record<string, StorefrontModifierGroupDTO[]> } | null> {
+  if (allowedStoreIds && allowedStoreIds.length === 0) return null;
+  const rawOffers = await loadStorefrontDocuments({ productReference, qaAcceptanceStoreOnly: true, limit: 100 });
+  if (!rawOffers.length) return null;
+  const storeSlugsAll = [...new Set(rawOffers.map((item) => item.storeSlug))];
+  const allowedSlugRows = allowedStoreIds
+    ? await prisma.store.findMany({
+        where: { id: { in: [...allowedStoreIds] }, slug: { in: storeSlugsAll }, isQaAcceptance: true },
+        select: { slug: true },
+      })
+    : null;
+  const allowedSlugSet = allowedSlugRows ? new Set(allowedSlugRows.map((s) => s.slug)) : null;
+  const offers = allowedSlugSet ? rawOffers.filter((item) => allowedSlugSet.has(item.storeSlug)) : rawOffers;
   if (!offers.length) return null;
   const storeSlugs = [...new Set(offers.map((item) => item.storeSlug))];
   const stores = await prisma.$queryRaw<Array<{ slug: string; name: string }>>(Prisma.sql`SELECT "slug", "name" FROM "StorefrontStoreDocument" WHERE "publicStatus" = 'ACTIVE' AND ${activeQaStoreDocumentSql} AND "slug" IN (${Prisma.join(storeSlugs)})`);

@@ -135,6 +135,7 @@ export interface StoreCheckoutEngineProofMetadata {
   readonly storeEarningZar: string;
   readonly sellerVatStatus: string;
   readonly marketplaceVatEnabled: boolean;
+  readonly qaAcceptanceOnly?: boolean;
 }
 
 export interface StoreCheckoutEngineProofResult {
@@ -522,6 +523,7 @@ export async function runDisposableStoreCheckoutEngineProof(
   const proofCheckoutRef = `PROOF-CHK-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
 
   let storeStatus = "UNKNOWN";
+  let qaAcceptanceStoreFlag = false;
   let sourceCommerceReadinessRevision = 1;
   let globalPolicyRevision = 1;
   let catalogOfferCount = 0;
@@ -590,6 +592,7 @@ export async function runDisposableStoreCheckoutEngineProof(
               select: {
                 id: true,
                 status: true,
+                isQaAcceptance: true,
                 province: true,
                 commerceReadinessRevision: true,
                 defaultPickupAddress: { select: { id: true, province: true } },
@@ -602,6 +605,7 @@ export async function runDisposableStoreCheckoutEngineProof(
               );
             }
             storeStatus = store.status;
+            qaAcceptanceStoreFlag = Boolean((store as { isQaAcceptance?: boolean }).isQaAcceptance);
             sourceCommerceReadinessRevision = store.commerceReadinessRevision;
             globalPolicyRevision = await getGlobalCommercePolicyRevision(tx);
 
@@ -1168,6 +1172,7 @@ export async function runDisposableStoreCheckoutEngineProof(
       storeEarningZar,
       sellerVatStatus,
       marketplaceVatEnabled,
+      ...(qaAcceptanceStoreFlag ? { qaAcceptanceOnly: true } : {}),
     },
     stageResults,
     redactedSnapshot: {

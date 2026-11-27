@@ -14,7 +14,7 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
     await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "Store" WHERE "id" = ${storeId} FOR UPDATE`);
     const store = await tx.store.findUnique({
       where: { id: storeId },
-      select: { id: true, slug: true, name: true, status: true, commerceReadinessRevision: true, updatedAt: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
+      select: { id: true, slug: true, name: true, status: true, isQaAcceptance: true, commerceReadinessRevision: true, updatedAt: true, defaultPickupAddress: true, savedAddresses: { where: { type: "PICKUP" } } },
     });
     if (!store) return;
 
@@ -46,7 +46,7 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
           preparedByUserId: true, approvedByUserId: true, approvedAt: true,
           expiresAt: true, routeEvidenceDigest: true, checkoutEvidenceDigest: true,
           engineProofDigest: true, proofOfferReference: true, proofPriceVersionReference: true,
-          sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
+          proofMetadata: true, sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
         },
       }),
       tx.storeSellerLegalIdentity?.findFirst
@@ -138,6 +138,7 @@ export async function rebuildStorefrontStoreDocument(storeId: string, transactio
       hasActiveCommissionPlan: Boolean(commissionPlan),
       storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 0,
       currentGlobalPolicyRevision: globalPolicyRevision,
+      isQaAcceptanceStore: Boolean((store as { isQaAcceptance?: boolean }).isQaAcceptance),
       now,
     });
     await tx.storefrontStoreDocument.upsert({

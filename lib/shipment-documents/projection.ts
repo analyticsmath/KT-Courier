@@ -236,6 +236,7 @@ export interface DocumentOrderRecord {
   customerNote: string | null;
   pricingSnapshot?: unknown;
   distanceMeters?: number | null;
+  isQaAcceptance?: boolean;
   recipientName: string | null;
   recipientPhone: string | null;
   priceEstimate: { toFixed(digits: number): string } | null;
@@ -431,6 +432,7 @@ export function buildWaybillPayload(args: {
     },
     trackingUrl: canonicalTrackingUrl(order.orderNumber),
     issuer,
+    ...(order.isQaAcceptance ? { isQaAcceptance: true } : {}),
   };
 }
 
@@ -531,6 +533,7 @@ export function buildPodPayload(args: {
     dropoffAddress: projectSafeAddress(order.dropoffAddress),
     trackingUrl: canonicalTrackingUrl(order.orderNumber),
     issuer,
+    ...(order.isQaAcceptance ? { isQaAcceptance: true } : {}),
   };
 }
 

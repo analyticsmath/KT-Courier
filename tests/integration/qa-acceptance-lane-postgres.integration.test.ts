@@ -25,6 +25,7 @@ import {
   resolveQaAcceptanceSessionContext,
   resolveQaVisibleStoreIdsForViewer,
 } from "@/lib/qa-acceptance/access";
+import { listEligibleDrivers } from "@/lib/services/driver-eligibility.service";
 import { DEFAULT_STORE_OPERATING_HOURS } from "@/lib/qa-acceptance/operating-hours";
 import { updateStoreProfile } from "@/lib/services/profiles.service";
 import {
@@ -1019,9 +1020,24 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
       type: "WAYBILL",
     });
     expect(Buffer.from(waybillPdf.bytes.subarray(0, 5)).toString("ascii")).toBe("%PDF-");
-    expect((await PDFDocument.load(waybillPdf.bytes)).getPageCount()).toBeGreaterThanOrEqual(1);
+    const parsedWaybillPdf = await PDFDocument.load(waybillPdf.bytes);
+    expect(parsedWaybillPdf.getPageCount()).toBeGreaterThanOrEqual(1);
+    expect(parsedWaybillPdf.getTitle()).toContain("QA Test Waybill");
+    expect(parsedWaybillPdf.getSubject()).toContain("QA SANDBOX TEST - NON-COMMERCIAL");
 
-    // Dispatch cross-boundary negative check:
+    // Dispatch cross-boundary negative check & filtered eligibility list:
+    const qaEligibleDrivers = await listEligibleDrivers(courierOrder.deliveryRegionId, {
+      orderId: courierOrder.id,
+      isQaAcceptance: true,
+      qaAcceptanceRunId: qaRunId,
+    });
+    expect(qaEligibleDrivers.notEligible.some((d) => d.id === liveDriver.profile.id)).toBe(true);
+    expect(
+      [...qaEligibleDrivers.recommended, ...qaEligibleDrivers.available].some(
+        (d) => d.id === liveDriver.profile.id,
+      ),
+    ).toBe(false);
+
     await expect(
       offerAssignment(admin1.id, courierOrder.id, { driverProfileId: liveDriver.profile.id, reasonCode: "CROSS_CHECK" }),
     ).rejects.toThrow();
@@ -1041,6 +1057,30 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
     await expect(
       offerAssignment(admin1.id, liveOrder.id, { driverProfileId: qaDriver.profile.id, reasonCode: "CROSS_CHECK" }),
     ).rejects.toThrow();
+    const liveEligibleDrivers = await listEligibleDrivers(courierOrder.deliveryRegionId, {
+      orderId: liveOrder.id,
+      isQaAcceptance: false,
+      qaAcceptanceRunId: null,
+    });
+    expect(liveEligibleDrivers.notEligible.some((d) => d.id === qaDriver.profile.id)).toBe(true);
+
+    // Commercial accounts with non-QA activity must never be accidentally enrolled into QA
+    await expect(
+      enrollQaAcceptancePrincipal({
+        actorUserId: admin1.id,
+        userIdentifier: ordinaryCustomer.id,
+        role: "CUSTOMER",
+        label: "Accidental Commercial Customer",
+      }),
+    ).rejects.toMatchObject({ code: "QA_ISOLATION_VIOLATION" });
+    await expect(
+      enrollQaAcceptancePrincipal({
+        actorUserId: admin1.id,
+        userIdentifier: liveStoreOwner.id,
+        role: "VENDOR",
+        label: "Accidental Commercial Store",
+      }),
+    ).rejects.toMatchObject({ code: "QA_ISOLATION_VIOLATION" });
 
     // Dispatch to QA driver & verify full custody + tracking + POD + settlement
     const assignment = await offerAssignment(admin1.id, courierOrder.id, { driverProfileId: qaDriver.profile.id, reasonCode: "QA_DISPATCH" });
@@ -1091,6 +1131,10 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
       type: "POD",
     });
     expect(Buffer.from(podPdf.bytes.subarray(0, 5)).toString("ascii")).toBe("%PDF-");
+    const parsedPodPdf = await PDFDocument.load(podPdf.bytes);
+    expect(parsedPodPdf.getPageCount()).toBeGreaterThanOrEqual(1);
+    expect(parsedPodPdf.getTitle()).toContain("QA Test Proof of Delivery");
+    expect(parsedPodPdf.getSubject()).toContain("QA SANDBOX TEST - NON-COMMERCIAL");
 
     const drvSettlement = await produceDriverSettlement(courierOrder.id);
     expect(drvSettlement.publicReference).toBeTruthy();
@@ -1136,6 +1180,9 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
       reason: "Issue #40 automated test teardown",
     });
     expect(archived.status).toBe("ARCHIVED");
+    // Archived run alone immediately revokes QA session and private storefront access
+    expect(await resolveQaAcceptanceSessionContext(qaCustomer.id)).toBeNull();
+    expect(await resolveQaVisibleStoreIdsForViewer(qaCustomer.id)).toEqual([]);
     await revokeQaAcceptancePrincipal({ actorUserId: admin1.id, principalId: qaCustomerPrincipalId, reason: "End of run" });
     expect(await resolveQaAcceptanceSessionContext(qaCustomer.id)).toBeNull();
     expect(await prisma.shipmentDocument.count({ where: { orderId: courierOrder.id, status: "ISSUED" } })).toBe(2);

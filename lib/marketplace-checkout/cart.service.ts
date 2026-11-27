@@ -7,7 +7,10 @@ import { MarketplaceCheckoutError } from "@/lib/marketplace-checkout/errors";
 import { assertCartMutable, assertSupportedQuantity, cartLineFingerprint, MAX_CART_LINES, MAX_CART_STORES } from "@/lib/marketplace-checkout/policy";
 import { assertStorefrontPublicExposureAllowed } from "@/lib/storefront/storefront-production-lock";
 import { resolveQaAcceptanceLaneConfig } from "@/lib/qa-acceptance/config";
-import { resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
+import {
+  resolveQaAcceptanceSessionContext,
+  resolveQaVisibleStoreIdsForViewer,
+} from "@/lib/qa-acceptance/access";
 
 type MarketplaceDelegate = {
   findFirst: (args: unknown) => Promise<any>;
@@ -62,10 +65,18 @@ export async function resolveMarketplaceCartLine(
   });
   const offerIsQa = Boolean((offer as { store?: { isQaAcceptance?: boolean } } | null)?.store?.isQaAcceptance);
   if (offerIsQa) {
-    const qaAllowed = resolveQaAcceptanceLaneConfig().eligible && (
-      options?.allowQaInternal === true ||
-      Boolean(options?.qaUserId && (await resolveQaPrincipalForUser(options.qaUserId)))
-    );
+    let qaAllowed = false;
+    if (resolveQaAcceptanceLaneConfig().eligible && offer) {
+      if (options?.allowQaInternal === true) {
+        qaAllowed = true;
+      } else if (options?.qaUserId) {
+        const [qaCtx, visibleStoreIds] = await Promise.all([
+          resolveQaAcceptanceSessionContext(options.qaUserId),
+          resolveQaVisibleStoreIdsForViewer(options.qaUserId),
+        ]);
+        qaAllowed = Boolean(qaCtx && visibleStoreIds.includes(offer.storeId));
+      }
+    }
     if (!qaAllowed) {
       throw new MarketplaceCheckoutError("CART_LINE_INVALID", "The selected item is unavailable.");
     }

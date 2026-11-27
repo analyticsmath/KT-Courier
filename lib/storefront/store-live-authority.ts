@@ -32,6 +32,7 @@ export async function assertStoreCurrentlySellingLive(
           id: true,
           status: true,
           name: true,
+          isQaAcceptance: true,
           commerceReadinessRevision: true,
           defaultPickupAddress: true,
           savedAddresses: { where: { type: "PICKUP" } },
@@ -116,6 +117,7 @@ export async function assertStoreCurrentlySellingLive(
       hasActiveCommissionPlan: Boolean(commissionPlan),
       storeCommerceReadinessRevision: store!.commerceReadinessRevision,
       currentGlobalPolicyRevision: globalPolicyRevision,
+      isQaAcceptanceStore: Boolean((store as { isQaAcceptance?: boolean } | null)?.isQaAcceptance),
       now: at,
     });
 

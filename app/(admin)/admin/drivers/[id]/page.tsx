@@ -94,7 +94,7 @@ export default async function AdminDriverDetailPage({ params }: { params: Promis
               persona="QA Acceptance Driver"
               ctaHref="/admin/qa-acceptance"
               ctaLabel="QA Control Center"
-              description="This driver profile is enrolled in the isolated QA acceptance lane. Only QA-scoped orders may be dispatched to this driver; earnings settle to an isolated non-withdrawable QA wallet."
+              description="This driver profile is enrolled in the isolated QA acceptance lane. Normal onboarding, compliance, and activation reviews apply strictly to QA acceptance dispatches; demonstration approval does not qualify live commercial eligibility, and earnings settle to an isolated non-withdrawable QA wallet."
               nonWithdrawable
             />
           ) : null}

@@ -239,4 +239,77 @@ describe("Shipment Document Projections & Server A4 PDF Rendering", () => {
     expect(driverView.paymentSummary.totalZar).toBeNull();
     expect(driverView.paymentSummary.depositPaidZar).toBeNull();
   });
+
+  it("identifies QA acceptance waybill & POD PDFs as non-commercial test documents without altering production PDFs", async () => {
+    const prodOrder = makeOrder({
+      status: "DELIVERED",
+      proofOfDelivery: {
+        id: "pod_prod_1",
+        method: "OTP",
+        recipientName: "Commercial Recipient",
+        recipientPhone: "+27825550101",
+        otpVerifiedAt: new Date("2026-11-26T11:55:00.000Z"),
+        deliveredAt: new Date("2026-11-26T11:55:00.000Z"),
+        publicNote: null,
+        evidenceReference: null,
+        driverProfile: { id: "drv_1", displayName: "Real Driver", user: { name: "Real Driver" } },
+      },
+    });
+    const prodWaybill = buildWaybillPayload({
+      order: prodOrder,
+      issuer: TEST_ISSUER,
+      documentRef: "WB-PROD-1",
+      revision: 1,
+      issuedAt: new Date("2026-11-26T08:21:00.000Z"),
+    });
+    const prodPod = buildPodPayload({
+      order: prodOrder,
+      issuer: TEST_ISSUER,
+      documentRef: "POD-PROD-1",
+      revision: 1,
+      issuedAt: new Date("2026-11-26T11:56:00.000Z"),
+    });
+    expect(prodWaybill.isQaAcceptance).toBeUndefined();
+    expect(prodPod.isQaAcceptance).toBeUndefined();
+
+    const prodWaybillPdf = await PDFDocument.load(await renderShipmentDocumentPdf(prodWaybill));
+    const prodPodPdf = await PDFDocument.load(await renderShipmentDocumentPdf(prodPod));
+    expect(prodWaybillPdf.getTitle()).toBe("Official Waybill — KT-2026-100245");
+    expect(prodPodPdf.getTitle()).toBe("Proof of Delivery — KT-2026-100245");
+    expect(prodWaybillPdf.getSubject()).not.toContain("QA SANDBOX");
+    expect(prodPodPdf.getSubject()).not.toContain("QA SANDBOX");
+    expect(prodWaybillPdf.getKeywords()).toBeUndefined();
+
+    const qaOrder = makeOrder({
+      isQaAcceptance: true,
+      status: "DELIVERED",
+      proofOfDelivery: prodOrder.proofOfDelivery,
+    });
+    const qaWaybill = buildWaybillPayload({
+      order: qaOrder,
+      issuer: TEST_ISSUER,
+      documentRef: "WB-QA-1",
+      revision: 1,
+      issuedAt: new Date("2026-11-26T08:21:00.000Z"),
+    });
+    const qaPod = buildPodPayload({
+      order: qaOrder,
+      issuer: TEST_ISSUER,
+      documentRef: "POD-QA-1",
+      revision: 1,
+      issuedAt: new Date("2026-11-26T11:56:00.000Z"),
+    });
+    expect(qaWaybill.isQaAcceptance).toBe(true);
+    expect(qaPod.isQaAcceptance).toBe(true);
+
+    const qaWaybillPdf = await PDFDocument.load(await renderShipmentDocumentPdf(qaWaybill));
+    const qaPodPdf = await PDFDocument.load(await renderShipmentDocumentPdf(qaPod));
+    expect(qaWaybillPdf.getTitle()).toContain("QA Test Waybill");
+    expect(qaWaybillPdf.getTitle()).toContain("QA SANDBOX TEST");
+    expect(qaWaybillPdf.getSubject()).toContain("QA SANDBOX TEST - NON-COMMERCIAL");
+    expect(qaWaybillPdf.getKeywords()).toContain("NON-COMMERCIAL");
+    expect(qaPodPdf.getTitle()).toContain("QA Test Proof of Delivery");
+    expect(qaPodPdf.getSubject()).toContain("QA SANDBOX TEST - NON-COMMERCIAL");
+    expect(qaPodPdf.getKeywords()).toContain("QA SANDBOX TEST");
+  });
 });

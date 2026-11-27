@@ -110,6 +110,7 @@ export interface StoreOnboardingFacts {
   hasActiveCommissionPlan: boolean;
   certification: PublicStoreCheckoutCertificate | null;
   storefrontPublicStatus: string | null;
+  isQaAcceptanceStore?: boolean;
   now?: Date;
 }
 
@@ -234,6 +235,7 @@ export function deriveStoreOnboardingProjection(
     hasActiveCommissionPlan: facts.hasActiveCommissionPlan,
     storeCommerceReadinessRevision: facts.storeCommerceReadinessRevision,
     currentGlobalPolicyRevision: facts.currentGlobalPolicyRevision,
+    isQaAcceptanceStore: facts.isQaAcceptanceStore,
     now,
   });
   const uniqueBlockers = [...new Set(blockers)];
@@ -251,6 +253,7 @@ export function deriveStoreOnboardingProjection(
       hasActiveCommissionPlan: facts.hasActiveCommissionPlan,
       storeCommerceReadinessRevision: facts.storeCommerceReadinessRevision,
       currentGlobalPolicyRevision: facts.currentGlobalPolicyRevision,
+      isQaAcceptanceStore: facts.isQaAcceptanceStore,
       now,
     }) &&
     facts.liveStorefrontProducts > 0;
@@ -732,6 +735,7 @@ export async function getStoreOnboardingByStoreId(
       slug: true,
       name: true,
       status: true,
+      isQaAcceptance: true,
       commerceReadinessRevision: true,
       defaultPickupAddress: true,
       savedAddresses: { where: { type: "PICKUP" } },
@@ -870,6 +874,7 @@ export async function getStoreOnboardingByStoreId(
         engineProofDigest: true,
         proofOfferReference: true,
         proofPriceVersionReference: true,
+        proofMetadata: true,
         sourceCommerceReadinessRevision: true,
         globalPolicyRevision: true,
       },
@@ -1018,6 +1023,7 @@ export async function getStoreOnboardingByStoreId(
     hasActiveCommissionPlan: Boolean(commissionPlan),
     certification,
     storefrontPublicStatus: storefrontStoreDoc?.publicStatus ?? null,
+    isQaAcceptanceStore: Boolean((store as { isQaAcceptance?: boolean }).isQaAcceptance),
     now,
   });
 }

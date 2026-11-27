@@ -9,12 +9,18 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState(false);
-  const [reason, setReason] = useState("Owner identity email verified and business contact confirmed.");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const trimmedReason = reason.trim();
+  const reasonReady = trimmedReason.length >= 12;
 
   async function approve() {
     if (pending.current || !reviewed) return;
+    if (!reasonReady) {
+      setError("Enter a truthful review statement of at least 12 characters before approving.");
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError("");
@@ -23,7 +29,7 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
       const response = await fetch(`/api/admin/stores/${encodeURIComponent(storeId)}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ACTIVE", ...(reason.trim() ? { reason: reason.trim() } : {}) }),
+        body: JSON.stringify({ status: "ACTIVE", reason: trimmedReason }),
       });
       const reply = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -46,10 +52,13 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
       {error ? <p role="alert" className="text-sm font-medium text-red-700">{error}</p> : null}
       {message ? <p role="status" aria-live="polite" className="text-sm font-medium">{message}</p> : null}
       <label className="block text-sm">
-        <span className="block text-xs font-medium">Approval audit note (optional)</span>
+        <span className="block text-xs font-medium">Review statement (required)</span>
         <input
           type="text"
+          required
+          minLength={12}
           maxLength={500}
+          placeholder="Record the specific owner, registration, and contact details verified…"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
@@ -59,7 +68,7 @@ export function StoreAccountApproval({ storeId }: { storeId: string }) {
         <input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} className="mt-1" />
         <span>I have reviewed this vendor’s registration, email-verified owner account, and business contact details. Approving the business account unlocks vendor workspace onboarding while public shop listing, seller identity, pickup route readiness, catalog moderation, and checkout capability certification remain separate gates.</span>
       </label>
-      <Button type="button" disabled={busy || !reviewed} onClick={() => void approve()}>
+      <Button type="button" disabled={busy || !reviewed || !reasonReady} onClick={() => void approve()}>
         {busy ? "Approving…" : "Approve business account"}
       </Button>
     </div>

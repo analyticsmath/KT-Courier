@@ -8,12 +8,20 @@ import { ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
 import { UserStatus, UserRole } from "@/types/db";
 import { evaluateDriverEligibility } from "@/lib/dispatch/eligibility";
 import { evaluateDispatchComplianceEvidence } from "@/lib/services/vehicle-compliance.service";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
+
+export type OrderDriverQaScopeFilter = Readonly<{
+  orderId?: string;
+  isQaAcceptance: boolean;
+  qaAcceptanceRunId?: string | null;
+}>;
 
 // ─── Eligibility check for a single driver ────────────────────────────────────
 
 export async function computeDriverEligibility(
   driverProfileId: string,
-  orderDeliveryRegionId: string | null
+  orderDeliveryRegionId: string | null,
+  qaScope?: OrderDriverQaScopeFilter,
 ): Promise<DriverEligibilityDto | null> {
   const driver = await prisma.driverProfile.findUnique({
     where: { id: driverProfileId },
@@ -39,7 +47,22 @@ export async function computeDriverEligibility(
     },
   });
 
-  return projectDriver(driver, orderDeliveryRegionId, activeCount, new Date());
+  let qaRejectionReason: string | null = null;
+  if (qaScope) {
+    if (qaScope.orderId) {
+      const check = await checkOrderDriverQaScope(prisma, {
+        orderId: qaScope.orderId,
+        driverProfileId,
+      });
+      if (!check.ok) qaRejectionReason = check.reason;
+    } else if (Boolean((driver as { isQaAcceptance?: boolean }).isQaAcceptance) !== qaScope.isQaAcceptance) {
+      qaRejectionReason = qaScope.isQaAcceptance
+        ? "QA acceptance orders require an enrolled QA acceptance driver."
+        : "QA acceptance drivers cannot be dispatched to live commercial orders.";
+    }
+  }
+
+  return projectDriver(driver, orderDeliveryRegionId, activeCount, new Date(), qaRejectionReason);
 }
 
 // ─── List eligible drivers for an order ──────────────────────────────────────
@@ -53,7 +76,8 @@ export interface EligibleDriversResult {
 }
 
 export async function listEligibleDrivers(
-  orderDeliveryRegionId: string | null
+  orderDeliveryRegionId: string | null,
+  qaScope?: OrderDriverQaScopeFilter,
 ): Promise<EligibleDriversResult> {
   const drivers = await prisma.driverProfile.findMany({
     include: {
@@ -94,7 +118,22 @@ export async function listEligibleDrivers(
   const now = new Date();
   for (const driver of drivers) {
     const activeCount = countMap.get(driver.id) ?? 0;
-    const dto = projectDriver(driver, orderDeliveryRegionId, activeCount, now);
+    let qaRejectionReason: string | null = null;
+    if (qaScope) {
+      const driverIsQa = Boolean((driver as { isQaAcceptance?: boolean }).isQaAcceptance);
+      if (driverIsQa !== qaScope.isQaAcceptance) {
+        qaRejectionReason = qaScope.isQaAcceptance
+          ? "QA acceptance orders require an enrolled QA acceptance driver."
+          : "QA acceptance drivers cannot be dispatched to live commercial orders.";
+      } else if (qaScope.isQaAcceptance && qaScope.orderId) {
+        const scopeCheck = await checkOrderDriverQaScope(prisma, {
+          orderId: qaScope.orderId,
+          driverProfileId: driver.id,
+        });
+        if (!scopeCheck.ok) qaRejectionReason = scopeCheck.reason;
+      }
+    }
+    const dto = projectDriver(driver, orderDeliveryRegionId, activeCount, now, qaRejectionReason);
     const eligibility = dto.eligibility;
 
     switch (eligibility) {
@@ -127,7 +166,13 @@ type EligibilityDriver = Parameters<typeof toDispatchDriverDto>[0] & {
   vehicles: Parameters<typeof evaluateDispatchComplianceEvidence>[0]["vehicles"];
 };
 
-function projectDriver(driver: EligibilityDriver, regionId: string | null, activeCount: number, now: Date): DriverEligibilityDto {
+function projectDriver(
+  driver: EligibilityDriver,
+  regionId: string | null,
+  activeCount: number,
+  now: Date,
+  qaRejectionReason?: string | null,
+): DriverEligibilityDto {
   const regionMatch = regionId
     ? driver.serviceRegions.some(region => region.deliveryRegionId === regionId)
     : driver.serviceRegions.length > 0;
@@ -135,6 +180,7 @@ function projectDriver(driver: EligibilityDriver, regionId: string | null, activ
   const compliance = evaluateDispatchComplianceEvidence({ driverDocuments: driver.documents, vehicles: driver.vehicles, now });
   const result = evaluateDriverEligibility({ userActive, profileActive: driver.status === DriverStatus.ACTIVE, available: driver.availability === DriverAvailability.AVAILABLE, regionMatch, activeLoad: activeCount, capacity: driver.maxConcurrentAssignments, complianceEligible: compliance.eligible });
   const warnings: string[] = [];
+  if (qaRejectionReason) warnings.push(qaRejectionReason);
   if (!userActive) warnings.push("Driver account must be active with the DRIVER role");
   if (driver.status !== DriverStatus.ACTIVE) warnings.push(`Driver profile is ${driver.status}`);
   if (!regionMatch) warnings.push(driver.serviceRegions.length ? "Does not cover this order's region" : "No delivery regions configured");
@@ -144,7 +190,7 @@ function projectDriver(driver: EligibilityDriver, regionId: string | null, activ
   if (!driver.phone) warnings.push("No phone number on file");
   warnings.push(...compliance.reasons);
 
-  const eligibility = !userActive || driver.status !== DriverStatus.ACTIVE || !compliance.eligible
+  const eligibility = qaRejectionReason || !userActive || driver.status !== DriverStatus.ACTIVE || !compliance.eligible
     ? "NOT_ELIGIBLE"
     : result.reasons.includes("DRIVER_CAPACITY_REACHED") || driver.availability === DriverAvailability.ON_DELIVERY
       ? "BUSY"

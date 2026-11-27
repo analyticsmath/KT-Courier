@@ -81,7 +81,7 @@ export async function getProductionReadiness() {
     return capability("parcel_profiles", missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "PARCEL_OPERATIONAL_APPROVAL_REQUIRED" : "ACTIVE_PARCEL_PROFILES", "Draft examples are not production acceptance limits.", "OPERATIONS", { missingSizes: missing });
   });
   await probe("approved_commission_plan", async () => {
-    const activeStores = await prisma.store.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
+    const activeStores = await prisma.store.findMany({ where: { status: "ACTIVE", isQaAcceptance: false }, select: { id: true } });
     const activeStoreIds = activeStores.map((store) => store.id);
     const plans = await prisma.commissionPlan.findMany({
       where: {
@@ -409,9 +409,9 @@ export async function getProductionReadiness() {
     driverProfile?: { count?: (args?: unknown) => Promise<number> };
   };
   const [totalStoresCount, activeStoresCount, approvedDriversCount] = await Promise.all([
-    safePrisma.store?.count?.().catch(() => null) ?? null,
-    safePrisma.store?.count?.({ where: { status: "ACTIVE" } }).catch(() => null) ?? null,
-    safePrisma.driverProfile?.count?.({ where: { active: true, status: "ACTIVE", onboardingStatus: "APPROVED" } }).catch(() => null) ?? null,
+    safePrisma.store?.count?.({ where: { isQaAcceptance: false } }).catch(() => null) ?? null,
+    safePrisma.store?.count?.({ where: { status: "ACTIVE", isQaAcceptance: false } }).catch(() => null) ?? null,
+    safePrisma.driverProfile?.count?.({ where: { active: true, status: "ACTIVE", onboardingStatus: "APPROVED", isQaAcceptance: false } }).catch(() => null) ?? null,
   ]);
 
   const codeCapabilities = capabilityMatrix.map((entry) => ({

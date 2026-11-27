@@ -11,7 +11,11 @@ import {
   centsToZar,
 } from "@/lib/marketplace-checkout/policy";
 import { assertMarketplaceCheckoutProductionReady } from "@/lib/marketplace-checkout/production-lock";
-import { resolveQaAcceptanceSessionContext, resolveQaApprovalForCheckout } from "@/lib/qa-acceptance/access";
+import {
+  resolveQaAcceptanceSessionContext,
+  resolveQaApprovalForCheckout,
+  resolveQaVisibleStoreIdsForViewer,
+} from "@/lib/qa-acceptance/access";
 import { resolveMarketplaceCheckoutProductionComposition } from "@/lib/marketplace-checkout/composition-root";
 import { createPrismaMarketplacePaymentPreparationRepository } from "@/lib/marketplace-checkout/prisma-marketplace-payment-preparation.repository";
 import {
@@ -160,7 +164,7 @@ export async function createMarketplaceCheckout(
       );
     if (!cart.storeGroups.length)
       throw new MarketplaceCheckoutError("CART_LINE_INVALID", "Cart is empty.");
-    const cartStoreIds = [...new Set(cart.storeGroups.map((g: { storeId: string }) => g.storeId))];
+    const cartStoreIds = [...new Set((cart.storeGroups as Array<{ storeId: string }>).map((g) => g.storeId))];
     let qaAcceptanceRunId: string | null = null;
     let isQaCheckout = false;
     const storeDelegate = table("store", db) as unknown as {
@@ -179,12 +183,30 @@ export async function createMarketplaceCheckout(
         if (input.owner.type !== "CUSTOMER") {
           throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "QA acceptance checkout requires an enrolled customer session.");
         }
-        const qaCtx = await resolveQaAcceptanceSessionContext(input.owner.userId);
-        if (!qaCtx) {
+        const [qaCtx, visibleStoreIds] = await Promise.all([
+          resolveQaAcceptanceSessionContext(input.owner.userId),
+          resolveQaVisibleStoreIdsForViewer(input.owner.userId),
+        ]);
+        if (!qaCtx || !cartStoreIds.every((id) => visibleStoreIds.includes(id))) {
           throw new MarketplaceCheckoutError("CART_ACCESS_DENIED", "Cart is unavailable.");
         }
         isQaCheckout = true;
         qaAcceptanceRunId = qaCtx.activeRunId;
+      } else if (input.owner.type === "CUSTOMER") {
+        const userDelegate = table("user", db) as unknown as {
+          findUnique?: (args: unknown) => Promise<{ isQaAcceptance?: boolean } | null>;
+        };
+        if (typeof userDelegate?.findUnique === "function") {
+          const customerRow = await userDelegate
+            .findUnique({ where: { id: input.owner.userId }, select: { isQaAcceptance: true } })
+            .catch(() => null);
+          if (customerRow?.isQaAcceptance) {
+            throw new MarketplaceCheckoutError(
+              "CART_ACCESS_DENIED",
+              "QA acceptance accounts cannot check out live commercial storefronts.",
+            );
+          }
+        }
       }
     }
     const lineQaOptions = isQaCheckout && input.owner.type === "CUSTOMER"

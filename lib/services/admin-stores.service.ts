@@ -129,6 +129,7 @@ export async function listStores(
         hasActiveCommissionPlan: activeCommissionPlanScopes.has(`STORE:${store.id}`),
         storeCommerceReadinessRevision: store.commerceReadinessRevision ?? 1,
         currentGlobalPolicyRevision,
+        isQaAcceptanceStore: Boolean((store as { isQaAcceptance?: boolean }).isQaAcceptance),
         now,
       }),
     };

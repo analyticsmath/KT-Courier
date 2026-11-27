@@ -14,6 +14,7 @@ import {
   requireActiveAssignment,
 } from "./assignments.service";
 import { listEligibleDrivers, type EligibleDriversResult } from "./driver-eligibility.service";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
 import { recordAdminActivity } from "./admin-activity.service";
 import { ASSIGNABLE_ORDER_STATUSES, ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
 import type { AdminAssignOrderInput, AdminReassignOrderInput, AdminCancelAssignmentInput } from "@/lib/validation/assignment";
@@ -135,6 +136,10 @@ export async function assignOrderToDriver(
   if (!driverCheck.ok) {
     return { error: driverCheck.error, warn: driverCheck.warn };
   }
+  if (typeof (prisma as { order?: { findUnique?: unknown } }).order?.findUnique === "function") {
+    const qaScope = await checkOrderDriverQaScope(prisma, { orderId, driverProfileId: input.driverProfileId });
+    if (!qaScope.ok) return { error: qaScope.reason };
+  }
 
   // Enforce: no two active assignments for the same order
   const existing = await findActiveAssignment(orderId);
@@ -210,6 +215,10 @@ export async function reassignOrder(
   const isOverride = !!input.overrideReason;
   const driverCheck = await assertDriverEligible(driverProfileId, isOverride);
   if (!driverCheck.ok) return { error: driverCheck.error, warn: driverCheck.warn };
+  if (typeof (prisma as { order?: { findUnique?: unknown } }).order?.findUnique === "function") {
+    const qaScope = await checkOrderDriverQaScope(prisma, { orderId, driverProfileId });
+    if (!qaScope.ok) return { error: qaScope.reason };
+  }
 
   if (existingAssignment!.driverProfileId === driverProfileId) {
     return { error: "New driver must be different from the currently assigned driver." };

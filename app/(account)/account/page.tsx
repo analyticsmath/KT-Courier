@@ -10,7 +10,7 @@ import {
 import { parseDashboardPeriod } from "@/lib/dashboard-insights/dashboard-period";
 import { CustomerDashboardHome } from "@/components/protected-v2/customer/CustomerDashboardHome";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
-import { resolveQaAcceptanceSessionContext } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceSessionContext, resolveQaPrincipalForUser } from "@/lib/qa-acceptance/access";
 
 export const metadata: Metadata = { title: "My delivery desk" };
 
@@ -34,7 +34,7 @@ export default async function AccountDashboardPage({
   const activeStatuses = [...CUSTOMER_ACTIVE_ORDER_STATUSES];
   const period = parseDashboardPeriod((await searchParams).period);
 
-  const [latestActiveRaw, recentRaw, activeCount, attentionCount, insight, breakdown, qaContext] =
+  const [latestActiveRaw, recentRaw, activeCount, attentionCount, insight, breakdown, qaPrincipal, qaContext] =
     await Promise.all([
       prisma.order.findFirst({
         where: { customerId: userId, status: { in: activeStatuses } },
@@ -54,6 +54,7 @@ export default async function AccountDashboardPage({
       }),
       getCustomerDashboardInsights(period),
       getCustomerDashboardBreakdown(),
+      resolveQaPrincipalForUser(userId).catch(() => null),
       resolveQaAcceptanceSessionContext(userId).catch(() => null),
     ]);
 
@@ -62,11 +63,11 @@ export default async function AccountDashboardPage({
 
   return (
     <>
-      {qaContext ? (
+      {qaPrincipal ? (
         <QaSandboxBanner
           persona="QA Customer"
-          ctaHref="/shop/qa"
-          ctaLabel="Open Private QA Storefront"
+          ctaHref={qaContext ? "/shop/qa" : undefined}
+          ctaLabel={qaContext ? "Open Private QA Storefront" : undefined}
           nonWithdrawable
         />
       ) : null}

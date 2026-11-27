@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getCourierPaymentReadiness } from "@/lib/services/courier-payment-readiness.service";
 import { assertDriverCashCapacityForAssignment } from "@/lib/services/driver-cash-capacity.service";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
 import { OrderAssignmentStatus, OrderAssignmentEventType, DriverStatus } from "@/types/db";
 import type { PrismaClient } from "@prisma/client";
 import {
@@ -147,6 +148,13 @@ export async function createAssignmentInTx(
   }
   // Cash exposure cannot be bypassed by an availability override.
   await assertDriverCashCapacityForAssignment(tx, params.driverProfileId, params.orderId);
+  if (typeof (tx as { order?: { findUnique?: unknown } }).order?.findUnique === "function") {
+    const qaScope = await checkOrderDriverQaScope(tx as unknown as Parameters<typeof checkOrderDriverQaScope>[0], {
+      orderId: params.orderId,
+      driverProfileId: params.driverProfileId,
+    });
+    if (!qaScope.ok) throw new Error(qaScope.reason);
+  }
   const assignment = await tx.orderAssignment.create({
     data: {
       orderId: params.orderId,

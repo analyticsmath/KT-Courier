@@ -36,6 +36,7 @@ import {
 } from "@/lib/pricing/input-hash";
 import { ownedActiveQuoteForOrder } from "@/lib/services/pricing-quote.service";
 import { canTransitionOrderStatus } from "@/lib/orders/order-state-machine";
+import { PricingError } from "@/lib/pricing/errors";
 import { transitionOrderStatusInTx } from "@/lib/services/order-status.service";
 import { resolvePaymentBreakdown } from "@/lib/payments/payment-policy.service";
 import { assertParcelPaymentChoice, assertSelectedPaymentMode } from "@/lib/payments/parcel-payment-method-selection";
@@ -113,6 +114,28 @@ export async function createOrder(
   const quoteInputHash = hashPricingInput(pricingInputSnapshot(input));
 
   const persist = async (tx: Prisma.TransactionClient) => {
+    if (typeof (tx as { user?: { findUnique?: unknown } }).user?.findUnique === "function") {
+      const accountFlags = await tx.user.findUnique({ where: { id: user.id }, select: { isQaAcceptance: true } });
+      if (accountFlags?.isQaAcceptance && !qaAcceptance?.isQaAcceptance) {
+        throw new PricingError(
+          "QA_SESSION_REQUIRED",
+          "QA acceptance accounts cannot create commercial orders without an active matching QA acceptance run.",
+          403,
+        );
+      }
+    }
+    if (storeId && typeof (tx as { store?: { findUnique?: unknown } }).store?.findUnique === "function") {
+      const storeFlags = await tx.store.findUnique({ where: { id: storeId }, select: { isQaAcceptance: true } });
+      if (storeFlags?.isQaAcceptance !== undefined && Boolean(storeFlags.isQaAcceptance) !== Boolean(qaAcceptance?.isQaAcceptance)) {
+        throw new PricingError(
+          "QA_ISOLATION_VIOLATION",
+          storeFlags.isQaAcceptance
+            ? "QA vendor stores cannot create commercial orders without an active matching QA acceptance run."
+            : "QA acceptance sessions cannot create orders under a live commercial store.",
+          403,
+        );
+      }
+    }
     const quote = await ownedActiveQuoteForOrder(
       tx,
       user,

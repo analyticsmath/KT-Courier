@@ -99,7 +99,7 @@ export async function GET(
     let docRow = await prisma.shipmentDocument.findFirst({
       where: { orderId: courierOrderId, type: "POD", status: "ISSUED" },
       orderBy: [{ revision: "desc" }],
-      include: { order: { select: { orderNumber: true } } },
+      include: { order: { select: { orderNumber: true, isQaAcceptance: true } } },
     });
 
     if (!docRow) {
@@ -116,7 +116,7 @@ export async function GET(
       );
       docRow = await prisma.shipmentDocument.findUnique({
         where: { id: issued.documentId },
-        include: { order: { select: { orderNumber: true } } },
+        include: { order: { select: { orderNumber: true, isQaAcceptance: true } } },
       });
     }
 
@@ -127,8 +127,12 @@ export async function GET(
       );
     }
 
+    const storedPayload = docRow.payloadSnapshot as unknown as ShipmentPodPayload;
+    const authoritativePayload = (docRow.order as { isQaAcceptance?: boolean } | null)?.isQaAcceptance
+      ? { ...storedPayload, isQaAcceptance: true }
+      : storedPayload;
     const payload = sanitizePayloadForViewerRole(
-      docRow.payloadSnapshot as unknown as ShipmentPodPayload,
+      authoritativePayload,
       "CUSTOMER",
     );
     const bytes = await renderShipmentDocumentPdf(payload);
