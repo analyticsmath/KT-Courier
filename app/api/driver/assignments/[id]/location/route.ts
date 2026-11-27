@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/auth/current-user";
 import { UserRole } from "@/types/db";
 import { badRequest, conflict, forbidden, ok, serverError, tooManyRequests, unauthorized } from "@/lib/api/response";
 import { getDriverProfileIdForUser } from "@/lib/services/driver-assignments.service";
-import { recordDriverLocationSample } from "@/lib/services/driver-location-evidence.service";
-import { DriverLocationSampleSchema } from "@/lib/validation/driver-location";
+import { recordDriverLocationSample, recordQaSimulatedDriverLocation } from "@/lib/services/driver-location-evidence.service";
+import { DriverLocationSampleSchema, QaSimulatedLocationCommandSchema } from "@/lib/validation/driver-location";
 import { enforceSameOriginRequest } from "@/lib/security/request-origin";
 import { checkIpRateLimit, getClientIp, RATE_LIMITS } from "@/lib/security/rate-limit";
 
@@ -28,6 +28,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     body = JSON.parse(raw);
   } catch {
     return badRequest("Invalid JSON body.");
+  }
+  const qaCommand = QaSimulatedLocationCommandSchema.safeParse(body);
+  if (qaCommand.success) {
+    try {
+      return ok(await recordQaSimulatedDriverLocation(assignmentId, driverProfileId, user.id, qaCommand.data));
+    } catch (error) {
+      if (error instanceof Error) return conflict(error.message);
+      return serverError();
+    }
   }
   const parsed = DriverLocationSampleSchema.safeParse(body);
   if (!parsed.success) return badRequest("Validation failed.");

@@ -401,6 +401,12 @@ export async function completeDelivery(
         driverUserId,
         operationId: input.operationId,
       });
+      const qaLocationNote = verifiedLocation.isQaSimulated
+        ? "Location evidence: QA_SIMULATED (non-physical sandbox destination proximity)"
+        : null;
+      const resolvedDriverInternalNote =
+        [input.driverNote?.trim(), qaLocationNote].filter(Boolean).join(" | ") || null;
+
       // Create ProofOfDelivery
       const pod = await tx.proofOfDelivery.create({
         data: {
@@ -413,7 +419,7 @@ export async function completeDelivery(
           otpVerifiedAt: deliveredAt,
           deliveredAt,
           publicNote: input.publicNote ?? null,
-          internalNote: input.driverNote ?? null,
+          internalNote: resolvedDriverInternalNote,
           evidenceReference,
           latitude: verifiedLocation.latitude,
           longitude: verifiedLocation.longitude,
@@ -429,7 +435,7 @@ export async function completeDelivery(
         actorUserId: driverUserId,
         actorRole: "DRIVER",
         note: publicDeliveryCompletionNote(input.publicNote),
-        internalNote: input.driverNote,
+        internalNote: resolvedDriverInternalNote ?? undefined,
         source: "driver_delivery_complete",
         context: {
           actorIsAssignedDriver: true,
@@ -461,7 +467,7 @@ export async function completeDelivery(
         statusBefore,
         statusAfter,
         publicNote: publicDeliveryCompletionNote(input.publicNote),
-        internalNote: input.driverNote ?? null,
+        internalNote: resolvedDriverInternalNote,
         latitude: verifiedLocation.latitude,
         longitude: verifiedLocation.longitude,
       });

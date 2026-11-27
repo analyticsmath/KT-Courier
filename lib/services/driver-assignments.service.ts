@@ -8,6 +8,8 @@ import {
   requireActiveAssignment,
 } from "./assignments.service";
 import { isValidAssignmentTransition, ACTIVE_ASSIGNMENT_STATUSES } from "@/lib/constants/assignments";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceLaneConfig } from "@/lib/qa-acceptance/config";
 import type { DriverAcceptAssignmentInput, DriverRejectAssignmentInput } from "@/lib/validation/assignment";
 
 // ─── List driver's own assignments ───────────────────────────────────────────
@@ -43,8 +45,17 @@ export async function getDriverAssignmentDetail(
 ): Promise<DriverAssignmentDto | null> {
   const assignment = await getAssignmentOwnedByDriver(assignmentId, driverProfileId);
   if (!assignment) return null;
-  const bridge = await prisma.marketplaceStoreOrderDeliveryBridge.findUnique({ where: { courierOrderId: assignment.orderId }, select: { storeOrder: { select: { publicReference: true } } } });
-  return { ...toDriverAssignmentDto(assignment), marketplaceStoreOrderReference: bridge?.storeOrder.publicReference ?? null };
+  const [bridge, qaScope] = await Promise.all([
+    prisma.marketplaceStoreOrderDeliveryBridge.findUnique({ where: { courierOrderId: assignment.orderId }, select: { storeOrder: { select: { publicReference: true } } } }),
+    assignment.order.isQaAcceptance && resolveQaAcceptanceLaneConfig().eligible
+      ? checkOrderDriverQaScope(prisma, { orderId: assignment.orderId, driverProfileId })
+      : Promise.resolve({ ok: false as const, reason: "Commercial or QA lane inactive." }),
+  ]);
+  return {
+    ...toDriverAssignmentDto(assignment),
+    marketplaceStoreOrderReference: bridge?.storeOrder.publicReference ?? null,
+    qaSimulationAllowed: Boolean(assignment.order.isQaAcceptance && qaScope.ok),
+  };
 }
 
 // ─── Driver accept assignment ─────────────────────────────────────────────────

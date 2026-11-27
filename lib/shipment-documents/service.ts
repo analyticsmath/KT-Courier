@@ -133,7 +133,18 @@ const DOCUMENT_ORDER_SELECT = Prisma.validator<Prisma.OrderSelect>()({
       otpVerifiedAt: true,
       deliveredAt: true,
       publicNote: true,
+      internalNote: true,
       evidenceReference: true,
+      assignment: {
+        select: {
+          locationEvidence: {
+            where: { validationStatus: "ACCEPTED" },
+            orderBy: [{ clientCapturedAt: "desc" }, { receivedAt: "desc" }],
+            take: 1,
+            select: { source: true },
+          },
+        },
+      },
       driverProfile: {
         select: {
           id: true,

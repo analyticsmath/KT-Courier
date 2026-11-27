@@ -7,7 +7,10 @@ import { assertAcceptedCurrentDriver } from "@/lib/driver-operations/authority";
 import { DriverOperationError } from "@/lib/driver-operations/errors";
 import { completeOperationReceiptInTx, createOperationReceiptInTx, findOperationReplay, getCompletedOperationResult, isOperationReceiptConflict } from "@/lib/driver-operations/idempotency";
 import { haversineKm } from "@/lib/maps/delivery-zone.service";
-import type { DriverLocationSampleInput } from "@/lib/validation/driver-location";
+import { geocodeSouthAfricanAddress } from "@/lib/maps/geocode.service";
+import { checkOrderDriverQaScope } from "@/lib/qa-acceptance/access";
+import { resolveQaAcceptanceLaneConfig } from "@/lib/qa-acceptance/config";
+import type { DriverLocationSampleInput, QaSimulatedLocationCommandInput } from "@/lib/validation/driver-location";
 
 type PriorLocation = Readonly<{
   latitude: Prisma.Decimal;
@@ -32,11 +35,12 @@ function validationStatus(input: Readonly<{
   pickup: { latitude: Prisma.Decimal | null; longitude: Prisma.Decimal | null } | null;
   dropoff: { latitude: Prisma.Decimal | null; longitude: Prisma.Decimal | null } | null;
   orderStatus: string;
+  source?: string;
 }>): string {
   if (input.capturedAt.getTime() < input.now.getTime() - MAX_SAMPLE_AGE_MS) return "STALE_TIMESTAMP";
   if (input.capturedAt.getTime() > input.now.getTime() + MAX_FUTURE_SKEW_MS) return "FUTURE_TIMESTAMP";
   if (input.previous && input.capturedAt <= input.previous.clientCapturedAt) return "OUT_OF_SEQUENCE";
-  if (input.previous) {
+  if (input.source !== "QA_SIMULATED" && input.previous) {
     const distanceMeters = haversineKm(input.latitude, input.longitude, Number(input.previous.latitude), Number(input.previous.longitude)) * 1_000;
     const seconds = Math.max(1, (input.capturedAt.getTime() - input.previous.clientCapturedAt.getTime()) / 1_000);
     if (distanceMeters > Math.max(1_500, seconds * MAX_SPEED_METERS_PER_SECOND)) return "IMPLAUSIBLE_JUMP";
@@ -156,10 +160,296 @@ export async function recordDriverLocationSample(
   return Object.freeze({ reference: completed.locationEvidenceReference, validationStatus: completed.locationValidationStatus, receivedAt: completed.completedAt });
 }
 
+type QaTargetAddress = {
+  id: string;
+  line1: string;
+  line2: string | null;
+  suburb: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  country: string;
+  placeId: string | null;
+  latitude: Prisma.Decimal | null;
+  longitude: Prisma.Decimal | null;
+} | null;
+
+function coordinateFromQuoteMetadata(
+  metadata: unknown,
+  stage: "pickup" | "dropoff",
+): { latitude: number; longitude: number } | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const bookingInput = (metadata as Record<string, unknown>).bookingInput;
+  if (!bookingInput || typeof bookingInput !== "object" || Array.isArray(bookingInput)) return null;
+  const rawAddr = (bookingInput as Record<string, unknown>)[stage === "pickup" ? "pickupAddress" : "dropoffAddress"];
+  if (!rawAddr || typeof rawAddr !== "object" || Array.isArray(rawAddr)) return null;
+  const lat = Number((rawAddr as Record<string, unknown>).latitude);
+  const lng = Number((rawAddr as Record<string, unknown>).longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { latitude: lat, longitude: lng };
+}
+
+async function resolveQaTargetCoordinates(order: {
+  status: string;
+  pricingQuote: { metadata: unknown } | null;
+  deliveryRegion: { centerLat: Prisma.Decimal | null; centerLng: Prisma.Decimal | null } | null;
+  pickupAddress: QaTargetAddress;
+  dropoffAddress: QaTargetAddress;
+}): Promise<{ latitude: number; longitude: number; backfillAddressId: string | null; stage: "pickup" | "dropoff" }> {
+  const stage: "pickup" | "dropoff" = order.status === "PICKUP_SCHEDULED" ? "pickup" : "dropoff";
+  const addr = stage === "pickup" ? order.pickupAddress : order.dropoffAddress;
+  if (addr?.latitude != null && addr?.longitude != null) {
+    return {
+      latitude: Number(addr.latitude),
+      longitude: Number(addr.longitude),
+      backfillAddressId: null,
+      stage,
+    };
+  }
+  const fromQuote = coordinateFromQuoteMetadata(order.pricingQuote?.metadata ?? null, stage);
+  if (fromQuote) {
+    return {
+      latitude: fromQuote.latitude,
+      longitude: fromQuote.longitude,
+      backfillAddressId: addr?.id ?? null,
+      stage,
+    };
+  }
+  if (addr?.line1 && addr?.city && addr?.province) {
+    const geocoded = await geocodeSouthAfricanAddress({
+      line1: addr.line1,
+      line2: addr.line2 ?? undefined,
+      suburb: addr.suburb ?? undefined,
+      city: addr.city,
+      province: addr.province,
+      postalCode: addr.postalCode ?? undefined,
+      country: addr.country,
+      placeId: addr.placeId ?? undefined,
+    }).catch(() => null);
+    if (geocoded) {
+      return {
+        latitude: geocoded.latitude,
+        longitude: geocoded.longitude,
+        backfillAddressId: addr.id,
+        stage,
+      };
+    }
+  }
+  if (order.deliveryRegion?.centerLat != null && order.deliveryRegion?.centerLng != null) {
+    return {
+      latitude: Number(order.deliveryRegion.centerLat),
+      longitude: Number(order.deliveryRegion.centerLng),
+      backfillAddressId: addr?.id ?? null,
+      stage,
+    };
+  }
+  throw new DriverOperationError(
+    "Delivery destination coordinates are missing and could not be resolved for QA simulation.",
+    "DRIVER_OPERATION_INVALID_STATE",
+  );
+}
+
+/**
+ * Server-enforced QA acceptance location simulation. Coordinates are never
+ * accepted from the client; the server resolves the assigned QA order's
+ * pickup or dropoff destination after enforcing active run + driver principal
+ * isolation and writes an explicit `QA_SIMULATED` evidence sample through the
+ * canonical location validation and receipt pipeline.
+ */
+export async function recordQaSimulatedDriverLocation(
+  assignmentId: string,
+  driverProfileId: string,
+  driverUserId: string,
+  input: QaSimulatedLocationCommandInput,
+): Promise<Readonly<{ reference: string; validationStatus: string; receivedAt: string; source: "QA_SIMULATED"; isQaSimulated: true }>> {
+  const qaConfig = resolveQaAcceptanceLaneConfig();
+  if (!qaConfig.eligible) {
+    throw new DriverOperationError(
+      "QA acceptance location simulation is unavailable outside an active QA sandbox lane.",
+      "DRIVER_OPERATION_FORBIDDEN",
+    );
+  }
+
+  const replay = await findOperationReplay(input.operationId, input);
+  if (replay?.locationEvidenceReference && replay.locationValidationStatus) {
+    await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, replay);
+    const replayScope = await checkOrderDriverQaScope(prisma, { orderId: replay.orderId, driverProfileId });
+    if (!replayScope.ok) {
+      throw new DriverOperationError(replayScope.reason, "DRIVER_OPERATION_FORBIDDEN");
+    }
+    return Object.freeze({
+      reference: replay.locationEvidenceReference,
+      validationStatus: replay.locationValidationStatus,
+      receivedAt: replay.completedAt,
+      source: "QA_SIMULATED",
+      isQaSimulated: true,
+    });
+  }
+
+  const authority = await assertAcceptedCurrentDriver(assignmentId, driverProfileId, input.assignmentVersion);
+  if (authority.driverUserId !== driverUserId) {
+    throw new DriverOperationError("Only the assigned driver can record location evidence.", "DRIVER_OPERATION_FORBIDDEN");
+  }
+
+  const assignment = await prisma.orderAssignment.findFirst({
+    where: { id: assignmentId, driverProfileId },
+    select: {
+      orderId: true,
+      order: {
+        select: {
+          id: true,
+          status: true,
+          isQaAcceptance: true,
+          pricingQuote: { select: { metadata: true } },
+          deliveryRegion: { select: { centerLat: true, centerLng: true } },
+          pickupAddress: {
+            select: {
+              id: true, line1: true, line2: true, suburb: true, city: true, province: true, postalCode: true, country: true, placeId: true, latitude: true, longitude: true,
+            },
+          },
+          dropoffAddress: {
+            select: {
+              id: true, line1: true, line2: true, suburb: true, city: true, province: true, postalCode: true, country: true, placeId: true, latitude: true, longitude: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!assignment || !["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.order.status)) {
+    throw new DriverOperationError("Location evidence is not accepted in the current delivery state.", "DRIVER_OPERATION_INVALID_STATE");
+  }
+  if (!assignment.order.isQaAcceptance) {
+    throw new DriverOperationError(
+      "Simulated QA location evidence is strictly prohibited for commercial orders.",
+      "DRIVER_OPERATION_FORBIDDEN",
+    );
+  }
+  const initialQaScope = await checkOrderDriverQaScope(prisma, {
+    orderId: assignment.orderId,
+    driverProfileId,
+  });
+  if (!initialQaScope.ok) {
+    throw new DriverOperationError(initialQaScope.reason, "DRIVER_OPERATION_FORBIDDEN");
+  }
+
+  const target = await resolveQaTargetCoordinates(assignment.order);
+  const receivedAt = new Date();
+  const reference = `dloc_${randomUUID().replaceAll("-", "")}`;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const txQaScope = await checkOrderDriverQaScope(tx, {
+        orderId: assignment.orderId,
+        driverProfileId,
+      });
+      if (!txQaScope.ok) {
+        throw new DriverOperationError(txQaScope.reason, "DRIVER_OPERATION_FORBIDDEN");
+      }
+      if (target.backfillAddressId) {
+        await tx.address.update({
+          where: { id: target.backfillAddressId },
+          data: { latitude: target.latitude, longitude: target.longitude },
+        });
+      }
+      await createOperationReceiptInTx(tx, {
+        operationId: input.operationId,
+        payload: input,
+        orderId: assignment.orderId,
+        assignmentId,
+        driverProfileId,
+        type: "LOCATION_SAMPLE",
+      });
+      const previousRows = await tx.$queryRaw<PriorLocation[]>(Prisma.sql`
+        SELECT "latitude", "longitude", "clientCapturedAt"
+        FROM "DriverLocationEvidence"
+        WHERE "assignmentId" = ${assignmentId}
+        ORDER BY "clientCapturedAt" DESC, "receivedAt" DESC
+        LIMIT 1
+        FOR UPDATE
+      `);
+      const previous = previousRows[0] ?? null;
+      let capturedAt = receivedAt;
+      if (previous && capturedAt <= previous.clientCapturedAt) {
+        const bumped = new Date(previous.clientCapturedAt.getTime() + 1);
+        if (bumped.getTime() <= receivedAt.getTime() + MAX_FUTURE_SKEW_MS) {
+          capturedAt = bumped;
+        }
+      }
+      const effectivePickup =
+        target.stage === "pickup"
+          ? { latitude: new Prisma.Decimal(target.latitude), longitude: new Prisma.Decimal(target.longitude) }
+          : assignment.order.pickupAddress;
+      const effectiveDropoff =
+        target.stage === "dropoff"
+          ? { latitude: new Prisma.Decimal(target.latitude), longitude: new Prisma.Decimal(target.longitude) }
+          : assignment.order.dropoffAddress;
+
+      const status = validationStatus({
+        capturedAt,
+        now: receivedAt,
+        accuracyMeters: 10,
+        previous,
+        latitude: target.latitude,
+        longitude: target.longitude,
+        pickup: effectivePickup,
+        dropoff: effectiveDropoff,
+        orderStatus: assignment.order.status,
+        source: "QA_SIMULATED",
+      });
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO "DriverLocationEvidence"
+          ("id", "publicReference", "orderId", "assignmentId", "driverProfileId", "latitude", "longitude", "accuracyMeters", "headingDegrees", "speedMetersPerSecond", "source", "validationStatus", "clientCapturedAt", "receivedAt", "createdAt")
+        VALUES
+          (${`dloc_${randomUUID().replaceAll("-", "")}`}, ${reference}, ${assignment.orderId}, ${assignmentId}, ${driverProfileId}, ${target.latitude}, ${target.longitude}, ${10}, ${null}, ${0}, ${"QA_SIMULATED"}::"DriverLocationSource", ${status}::"DriverLocationValidationStatus", ${capturedAt}, ${receivedAt}, ${receivedAt})
+      `);
+      await completeOperationReceiptInTx(tx, input.operationId, {
+        type: "LOCATION_SAMPLE",
+        orderId: assignment.orderId,
+        assignmentId,
+        driverProfileId,
+        orderStatus: assignment.order.status,
+        assignmentStatus: authority.assignmentStatus,
+        locationEvidenceReference: reference,
+        locationValidationStatus: status,
+        completedAt: receivedAt.toISOString(),
+      });
+    });
+  } catch (error) {
+    if (isOperationReceiptConflict(error)) {
+      const resolved = await getCompletedOperationResult(input.operationId);
+      if (resolved?.locationEvidenceReference && resolved.locationValidationStatus) {
+        await assertDriverReplayAuthority(assignmentId, driverProfileId, driverUserId, resolved);
+        return Object.freeze({
+          reference: resolved.locationEvidenceReference,
+          validationStatus: resolved.locationValidationStatus,
+          receivedAt: resolved.completedAt,
+          source: "QA_SIMULATED",
+          isQaSimulated: true,
+        });
+      }
+    }
+    throw error;
+  }
+
+  const completed = await getCompletedOperationResult(input.operationId);
+  if (!completed?.locationEvidenceReference || !completed.locationValidationStatus) {
+    throw new DriverOperationError("QA simulated location receipt was not completed.", "DRIVER_OPERATION_STALE");
+  }
+  return Object.freeze({
+    reference: completed.locationEvidenceReference,
+    validationStatus: completed.locationValidationStatus,
+    receivedAt: completed.completedAt,
+    source: "QA_SIMULATED",
+    isQaSimulated: true,
+  });
+}
+
 export async function getLatestSafeDriverLocationProjection(
   assignmentId: string,
   driverProfileId: string,
-): Promise<Readonly<{ observedAt: string; source: string; validationStatus: string; latitude: number; longitude: number }> | null> {
+): Promise<Readonly<{ observedAt: string; source: string; validationStatus: string; latitude: number; longitude: number; isQaSimulated?: boolean }> | null> {
   const rows = await prisma.$queryRaw<Array<Readonly<{ latitude: Prisma.Decimal; longitude: Prisma.Decimal; receivedAt: Date; validationStatus: string; source: string }>>>(Prisma.sql`
     SELECT "latitude", "longitude", "receivedAt", "validationStatus", "source"
     FROM "DriverLocationEvidence"
@@ -175,6 +465,7 @@ export async function getLatestSafeDriverLocationProjection(
     validationStatus: latest.validationStatus,
     latitude: Math.round(Number(latest.latitude) * 100) / 100,
     longitude: Math.round(Number(latest.longitude) * 100) / 100,
+    ...(latest.source === "QA_SIMULATED" ? { isQaSimulated: true } : {}),
   });
 }
 
@@ -188,20 +479,23 @@ type DeliveryCompletionLocationRow = Readonly<{
   receivedAt: Date;
   dropoffLatitude: Prisma.Decimal | null;
   dropoffLongitude: Prisma.Decimal | null;
+  isQaAcceptance?: boolean;
 }>;
 
 export type VerifiedDeliveryLocation = Readonly<{
   latitude: number;
   longitude: number;
   capturedAt: Date;
+  source?: string;
+  isQaSimulated?: boolean;
 }>;
 
 type LocationEvidenceTransaction = Pick<Prisma.TransactionClient, "$queryRaw">;
 
 /**
- * Completion can use only freshly recorded device evidence. Command payload
- * coordinates are deliberately not accepted because they cannot establish a
- * trustworthy delivery geofence on their own.
+ * Completion can use only freshly recorded device evidence (or server-verified
+ * `QA_SIMULATED` evidence strictly for an isolated active QA order + run).
+ * Command payload coordinates are never accepted on their own.
  */
 export async function requireVerifiedDeliveryLocationInTx(
   tx: LocationEvidenceTransaction,
@@ -211,7 +505,8 @@ export async function requireVerifiedDeliveryLocationInTx(
   const rows = await tx.$queryRaw<DeliveryCompletionLocationRow[]>(Prisma.sql`
     SELECT evidence."latitude", evidence."longitude", evidence."accuracyMeters",
       evidence."source", evidence."validationStatus", evidence."clientCapturedAt", evidence."receivedAt",
-      dropoff."latitude" AS "dropoffLatitude", dropoff."longitude" AS "dropoffLongitude"
+      dropoff."latitude" AS "dropoffLatitude", dropoff."longitude" AS "dropoffLongitude",
+      courier_order."isQaAcceptance" AS "isQaAcceptance"
     FROM "DriverLocationEvidence" evidence
     JOIN "Order" courier_order ON courier_order."id" = evidence."orderId"
     LEFT JOIN "Address" dropoff ON dropoff."id" = courier_order."dropoffAddressId"
@@ -226,9 +521,40 @@ export async function requireVerifiedDeliveryLocationInTx(
   if (!location) {
     throw new DriverOperationError("A recent verified delivery-location sample is required before completion.", "DRIVER_OPERATION_INVALID_STATE");
   }
+  const isQaSimulated = location.source === "QA_SIMULATED";
+  if (location.source !== "DEVICE_GPS" && !isQaSimulated) {
+    throw new DriverOperationError("Delivery location evidence is unavailable or cannot be verified.", "DRIVER_OPERATION_INVALID_STATE");
+  }
+  if (isQaSimulated) {
+    if (location.isQaAcceptance !== true) {
+      throw new DriverOperationError(
+        "Simulated QA location evidence cannot complete a commercial delivery.",
+        "DRIVER_OPERATION_FORBIDDEN",
+      );
+    }
+    if (!resolveQaAcceptanceLaneConfig().eligible) {
+      throw new DriverOperationError(
+        "QA acceptance lane is inactive; simulated location cannot complete delivery.",
+        "DRIVER_OPERATION_FORBIDDEN",
+      );
+    }
+    const txFull = tx as Prisma.TransactionClient;
+    if (typeof txFull.order?.findUnique !== "function" || typeof txFull.driverProfile?.findUnique !== "function") {
+      throw new DriverOperationError(
+        "QA acceptance transactional verification context is unavailable.",
+        "DRIVER_OPERATION_FORBIDDEN",
+      );
+    }
+    const qaScope = await checkOrderDriverQaScope(txFull, {
+      orderId: input.orderId,
+      driverProfileId: input.driverProfileId,
+    });
+    if (!qaScope.ok) {
+      throw new DriverOperationError(qaScope.reason, "DRIVER_OPERATION_FORBIDDEN");
+    }
+  }
   if (
     location.validationStatus !== "ACCEPTED" ||
-    location.source !== "DEVICE_GPS" ||
     !location.accuracyMeters ||
     Number(location.accuracyMeters) > POOR_ACCURACY_METERS ||
     now.getTime() - location.clientCapturedAt.getTime() > DELIVERY_COMPLETION_MAX_SAMPLE_AGE_MS ||
@@ -251,5 +577,7 @@ export async function requireVerifiedDeliveryLocationInTx(
     latitude: Number(location.latitude),
     longitude: Number(location.longitude),
     capturedAt: location.clientCapturedAt,
+    source: location.source,
+    isQaSimulated,
   });
 }

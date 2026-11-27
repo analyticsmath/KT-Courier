@@ -1,11 +1,19 @@
 import { isFreshTrackingObservation } from "./tracking-freshness";
-export type TrackingMapPoint = Readonly<{ id: string; label: string; latitude: number; longitude: number; observedAt: string }>;
+export type TrackingMapPoint = Readonly<{ id: string; label: string; latitude: number; longitude: number; observedAt: string; isQaSimulated?: boolean }>;
 
 function record(value: unknown): Record<string, unknown> | null { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null; }
 function point(value: unknown, id: string, label: string, nowMs: number): TrackingMapPoint[] {
   const location = record(value);
   if (!location || typeof location.latitude !== "number" || typeof location.longitude !== "number" || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude) || Math.abs(location.latitude) > 90 || Math.abs(location.longitude) > 180 || typeof location.observedAt !== "string" || !isFreshTrackingObservation(location.observedAt, nowMs)) return [];
-  return [{ id, label, latitude: location.latitude, longitude: location.longitude, observedAt: location.observedAt }];
+  const qaSimulated = location.source === "QA_SIMULATED" || location.isQaSimulated === true;
+  return [{
+    id,
+    label,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    observedAt: location.observedAt,
+    ...(qaSimulated ? { isQaSimulated: true } : {}),
+  }];
 }
 
 /** Uses only the existing owner-scoped, coarsened location projection. */

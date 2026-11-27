@@ -12,3 +12,14 @@ export const DriverLocationSampleSchema = DriverOperationCommandSchema.extend({
 }).strict();
 
 export type DriverLocationSampleInput = z.infer<typeof DriverLocationSampleSchema>;
+
+export const QaSimulatedLocationCommandSchema = DriverOperationCommandSchema.extend({
+  mode: z.literal("QA_SIMULATED"),
+}).strict();
+
+export type QaSimulatedLocationCommandInput = z.infer<typeof QaSimulatedLocationCommandSchema>;
+
+export const DriverLocationRouteBodySchema = z.union([
+  DriverLocationSampleSchema,
+  QaSimulatedLocationCommandSchema,
+]);

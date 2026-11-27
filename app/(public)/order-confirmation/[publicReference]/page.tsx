@@ -83,7 +83,9 @@ export default async function OrderConfirmationPage({ params }: { params: Promis
             </div>
           )}
           <p className={styles.orderLocationNote}>{storeOrder.liveLocation
-            ? `Courier location is available. Last update ${new Date(storeOrder.liveLocation.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`
+            ? storeOrder.liveLocation.isQaSimulated
+              ? `Simulated QA acceptance location recorded (non-physical test evidence). Last update ${new Date(storeOrder.liveLocation.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`
+              : `Courier location is available. Last update ${new Date(storeOrder.liveLocation.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}.`
             : storeOrder.proofOfDelivery ? "Delivery complete. Live courier location is no longer shared." : "Courier location is not available at this stage."}</p>
           <CustomerStoreOrderControls marketplaceOrderReference={publicReference} data={decisions.find(decision => decision.storeOrderReference === storeOrder.storeOrderReference)!} />
         </article>)}

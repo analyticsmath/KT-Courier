@@ -21,6 +21,12 @@ describe("owner-scoped tracking map presentation", () => {
     const sampleAt = new Date("2026-10-06T11:30:00Z").getTime();
     expect(trackingMapPoints({ data: { active: true, latestKnownLocation: location } }, "PARCEL", "order-a", sampleAt - 3 * 60_000)).toEqual([]);
   });
+  it("tags QA_SIMULATED points as non-physical simulated test evidence without altering physical GPS projections", () => {
+    const qaLoc = { ...location, source: "QA_SIMULATED", isQaSimulated: true };
+    expect(trackingMapPoints({ data: { active: true, latestKnownLocation: qaLoc } }, "PARCEL", "order-qa", sampleNow)).toEqual([
+      { ...location, id: "order-qa", label: "Courier", isQaSimulated: true },
+    ]);
+  });
   it.each([{ ...location, latitude: 95 }, { ...location, longitude: Number.NaN }, { ...location, observedAt: "unknown" }])("rejects invalid location evidence", invalid => {
     expect(trackingMapPoints({ data: { active: true, latestKnownLocation: invalid } }, "PARCEL", "order-a", sampleNow)).toEqual([]);
   });

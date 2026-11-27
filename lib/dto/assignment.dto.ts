@@ -178,6 +178,7 @@ export function toAdminAssignmentDto(
 
 export interface DriverAssignmentDto {
   marketplaceStoreOrderReference?: string | null;
+  qaSimulationAllowed?: boolean;
   id: string;
   orderId: string;
   orderNumber: string;

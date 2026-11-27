@@ -28,6 +28,7 @@ export type CustomerTrackingRow = Readonly<{
   locationLatitude: Prisma.Decimal | null;
   locationLongitude: Prisma.Decimal | null;
   locationObservedAt: Date | null;
+  locationSource?: string | null;
   cashObligation?: Prisma.Decimal | null;
   cashCollected?: Prisma.Decimal | null;
   cashStatus?: string | null;
@@ -45,7 +46,7 @@ export type CustomerTrackingStoreOrder = Readonly<{
   courierOrderReference: string | null;
   assignmentStatus: string | null;
   cashOnDelivery: Readonly<{ obligation: string; collected: string; outstanding: string; status: string }> | null;
-  liveLocation: Readonly<{ latitude: number; longitude: number; observedAt: string }> | null;
+  liveLocation: Readonly<{ latitude: number; longitude: number; observedAt: string; source?: string; isQaSimulated?: boolean }> | null;
   proofOfDelivery: Readonly<{ method: string; deliveredAt: string; photoEvidenceRecorded: boolean }> | null;
 }>;
 
@@ -86,6 +87,7 @@ export function projectCustomerTrackingStoreOrder(row: CustomerTrackingRow, now 
         latitude: coarsenCoordinate(row.locationLatitude),
         longitude: coarsenCoordinate(row.locationLongitude),
         observedAt: row.locationObservedAt.toISOString(),
+        ...(row.locationSource === "QA_SIMULATED" ? { source: "QA_SIMULATED", isQaSimulated: true } : {}),
       })
       : null,
   });
@@ -109,7 +111,7 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
       store_order."deliveryBridgeStatus" AS "bridgeStatus", courier_order."orderNumber" AS "courierOrderReference",
       courier_order."status" AS "courierStatus", assignment."status" AS "assignmentStatus",
       latest_location."latitude" AS "locationLatitude", latest_location."longitude" AS "locationLongitude",
-      latest_location."receivedAt" AS "locationObservedAt",
+      latest_location."receivedAt" AS "locationObservedAt", latest_location."source"::text AS "locationSource",
       COALESCE(cod."cashObligation", marketplace_order."cashRequired") AS "cashObligation",
       cod."cashCollected", cod."status"::text AS "cashStatus",
       pod."method"::text AS "proofMethod", pod."deliveredAt" AS "proofDeliveredAt",
@@ -123,7 +125,7 @@ export async function getMarketplaceDeliveryTracking(input: Readonly<{
     LEFT JOIN "OrderAssignment" assignment ON assignment."orderId" = courier_order."id" AND assignment."activeOrderGuard" = courier_order."id"
     LEFT JOIN "ProofOfDelivery" pod ON pod."orderId" = courier_order."id"
     LEFT JOIN LATERAL (
-      SELECT location."latitude", location."longitude", location."receivedAt"
+      SELECT location."latitude", location."longitude", location."receivedAt", location."source"
       FROM "DriverLocationEvidence" location
       WHERE location."assignmentId" = assignment."id"
         AND location."validationStatus" = 'ACCEPTED'

@@ -2127,6 +2127,7 @@ model DeliveryAttempt {
 enum DriverLocationSource {
   DEVICE_GPS
   DRIVER_MANUAL
+  QA_SIMULATED
 }
 
 enum DriverLocationValidationStatus {

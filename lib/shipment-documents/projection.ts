@@ -270,7 +270,11 @@ export interface DocumentOrderRecord {
     otpVerifiedAt: Date | null;
     deliveredAt: Date;
     publicNote: string | null;
+    internalNote?: string | null;
     evidenceReference: string | null;
+    assignment?: {
+      locationEvidence?: Array<{ source: string }>;
+    } | null;
     driverProfile: { id: string; displayName: string | null; user: { name: string | null } | null } | null;
   } | null;
 }
@@ -465,9 +469,20 @@ export function buildPodPayload(args: {
   let proofMethodLabel = "Delivery confirmed by KT Couriers";
   let verificationSummary = "Confirmed delivery recorded by KT Couriers operations.";
 
+  const usedQaSimulatedLocation =
+    Boolean(order.isQaAcceptance) &&
+    (pod.assignment?.locationEvidence?.[0]?.source === "QA_SIMULATED" ||
+      Boolean(pod.internalNote?.includes("QA_SIMULATED")));
+
   if (proofMethod === "OTP") {
-    proofMethodLabel = "Verified 6-digit recipient OTP";
-    verificationSummary = "Recipient provided and verified the one-time delivery confirmation PIN with the assigned driver.";
+    if (usedQaSimulatedLocation) {
+      proofMethodLabel = "Verified 6-digit recipient OTP (QA Simulated Proximity)";
+      verificationSummary =
+        "QA SANDBOX TEST: Recipient verified the one-time delivery confirmation PIN; delivery proximity used server-enforced QA_SIMULATED test coordinates (non-physical GPS).";
+    } else {
+      proofMethodLabel = "Verified 6-digit recipient OTP";
+      verificationSummary = "Recipient provided and verified the one-time delivery confirmation PIN with the assigned driver.";
+    }
   } else if (proofMethod === "ADMIN_MANUAL") {
     proofMethodLabel = "Manually confirmed by KT Couriers";
     verificationSummary = "Confirmed by an authorised KT Couriers administrator when automated OTP handoff could not be completed.";

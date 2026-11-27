@@ -44,7 +44,13 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
         const next = trackingMapPoints(await response.json(), scope, reference);
         if (controller.signal.aborted) return;
         setPoints(next);
-        setLocationStatus(next.length ? "Courier’s last reported location. Updates every 30 seconds while this page is open." : "Courier location is not available at this stage.");
+        setLocationStatus(
+          next.length
+            ? next.some((point) => point.isQaSimulated)
+              ? "Simulated QA acceptance location (non-physical sandbox test evidence). Updates every 30 seconds while this page is open."
+              : "Courier’s last reported location. Updates every 30 seconds while this page is open."
+            : "Courier location is not available at this stage.",
+        );
       } catch {
         if (!controller.signal.aborted) { setPoints([]); setLocationStatus("Courier location is unavailable. Check your delivery status for updates."); }
       } finally { if (!controller.signal.aborted && !stopped) timer = setTimeout(() => { void refresh(); }, 30_000); }
@@ -56,7 +62,7 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
   useEffect(() => {
     if (!ready || !map.current) return;
     markers.current.forEach(marker => { marker.map = null; });
-    markers.current = points.map(point => new google.maps.marker.AdvancedMarkerElement({ map: map.current, position: { lat: point.latitude, lng: point.longitude }, title: `${point.label} courier — last reported location` }));
+    markers.current = points.map(point => new google.maps.marker.AdvancedMarkerElement({ map: map.current, position: { lat: point.latitude, lng: point.longitude }, title: point.isQaSimulated ? `${point.label} courier — simulated QA test location` : `${point.label} courier — last reported location` }));
     if (points.length === 1) { map.current.panTo({ lat: points[0]!.latitude, lng: points[0]!.longitude }); map.current.setZoom(13); }
     else if (points.length > 1) { const bounds = new google.maps.LatLngBounds(); points.forEach(point => bounds.extend({ lat: point.latitude, lng: point.longitude })); map.current.fitBounds(bounds, 48); }
   }, [ready, points]);
@@ -65,6 +71,6 @@ export function CourierTrackingMap({ reference, scope }: { reference: string; sc
     {keyConfigured ? <div ref={container} aria-label="Delivery tracking map" className="h-72 w-full rounded-xl border bg-[var(--kt-cloud-blue)]" /> : null}
     {mapStatus ? <p role="status" className="text-sm text-[var(--kt-text-muted)]">{mapStatus}</p> : null}
     <p role="status" className="text-sm text-[var(--kt-text-muted)]">{locationStatus}</p>
-    {points.length > 0 && <ul className="space-y-1 text-xs">{points.map(point => <li key={point.id}>{point.label}: last report {new Date(point.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}. Location is approximate.</li>)}</ul>}
+    {points.length > 0 && <ul className="space-y-1 text-xs">{points.map(point => <li key={point.id}>{point.label}: last report {new Date(point.observedAt).toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" })}. Location is {point.isQaSimulated ? "QA simulated (non-physical test evidence)" : "approximate"}.</li>)}</ul>}
   </div>;
 }

@@ -122,6 +122,7 @@ export default function DriverAssignmentDetailPage() {
   const [otpStatus, setOtpStatus] = useState<OtpStatus | null>(null);
   const [otpSending, setOtpSending] = useState(false);
   const [locationRecording, setLocationRecording] = useState(false);
+  const [qaSimulatingLocation, setQaSimulatingLocation] = useState(false);
   const [locationStatus, setLocationStatus] = useState<string | null>(null);
 
   // Start delivery form
@@ -484,6 +485,44 @@ export default function DriverAssignmentDetailPage() {
     }, { enableHighAccuracy: true, maximumAge: 30_000, timeout: 15_000 });
   }
 
+  async function handleSimulateQaLocation() {
+    if (!assignment?.qaSimulationAllowed) return;
+    setQaSimulatingLocation(true);
+    setLocationStatus(null);
+    setDeliveryError(null);
+    setPickupError(null);
+    try {
+      const payload = {
+        ...operationCommand("qa-location-simulate", { orderStatus: assignment.orderStatus }),
+        mode: "QA_SIMULATED" as const,
+      };
+      const response = await fetch(`/api/driver/assignments/${id}/location`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const message = data.error || "QA simulated location could not be recorded.";
+        setDeliveryError(message);
+        setPickupError(message);
+        return;
+      }
+      clearOperation("qa-location-simulate");
+      setLocationStatus(
+        data.validationStatus === "ACCEPTED"
+          ? "QA simulated location recorded (non-physical sandbox test evidence)."
+          : `QA simulated location recorded with verification warning (${data.validationStatus}).`,
+      );
+    } catch {
+      const message = "QA simulated location could not be recorded.";
+      setDeliveryError(message);
+      setPickupError(message);
+    } finally {
+      setQaSimulatingLocation(false);
+    }
+  }
+
   async function handleStartDelivery(e: React.FormEvent) {
     e.preventDefault();
     setDeliveryLoading(true);
@@ -669,6 +708,43 @@ export default function DriverAssignmentDetailPage() {
       {assignment.status === "ASSIGNED" && assignment.expiresAt && (
         <p className="text-sm text-[var(--kt-text-muted)]" role="status">Offer expires {formatDateTime(assignment.expiresAt)}. Assignment version {assignment.version}.</p>
       )}
+
+      {isAccepted &&
+        assignment.qaSimulationAllowed &&
+        ["PICKUP_SCHEDULED", "PICKED_UP", "IN_TRANSIT", "DELIVERY_ATTEMPTED"].includes(assignment.orderStatus) && (
+          <Card className="border-[var(--kt-solar-amber)]/45 bg-[var(--kt-amber-wash)]/55">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--kt-ink-navy)]">
+                    QA Acceptance Sandbox · Non-Commercial Test Mode
+                  </p>
+                  <p className="text-xs text-[var(--kt-text-muted)] mt-1">
+                    Records server-enforced <code className="font-mono">QA_SIMULATED</code> location evidence near the{" "}
+                    {assignment.orderStatus === "PICKUP_SCHEDULED" ? "pickup origin" : "delivery destination"} for this isolated QA run without physical GPS at the destination.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSimulateQaLocation}
+                  disabled={qaSimulatingLocation}
+                >
+                  {qaSimulatingLocation
+                    ? "Simulating QA location…"
+                    : assignment.orderStatus === "PICKUP_SCHEDULED"
+                      ? "Simulate QA Pickup Arrival"
+                      : "Simulate QA Arrival Location"}
+                </Button>
+              </div>
+              {locationStatus && (
+                <p className="text-xs font-semibold text-[var(--kt-ink-navy)]" role="status">
+                  {locationStatus}
+                </p>
+              )}
+            </div>
+          </Card>
+        )}
 
       {/* ── Actions for ASSIGNED ── */}
       {isAssigned && (

@@ -132,6 +132,21 @@ import {
   saveDeliveryMatrix,
 } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { DeliveryConfigurationSchema } from "@/lib/client-platform/contracts";
+import { createPublicQuote } from "@/lib/client-platform/delivery.service";
+import { createOrder } from "@/lib/services/orders.service";
+import { prepareOrderPayment } from "@/lib/services/payment-preparation.service";
+import { createProviderCheckoutSession } from "@/lib/services/payment-provider-session.service";
+import { getDriverAssignmentDetail } from "@/lib/services/driver-assignments.service";
+import {
+  getLatestSafeDriverLocationProjection,
+  recordDriverLocationSample,
+  recordQaSimulatedDriverLocation,
+  requireVerifiedDeliveryLocationInTx,
+} from "@/lib/services/driver-location-evidence.service";
+import { recordDriverDeliveryResponsibility } from "@/lib/services/shipping-obligations.service";
+import { generateAndSendDeliveryOtp, getTestIssuedDeliveryOtp } from "@/lib/services/delivery-otp.service";
+import { completeDelivery } from "@/lib/services/delivery-execution.service";
+import { trackingMapPoints } from "@/lib/maps/tracking-map-presentation";
 import { installSystemPermissionDefaults } from "@/lib/auth/permission-bootstrap";
 import { createDriver, uniqueTag } from "./phase7-5-fixtures";
 
@@ -229,6 +244,7 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
     vi.stubEnv("PAYSTACK_ACTIVE", "false");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://www.ktcouriers.com");
     vi.stubEnv("PAYMENT_APP_ORIGIN", "https://www.ktcouriers.com");
+    vi.stubEnv("NOTIFICATION_SECURITY_PAYLOAD_ENCRYPTION_KEY", Buffer.alloc(32, 7).toString("base64"));
   });
 
   afterEach(() => {
@@ -1139,6 +1155,496 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
     const drvSettlement = await produceDriverSettlement(courierOrder.id);
     expect(drvSettlement.publicReference).toBeTruthy();
 
+    // Verify assignment capacity released after courierOrder completion
+    const completedFirstAssign = await prisma.orderAssignment.findUniqueOrThrow({
+      where: { id: assignment.id },
+    });
+    expect(completedFirstAssign.status).toBe("COMPLETED");
+    expect(completedFirstAssign.activeOrderGuard).toBeNull();
+    const completedFirstOrder = await prisma.order.findUniqueOrThrow({
+      where: { id: courierOrder.id },
+      select: { currentDriverProfileId: true },
+    });
+    expect(completedFirstOrder.currentDriverProfileId).toBeNull();
+
+    // ── Standalone QA Parcel Order: Server-Enforced QA_SIMULATED GPS Completion ──
+    let tempPaymentPolicyId: string | null = null;
+    const activeParcelPolicies = await prisma.paymentMethodPolicy.findMany({
+      where: {
+        deliveryServiceId: "CLIENT_STANDARD",
+        orderType: "PARCEL_DOCUMENT",
+        status: "ACTIVE",
+      },
+    });
+    const existingParcelPolicy = activeParcelPolicies.find(
+      (policy) => Array.isArray(policy.provinceScope) && policy.provinceScope.includes("Gauteng"),
+    );
+    if (!existingParcelPolicy) {
+      const createdPol = await prisma.paymentMethodPolicy.create({
+        data: {
+          deliveryServiceId: "CLIENT_STANDARD",
+          orderType: "PARCEL_DOCUMENT",
+          provinceScope: ["Gauteng"],
+          versionNumber: 1,
+          status: "ACTIVE",
+          mode: "DIGITAL",
+          effectiveFrom: new Date(Date.now() - 3600_000),
+          createdByUserId: admin1.id,
+        },
+      });
+      tempPaymentPolicyId = createdPol.id;
+    }
+
+    try {
+      const parcelQuote = await createPublicQuote({
+        serviceKey: "CLIENT_STANDARD",
+        parcelSize: "SMALL",
+        weightKg: "1.5",
+        pickupAddress: {
+          line1: "22 Sandton Drive",
+          line2: "Sandhurst",
+          suburb: "Sandton",
+          city: "Sandton",
+          province: "Gauteng",
+          postalCode: "2196",
+        },
+        dropoffAddress: {
+          line1: "45 Commissioner Street",
+          line2: "Suite 2",
+          suburb: "Marshalltown",
+          city: "Johannesburg",
+          province: "Gauteng",
+          postalCode: "2001",
+        },
+      });
+      const parcelQuoteRow = await prisma.pricingQuote.findUniqueOrThrow({ where: { id: parcelQuote.id } });
+      const parcelMeta = (
+        parcelQuoteRow.metadata as {
+          bookingInput: {
+            deliveryType: "PARCEL_DOCUMENT";
+            pickupAddress: Record<string, unknown>;
+            dropoffAddress: Record<string, unknown>;
+            actualWeightKg: string;
+          };
+        }
+      ).bookingInput;
+
+      const parcelOrderDto = await prisma.$transaction(async (tx) => {
+        await tx.pricingQuote.update({
+          where: { id: parcelQuote.id },
+          data: { ownerId: qaCustomer.id, ownerType: "CUSTOMER", storeId: null },
+        });
+        return createOrder(
+          qaCustomer,
+          {
+            deliveryType: parcelMeta.deliveryType,
+            pickupAddress: parcelMeta.pickupAddress as Parameters<typeof createOrder>[1]["pickupAddress"],
+            dropoffAddress: parcelMeta.dropoffAddress as Parameters<typeof createOrder>[1]["dropoffAddress"],
+            actualWeightKg: parcelMeta.actualWeightKg,
+            pricingQuoteId: parcelQuote.id,
+            recipientName: "QA Parcel Recipient",
+            recipientPhone: "+27825550999",
+            recipientEmail: qaCustomer.email,
+            parcelDescription: "QA GPS Simulation Parcel",
+            parcelCount: 1,
+            paymentMethod: "DIGITAL_ONLY",
+          },
+          false,
+          tx,
+          undefined,
+          { isQaAcceptance: true, qaAcceptanceRunId: qaRunId },
+        );
+      });
+
+      const parcelPaymentPrep = await prepareOrderPayment(qaCustomer, {
+        orderId: parcelOrderDto.id,
+        idempotencyKey: `${tag}:parcel-prep`,
+      });
+      const parcelPaymentRow = await prisma.payment.findUniqueOrThrow({
+        where: { publicReference: parcelPaymentPrep.publicReference },
+      });
+      expect(parcelPaymentRow.isQaAcceptance).toBe(true);
+
+      const parcelSession = await createProviderCheckoutSession(
+        { id: qaCustomer.id },
+        {
+          paymentId: parcelPaymentRow.id,
+          provider: "PAYSTACK",
+          idempotencyKey: `${tag}:parcel-sess`,
+        },
+      );
+      const parcelVerify = await recoverPaystackAttemptViaVerify({
+        attemptId: parcelSession.attempt.id,
+        trigger: "qa_parcel_sim_gps_verify",
+        clientOverride: {
+          verifyTransaction: vi.fn().mockResolvedValue({
+            id: randomInt(100_000, 999_999),
+            status: "success",
+            reference: parcelSession.attempt.merchantReference,
+            amount: Math.round(Number(parcelPaymentPrep.amount) * 100),
+            currency: "ZAR",
+          }),
+        } as never,
+      });
+      expect(parcelVerify.recovered).toBe(true);
+
+      // Driver capacity was released -> qaDriver can take the paid standalone QA parcel order
+      const parcelOffer = await offerAssignment(admin1.id, parcelOrderDto.id, {
+        driverProfileId: qaDriver.profile.id,
+        reasonCode: "QA_PARCEL_DISPATCH",
+      });
+      await acceptDispatchAssignment(qaDriver.profile.id, parcelOffer.id, {
+        expectedVersion: parcelOffer.version,
+      });
+      const parcelDetail = await getDriverAssignmentDetail(parcelOffer.id, qaDriver.profile.id);
+      expect(parcelDetail?.qaSimulationAllowed).toBe(true);
+
+      // Also verify QA pickup simulation works cleanly at PICKUP_SCHEDULED right after accept
+      const acceptVerAtPickup = (await prisma.orderAssignment.findUniqueOrThrow({
+        where: { id: parcelOffer.id },
+        select: { version: true },
+      })).version;
+      const pickupSim = await recordQaSimulatedDriverLocation(parcelOffer.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: acceptVerAtPickup,
+        mode: "QA_SIMULATED",
+      });
+      expect(pickupSim.validationStatus).toBe("ACCEPTED");
+      expect(pickupSim.source).toBe("QA_SIMULATED");
+
+      // Advance parcel order into IN_TRANSIT (acceptDispatchAssignment already placed it in PICKUP_SCHEDULED)
+      await prisma.$transaction(async (tx) => {
+        await transitionOrderStatusInTx(tx, {
+          orderId: parcelOrderDto.id,
+          fromStatus: OrderStatus.PICKUP_SCHEDULED,
+          toStatus: OrderStatus.PICKED_UP,
+          actorUserId: qaDriver.user.id,
+          actorRole: "DRIVER",
+          source: "qa_parcel_picked_up",
+          context: { actorIsAssignedDriver: true, hasAcceptedAssignment: true, hasPickupProof: true },
+        });
+        await transitionOrderStatusInTx(tx, {
+          orderId: parcelOrderDto.id,
+          fromStatus: OrderStatus.PICKED_UP,
+          toStatus: OrderStatus.IN_TRANSIT,
+          actorUserId: qaDriver.user.id,
+          actorRole: "DRIVER",
+          source: "qa_parcel_transit",
+          context: { actorIsAssignedDriver: true, hasAcceptedAssignment: true },
+        });
+      });
+
+      const acceptedVersionRow = await prisma.orderAssignment.findUniqueOrThrow({
+        where: { id: parcelOffer.id },
+        select: { version: true },
+      });
+
+      // Negative 1: Wrong driver cannot trigger QA location simulation on parcelOffer
+      await expect(
+        recordQaSimulatedDriverLocation(parcelOffer.id, liveDriver.profile.id, liveDriver.user.id, {
+          operationId: randomUUID(),
+          assignmentVersion: acceptedVersionRow.version,
+          mode: "QA_SIMULATED",
+        }),
+      ).rejects.toThrow();
+
+      // Negative 2: Commercial shipment rejects QA_SIMULATED both at recording and completion
+      await prisma.order.update({
+        where: { id: liveOrder.id },
+        data: { deliveryRegionId: createdRegionId },
+      });
+      const liveAssignOffer = await offerAssignment(admin1.id, liveOrder.id, {
+        driverProfileId: liveDriver.profile.id,
+        reasonCode: "COMMERCIAL_CONTROL",
+      });
+      const liveAcceptRow = await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: liveOrder.id },
+          data: { status: OrderStatus.IN_TRANSIT, currentDriverProfileId: liveDriver.profile.id },
+        });
+        return tx.orderAssignment.update({
+          where: { id: liveAssignOffer.id },
+          data: { status: "ACCEPTED", acceptedAt: new Date(), version: { increment: 1 } },
+        });
+      });
+      const liveAssignDetail = await getDriverAssignmentDetail(liveAcceptRow.id, liveDriver.profile.id);
+      expect(liveAssignDetail?.qaSimulationAllowed).toBe(false);
+      await expect(
+        recordQaSimulatedDriverLocation(liveAcceptRow.id, liveDriver.profile.id, liveDriver.user.id, {
+          operationId: randomUUID(),
+          assignmentVersion: liveAcceptRow.version,
+          mode: "QA_SIMULATED",
+        }),
+      ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+      await prisma.$executeRaw`
+        INSERT INTO "DriverLocationEvidence"
+          ("id", "publicReference", "orderId", "assignmentId", "driverProfileId", "latitude", "longitude", "accuracyMeters", "source", "validationStatus", "clientCapturedAt", "receivedAt", "createdAt")
+        VALUES
+          (${`dloc_${randomUUID().replaceAll("-", "")}`}, ${`dloc_${randomUUID().replaceAll("-", "")}`}, ${liveOrder.id}, ${liveAcceptRow.id}, ${liveDriver.profile.id}, ${-26.1076}, ${28.0567}, ${10}, ${"QA_SIMULATED"}::"DriverLocationSource", ${"ACCEPTED"}::"DriverLocationValidationStatus", ${new Date()}, ${new Date()}, ${new Date()})
+      `;
+      await expect(
+        prisma.$transaction((tx) =>
+          requireVerifiedDeliveryLocationInTx(tx, {
+            orderId: liveOrder.id,
+            assignmentId: liveAcceptRow.id,
+            driverProfileId: liveDriver.profile.id,
+          }),
+        ),
+      ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+      await prisma.$transaction(async (tx) => {
+        await tx.orderAssignment.update({
+          where: { id: liveAcceptRow.id },
+          data: { status: "CANCELLED", activeOrderGuard: null },
+        });
+        await tx.order.update({
+          where: { id: liveOrder.id },
+          data: { currentDriverProfileId: null },
+        });
+      });
+
+      // Negative 3: Cross-run QA order rejects wrong QA driver / run mismatch
+      const otherQaDriver = await createDriver(`${tag}-qa2drv`, createdRegionId!, 3);
+      await prisma.driverProfile.update({
+        where: { id: otherQaDriver.profile.id },
+        data: { onboardingStatus: "APPROVED" },
+      });
+      await enrollQaAcceptancePrincipal({
+        actorUserId: admin1.id,
+        userIdentifier: otherQaDriver.user.id,
+        role: "DRIVER",
+        label: "Secondary QA Driver",
+      });
+      const otherQaRun = await startQaAcceptanceRun({
+        actorUserId: admin1.id,
+        title: `Secondary Run ${tag}`,
+        driverProfileId: otherQaDriver.profile.id,
+      });
+      let otherQaRunArchived = false;
+      try {
+        const { crossRunOrder, crossAssign, revokedTestOrder, otherQaDriverAssign } = await prisma.$transaction(async (tx) => {
+          const cOrder = await tx.order.create({
+            data: {
+              orderNumber: `KT-QARUN2-${tag.toUpperCase()}`,
+              source: OrderSource.CUSTOMER,
+              status: OrderStatus.IN_TRANSIT,
+              deliveryType: DeliveryType.SAME_DAY,
+              currency: "ZAR",
+              customerId: qaCustomer.id,
+              priceEstimate: "95.00",
+              isQaAcceptance: true,
+              qaAcceptanceRunId: otherQaRun.id,
+              currentDriverProfileId: qaDriver.profile.id,
+            },
+          });
+          const cAssign = await tx.orderAssignment.create({
+            data: {
+              orderId: cOrder.id,
+              driverProfileId: qaDriver.profile.id,
+              status: "ACCEPTED",
+              activeOrderGuard: cOrder.id,
+              assignedByAdminId: admin1.id,
+              assignedAt: new Date(),
+              acceptedAt: new Date(),
+              version: 1,
+            },
+          });
+          const rOrder = await tx.order.create({
+            data: {
+              orderNumber: `KT-QARUN2B-${tag.toUpperCase()}`,
+              source: OrderSource.CUSTOMER,
+              status: OrderStatus.IN_TRANSIT,
+              deliveryType: DeliveryType.SAME_DAY,
+              currency: "ZAR",
+              customerId: qaCustomer.id,
+              priceEstimate: "95.00",
+              isQaAcceptance: true,
+              qaAcceptanceRunId: otherQaRun.id,
+              currentDriverProfileId: otherQaDriver.profile.id,
+            },
+          });
+          const rAssign = await tx.orderAssignment.create({
+            data: {
+              orderId: rOrder.id,
+              driverProfileId: otherQaDriver.profile.id,
+              status: "ACCEPTED",
+              activeOrderGuard: rOrder.id,
+              assignedByAdminId: admin1.id,
+              assignedAt: new Date(),
+              acceptedAt: new Date(),
+              version: 1,
+            },
+          });
+          return { crossRunOrder: cOrder, crossAssign: cAssign, revokedTestOrder: rOrder, otherQaDriverAssign: rAssign };
+        });
+        await expect(
+          recordQaSimulatedDriverLocation(crossAssign.id, qaDriver.profile.id, qaDriver.user.id, {
+            operationId: randomUUID(),
+            assignmentVersion: crossAssign.version,
+            mode: "QA_SIMULATED",
+          }),
+        ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+
+        // Negative 4: Revoked driver principal is rejected even while the QA run itself remains ACTIVE
+        const otherQaDriverPrincipal = await prisma.qaAcceptancePrincipal.findFirstOrThrow({
+          where: { userId: otherQaDriver.user.id, active: true },
+        });
+        await revokeQaAcceptancePrincipal({
+          actorUserId: admin1.id,
+          principalId: otherQaDriverPrincipal.id,
+          reason: "Verify revoked QA driver cannot simulate location on active run",
+        });
+        await expect(
+          recordQaSimulatedDriverLocation(otherQaDriverAssign.id, otherQaDriver.profile.id, otherQaDriver.user.id, {
+            operationId: randomUUID(),
+            assignmentVersion: otherQaDriverAssign.version,
+            mode: "QA_SIMULATED",
+          }),
+        ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+        await prisma.$transaction(async (tx) => {
+          await tx.orderAssignment.updateMany({
+            where: { id: { in: [crossAssign.id, otherQaDriverAssign.id] } },
+            data: { status: "CANCELLED", activeOrderGuard: null },
+          });
+          await tx.order.updateMany({
+            where: { id: { in: [crossRunOrder.id, revokedTestOrder.id] } },
+            data: { currentDriverProfileId: null },
+          });
+        });
+      } finally {
+        if (!otherQaRunArchived) {
+          otherQaRunArchived = true;
+          await updateQaAcceptanceRunLifecycle({
+            actorUserId: admin1.id,
+            runId: otherQaRun.id,
+            action: "ARCHIVE_AND_TEARDOWN",
+            reason: "Clean up secondary QA run fixture",
+          }).catch(() => {});
+        }
+      }
+
+      // Simulate earlier browser desk DEVICE_GPS sample thousands of km away, then clear dropoff coords to test backfill
+      const parcelRowFull = await prisma.order.findUniqueOrThrow({
+        where: { id: parcelOrderDto.id },
+        select: { dropoffAddressId: true },
+      });
+      await recordDriverLocationSample(parcelOffer.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: acceptedVersionRow.version,
+        latitude: -33.9249,
+        longitude: 18.4241,
+        clientCapturedAt: new Date().toISOString(),
+        accuracyMeters: 25,
+        source: "DEVICE_GPS",
+      });
+      if (parcelRowFull.dropoffAddressId) {
+        await prisma.address.update({
+          where: { id: parcelRowFull.dropoffAddressId },
+          data: { latitude: null, longitude: null },
+        });
+      }
+
+      // Server-enforced QA location simulation -> resolves coordinates + backfills null address + writes QA_SIMULATED evidence
+      const simLocation = await recordQaSimulatedDriverLocation(parcelOffer.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: acceptedVersionRow.version,
+        mode: "QA_SIMULATED",
+      });
+      expect(simLocation.validationStatus).toBe("ACCEPTED");
+      expect(simLocation.source).toBe("QA_SIMULATED");
+      expect(simLocation.isQaSimulated).toBe(true);
+
+      const dbEvidence = await prisma.driverLocationEvidence.findFirstOrThrow({
+        where: { publicReference: simLocation.reference },
+      });
+      expect(dbEvidence.source).toBe("QA_SIMULATED");
+      expect(dbEvidence.validationStatus).toBe("ACCEPTED");
+
+      const trackingProj = await getLatestSafeDriverLocationProjection(parcelOffer.id, qaDriver.profile.id);
+      expect(trackingProj).toMatchObject({ source: "QA_SIMULATED", isQaSimulated: true, validationStatus: "ACCEPTED" });
+      const mapPoints = trackingMapPoints({ data: { active: true, latestKnownLocation: trackingProj } }, "PARCEL", parcelOrderDto.orderNumber);
+      expect(mapPoints).toHaveLength(1);
+      expect(mapPoints[0]?.isQaSimulated).toBe(true);
+
+      // Responsibilities + OTP + Canonical completeDelivery
+      await recordDriverDeliveryResponsibility({
+        assignmentId: parcelOffer.id,
+        driverProfileId: qaDriver.profile.id,
+        driverUserId: qaDriver.user.id,
+        assignmentVersion: acceptedVersionRow.version,
+        reportType: "SAFETY_CHECK",
+        operationId: randomUUID(),
+      });
+      await recordDriverDeliveryResponsibility({
+        assignmentId: parcelOffer.id,
+        driverProfileId: qaDriver.profile.id,
+        driverUserId: qaDriver.user.id,
+        assignmentVersion: acceptedVersionRow.version,
+        reportType: "LAWFUL_TRANSPORT_CONFIRMATION",
+        operationId: randomUUID(),
+      });
+
+      const parcelOtp = await generateAndSendDeliveryOtp(parcelOffer.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: acceptedVersionRow.version,
+        stage: "DELIVERY",
+      });
+      if (!parcelOtp.ok) throw new Error(parcelOtp.error);
+      const otpCode = getTestIssuedDeliveryOtp(parcelOtp.otpId);
+
+      const completedParcelRes = await completeDelivery(parcelOffer.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: acceptedVersionRow.version,
+        otpCode,
+        recipientName: "QA Parcel Recipient",
+        recipientPhone: "+27825550999",
+        publicNote: "Delivered in isolated QA lane via simulated location.",
+        driverNote: "QA desktop browser verification",
+        confirmDelivery: true,
+      });
+      expect(completedParcelRes.ok).toBe(true);
+
+      // Assignment capacity released & order driver unassigned cleanly
+      const finishedParcelAssign = await prisma.orderAssignment.findUniqueOrThrow({ where: { id: parcelOffer.id } });
+      expect(finishedParcelAssign.status).toBe("COMPLETED");
+      expect(finishedParcelAssign.activeOrderGuard).toBeNull();
+      const finishedParcelOrder = await prisma.order.findUniqueOrThrow({
+        where: { id: parcelOrderDto.id },
+        include: { proofOfDelivery: true },
+      });
+      expect(finishedParcelOrder.status).toBe(OrderStatus.DELIVERED);
+      expect(finishedParcelOrder.currentDriverProfileId).toBeNull();
+      expect(finishedParcelOrder.proofOfDelivery?.method).toBe("OTP");
+      expect(finishedParcelOrder.proofOfDelivery?.internalNote).toContain("QA_SIMULATED");
+
+      // Canonical QA POD PDF discloses QA Test + QA Simulated Proximity (never genuine GPS)
+      const parcelPodPdf = await downloadAuthorizedShipmentDocumentPdf({
+        user: qaCustomer,
+        orderId: parcelOrderDto.id,
+        type: "POD",
+      });
+      expect(Buffer.from(parcelPodPdf.bytes.subarray(0, 5)).toString("ascii")).toBe("%PDF-");
+      const parsedParcelPodPdf = await PDFDocument.load(parcelPodPdf.bytes);
+      expect(parsedParcelPodPdf.getTitle()).toContain("QA Test Proof of Delivery");
+      expect(parsedParcelPodPdf.getSubject()).toContain("QA SANDBOX TEST - NON-COMMERCIAL");
+      const podDocRow = await prisma.shipmentDocument.findFirstOrThrow({
+        where: { orderId: parcelOrderDto.id, type: "POD", status: "ISSUED" },
+      });
+      expect((podDocRow.payloadSnapshot as { proofMethodLabel?: string; verificationSummary?: string }).proofMethodLabel).toContain("QA Simulated Proximity");
+      expect((podDocRow.payloadSnapshot as { verificationSummary?: string }).verificationSummary).toContain("QA_SIMULATED");
+
+      // Isolated QA driver earnings settlement
+      const parcelSettlement = await produceDriverSettlement(parcelOrderDto.id);
+      expect(parcelSettlement.publicReference).toBeTruthy();
+      const parcelEarning = await prisma.driverEarning.findUniqueOrThrow({
+        where: { publicReference: parcelSettlement.publicReference },
+      });
+      expect(parcelEarning.isQaAcceptance).toBe(true);
+    } finally {
+      if (tempPaymentPolicyId) {
+        await prisma.paymentMethodPolicy.updateMany({ where: { id: tempPaymentPolicyId }, data: { status: "RETIRED" } }).catch(() => {});
+      }
+    }
+
     // Financial isolation & commercial reporting checks
     const afterFinance = await getFinanceDashboard();
     expect(afterFinance.commissions.accrued).toBe(baselineFinance.commissions.accrued);
@@ -1180,9 +1686,55 @@ describe("GitHub Issue #40 — Isolated QA Acceptance Lane End-to-End (PostgreSQ
       reason: "Issue #40 automated test teardown",
     });
     expect(archived.status).toBe("ARCHIVED");
-    // Archived run alone immediately revokes QA session and private storefront access
+    // Archived run alone immediately revokes QA session, storefront access, and QA GPS simulation
     expect(await resolveQaAcceptanceSessionContext(qaCustomer.id)).toBeNull();
     expect(await resolveQaVisibleStoreIdsForViewer(qaCustomer.id)).toEqual([]);
+    const revokedCheckOrder = await prisma.order.findFirstOrThrow({
+      where: { qaAcceptanceRunId: qaRunId, source: OrderSource.CUSTOMER, status: OrderStatus.DELIVERED },
+      include: { assignments: { take: 1 } },
+    });
+    const revokedAssign = revokedCheckOrder.assignments[0]!;
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: revokedCheckOrder.id },
+        data: { status: OrderStatus.IN_TRANSIT, currentDriverProfileId: qaDriver.profile.id },
+      });
+      await tx.orderAssignment.update({
+        where: { id: revokedAssign.id },
+        data: { status: "ACCEPTED", activeOrderGuard: revokedCheckOrder.id },
+      });
+    });
+    await expect(
+      recordQaSimulatedDriverLocation(revokedAssign.id, qaDriver.profile.id, qaDriver.user.id, {
+        operationId: randomUUID(),
+        assignmentVersion: revokedAssign.version,
+        mode: "QA_SIMULATED",
+      }),
+    ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+    await expect(
+      prisma.$transaction((tx) =>
+        requireVerifiedDeliveryLocationInTx(tx, {
+          orderId: revokedCheckOrder.id,
+          assignmentId: revokedAssign.id,
+          driverProfileId: qaDriver.profile.id,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "DRIVER_OPERATION_FORBIDDEN" });
+    await prisma.$transaction(async (tx) => {
+      await tx.orderAssignment.update({
+        where: { id: revokedAssign.id },
+        data: { status: "COMPLETED", activeOrderGuard: null },
+      });
+      await tx.order.update({
+        where: { id: revokedCheckOrder.id },
+        data: { status: OrderStatus.DELIVERED, currentDriverProfileId: null },
+      });
+    });
+
+    const qaDriverPrincipal = await prisma.qaAcceptancePrincipal.findFirstOrThrow({
+      where: { userId: qaDriver.user.id, active: true },
+    });
+    await revokeQaAcceptancePrincipal({ actorUserId: admin1.id, principalId: qaDriverPrincipal.id, reason: "End of driver run" });
     await revokeQaAcceptancePrincipal({ actorUserId: admin1.id, principalId: qaCustomerPrincipalId, reason: "End of run" });
     expect(await resolveQaAcceptanceSessionContext(qaCustomer.id)).toBeNull();
     expect(await prisma.shipmentDocument.count({ where: { orderId: courierOrder.id, status: "ISSUED" } })).toBe(2);
