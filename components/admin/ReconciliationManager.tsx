@@ -40,6 +40,7 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [pendingOperationId, setPendingOperationId] = useState<string | null>(null);
 
   async function fetchCases() {
     setLoading(true);
@@ -80,7 +81,12 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
     setActionError(null);
     setActionSuccess(null);
 
-    const operationId = `RECOP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const operationId =
+      pendingOperationId ??
+      `RECOP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    if (!pendingOperationId) {
+      setPendingOperationId(operationId);
+    }
 
     try {
       const res = await fetch(
@@ -98,11 +104,20 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
 
       const json = await res.json();
       if (!res.ok || json.error) {
+        if (res.status === 403 || res.status === 409) {
+          setPendingOperationId(null);
+          setActiveAction(null);
+          setConfirmText("");
+          await viewCaseDetail(activeCase.domain, activeCase.publicReference);
+          await fetchCases();
+        }
         setActionError(json.error || "Recovery execution failed");
         return;
       }
 
-      setActionSuccess(`Recovery action '${actionKey}' executed successfully.`);
+      const replaySuffix = json.data?.idempotentReplay ? " (idempotent replay)" : "";
+      setActionSuccess(`Recovery action '${actionKey}' executed successfully${replaySuffix}.`);
+      setPendingOperationId(null);
       setActiveAction(null);
       setActionReason("");
       setConfirmText("");
@@ -272,6 +287,9 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
                 onClick={() => {
                   setActiveCase(null);
                   setActiveAction(null);
+                  setPendingOperationId(null);
+                  setActionError(null);
+                  setActionSuccess(null);
                 }}
                 className="text-gray-500  text-lg font-bold"
               >
@@ -284,26 +302,78 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
                 <span className="font-semibold block text-[--kt-text-muted]">Summary</span>
                 <p className="p-2 bg-[--kt-surface-muted] rounded">{activeCase.safeSummary}</p>
               </div>
+              {actionError && !activeAction ? (
+                <p className="text-xs text-red-700 font-semibold p-2 rounded border border-red-200 bg-red-50" role="alert">
+                  {actionError}
+                </p>
+              ) : null}
 
               <div>
                 <span className="font-semibold block text-[--kt-text-muted]">Permitted Recovery Actions</span>
                 <div className="space-y-2 mt-1">
-                  {activeCase.permittedActions.map((action) => (
-                    <div key={action.actionKey} className="border border-[--kt-border] p-3 rounded-lg flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{action.name}</p>
-                        <p className="text-[--kt-text-muted]">{action.description}</p>
-                      </div>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={action.readinessState === "BLOCKED"}
-                        onClick={() => setActiveAction(action.actionKey)}
+                  {activeCase.permittedActions.map((action) => {
+                    const isAuthorized = action.authorized !== false;
+                    const isExecutable = isAuthorized && action.readinessState === "READY";
+                    return (
+                      <div
+                        key={action.actionKey}
+                        className="border border-[--kt-border] p-3 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3"
                       >
-                        Execute Action
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold">{action.name}</p>
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${
+                                isExecutable
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : !isAuthorized
+                                    ? "bg-slate-100 text-slate-700"
+                                    : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {isExecutable
+                                ? "AUTHORIZED"
+                                : !isAuthorized
+                                  ? "UNAVAILABLE · PERMISSION REQUIRED"
+                                  : "BLOCKED"}
+                            </span>
+                          </div>
+                          <p className="text-[--kt-text-muted]">{action.description}</p>
+                          <p className="font-mono text-[11px] text-[--kt-text-muted]">
+                            Required permission: {action.requiredPermission}
+                          </p>
+                          {action.readinessBlocker ? (
+                            <p className="text-[11px] font-medium text-amber-900">{action.readinessBlocker}</p>
+                          ) : null}
+                        </div>
+                        {isAuthorized ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            disabled={!isExecutable}
+                            onClick={() => {
+                              setActionError(null);
+                              setActionSuccess(null);
+                              setConfirmText("");
+                              setPendingOperationId(
+                                `RECOP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+                              );
+                              setActiveAction(action.actionKey);
+                            }}
+                          >
+                            {isExecutable ? "Execute Action" : "Unavailable"}
+                          </Button>
+                        ) : (
+                          <span
+                            className="inline-flex shrink-0 items-center rounded border border-[--kt-border] bg-[--kt-surface-muted] px-2.5 py-1.5 text-[11px] font-semibold text-[--kt-text-muted]"
+                            aria-disabled="true"
+                          >
+                            Unavailable (missing permission)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -331,7 +401,14 @@ export function ReconciliationManager({ initialCases }: ReconciliationManagerPro
                   </div>
                   {actionError && <p className="text-xs text-red-600 font-semibold">{actionError}</p>}
                   <div className="flex justify-end gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => setActiveAction(null)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setActiveAction(null);
+                        setPendingOperationId(null);
+                      }}
+                    >
                       Cancel
                     </Button>
                     <Button

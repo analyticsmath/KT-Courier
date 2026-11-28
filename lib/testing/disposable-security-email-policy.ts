@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ProviderSendInput, ProviderSendResult } from "@/lib/notifications/providers";
+import { isSafeLocalTestDatabaseUrl } from "@/lib/testing/safe-postgres-validator";
 
 /**
  * Offline security-email acceptance is ONLY for the named disposable E2E
@@ -34,11 +35,43 @@ export function isDisposableSecurityEmailRuntime(
     && ["localhost", "127.0.0.1"].includes(origin.hostname);
 }
 
+export function isQaOperationalE2eSecurityEmailRuntime(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  let origin: URL;
+  try {
+    origin = new URL(env.PAYMENT_APP_ORIGIN ?? "invalid:");
+  } catch {
+    return false;
+  }
+  const rawPaystackStubUrl = (env.KT_E2E_PAYSTACK_BASE_URL ?? "").trim();
+  return env.KT_RUNTIME_ENV === "e2e"
+    && env.KT_DATABASE_CLASSIFICATION !== "production"
+    && env.KT_NETWORK_DISABLED === "true"
+    && env.QA_ACCEPTANCE_LANE_ENABLED === "true"
+    && env.PAYSTACK_ACCEPTANCE_SANDBOX_ENABLED === "true"
+    && /^http:\/\/(?:127\.0\.0\.1|localhost):\d{2,5}$/.test(rawPaystackStubUrl)
+    && env.PAYSTACK_MODE === "test"
+    && !(env.PAYSTACK_SECRET_KEY ?? "").trim()
+    && env.EMAIL_PROVIDER === "console"
+    && !env.RESEND_API_KEY
+    && (env.NODE_ENV === "test" || env.NODE_ENV === "production")
+    && isSafeLocalTestDatabaseUrl(env.DATABASE_URL)
+    && origin.protocol === "http:"
+    && ["localhost", "127.0.0.1"].includes(origin.hostname);
+}
+
+export function isOfflineE2eSecurityEmailRuntime(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return isDisposableSecurityEmailRuntime(env) || isQaOperationalE2eSecurityEmailRuntime(env);
+}
+
 export function sendDisposableSecurityEmail(
   input: ProviderSendInput,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): ProviderSendResult {
-  if (!isDisposableSecurityEmailRuntime(env)) {
+  if (!isOfflineE2eSecurityEmailRuntime(env)) {
     throw new Error("Disposable security email is not available in this runtime.");
   }
   if (!/^e2e-[a-z0-9-]+@ktcouriers\.local$/.test(input.destination)) {

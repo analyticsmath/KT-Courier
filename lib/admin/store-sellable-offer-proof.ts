@@ -7,7 +7,8 @@ import {
   type TrustedPackageVersion,
   type TrustedParcelClassification,
 } from "@/lib/marketplace-checkout/parcel-classification";
-import { listTrustedPackageVersions } from "@/lib/marketplace-checkout/parcel-configuration.service";
+import { listTrustedPackageVersionsSafely } from "@/lib/marketplace-checkout/parcel-configuration.service";
+import { PACKAGING_PREFIX } from "@/lib/services/catalog-packaging.service";
 
 type CatalogReadDb = Prisma.TransactionClient | typeof prisma;
 
@@ -186,16 +187,45 @@ export async function selectEligibleSellableOffersForStore(
   const inventoryByOfferId = new Map(inventories.map((item) => [item.offerId, item]));
 
   const needsCourierPackaging = offers.some((offer) => offer.fulfilmentMode !== "STORE_PICKUP");
-  const [trustedVersions, activeParcelProfiles] = needsCourierPackaging
+  const storeIsQaAcceptance =
+    typeof (db as { store?: { findUnique?: unknown } })?.store?.findUnique === "function"
+      ? Boolean(
+          (
+            await (db as unknown as {
+              store: { findUnique: (args: { where: { id: string }; select: { isQaAcceptance: true } }) => Promise<{ isQaAcceptance?: boolean } | null> };
+            }).store.findUnique({ where: { id: storeId }, select: { isQaAcceptance: true } })
+          )?.isQaAcceptance,
+        )
+      : false;
+  const [trustedVersionsRaw, activeParcelProfiles] = needsCourierPackaging
     ? await Promise.all([
         options?.trustedPackageVersions
           ? Promise.resolve(options.trustedPackageVersions)
-          : listTrustedPackageVersions(),
+          : listTrustedPackageVersionsSafely().then((res) => res.versions),
         options?.activeParcelProfiles
           ? Promise.resolve(options.activeParcelProfiles)
           : loadActiveParcelProfilesForProof(db, now),
       ])
     : [[], []];
+  const trustedVersions = trustedVersionsRaw.map((version) => ({ ...version, packages: [...version.packages] }));
+  if (needsCourierPackaging && typeof (db as { systemSetting?: { findUnique?: unknown } })?.systemSetting?.findUnique === "function") {
+    for (const version of trustedVersions) {
+      for (const entry of version.packages) {
+        if (entry.storeId !== storeId || !entry.authorityReference.startsWith(PACKAGING_PREFIX)) continue;
+        const declRow = await (db as unknown as {
+          systemSetting: { findUnique: (args: { where: { key: string } }) => Promise<{ value: unknown } | null> };
+        }).systemSetting.findUnique({ where: { key: PACKAGING_PREFIX + entry.offerReference } });
+        const revision = (declRow?.value as { revision?: string } | null)?.revision;
+        if (!revision || entry.authorityReference !== `${PACKAGING_PREFIX}${entry.offerReference}:${revision}`) {
+          entry.authorityReference = "STALE_VENDOR_MEASUREMENTS";
+        }
+      }
+    }
+  }
+  const filteredTrustedVersions = trustedVersions.map((version) => ({
+    ...version,
+    packages: version.packages.filter((entry) => entry.authorityReference !== "STALE_VENDOR_MEASUREMENTS"),
+  }));
 
   const eligible: EligibleProofOffer[] = [];
   for (const offer of offers) {
@@ -293,6 +323,7 @@ export async function selectEligibleSellableOffersForStore(
     if (offer.fulfilmentMode !== "STORE_PICKUP") {
       parcelClassification = classifyTrustedMarketplaceParcel({
         storeId,
+        storeIsQaAcceptance,
         lines: [
           {
             offerReference: offer.publicReference,
@@ -305,7 +336,7 @@ export async function selectEligibleSellableOffersForStore(
             })),
           },
         ],
-        versions: trustedVersions,
+        versions: filteredTrustedVersions,
         profiles: activeParcelProfiles,
         now,
       });

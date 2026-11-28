@@ -5,9 +5,10 @@ import { useState } from "react";
 export function CommissionPlanDraftForm({ stores = [], selectedStoreId }: { stores?: readonly { id: string; name: string }[]; selectedStoreId?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [subjectType, setSubjectType] = useState(selectedStoreId ? "MARKETPLACE_STORE_ORDER" : "COURIER_ORDER");
+  const [courierScope, setCourierScope] = useState<"GLOBAL:COURIER_ORDER" | "QA:COURIER_ORDER">("GLOBAL:COURIER_ORDER");
   async function submit(formData: FormData) {
     setMessage(null);
-    const body = { subjectType, scopeKey: subjectType === "MARKETPLACE_STORE_ORDER" ? `STORE:${formData.get("storeId")}` : "GLOBAL:COURIER_ORDER", basisType: formData.get("basisType"), effectiveFrom: new Date(String(formData.get("effectiveFrom"))).toISOString(), effectiveUntil: formData.get("effectiveUntil") ? new Date(String(formData.get("effectiveUntil"))).toISOString() : null, calculationVersion: String(formData.get("calculationVersion")), rules: [{ ruleCode: String(formData.get("ruleCode")).toUpperCase(), allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: Number(formData.get("rateBasisPoints")), priority: 10, isRequired: true }], operationId: crypto.randomUUID() };
+    const body = { subjectType, scopeKey: subjectType === "MARKETPLACE_STORE_ORDER" ? `STORE:${formData.get("storeId")}` : courierScope, basisType: formData.get("basisType"), effectiveFrom: new Date(String(formData.get("effectiveFrom"))).toISOString(), effectiveUntil: formData.get("effectiveUntil") ? new Date(String(formData.get("effectiveUntil"))).toISOString() : null, calculationVersion: String(formData.get("calculationVersion")), rules: [{ ruleCode: String(formData.get("ruleCode")).toUpperCase(), allocationType: "PLATFORM_COMMISSION_REVENUE", beneficiaryType: "PLATFORM", calculationMethod: "PERCENTAGE_BPS", rateBasisPoints: Number(formData.get("rateBasisPoints")), priority: 10, isRequired: true }], operationId: crypto.randomUUID() };
     const response = await fetch("/api/admin/commission-plans", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const data = await response.json() as { error?: string; plan?: { publicReference: string } };
     setMessage(response.ok ? `Draft ${data.plan?.publicReference ?? "commission plan"} created. Refresh to inspect it.` : data.error ?? "Unable to create commission plan draft.");
@@ -16,6 +17,15 @@ export function CommissionPlanDraftForm({ stores = [], selectedStoreId }: { stor
     <h2 className="font-semibold">Create commission plan draft</h2>
     <p className="text-sm text-[--kt-text-muted]">Supply the agreed commercial rate. Independent approval is required before activation.</p>
     <div><label htmlFor="commission-subject">Policy subject</label><select id="commission-subject" value={subjectType} onChange={(event) => setSubjectType(event.target.value)}><option value="COURIER_ORDER">Courier orders</option><option value="MARKETPLACE_STORE_ORDER" disabled={!stores.length}>Marketplace store settlement</option></select></div>
+    {subjectType === "COURIER_ORDER" && (
+      <div>
+        <label htmlFor="commission-courier-scope">Courier policy scope</label>
+        <select id="commission-courier-scope" value={courierScope} onChange={(event) => setCourierScope(event.target.value as "GLOBAL:COURIER_ORDER" | "QA:COURIER_ORDER")}>
+          <option value="GLOBAL:COURIER_ORDER">GLOBAL:COURIER_ORDER (Production &amp; Global Courier)</option>
+          <option value="QA:COURIER_ORDER">QA:COURIER_ORDER (Isolated QA Acceptance Courier Orders Only)</option>
+        </select>
+      </div>
+    )}
     {subjectType === "MARKETPLACE_STORE_ORDER" && <>
       <div><label htmlFor="commission-store">Store</label><select id="commission-store" name="storeId" required defaultValue={selectedStoreId ?? ""}><option value="" disabled>Choose an active store</option>{stores.map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></div>
       <p>Commission applies to the seller subtotal. Delivery fees remain separate.</p>

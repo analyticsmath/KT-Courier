@@ -4,6 +4,18 @@ import { prisma } from "@/lib/db/prisma";
 import { recordAdminActivity } from "@/lib/services/admin-activity.service";
 import { resolveQaAcceptanceLaneConfig } from "./config";
 import { ensureOwnerWalletIsolatedForQaInTx, ensureQaPlatformSandboxAccountsInTx } from "./ledger";
+import { buildQaReconciliationDetails } from "./reconciliation-detail";
+export {
+  recordQaSyntheticPackageDraft,
+  reviewAndActivateQaSyntheticPackaging,
+  QaPackagingError,
+} from "./synthetic-packaging";
+export {
+  prepareQaSettlementRecovery,
+  reviewQaSettlementRecovery,
+  listAllQaSettlementRecoveries,
+  QaSettlementRecoveryError,
+} from "./settlement-recovery";
 
 export class QaAcceptanceError extends Error {
   constructor(
@@ -177,6 +189,15 @@ export async function getQaAcceptanceDashboard(searchQuery?: string) {
     driverProfile: u.driverProfile,
   }));
 
+  const enrolledQaStoreIds = principals
+    .filter((p) => p.active && p.role === QaAcceptanceRole.VENDOR && p.storeId)
+    .map((p) => p.storeId as string);
+  const details = await buildQaReconciliationDetails({
+    isolatedWallets: sandboxAccounts,
+    runs,
+    enrolledQaStoreIds,
+  });
+
   return Object.freeze({
     config: {
       eligible: config.eligible,
@@ -219,6 +240,7 @@ export async function getQaAcceptanceDashboard(searchQuery?: string) {
           creditTotal: a.creditTotal.toFixed(2),
         })),
       })),
+      ...details,
     },
   });
 }

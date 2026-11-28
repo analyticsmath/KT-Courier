@@ -8,25 +8,103 @@ export type StorePickupPreflightFacts = Readonly<{
   mapCoordinatesValid: boolean;
   area: "NOT_CHECKED" | "COVERED" | "UNVERIFIED";
   matchingServiceCount: number;
+  operatingHours?: unknown;
+  routeVerified?: boolean;
+  checkoutCertified?: boolean;
+  independentHoursReviewRecorded?: boolean;
+}>;
+
+import {
+  formatStoreOperatingHoursSummary,
+  parseStoreOperatingHours,
+} from "@/lib/qa-acceptance/operating-hours";
+
+export type StoreOperatingHoursStatus = "ABSENT" | "INVALID" | "CONFIGURED";
+
+export type StoreOperatingHoursState = Readonly<{
+  status: StoreOperatingHoursStatus;
+  summary: string | null;
+  physicalSiteConfirmed: false;
+  independentReviewRecorded: boolean;
 }>;
 
 export type StorePickupPreflightResult = Readonly<{
   stage: "DRAFT" | "INCOMPLETE" | "PICKUP_AREA_READY" | "PAUSED";
   blockers: readonly string[];
   outstandingChecks: readonly string[];
-  routeVerified: false;
-  checkoutCertified: false;
+  routeVerified: boolean;
+  checkoutCertified: boolean;
+  operatingHoursState: StoreOperatingHoursState;
 }>;
 
-const outstandingChecks = [
-  "TRADING_HOURS_NOT_CONFIRMED",
-  "DESTINATION_ROUTE_NOT_TESTED",
-  "CHECKOUT_NOT_TESTED",
-] as const;
+export function evaluateStoreOperatingHoursState(
+  operatingHours: unknown,
+  independentReviewRecorded = false,
+): StoreOperatingHoursState {
+  if (operatingHours === null || operatingHours === undefined) {
+    return {
+      status: "ABSENT",
+      summary: null,
+      physicalSiteConfirmed: false,
+      independentReviewRecorded: false,
+    };
+  }
+  const parsed = parseStoreOperatingHours(operatingHours);
+  if (!parsed) {
+    return {
+      status: "INVALID",
+      summary: null,
+      physicalSiteConfirmed: false,
+      independentReviewRecorded: false,
+    };
+  }
+  const formatted = formatStoreOperatingHoursSummary(parsed);
+  return {
+    status: "CONFIGURED",
+    summary: formatted.summary,
+    physicalSiteConfirmed: false,
+    independentReviewRecorded,
+  };
+}
+
+export function buildPickupOutstandingChecks(input: Readonly<{
+  operatingHoursState: StoreOperatingHoursState;
+  routeVerified: boolean;
+  checkoutCertified: boolean;
+}>): readonly string[] {
+  const checks: string[] = [];
+  if (input.operatingHoursState.status === "ABSENT") {
+    checks.push("TRADING_HOURS_NOT_CONFIRMED");
+  } else if (input.operatingHoursState.status === "INVALID") {
+    checks.push("TRADING_HOURS_INVALID");
+  }
+  if (!input.routeVerified) checks.push("DESTINATION_ROUTE_NOT_TESTED");
+  if (!input.checkoutCertified) checks.push("CHECKOUT_NOT_TESTED");
+  return checks;
+}
 
 export function evaluateStorePickupPreflight(facts: StorePickupPreflightFacts): StorePickupPreflightResult {
+  const checkoutCertified = Boolean(facts.checkoutCertified);
+  const routeVerified = Boolean(facts.routeVerified);
+  const operatingHoursState = evaluateStoreOperatingHoursState(
+    facts.operatingHours,
+    Boolean(facts.independentHoursReviewRecorded ?? checkoutCertified),
+  );
+  const outstandingChecks = buildPickupOutstandingChecks({
+    operatingHoursState,
+    routeVerified,
+    checkoutCertified,
+  });
+
   if (facts.status === "SUSPENDED" || facts.status === "DISABLED") {
-    return { stage: "PAUSED", blockers: ["STORE_ACCOUNT_PAUSED"], outstandingChecks, routeVerified: false, checkoutCertified: false };
+    return {
+      stage: "PAUSED",
+      blockers: ["STORE_ACCOUNT_PAUSED"],
+      outstandingChecks,
+      routeVerified: false,
+      checkoutCertified: false,
+      operatingHoursState,
+    };
   }
   const blockers: string[] = [];
   if (!facts.hasContact) blockers.push("STORE_CONTACT_MISSING");
@@ -44,8 +122,9 @@ export function evaluateStorePickupPreflight(facts: StorePickupPreflightFacts): 
     stage: facts.status === "PENDING" ? "DRAFT" : blockers.length ? "INCOMPLETE" : "PICKUP_AREA_READY",
     blockers,
     outstandingChecks,
-    routeVerified: false,
-    checkoutCertified: false,
+    routeVerified,
+    checkoutCertified,
+    operatingHoursState,
   };
 }
 

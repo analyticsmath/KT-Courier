@@ -8,6 +8,7 @@ import { PAYSTACK_CAPABILITIES, PaystackAdapter } from "@/lib/payments/providers
 import type { PaymentProviderReadinessDto } from "@/lib/payments/providers/payment-provider-registry";
 import { PaystackClient } from "@/lib/payments/providers/paystack/paystack-client";
 import { PaymentError } from "@/lib/payments/errors";
+import { isSafeLocalTestDatabaseUrl } from "@/lib/testing/safe-postgres-validator";
 
 type EnvironmentSource = Readonly<Record<string, string | undefined>>;
 
@@ -234,12 +235,21 @@ export function resolveQaPaystackRuntimeConfig(
       summary.reason,
     );
   }
+  const rawE2eBaseUrl = (source.KT_E2E_PAYSTACK_BASE_URL ?? "").trim();
+  const safeApiBaseUrl =
+    source.KT_RUNTIME_ENV === "e2e" &&
+    source.KT_DATABASE_CLASSIFICATION !== "production" &&
+    isSafeLocalTestDatabaseUrl(source.DATABASE_URL) &&
+    /^http:\/\/(?:127\.0\.0\.1|localhost):\d{2,5}$/.test(rawE2eBaseUrl)
+      ? rawE2eBaseUrl
+      : PAYSTACK_API_BASE_URL;
+
   return Object.freeze({
     mode: "test",
     environment: "sandbox",
     secretKey: resolved.secretKey,
     appOrigin: resolveAppOriginForQa(source),
-    apiBaseUrl: PAYSTACK_API_BASE_URL,
+    apiBaseUrl: safeApiBaseUrl,
     credentialVersion: summary.credentialVersion,
     checkoutAuditVersion: "paystack-redirect-v1",
     configurationFingerprint: "paystack-v1:sandbox",

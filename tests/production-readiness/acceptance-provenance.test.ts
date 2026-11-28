@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
+import { generateKeyPairSync } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import {
   AcceptanceEvidenceSchema,
+  REQUIRED_CERTIFICATION_ARTIFACTS,
   REQUIRED_CERTIFICATION_JOBS,
   REQUIRED_PRIMARY_CI_JOBS,
   assertSandboxPaymentAcceptance,
@@ -10,6 +12,8 @@ import {
   fetchGithubCiRun,
   verifyAcceptanceProvenanceWithAdapters,
 } from "@/lib/production-readiness/evidence";
+import { verifyCiCertificationRemote } from "@/lib/production-readiness/verification-adapters.server";
+import { resolveGithubReadAuthorization } from "@/lib/production-readiness/github-auth";
 
 describe("acceptance provenance & timing verification", () => {
   const releaseSha = "691ebded959858e86b4cb28674f52394c1f5676c";
@@ -286,7 +290,14 @@ describe("acceptance provenance & timing verification", () => {
       if (url.includes("/runs/45352739746/artifacts")) {
         return new Response(
           JSON.stringify({
-            artifacts: [{ name: "certification-quality", expired: false, archive_download_url: "https://api.github.com/artifacts/1/zip" }],
+            artifacts: REQUIRED_CERTIFICATION_ARTIFACTS.map((name, idx) => ({
+              name,
+              expired: false,
+              archive_download_url:
+                name === "certification-quality"
+                  ? "https://api.github.com/artifacts/1/zip"
+                  : `https://api.github.com/artifacts/${idx + 10}/zip`,
+            })),
           }),
           { status: 200 },
         );
@@ -299,6 +310,10 @@ describe("acceptance provenance & timing verification", () => {
 
     const info = await fetchGithubCiRun("45352739746", "ghp_test_token", releaseSha, mockFetch);
     expect(info.missingJobs).toEqual([]);
+    expect(info.missingArtifacts).toEqual([]);
+    expect(info.artifactsVerified).toBe(true);
+    expect(info.artifactDownloadVerified).toBe(true);
+    expect(info.artifactDownloadStatus).toBe("VERIFIED");
     expect(info.primaryCiVerified).toBe(true);
     expect(info.verifiedTestsPassed).toBe(5933);
     expect(info.jobsPassed).toBe(116);
@@ -466,5 +481,261 @@ describe("acceptance provenance & timing verification", () => {
         adapters: { verifyCiRun },
       }),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("allows non-financial LIVE operational keys without financialAuthorizationReference while still requiring it on monetary keys", async () => {
+    for (const key of [
+      "vendor_onboarding_acceptance",
+      "driver_onboarding_acceptance",
+      "driver_gps_acceptance",
+      "pod_otp_acceptance",
+    ] as const) {
+      const parsedNull = AcceptanceEvidenceSchema.safeParse({
+        kind: "LIVE",
+        key,
+        releaseSha,
+        observedAt,
+        expiresAt,
+        evidenceReference: `ops:${key}-001`,
+        reason: `Operational workflow review completed for ${key}`,
+        genuineOperatorAcceptance: true,
+        financialAuthorizationReference: null,
+      });
+      expect(parsedNull.success).toBe(true);
+
+      const parsedOmitted = AcceptanceEvidenceSchema.safeParse({
+        kind: "LIVE",
+        key,
+        releaseSha,
+        observedAt,
+        expiresAt,
+        evidenceReference: `ops:${key}-002`,
+        reason: `Operational workflow review omitted auth ref for ${key}`,
+        genuineOperatorAcceptance: true,
+      });
+      expect(parsedOmitted.success).toBe(true);
+
+      const res = await verifyAcceptanceProvenanceWithAdapters(parsedOmitted.data!, {
+        now: reviewNow,
+        env: { NODE_ENV: "production", KT_DATABASE_CLASSIFICATION: "production", RAILWAY_GIT_COMMIT_SHA: releaseSha },
+      });
+      expect(res.verificationMode).toBe("HUMAN_ATTESTED");
+    }
+
+    for (const moneyKey of [
+      "payment_integration_acceptance",
+      "settlement_acceptance",
+      "refund_acceptance",
+      "payout_acceptance",
+    ] as const) {
+      expect(
+        AcceptanceEvidenceSchema.safeParse({
+          kind: "LIVE",
+          key: moneyKey,
+          releaseSha,
+          observedAt,
+          expiresAt,
+          evidenceReference: `fin:${moneyKey}-001`,
+          reason: `Monetary acceptance must require separate authorization reference for ${moneyKey}`,
+          genuineOperatorAcceptance: true,
+          financialAuthorizationReference: null,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("verifies CI certification via release-authority /ci/verify and falls back cleanly on 404 to public/GitHub-App REST without a fine-grained PAT", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          headSha: releaseSha,
+          headBranch: "main",
+          workflowPath: ".github/workflows/production-certification.yml",
+          status: "completed",
+          conclusion: "success",
+          completedAt: "2026-10-07T00:03:00.000Z",
+          jobsPassed: 26,
+          skippedJobs: 0,
+          missingJobs: [],
+          primaryCiVerified: true,
+          verifiedTestsPassed: null,
+        }),
+        { status: 200 },
+      ),
+    );
+    const viaReleaseAuth = await verifyCiCertificationRemote(
+      { runId: "45984912077", releaseSha },
+      {
+        allowLoopbackForTest: true,
+        fetchImpl: fetchMock,
+        env: {
+          KT_PARITY_VERIFIER_URL: "http://127.0.0.1:8080/v1/release-authority/parity/verify",
+          KT_PARITY_VERIFIER_TOKEN: "tok_read_test_0123456789",
+        },
+      },
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("http://127.0.0.1:8080/v1/release-authority/ci/verify");
+    expect(viaReleaseAuth.jobsPassed).toBe(26);
+
+    // Mismatch from release-authority MUST reject immediately without falling back
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ code: "CI_VERIFICATION_MISMATCH", error: "Head SHA mismatch" }), { status: 409 }),
+    );
+    await expect(
+      verifyCiCertificationRemote(
+        { runId: "45984912077", releaseSha },
+        {
+          allowLoopbackForTest: true,
+          fetchImpl: fetchMock,
+          env: {
+            KT_PARITY_VERIFIER_URL: "http://127.0.0.1:8080/v1/release-authority/parity/verify",
+            KT_PARITY_VERIFIER_TOKEN: "tok_read_test_0123456789",
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: "CI_VERIFICATION_MISMATCH", status: 409 });
+
+    // Older release-authority returning 404 triggers GitHub REST fallback without GITHUB_RELEASE_READ_TOKEN
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+    const ghFallbackFetch = vi.fn<typeof fetch>(async (url) => {
+      const target = String(url);
+      if (target.includes("/v1/release-authority/ci/verify")) {
+        return new Response(JSON.stringify({ code: "NOT_FOUND" }), { status: 404 });
+      }
+      if (target.includes("/app/installations/999/access_tokens")) {
+        return new Response(JSON.stringify({ token: "ghs_app_inst_token_test" }), { status: 201 });
+      }
+      if (target.endsWith("/actions/runs/45984912077")) {
+        return new Response(
+          JSON.stringify({
+            head_sha: releaseSha,
+            head_branch: "main",
+            path: ".github/workflows/production-certification.yml",
+            status: "completed",
+            conclusion: "success",
+            updated_at: "2026-10-07T00:03:00.000Z",
+            run_attempt: 1,
+          }),
+          { status: 200 },
+        );
+      }
+      if (target.includes("/actions/runs/45984912077/attempts/1/jobs")) {
+        return new Response(JSON.stringify({ total_count: 26, jobs: REQUIRED_CERTIFICATION_JOBS.map((name) => ({ name, conclusion: "success" })) }), { status: 200 });
+      }
+      if (target.includes("/actions/workflows/ci.yml/runs")) {
+        return new Response(
+          JSON.stringify({ workflow_runs: [{ id: 45984912265, head_sha: releaseSha, head_branch: "main", status: "completed", conclusion: "success", run_attempt: 1 }] }),
+          { status: 200 },
+        );
+      }
+      if (target.includes("/actions/runs/45984912265/attempts/1/jobs")) {
+        return new Response(JSON.stringify({ total_count: 10, jobs: REQUIRED_PRIMARY_CI_JOBS.map((name) => ({ name, conclusion: "success" })) }), { status: 200 });
+      }
+      if (target.includes("/actions/runs/45984912077/artifacts")) {
+        return new Response(
+          JSON.stringify({
+            artifacts: REQUIRED_CERTIFICATION_ARTIFACTS.map((name, idx) => ({
+              name,
+              expired: false,
+              archive_download_url: `https://api.github.com/artifacts/${idx + 100}/zip`,
+            })),
+          }),
+          { status: 200 },
+        );
+      }
+      return new Response("not found", { status: 404 });
+    });
+
+    const appFallback = await verifyCiCertificationRemote(
+      { runId: "45984912077", releaseSha },
+      {
+        allowLoopbackForTest: true,
+        fetchImpl: ghFallbackFetch,
+        env: {
+          KT_PARITY_VERIFIER_URL: "http://127.0.0.1:8080/v1/release-authority/parity/verify",
+          KT_PARITY_VERIFIER_TOKEN: "tok_read_test_0123456789",
+          GITHUB_APP_ID: "123456",
+          GITHUB_APP_INSTALLATION_ID: "999",
+          GITHUB_APP_PRIVATE_KEY: pem,
+        },
+      },
+    );
+    expect(appFallback.primaryCiVerified).toBe(true);
+    expect(appFallback.missingJobs).toEqual([]);
+    expect(appFallback.artifactsVerified).toBe(true);
+    expect(appFallback.missingArtifacts).toEqual([]);
+
+    const anonAuth = await resolveGithubReadAuthorization({}, ghFallbackFetch);
+    expect(anonAuth).toEqual({ mode: "PUBLIC_ANONYMOUS", token: null });
+
+    // Anonymous GitHub verification must never claim artifact ZIP download succeeded
+    const anonRunInfo = await fetchGithubCiRun("45984912077", null, releaseSha, ghFallbackFetch);
+    expect(anonRunInfo.authMode).toBe("PUBLIC_ANONYMOUS");
+    expect(anonRunInfo.artifactsVerified).toBe(true);
+    expect(anonRunInfo.artifactDownloadVerified).toBe(false);
+    expect(anonRunInfo.artifactDownloadStatus).toBe("REQUIRES_AUTH");
+    expect(anonRunInfo.verifiedTestsPassed).toBeNull();
+
+    // Missing required artifact fails closed on provenance verification
+    const missingArtifactInfo = {
+      ...anonRunInfo,
+      artifactsVerified: false,
+      missingArtifacts: ["certification-quality"],
+      artifactDownloadStatus: "MISSING_REQUIRED_ARTIFACT" as const,
+    };
+    await expect(
+      verifyAcceptanceProvenanceWithAdapters(
+        {
+          kind: "CI",
+          key: "current_ci_certification",
+          releaseSha,
+          observedAt,
+          expiresAt,
+          evidenceReference: "ci:45984912077",
+          reason: "Missing certification artifact must be rejected",
+          runUrl: "https://github.com/analyticsmath/KT-Courier/actions/runs/45984912077",
+          conclusion: "SUCCESS",
+          skippedCriticalTests: 0,
+          testsPassed: 5933,
+        },
+        {
+          now: reviewNow,
+          requireServerVerification: true,
+          env: { NODE_ENV: "production", KT_DATABASE_CLASSIFICATION: "production", RAILWAY_GIT_COMMIT_SHA: releaseSha },
+          adapters: { verifyCiRun: async () => missingArtifactInfo },
+        },
+      ),
+    ).rejects.toMatchObject({ code: "CI_VERIFICATION_MISMATCH", status: 409 });
+
+    // Rate-limit on artifacts endpoint must throw CI_VERIFICATION_UNAVAILABLE truthfully
+    const rateLimitedFetch = vi.fn<typeof fetch>(async (url) => {
+      const target = String(url);
+      if (target.includes("/artifacts")) {
+        return new Response(JSON.stringify({ message: "API rate limit exceeded" }), {
+          status: 403,
+          headers: { "x-ratelimit-remaining": "0", "x-ratelimit-reset": "1800000000" },
+        });
+      }
+      return ghFallbackFetch(url);
+    });
+    await expect(
+      fetchGithubCiRun("45984912077", null, releaseSha, rateLimitedFetch),
+    ).rejects.toMatchObject({ code: "CI_VERIFICATION_UNAVAILABLE", status: 502 });
+
+    // Authenticated ZIP endpoint returning 401 must surface UNAUTHORIZED without faking test count
+    const unauthorizedZipFetch = vi.fn<typeof fetch>(async (url) => {
+      const target = String(url);
+      if (target.includes("/artifacts/") && target.endsWith("/zip")) {
+        return new Response(JSON.stringify({ message: "Requires authentication" }), { status: 401 });
+      }
+      return ghFallbackFetch(url);
+    });
+    const zipDeniedInfo = await fetchGithubCiRun("45984912077", "tok_test_denied", releaseSha, unauthorizedZipFetch);
+    expect(zipDeniedInfo.artifactDownloadVerified).toBe(false);
+    expect(zipDeniedInfo.artifactDownloadStatus).toBe("UNAUTHORIZED");
+    expect(zipDeniedInfo.verifiedTestsPassed).toBeNull();
   });
 });

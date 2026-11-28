@@ -138,6 +138,7 @@ export const PROTECTED_NAVIGATION_REGISTRY: readonly ProtectedNavigationItem[] =
   { id: "admin-settings", label: "Settings", href: "/admin/settings", icon: "cog", group: "Governance", requiredPermissions: [PERMISSIONS.SETTINGS_READ], contexts: C.ADMIN },
   { id: "admin-activity", label: "Activity", href: "/admin/activity", icon: "activity", group: "Governance", requiredPermissions: [PERMISSIONS.ACTIVITY_READ], contexts: C.ADMIN },
   { id: "admin-reconciliation", label: "Reconciliation", href: "/admin/reconciliation", icon: "activity", group: "Command centre", requiredPermissions: [PERMISSIONS.PAYMENT_RECONCILIATION_READ], contexts: C.ADMIN },
+  { id: "admin-reports", label: "Reports", href: "/admin/reports", icon: "file", group: "Operations", requiredPermissions: [PERMISSIONS.REPORT_DEFINITION_READ], contexts: C.ADMIN },
   { id: "admin-processors", label: "Processors", href: "/admin/processors", icon: "route", group: "Command centre", requiredPermissions: [PERMISSIONS.PROCESSORS_READ], contexts: C.ADMIN },
   { id: "admin-incidents", label: "Incidents", href: "/admin/incidents", icon: "shield", group: "Command centre", requiredPermissions: [PERMISSIONS.INCIDENTS_READ], contexts: C.ADMIN },
   { id: "admin-privacy-requests", label: "Privacy requests", href: "/admin/privacy-requests", icon: "shield", group: "Governance", requiredPermissions: [PERMISSIONS.PRIVACY_REQUESTS_READ], contexts: C.ADMIN },

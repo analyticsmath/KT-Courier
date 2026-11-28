@@ -25,6 +25,7 @@ export const reportJobSummarySchema = z.object({
 
 export const reportJobDetailSchema = reportJobSummarySchema.extend({
   errorMessage: z.string().nullable(),
+  artifactExpired: z.boolean().optional(),
   artifact: reportArtifactSummarySchema.nullable(),
 });
 

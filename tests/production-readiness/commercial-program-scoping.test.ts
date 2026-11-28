@@ -225,3 +225,97 @@ describe("Marketplace delivery pricing readiness", () => {
     expect(result).toMatchObject({ status: "BLOCKED_CONFIGURATION", reasonCode: "MARKETPLACE_COURIER_SERVICE_UNAVAILABLE" });
   });
 });
+
+describe("Commission coverage scoping across active business accounts vs commercially eligible sellers", () => {
+  it("queries only commercially eligible non-QA marketplace stores so incomplete parcel business accounts do not trigger false marketplace plan blockers", async () => {
+    db.store.findMany.mockResolvedValue([]);
+    db.commissionPlan.findMany.mockResolvedValue([
+      {
+        subjectType: "COURIER_ORDER",
+        scopeKey: "GLOBAL:COURIER_ORDER",
+        currency: "ZAR",
+        status: "ACTIVE",
+        basisType: "ORDER_TOTAL",
+        effectiveFrom: new Date("2026-11-01T00:00:00Z"),
+        effectiveUntil: null,
+        calculationVersion: "courier-v1",
+        createdByUserId: "maker-1",
+        approvedByUserId: "reviewer-1",
+        approvedAt: new Date("2026-11-02T00:00:00Z"),
+        rules: [
+          {
+            id: "r1",
+            ruleCode: "COURIER_FEE",
+            allocationType: "PLATFORM_COMMISSION_REVENUE",
+            beneficiaryType: "PLATFORM",
+            calculationMethod: "PERCENTAGE_BPS",
+            rateBasisPoints: 1000,
+            fixedAmount: null,
+            minimumAmount: null,
+            maximumAmount: null,
+            priority: 1,
+            isRequired: true,
+          },
+        ],
+      },
+    ]);
+
+    const entry = (await getProductionReadiness()).capabilities.find((c) => c.key === "approved_commission_plan");
+    expect(entry).toMatchObject({ status: "READY", reasonCode: "APPROVED_COMMISSION_SCOPE_COVERAGE_CURRENT" });
+    expect(db.store.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: "ACTIVE",
+          isQaAcceptance: false,
+          OR: expect.arrayContaining([
+            { checkoutCertification: { is: { status: "APPROVED" } } },
+            { storefrontDocument: { is: { publicStatus: "ACTIVE" } } },
+            { catalogOffers: { some: { status: { in: ["ACTIVE", "OUT_OF_STOCK"] } } } },
+            { marketplaceStoreOrders: { some: {} } },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it("still blocks approved_commission_plan when a commercially eligible non-QA seller lacks an active STORE subtotal plan", async () => {
+    db.store.findMany.mockResolvedValue([{ id: "eligible-seller-1" }]);
+    db.commissionPlan.findMany.mockResolvedValue([
+      {
+        subjectType: "COURIER_ORDER",
+        scopeKey: "GLOBAL:COURIER_ORDER",
+        currency: "ZAR",
+        status: "ACTIVE",
+        basisType: "ORDER_TOTAL",
+        effectiveFrom: new Date("2026-11-01T00:00:00Z"),
+        effectiveUntil: null,
+        calculationVersion: "courier-v1",
+        createdByUserId: "maker-1",
+        approvedByUserId: "reviewer-1",
+        approvedAt: new Date("2026-11-02T00:00:00Z"),
+        rules: [
+          {
+            id: "r1",
+            ruleCode: "COURIER_FEE",
+            allocationType: "PLATFORM_COMMISSION_REVENUE",
+            beneficiaryType: "PLATFORM",
+            calculationMethod: "PERCENTAGE_BPS",
+            rateBasisPoints: 1000,
+            fixedAmount: null,
+            minimumAmount: null,
+            maximumAmount: null,
+            priority: 1,
+            isRequired: true,
+          },
+        ],
+      },
+    ]);
+
+    const entry = (await getProductionReadiness()).capabilities.find((c) => c.key === "approved_commission_plan");
+    expect(entry).toMatchObject({
+      status: "BLOCKED_EXTERNAL_INPUT",
+      reasonCode: "STORE_COMMISSION_PLAN_COVERAGE_INCOMPLETE",
+      evidence: expect.objectContaining({ activeStoreCount: 1, missingStorePlanCount: 1 }),
+    });
+  });
+});

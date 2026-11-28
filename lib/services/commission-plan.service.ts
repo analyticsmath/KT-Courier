@@ -73,8 +73,10 @@ function normalizedRules(rules: readonly PlanRuleInput[]) {
 }
 
 function normalizedDraft(input: PlanDraftInput) {
-  const validScope = input.subjectType === "COURIER_ORDER" ? input.scopeKey === "GLOBAL:COURIER_ORDER" : input.subjectType === "MARKETPLACE_STORE_ORDER" && /^STORE:c[a-z0-9]{20,40}$/i.test(input.scopeKey);
-  if (!validScope || !input.calculationVersion.trim()) throw new CommissionError("COMMISSION_INVALID_PLAN", "Choose the canonical courier scope or a specific marketplace store.");
+  const validScope = input.subjectType === "COURIER_ORDER"
+    ? (input.scopeKey === "GLOBAL:COURIER_ORDER" || input.scopeKey === "QA:COURIER_ORDER")
+    : input.subjectType === "MARKETPLACE_STORE_ORDER" && /^STORE:c[a-z0-9]{20,40}$/i.test(input.scopeKey);
+  if (!validScope || !input.calculationVersion.trim()) throw new CommissionError("COMMISSION_INVALID_PLAN", "Choose the canonical courier scope, QA courier scope, or a specific marketplace store.");
   if (input.subjectType === "MARKETPLACE_STORE_ORDER" && (input.basisType !== "ORDER_SUBTOTAL" || input.rules.some((rule) => rule.beneficiaryType !== "PLATFORM"))) throw new CommissionError("COMMISSION_INVALID_PLAN", "Store settlement requires seller subtotal and platform commission rules, excluding delivery fees.");
   const effectiveFrom = date(input.effectiveFrom, "effectiveFrom"); const effectiveUntil = input.effectiveUntil ? date(input.effectiveUntil, "effectiveUntil") : null;
   if (effectiveUntil && effectiveUntil <= effectiveFrom) throw new CommissionError("COMMISSION_INVALID_PLAN", "effectiveUntil must be after effectiveFrom.");

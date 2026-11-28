@@ -345,6 +345,24 @@ export async function approveStoreCheckoutCertification(
       data: { status: "APPROVED", approvedByUserId: approvingAdminId,
         approvedAt: now, revision: { increment: 1 } },
     });
+    if (typeof (tx as unknown as { catalogPublicationSnapshot?: { findMany?: unknown } }).catalogPublicationSnapshot?.findMany === "function") {
+      const missingProjectionSnapshots = await tx.catalogPublicationSnapshot.findMany({
+        where: {
+          status: "PUBLISHED",
+          supersededAt: null,
+          offer: { storeId, status: "ACTIVE", publicationStatus: "PUBLISHED" },
+        },
+        select: { publicReference: true },
+        take: 50,
+      });
+      if (missingProjectionSnapshots.length > 0) {
+        const { StorefrontProjectionService } = await import("@/lib/services/storefront-projection.service");
+        const projector = new StorefrontProjectionService(tx);
+        for (const snap of missingProjectionSnapshots) {
+          await projector.buildPublishedSnapshot(snap.publicReference).catch(() => null);
+        }
+      }
+    }
     // A legacy active store may already have an INELIGIBLE projection. Make
     // approval and its recalculated visibility atomic; pending stores remain
     // ineligible until business account approval.

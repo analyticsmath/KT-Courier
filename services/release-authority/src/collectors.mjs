@@ -1,3 +1,5 @@
+import { createSign } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
 import { verifyAuditReceipt } from "./audit-receipt.mjs";
 import {
   AUDIENCE,
@@ -75,6 +77,9 @@ async function fetchPaginatedGithubJobs(baseUrl, headers, fetchImpl) {
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
+      if (res.status === 429 || (res.status === 403 && res.headers?.get?.("x-ratelimit-remaining") === "0")) {
+        throw classifyGithubFailure(res, "workflow jobs");
+      }
       throw Object.assign(new Error("Failed to query GitHub workflow jobs."), { code: "UPSTREAM_UNREACHABLE", status: 502 });
     }
     const payload = await res.json();
@@ -87,11 +92,123 @@ async function fetchPaginatedGithubJobs(baseUrl, headers, fetchImpl) {
   return jobs;
 }
 
-async function collectGithubWorkflows({ commitSha, ciRunId, certificationRunId, githubToken, fetchImpl }) {
-  const headers = {
+function base64UrlEncode(input) {
+  return Buffer.from(input)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function createGithubAppJwt(appId, privateKeyPem, nowEpochSeconds = Math.floor(Date.now() / 1000)) {
+  const normalizedPem = String(privateKeyPem).replace(/\\n/g, "\n").trim();
+  const header = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64UrlEncode(
+    JSON.stringify({
+      iat: nowEpochSeconds - 60,
+      exp: nowEpochSeconds + 540,
+      iss: String(appId).trim(),
+    }),
+  );
+  const unsigned = `${header}.${payload}`;
+  const signature = createSign("RSA-SHA256").update(unsigned).end().sign(normalizedPem);
+  return `${unsigned}.${base64UrlEncode(signature)}`;
+}
+
+async function resolveGithubHeaders({ env = process.env, fetchImpl = fetch }) {
+  const baseHeaders = {
     accept: "application/vnd.github+json",
-    authorization: `Bearer ${githubToken}`,
     "user-agent": "KT-Courier-Release-Authority",
+    "x-github-api-version": "2022-11-28",
+  };
+  const staticToken = (env.GITHUB_RELEASE_READ_TOKEN ?? "").trim();
+  if (staticToken) {
+    return { ...baseHeaders, authorization: `Bearer ${staticToken}` };
+  }
+
+  const appId = (env.GITHUB_APP_ID ?? "").trim();
+  const privateKey = (env.GITHUB_APP_PRIVATE_KEY ?? "").trim();
+  const installationId = (env.GITHUB_APP_INSTALLATION_ID ?? "").trim();
+  if (appId && privateKey && installationId) {
+    const jwt = createGithubAppJwt(appId, privateKey);
+    const tokenRes = await fetchImpl(
+      `https://api.github.com/app/installations/${encodeURIComponent(installationId)}/access_tokens`,
+      {
+        method: "POST",
+        headers: { ...baseHeaders, authorization: `Bearer ${jwt}` },
+        body: JSON.stringify({ permissions: { actions: "read", contents: "read", metadata: "read" } }),
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (tokenRes.ok) {
+      const tokenJson = await tokenRes.json();
+      if (typeof tokenJson?.token === "string" && tokenJson.token.trim()) {
+        return { ...baseHeaders, authorization: `Bearer ${tokenJson.token.trim()}` };
+      }
+    }
+  }
+
+  // analyticsmath/KT-Courier is public: public GitHub Actions run/job metadata is readable anonymously.
+  return baseHeaders;
+}
+
+function extractPrimaryTestCountFromZip(zipBuffer) {
+  let eocdOffset = -1;
+  for (let i = zipBuffer.length - 22; i >= Math.max(0, zipBuffer.length - 65557); i -= 1) {
+    if (zipBuffer.readUInt32LE(i) === 0x06054b50) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset < 0) return null;
+  const cdOffset = zipBuffer.readUInt32LE(eocdOffset + 16);
+  const totalEntries = zipBuffer.readUInt16LE(eocdOffset + 10);
+  let cursor = cdOffset;
+  for (let idx = 0; idx < totalEntries && cursor + 46 <= zipBuffer.length; idx += 1) {
+    if (zipBuffer.readUInt32LE(cursor) !== 0x02014b50) break;
+    const compression = zipBuffer.readUInt16LE(cursor + 10);
+    const compressedSize = zipBuffer.readUInt32LE(cursor + 20);
+    const nameLen = zipBuffer.readUInt16LE(cursor + 28);
+    const extraLen = zipBuffer.readUInt16LE(cursor + 30);
+    const commentLen = zipBuffer.readUInt16LE(cursor + 32);
+    const localHeaderOffset = zipBuffer.readUInt32LE(cursor + 42);
+    const fileName = zipBuffer.subarray(cursor + 46, cursor + 46 + nameLen).toString("utf8");
+    cursor += 46 + nameLen + extraLen + commentLen;
+    if (!/(?:^|\/)(?:test-coverage|vitest-coverage|coverage-summary)\.json$/i.test(fileName)) continue;
+    if (zipBuffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) continue;
+    const lNameLen = zipBuffer.readUInt16LE(localHeaderOffset + 26);
+    const lExtraLen = zipBuffer.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + lNameLen + lExtraLen;
+    const compressed = zipBuffer.subarray(dataStart, dataStart + compressedSize);
+    const content = compression === 0 ? compressed : compression === 8 ? inflateRawSync(compressed) : null;
+    if (!content) continue;
+    try {
+      const parsed = JSON.parse(content.toString("utf8"));
+      if (
+        (typeof parsed.testsFailed === "number" && parsed.testsFailed > 0) ||
+        (typeof parsed.testsSkipped === "number" && parsed.testsSkipped > 0) ||
+        (typeof parsed.status === "string" && parsed.status !== "PASS")
+      ) {
+        continue;
+      }
+      const count = parsed.numPassedTests ?? parsed.testsPassed;
+      if (typeof count === "number" && Number.isInteger(count) && count > 0) {
+        return count;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function collectGithubWorkflows({ commitSha, ciRunId, certificationRunId, githubHeaders, githubToken, fetchImpl }) {
+  const headers = githubHeaders ?? {
+    accept: "application/vnd.github+json",
+    "user-agent": "KT-Courier-Release-Authority",
+    "x-github-api-version": "2022-11-28",
+    ...(githubToken ? { authorization: `Bearer ${githubToken}` } : {}),
   };
 
   const [commitRes, ciRunRes, certRunRes] = await Promise.all([
@@ -327,17 +444,17 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const nowMs = (options.now ?? (() => new Date()))().getTime();
 
-  const githubToken = (env.GITHUB_RELEASE_READ_TOKEN ?? "").trim();
   const vercelToken = (env.VERCEL_TOKEN ?? "").trim();
   const railwayToken = (env.RAILWAY_API_TOKEN ?? "").trim();
   const appOrigin = (env.KT_PRODUCTION_ORIGIN ?? env.PAYMENT_APP_ORIGIN ?? "").trim();
 
-  if (!githubToken || !vercelToken || !railwayToken || !appOrigin) {
+  if (!vercelToken || !railwayToken || !appOrigin) {
     throw Object.assign(
-      new Error("Release authority upstream collector tokens (GitHub, Vercel, Railway, KT_PRODUCTION_ORIGIN) must be configured."),
+      new Error("Release authority upstream collector tokens (Vercel, Railway, KT_PRODUCTION_ORIGIN) must be configured."),
       { code: "INDEPENDENT_AUTHORITY_UNAVAILABLE", status: 503 },
     );
   }
+  const githubHeaders = await resolveGithubHeaders({ env, fetchImpl });
 
   const readyUrl = await assertSafeTargetUrl(`${appOrigin.replace(/\/$/, "")}/api/infrastructure/ready`, {
     allowLoopbackForTest: options.allowLoopbackForTest === true,
@@ -351,7 +468,7 @@ export async function collectVerifiedReleaseContext(params, options = {}) {
       commitSha: params.commitSha,
       ciRunId: params.ciRunId,
       certificationRunId: params.certificationRunId,
-      githubToken,
+      githubHeaders,
       fetchImpl,
     }),
     collectVercelAndRailway({
@@ -552,5 +669,228 @@ export async function verifyParityRemote(input, options = {}) {
     auditExpiresAt: verifiedAudit.expiresAt,
     leastPrivilege: verifiedAudit.databaseIdentity.leastPrivilegeVerified,
     auditDigest: verifiedAudit.receiptDigest,
+  };
+}
+
+const REQUIRED_CERTIFICATION_ARTIFACTS = Object.freeze([
+  "certification-quality",
+  ...Array.from({ length: 20 }, (_, i) => `postgres-${i}`),
+  "certification-redis-and-recovery",
+  "certification-recovery",
+  "browser-evidence",
+  "certification-browser-reports",
+  "phase2-automated-engineering",
+]);
+
+function classifyGithubFailure(res, context) {
+  const remaining = res.headers?.get?.("x-ratelimit-remaining");
+  const reset = res.headers?.get?.("x-ratelimit-reset");
+  const resetIso = reset && /^\d+$/.test(reset) ? new Date(Number(reset) * 1000).toISOString() : null;
+  if (res.status === 429 || (res.status === 403 && remaining === "0")) {
+    return Object.assign(
+      new Error(`GitHub API rate limit exceeded while querying ${context}${resetIso ? ` (resets at ${resetIso})` : ""}.`),
+      { code: "CI_VERIFICATION_UNAVAILABLE", status: 502 },
+    );
+  }
+  if (res.status === 401 || res.status === 403) {
+    return Object.assign(
+      new Error(`GitHub API denied access while querying ${context} (HTTP ${res.status}).`),
+      { code: "CI_VERIFICATION_UNAVAILABLE", status: 502 },
+    );
+  }
+  return Object.assign(new Error(`Unable to query GitHub ${context} (HTTP ${res.status}).`), {
+    code: "CI_VERIFICATION_UNAVAILABLE",
+    status: 502,
+  });
+}
+
+export async function verifyCiRemote(input, options = {}) {
+  const env = options.env ?? process.env;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const runId = String(input?.runId ?? "").trim();
+  const releaseSha = String(input?.releaseSha ?? "").trim();
+
+  if (!/^\d+$/.test(runId) || !SHA_PATTERN.test(releaseSha)) {
+    throw Object.assign(new Error("Valid numeric runId and 40-char releaseSha are required."), {
+      code: "CI_VERIFICATION_MISMATCH",
+      status: 409,
+    });
+  }
+
+  const headers = await resolveGithubHeaders({ env, fetchImpl });
+  const authMode = headers.authorization ? "TOKEN" : "PUBLIC_ANONYMOUS";
+  const runRes = await fetchImpl(
+    `https://api.github.com/repos/${REPOSITORY}/actions/runs/${encodeURIComponent(runId)}`,
+    { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+  );
+  if (!runRes.ok) {
+    if (runRes.status === 404) {
+      throw Object.assign(new Error("GitHub certification workflow run was not found."), {
+        code: "CI_VERIFICATION_MISMATCH",
+        status: 409,
+      });
+    }
+    throw classifyGithubFailure(runRes, "workflow run");
+  }
+
+  const runJson = await runRes.json();
+  const repository = runJson?.repository?.full_name ? String(runJson.repository.full_name) : undefined;
+  if (repository && repository !== REPOSITORY) {
+    throw Object.assign(new Error("GitHub certification workflow run repository does not match canonical repo."), {
+      code: "CI_VERIFICATION_MISMATCH",
+      status: 409,
+    });
+  }
+
+  const attempt = Number(runJson.run_attempt) > 0 ? Number(runJson.run_attempt) : 1;
+  const [certJobs, ciRunsRes, artifactsRes] = await Promise.all([
+    fetchPaginatedGithubJobs(
+      `https://api.github.com/repos/${REPOSITORY}/actions/runs/${encodeURIComponent(runId)}/attempts/${attempt}/jobs`,
+      headers,
+      fetchImpl,
+    ),
+    fetchImpl(
+      `https://api.github.com/repos/${REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${encodeURIComponent(releaseSha)}&branch=main&per_page=20`,
+      { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+    ),
+    fetchImpl(
+      `https://api.github.com/repos/${REPOSITORY}/actions/runs/${encodeURIComponent(runId)}/artifacts?per_page=100`,
+      { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
+    ),
+  ]);
+
+  const certSucceeded = new Set(
+    certJobs.filter((j) => j.conclusion === "success" && typeof j.name === "string").map((j) => j.name),
+  );
+  const missingJobs = REQUIRED_CERTIFICATION_JOBS.filter((name) => !certSucceeded.has(name));
+  const skippedJobs = certJobs.filter((j) => j.conclusion === "skipped").length;
+
+  let primaryCiVerified = false;
+  if (!ciRunsRes.ok) {
+    if (ciRunsRes.status === 403 || ciRunsRes.status === 429 || ciRunsRes.status === 401) {
+      throw classifyGithubFailure(ciRunsRes, "primary CI workflow runs");
+    }
+  } else {
+    const ciRunsJson = await ciRunsRes.json();
+    const matchingCi = (ciRunsJson?.workflow_runs ?? []).find(
+      (r) =>
+        (!r.repository?.full_name || r.repository.full_name === REPOSITORY) &&
+        (!r.path || r.path === ".github/workflows/ci.yml") &&
+        r.head_sha === releaseSha &&
+        r.head_branch === "main" &&
+        r.status === "completed" &&
+        r.conclusion === "success" &&
+        typeof r.id === "number",
+    );
+    if (matchingCi?.id) {
+      const ciAttempt = Number(matchingCi.run_attempt) > 0 ? Number(matchingCi.run_attempt) : 1;
+      const ciJobs = await fetchPaginatedGithubJobs(
+        `https://api.github.com/repos/${REPOSITORY}/actions/runs/${matchingCi.id}/attempts/${ciAttempt}/jobs`,
+        headers,
+        fetchImpl,
+      );
+      const ciSucceeded = new Set(
+        ciJobs.filter((j) => j.conclusion === "success" && typeof j.name === "string").map((j) => j.name),
+      );
+      const ciSkipped = ciJobs.filter((j) => REQUIRED_PRIMARY_CI_JOBS.includes(j.name) && j.conclusion === "skipped").length;
+      primaryCiVerified = REQUIRED_PRIMARY_CI_JOBS.every((jobName) => ciSucceeded.has(jobName)) && ciSkipped === 0;
+    }
+  }
+
+  if (!artifactsRes.ok) {
+    throw classifyGithubFailure(artifactsRes, "certification artifacts");
+  }
+
+  const artifactsPayload = await artifactsRes.json();
+  const activeArtifacts = (artifactsPayload?.artifacts ?? []).filter(
+    (a) => a.expired !== true && typeof a.name === "string",
+  );
+  const presentArtifacts = new Set(activeArtifacts.map((a) => a.name));
+  const missingArtifacts = REQUIRED_CERTIFICATION_ARTIFACTS.filter((name) => !presentArtifacts.has(name));
+  const artifactsVerified = missingArtifacts.length === 0;
+
+  let verifiedTestsPassed = null;
+  let artifactDownloadVerified = false;
+  let artifactDownloadStatus = artifactsVerified
+    ? authMode === "PUBLIC_ANONYMOUS"
+      ? "REQUIRES_AUTH"
+      : "UNAVAILABLE"
+    : "MISSING_REQUIRED_ARTIFACT";
+
+  const qualityArtifact = activeArtifacts.find(
+    (a) => a.name === "certification-quality" && typeof a.archive_download_url === "string",
+  );
+  if (qualityArtifact?.archive_download_url) {
+    if (authMode === "PUBLIC_ANONYMOUS") {
+      artifactDownloadStatus = artifactsVerified ? "REQUIRES_AUTH" : "MISSING_REQUIRED_ARTIFACT";
+    } else {
+      const zipRes = await fetchImpl(qualityArtifact.archive_download_url, {
+        headers,
+        redirect: "follow",
+        signal: AbortSignal.timeout(15_000),
+      }).catch(() => null);
+      if (!zipRes) {
+        artifactDownloadStatus = "UNAVAILABLE";
+      } else if (zipRes.status === 401 || zipRes.status === 403) {
+        const rateLimited = zipRes.status === 403 && zipRes.headers?.get?.("x-ratelimit-remaining") === "0";
+        artifactDownloadStatus = rateLimited ? "RATE_LIMITED" : "UNAUTHORIZED";
+      } else if (zipRes.status === 429) {
+        artifactDownloadStatus = "RATE_LIMITED";
+      } else if (zipRes.ok) {
+        const buf = Buffer.from(await zipRes.arrayBuffer());
+        verifiedTestsPassed = extractPrimaryTestCountFromZip(buf);
+        if (verifiedTestsPassed !== null) {
+          artifactDownloadVerified = true;
+          artifactDownloadStatus = "VERIFIED";
+        } else {
+          artifactDownloadStatus = "INVALID_PAYLOAD";
+        }
+      } else {
+        artifactDownloadStatus = "UNAVAILABLE";
+      }
+    }
+  }
+
+  const headSha = String(runJson.head_sha ?? "");
+  const headBranch = String(runJson.head_branch ?? "");
+  const workflowPath = String(runJson.path ?? "");
+  const status = String(runJson.status ?? "");
+  const conclusion = String(runJson.conclusion ?? "");
+
+  if (
+    headSha !== releaseSha ||
+    headBranch !== "main" ||
+    workflowPath !== ".github/workflows/production-certification.yml" ||
+    status !== "completed" ||
+    conclusion !== "success" ||
+    skippedJobs !== 0 ||
+    missingJobs.length > 0 ||
+    !primaryCiVerified ||
+    !artifactsVerified
+  ) {
+    throw Object.assign(
+      new Error("GitHub CI or Engineering Certification run did not pass every mandatory check and required artifact on main at exact SHA."),
+      { code: "CI_VERIFICATION_MISMATCH", status: 409 },
+    );
+  }
+
+  return {
+    repository: repository ?? REPOSITORY,
+    headSha,
+    headBranch,
+    workflowPath,
+    status,
+    conclusion,
+    completedAt: String(runJson.updated_at ?? (options.now ?? (() => new Date()))().toISOString()),
+    jobsPassed: certJobs.filter((j) => j.conclusion === "success").length,
+    skippedJobs,
+    missingJobs,
+    primaryCiVerified,
+    verifiedTestsPassed,
+    artifactsVerified,
+    missingArtifacts,
+    artifactDownloadVerified,
+    artifactDownloadStatus,
+    authMode,
   };
 }

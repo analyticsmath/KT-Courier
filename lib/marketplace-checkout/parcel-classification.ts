@@ -2,6 +2,14 @@ import { z } from "zod";
 
 const fourDecimals = (value: number) => Math.abs(value * 10000 - Math.round(value * 10000)) < 0.00000001;
 const measurement = z.number().finite().positive().max(1000).refine(fourDecimals, "Use at most four decimal places.");
+export const TrustedPackageQaScopeSchema = z
+  .object({
+    qaAcceptanceOnly: z.literal(true),
+    runReference: z.string().trim().min(4).max(80),
+    storeId: z.string().min(1).max(100),
+  })
+  .strict();
+
 export const TrustedPackageSchema = z.object({
   storeId: z.string().min(1).max(100), offerReference: z.string().min(1).max(100),
   variantReference: z.string().min(1).max(100), publicationVersion: z.string().min(1).max(160),
@@ -11,6 +19,7 @@ export const TrustedPackageSchema = z.object({
   lengthCm: measurement, widthCm: measurement, heightCm: measurement,
   weightKg: z.number().finite().positive().max(10000).refine(fourDecimals, "Use at most four decimal places."),
   authorityReference: z.string().trim().min(10).max(300),
+  qaScope: TrustedPackageQaScopeSchema.optional(),
 }).strict().refine(value => new Set(value.modifiers.map(option => option.optionReference)).size === value.modifiers.length,
   "A selected modifier may only appear once per packaged unit.");
 // An independently measured, sealed consignment is not the sum of catalog
@@ -72,10 +81,25 @@ function selection(modifiers: readonly { optionReference: string; quantity: numb
   return JSON.stringify(modifiers.map(({ optionReference, quantity }) => ({ optionReference, quantity })).sort((a, b) => a.optionReference.localeCompare(b.optionReference)));
 }
 
+function isQaOnlyTrustedPackageEntry(entry: z.infer<typeof TrustedPackageSchema>): boolean {
+  return Boolean(entry.qaScope?.qaAcceptanceOnly) || entry.authorityReference.startsWith("qa-synthetic-pkg:");
+}
+
+function isTrustedPackageEligibleForStore(
+  entry: z.infer<typeof TrustedPackageSchema>,
+  storeId: string,
+  storeIsQaAcceptance: boolean,
+): boolean {
+  if (!isQaOnlyTrustedPackageEntry(entry)) return true;
+  if (!storeIsQaAcceptance) return false;
+  if (entry.qaScope && entry.qaScope.storeId !== storeId) return false;
+  return true;
+}
+
 /** The only supported packing rule is an independently reviewed complete unit.
  * Multiple units stay UNKNOWN until operations supplies an approved packing rule.
  * No shopper field, catalog product weight, volume guess or line count sets class. */
-export function classifyTrustedMarketplaceParcel(input: { storeId: string; lines: readonly ParcelSourceLine[]; versions: readonly TrustedPackageVersion[]; profiles: readonly ParcelLimits[]; now?: Date }): TrustedParcelClassification {
+export function classifyTrustedMarketplaceParcel(input: { storeId: string; storeIsQaAcceptance?: boolean; lines: readonly ParcelSourceLine[]; versions: readonly TrustedPackageVersion[]; profiles: readonly ParcelLimits[]; now?: Date }): TrustedParcelClassification {
   const unknown = (reason: string): TrustedParcelClassification => ({ sizeClass: null, status: "UNKNOWN", reason, packageVersion: null, profileId: null, profileVersion: null });
   if (input.lines.some((line) => !Number.isSafeInteger(line.quantity) || line.quantity <= 0 || line.modifiers.some((modifier) => !Number.isSafeInteger(modifier.quantity) || modifier.quantity <= 0))) return { ...unknown("INVALID_SOURCE_QUANTITY"), status: "UNSUPPORTED" };
   const isAggregate = input.lines.length !== 1 || input.lines[0].quantity !== 1;
@@ -85,9 +109,16 @@ export function classifyTrustedMarketplaceParcel(input: { storeId: string; lines
   const version = active[0];
   if (!version || active[1]?.version === version.version) return unknown("TRUSTED_PACKAGING_APPROVAL_REQUIRED");
   const line = input.lines[0];
+  const storeIsQa = input.storeIsQaAcceptance === true;
+  const candidatePackages = isAggregate
+    ? []
+    : version.packages.filter(entry => entry.storeId === input.storeId && entry.offerReference === line.offerReference && entry.variantReference === line.variantReference && entry.publicationVersion === line.publicationVersion && selection(entry.modifiers) === selection(line.modifiers));
   const matches = isAggregate
     ? (version.bundles ?? []).filter(bundle => bundle.storeId === input.storeId && consignmentSignature(bundle.lines) === consignmentSignature(input.lines))
-    : version.packages.filter(entry => entry.storeId === input.storeId && entry.offerReference === line.offerReference && entry.variantReference === line.variantReference && entry.publicationVersion === line.publicationVersion && selection(entry.modifiers) === selection(line.modifiers));
+    : candidatePackages.filter(entry => isTrustedPackageEligibleForStore(entry, input.storeId, storeIsQa));
+  if (!isAggregate && candidatePackages.length > 0 && matches.length === 0) {
+    return unknown("QA_SYNTHETIC_PACKAGING_NOT_COMMERCIAL");
+  }
   if (matches.length !== 1) return unknown(matches.length ? "AMBIGUOUS_PACKAGE_EVIDENCE" : isAggregate ? "AGGREGATE_PACKING_APPROVAL_REQUIRED" : "TRUSTED_PACKAGE_SOURCE_MISSING");
   const parsed = isAggregate ? TrustedConsignmentSchema.safeParse(matches[0]) : TrustedPackageSchema.safeParse(matches[0]);
   if (!parsed.success) return unknown("INVALID_PACKAGE_EVIDENCE");

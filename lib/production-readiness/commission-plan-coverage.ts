@@ -178,3 +178,57 @@ export function evaluateCommissionPlanCoverage(input: CommissionCoverageInput) {
     },
   } as const;
 }
+
+type MarketplaceEligibilityStoreReader = Readonly<{
+  store: {
+    findMany: (args: {
+      where?: {
+        status?: "ACTIVE";
+        isQaAcceptance?: boolean;
+        OR?: Array<{
+          checkoutCertification?: { is?: { status?: "APPROVED" } };
+          storefrontDocument?: { is?: { publicStatus?: "ACTIVE" } };
+          catalogOffers?: { some?: { status?: { in?: Array<"ACTIVE" | "OUT_OF_STOCK"> } } };
+          marketplaceStoreOrders?: { some?: Record<string, never> };
+        }>;
+      };
+      select?: { id?: true };
+    }) => Promise<Array<{ id: string }>>;
+    count?: (args: { where?: { status?: "ACTIVE"; isQaAcceptance?: boolean } }) => Promise<number>;
+  };
+}>;
+
+/**
+ * Resolves approved non-QA stores that are commercially selling or eligible for
+ * storefront publication/orders, distinct from ordinary active business courier accounts.
+ */
+export async function loadCommerciallyEligibleMarketplaceStoreIds(
+  db: MarketplaceEligibilityStoreReader,
+): Promise<{
+  commerciallyEligibleStoreIds: string[];
+  activeBusinessAccountCount: number | null;
+}> {
+  const [eligibleStores, activeBusinessAccountCount] = await Promise.all([
+    db.store.findMany({
+      where: {
+        status: "ACTIVE",
+        isQaAcceptance: false,
+        OR: [
+          { checkoutCertification: { is: { status: "APPROVED" } } },
+          { storefrontDocument: { is: { publicStatus: "ACTIVE" } } },
+          { catalogOffers: { some: { status: { in: ["ACTIVE", "OUT_OF_STOCK"] } } } },
+          { marketplaceStoreOrders: { some: {} } },
+        ],
+      },
+      select: { id: true },
+    }),
+    typeof db.store.count === "function"
+      ? db.store.count({ where: { status: "ACTIVE", isQaAcceptance: false } })
+      : Promise.resolve(null),
+  ]);
+
+  return {
+    commerciallyEligibleStoreIds: [...new Set(eligibleStores.map((store) => store.id))],
+    activeBusinessAccountCount,
+  };
+}

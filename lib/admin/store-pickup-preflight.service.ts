@@ -40,8 +40,24 @@ export async function getStorePickupOperationalPreflight(
       status: true,
       contactEmail: true,
       contactPhone: true,
+      operatingHours: true,
       defaultPickupAddress: true,
       savedAddresses: { where: { type: "PICKUP" } },
+      checkoutCertification: {
+        select: {
+          status: true,
+          expiresAt: true,
+          approvedAt: true,
+          approvedByUserId: true,
+          preparedByUserId: true,
+          pickupAddressId: true,
+          coverageRegionId: true,
+          serviceSignature: true,
+          routeEvidenceDigest: true,
+          checkoutEvidenceDigest: true,
+          engineProofDigest: true,
+        },
+      },
     },
   });
   if (!store) return null;
@@ -88,6 +104,28 @@ export async function getStorePickupOperationalPreflight(
     }
   }
 
+  const now = new Date();
+  const cert = store.checkoutCertification;
+  const certApproved = Boolean(
+    cert &&
+      cert.status === "APPROVED" &&
+      cert.approvedAt &&
+      cert.approvedByUserId &&
+      cert.approvedByUserId !== cert.preparedByUserId &&
+      cert.expiresAt > now &&
+      (!pickup?.id || cert.pickupAddressId === pickup.id) &&
+      (!pickupRegionId || cert.coverageRegionId === pickupRegionId) &&
+      /^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? "") &&
+      /^[a-f0-9]{64}$/.test(cert.checkoutEvidenceDigest ?? ""),
+  );
+  const routeVerifiedFromCert = Boolean(
+    area === "COVERED" &&
+      matchingServiceCount > 0 &&
+      cert &&
+      certApproved &&
+      /^[a-f0-9]{64}$/.test(cert.routeEvidenceDigest ?? ""),
+  );
+
   return {
     storeId,
     accountStatus: store.status,
@@ -100,6 +138,10 @@ export async function getStorePickupOperationalPreflight(
       mapCoordinatesValid,
       area,
       matchingServiceCount,
+      operatingHours: store.operatingHours,
+      routeVerified: routeVerifiedFromCert,
+      checkoutCertified: certApproved,
+      independentHoursReviewRecorded: certApproved,
     }),
     pickupRegionName,
     pickupRegionId,

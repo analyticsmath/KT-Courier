@@ -18,7 +18,7 @@ try {
     import("../lib/reporting/production-readiness.ts"), import("../lib/promotions/production-lock.ts"), import("../lib/reporting/report-recovery-batch.ts"),
   ]);
   prisma = database.prisma;
-  if (environment.isActualProductionInstance(process.env)) lock.assertReportingProductionReady();
+  if (environment.isActualProductionInstance(process.env)) await lock.assertReportingProductionReady();
   const recovered = await recovery.recoverExpiredReportClaims({ limit });
   console.log(`Report recovery: ${recovered.recovered} of ${recovered.examined} expired claims fenced.`);
   const result = await reporting.runReportBatch(limit, retryFailed ? "FAILED_RETRYABLE" : "QUEUED");

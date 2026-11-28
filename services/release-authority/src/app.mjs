@@ -1,5 +1,5 @@
 import { verifyAuditReceipt } from "./audit-receipt.mjs";
-import { collectVerifiedReleaseContext, verifyParityRemote } from "./collectors.mjs";
+import { collectVerifiedReleaseContext, verifyCiRemote, verifyParityRemote } from "./collectors.mjs";
 import {
   extractBearerToken,
   timingSafeTokenMatch,
@@ -228,6 +228,12 @@ export function createReleaseAuthorityHandler({
       if (req.method === "POST" && url.pathname === "/v1/release-authority/parity/verify") {
         const body = await readJsonBody(req);
         const verified = await verifyParityRemote(body, { store, env, fetchImpl, allowLoopbackForTest, resolveDns, now });
+        return sendJson(res, 200, verified);
+      }
+
+      if (req.method === "POST" && url.pathname === "/v1/release-authority/ci/verify") {
+        const body = await readJsonBody(req);
+        const verified = await verifyCiRemote(body, { env, fetchImpl, now });
         return sendJson(res, 200, verified);
       }
 

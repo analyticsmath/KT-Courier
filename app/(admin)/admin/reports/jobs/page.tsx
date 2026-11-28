@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { ProtectedPageFrame, ProtectedState } from "@/components/protected-v2";
 import { reportJobSummarySchema, type ReportJobSummary } from "@/lib/reporting/client-contracts";
 import { z } from "zod";
@@ -38,7 +39,23 @@ export default function AdminReportJobsPage() {
   return (
     <ProtectedPageFrame>
       <div className="space-y-6">
-        <h1 className="text-xl font-bold text-gray-900">System Report Jobs</h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">System Report Jobs</h1>
+            <p className="text-sm text-gray-600">
+              Read-only operational overview of report jobs. Authorized users submit new export requests and download artifacts in{" "}
+              <Link href="/reports" className="text-blue-700 underline font-medium">/reports</Link>.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/admin/reports" className="rounded border border-gray-300 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50">
+              Control Centre
+            </Link>
+            <Link href="/reports" className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700">
+              Request New Export (/reports)
+            </Link>
+          </div>
+        </div>
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b text-gray-700">
@@ -50,13 +67,21 @@ export default function AdminReportJobsPage() {
                 <th className="p-3">Format</th>
                 <th className="p-3">Rows</th>
                 <th className="p-3">Created At</th>
+                <th className="p-3">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y text-gray-800">
               {jobs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-4 text-center text-gray-500">
-                    No report jobs found.
+                  <td colSpan={8} className="p-6 text-center text-gray-600 space-y-2">
+                    <div>No report jobs found yet.</div>
+                    <div>
+                      Submit a permission-scoped CSV or JSON report request through{" "}
+                      <Link href="/reports" className="text-blue-700 underline font-medium">
+                        Self-Service Reports &amp; Data Exports (/reports)
+                      </Link>
+                      .
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -69,6 +94,11 @@ export default function AdminReportJobsPage() {
                     <td className="p-3">{job.outputFormat}</td>
                     <td className="p-3">{job.rowCount ?? "—"}</td>
                     <td className="p-3">{new Date(job.createdAt).toLocaleString()}</td>
+                    <td className="p-3">
+                      <Link href={`/reports/${job.publicReference}`} className="text-blue-700 underline font-medium">
+                        View &amp; Download
+                      </Link>
+                    </td>
                   </tr>
                 ))
               )}

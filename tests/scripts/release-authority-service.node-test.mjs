@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdtempSync, rmSync } from "node:fs";
 import os from "node:os";
@@ -9,7 +9,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 import { authorizeProductionRelease } from "../../scripts/verify-release-authorization.mjs";
 import { createReleaseAuthorityHandler } from "../../services/release-authority/src/app.mjs";
-import { collectVerifiedReleaseContext } from "../../services/release-authority/src/collectors.mjs";
+import { collectVerifiedReleaseContext, verifyCiRemote } from "../../services/release-authority/src/collectors.mjs";
 import {
   assembleSignedEnvelope,
   buildTrustBundle,
@@ -526,8 +526,218 @@ test("services/release-authority executes end-to-end via durable file store and 
     assert.equal(collected.deployments.railwayQuery.serviceName, "query-storefront-categories");
     assert.equal(collected.auditReceipt.reference, directInputs.auditReceipt.receiptReference);
     assert.equal(collected.auditReceipt.leastPrivilege, true);
+
+    // Confirm collectVerifiedReleaseContext also works WITHOUT GITHUB_RELEASE_READ_TOKEN (public repo / GitHub App)
+    const collectedWithoutPat = await collectVerifiedReleaseContext(
+      {
+        commitSha,
+        evidenceReference: "collect-direct-no-pat",
+        ciRunId: 45352739658,
+        certificationRunId: 45352739746,
+        vercelDeploymentId: "dpl_5Dq9XL1B5eSp3VneVKh2mBqyg9rR",
+        webDeploymentId: "545fd6ec-13d6-4d33-9f31-073f1ea3440e",
+        operationsDeploymentId: "98beae70-56e2-426f-87e2-955c56fda0e5",
+        queryDeploymentId: "266e4ccf-ac8e-4bff-8362-a925597debe0",
+        ...directInputs,
+        auditReference: directInputs.auditReceipt.receiptReference,
+      },
+      {
+        store: pgStore,
+        now: () => new Date("2026-11-24T12:00:00.000Z"),
+        env: {
+          VERCEL_TOKEN: "ver_tok",
+          RAILWAY_API_TOKEN: "rail_tok",
+          KT_PRODUCTION_ORIGIN: "https://127.0.0.1",
+        },
+        allowLoopbackForTest: true,
+        fetchImpl: buildMockUpstreamFetch(commitSha, treeSha),
+      },
+    );
+    assert.equal(collectedWithoutPat.ciRun.mandatoryJobsSucceeded, true);
+    assert.equal(collectedWithoutPat.certificationRun.jobsPassed, 26);
   } finally {
     await db.close();
+    rmSync(dataDir, { recursive: true, force: true });
+  }
+});
+
+test("POST /v1/release-authority/ci/verify verifies 26/26 Certification and 10/10 CI without PAT and fails closed on incomplete runs", async () => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), "kt-ra-ci-verify-"));
+  const fileStore = createDurableFileStore(dataDir);
+  const sha = "a".repeat(40);
+  const certRunId = 45984912077;
+  const ciRunId = 45984912265;
+  let primaryCiJobs = [
+    "quality",
+    "container-build",
+    "migration-smoke",
+    "pricing-integration",
+    "dispatch-integration",
+    "cross-module-integration",
+    "ledger-integration",
+    "Phase 1 Release-Critical Verification (Paystack, Invariants, Security, Processors, Refunds)",
+    "Phase 1 PostgreSQL Webhook Concurrency Integration",
+    "docker-runtime",
+  ].map((name) => ({ name, conclusion: "success" }));
+  const certJobs = [
+    "quality",
+    "postgres (docker:migration-smoke)",
+    "postgres (test:integration:auth)",
+    "postgres (test:integration:permissions)",
+    "postgres (test:integration:orders)",
+    "postgres (test:integration:pricing)",
+    "postgres (test:integration:dispatch)",
+    "postgres (test:integration:cross-module)",
+    "postgres (test:integration:driver-operations)",
+    "postgres (test:integration:ledger)",
+    "postgres (test:integration:payment-foundation)",
+    "postgres (test:integration:refunds)",
+    "postgres (test:integration:withdrawals)",
+    "postgres (test:integration:store-earnings)",
+    "postgres (test:integration:driver-earnings)",
+    "postgres (test:integration:marketplace-checkout)",
+    "postgres (test:integration:store-orders)",
+    "postgres (test:integration:storefront)",
+    "postgres (test:integration:catalog)",
+    "postgres (test:integration:closure)",
+    "postgres (docker:gate4)",
+    "redis-and-recovery",
+    "recovery",
+    "browser",
+    "Phase 2 automated engineering verification (not live launch approval)",
+    "Release authorization status (informational)",
+  ].map((name) => ({ name, conclusion: "success" }));
+
+  const requiredArtifacts = [
+    "certification-quality",
+    ...Array.from({ length: 20 }, (_, i) => `postgres-${i}`),
+    "certification-redis-and-recovery",
+    "certification-recovery",
+    "browser-evidence",
+    "certification-browser-reports",
+    "phase2-automated-engineering",
+  ];
+  let artifactsList = requiredArtifacts.map((name, idx) => ({
+    name,
+    expired: false,
+    archive_download_url: `https://api.github.com/repos/analyticsmath/KT-Courier/actions/artifacts/${idx + 1}/zip`,
+  }));
+
+  const seenAuthHeaders = [];
+  const fetchImpl = async (url, init) => {
+    seenAuthHeaders.push(init?.headers?.authorization ?? null);
+    const target = String(url);
+    if (target.includes("/app/installations/777/access_tokens")) {
+      return new Response(JSON.stringify({ token: "ghs_app_tok_e06" }), { status: 201 });
+    }
+    if (target.endsWith(`/actions/runs/${certRunId}`)) {
+      return new Response(
+        JSON.stringify({
+          repository: { full_name: "analyticsmath/KT-Courier" },
+          head_sha: sha,
+          head_branch: "main",
+          path: ".github/workflows/production-certification.yml",
+          status: "completed",
+          conclusion: "success",
+          updated_at: "2026-11-27T08:00:00Z",
+          run_attempt: 1,
+        }),
+        { status: 200 },
+      );
+    }
+    if (target.includes(`/actions/runs/${certRunId}/attempts/1/jobs`)) {
+      return new Response(JSON.stringify({ total_count: 26, jobs: certJobs }), { status: 200 });
+    }
+    if (target.includes("/actions/workflows/ci.yml/runs")) {
+      return new Response(
+        JSON.stringify({
+          workflow_runs: [
+            { id: ciRunId, head_sha: sha, head_branch: "main", status: "completed", conclusion: "success", run_attempt: 1 },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    if (target.includes(`/actions/runs/${ciRunId}/attempts/1/jobs`)) {
+      return new Response(JSON.stringify({ total_count: primaryCiJobs.length, jobs: primaryCiJobs }), { status: 200 });
+    }
+    if (target.includes(`/actions/runs/${certRunId}/artifacts`) && !target.endsWith("/zip")) {
+      return new Response(JSON.stringify({ artifacts: artifactsList }), { status: 200 });
+    }
+    if (target.endsWith("/zip")) {
+      return new Response(JSON.stringify({ message: "Requires auth" }), { status: 401 });
+    }
+    return new Response("not found", { status: 404 });
+  };
+
+  const handler = createReleaseAuthorityHandler({
+    store: fileStore,
+    readToken: "ra_read_tok_e06_0123456789",
+    adminToken: "ra_admin_tok_e06_0123456789",
+    env: {},
+    fetchImpl,
+  });
+  const server = createServer(handler);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+  try {
+    const { port } = server.address();
+    const res = await fetch(`http://127.0.0.1:${port}/v1/release-authority/ci/verify`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: "Bearer ra_read_tok_e06_0123456789",
+      },
+      body: JSON.stringify({ runId: String(certRunId), releaseSha: sha }),
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.jobsPassed, 26);
+    assert.equal(body.primaryCiVerified, true);
+    assert.deepEqual(body.missingJobs, []);
+    assert.equal(body.artifactsVerified, true);
+    assert.deepEqual(body.missingArtifacts, []);
+    assert.equal(body.artifactDownloadVerified, false);
+    assert.equal(body.artifactDownloadStatus, "REQUIRES_AUTH");
+    assert.equal(seenAuthHeaders.every((h) => h === null), true);
+
+    // GitHub App installation token exchange path (without fine-grained PAT)
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const appResult = await verifyCiRemote(
+      { runId: String(certRunId), releaseSha: sha },
+      {
+        env: {
+          GITHUB_APP_ID: "424242",
+          GITHUB_APP_INSTALLATION_ID: "777",
+          GITHUB_APP_PRIVATE_KEY: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+        },
+        fetchImpl,
+      },
+    );
+    assert.equal(appResult.primaryCiVerified, true);
+    assert.equal(appResult.artifactsVerified, true);
+    assert.equal(appResult.artifactDownloadStatus, "UNAUTHORIZED");
+
+    // Missing required artifact MUST fail closed with 409
+    artifactsList = artifactsList.filter((a) => a.name !== "certification-recovery");
+    await assert.rejects(
+      () => verifyCiRemote({ runId: String(certRunId), releaseSha: sha }, { env: {}, fetchImpl }),
+      (err) => err?.code === "CI_VERIFICATION_MISMATCH" && err?.status === 409,
+    );
+    artifactsList = requiredArtifacts.map((name, idx) => ({
+      name,
+      expired: false,
+      archive_download_url: `https://api.github.com/repos/analyticsmath/KT-Courier/actions/artifacts/${idx + 1}/zip`,
+    }));
+
+    // Skipped primary CI job MUST fail closed with 409
+    primaryCiJobs = primaryCiJobs.map((j, idx) => (idx === 0 ? { ...j, conclusion: "skipped" } : j));
+    await assert.rejects(
+      () => verifyCiRemote({ runId: String(certRunId), releaseSha: sha }, { env: {}, fetchImpl }),
+      (err) => err?.code === "CI_VERIFICATION_MISMATCH" && err?.status === 409,
+    );
+  } finally {
+    server.close();
     rmSync(dataDir, { recursive: true, force: true });
   }
 });

@@ -6,6 +6,7 @@ import {
   type CheckoutCapabilityPreflightFacts,
   type StorePickupPreflightFacts,
 } from "@/lib/admin/store-operational-preflight";
+import { isStoreOnboardingOwnerOfferPrepared, type StoreOnboardingOwnerOfferFacts } from "@/lib/services/store-onboarding.service";
 
 const ready: StorePickupPreflightFacts = {
   status: "ACTIVE", hasContact: true, pickupConfigured: true,
@@ -109,5 +110,89 @@ describe("§4.1 CheckoutCapabilityPreflight blocker taxonomy and independent rev
     expect(res.liveReady).toBe(false);
     expect(res.capabilityBlockers).toEqual(["NO_SELLABLE_OFFER"]);
     expect(res.blockerMessages.NO_SELLABLE_OFFER).toMatch(/publish at least one eligible product offer/i);
+  });
+});
+
+describe("E01 dynamic store pickup preflight operating hours, route and checkout states", () => {
+  it("reports CONFIGURED operating hours with physicalSiteConfirmed=false and drops TRADING_HOURS_NOT_CONFIRMED once valid hours are saved", () => {
+    const result = evaluateStorePickupPreflight({
+      ...ready,
+      operatingHours: {
+        timezone: "Africa/Johannesburg",
+        days: {
+          monday: { open: "08:30", close: "17:00", closed: false },
+          tuesday: { open: "08:30", close: "17:00", closed: false },
+          wednesday: { open: "08:30", close: "17:00", closed: false },
+          thursday: { open: "08:30", close: "17:00", closed: false },
+          friday: { open: "08:30", close: "17:00", closed: false },
+          saturday: { open: "09:00", close: "13:00", closed: false },
+          sunday: { closed: true },
+        },
+      },
+      routeVerified: true,
+      checkoutCertified: true,
+      independentHoursReviewRecorded: true,
+    });
+    expect(result.operatingHoursState.status).toBe("CONFIGURED");
+    expect(result.operatingHoursState.physicalSiteConfirmed).toBe(false);
+    expect(result.operatingHoursState.independentReviewRecorded).toBe(true);
+    expect(result.operatingHoursState.summary).toContain("Mon: 08:30-17:00");
+    expect(result.routeVerified).toBe(true);
+    expect(result.checkoutCertified).toBe(true);
+    expect(result.outstandingChecks).toEqual([]);
+  });
+
+  it("distinguishes malformed operatingHours with TRADING_HOURS_INVALID", () => {
+    const result = evaluateStorePickupPreflight({
+      ...ready,
+      operatingHours: { timezone: "", bad: true },
+      routeVerified: false,
+      checkoutCertified: false,
+    });
+    expect(result.operatingHoursState).toEqual({
+      status: "INVALID",
+      summary: null,
+      physicalSiteConfirmed: false,
+      independentReviewRecorded: false,
+    });
+    expect(result.outstandingChecks).toEqual([
+      "TRADING_HOURS_INVALID",
+      "DESTINATION_ROUTE_NOT_TESTED",
+      "CHECKOUT_NOT_TESTED",
+    ]);
+  });
+
+  it("treats active variant + approved/active product + active or submitted offer as prepared during store onboarding", () => {
+    const baseOffer: StoreOnboardingOwnerOfferFacts = {
+      isStoreOwnedProduct: true,
+      productStatus: "ACTIVE",
+      productModerationStatus: "APPROVED",
+      productTypeActive: true,
+      categoryActive: true,
+      variantStatus: "ACTIVE",
+      productMedia: [
+        {
+          role: "PRIMARY",
+          variantId: null,
+          assetStatus: "READY",
+          privacyInspectionPassed: true,
+          storageConfirmed: true,
+          validated: true,
+        },
+      ],
+      variantId: "var_1",
+      offerStatus: "ACTIVE",
+      fulfilmentMode: "COURIER_DELIVERY",
+      minimumQuantity: 1,
+      hasCurrentZarPrice: true,
+      hasInventoryItem: true,
+      inventoryTrackingMode: "TRACKED",
+      allowBackorder: false,
+      activeLocationAvailableStock: 30,
+      hasPackageDeclaration: true,
+    };
+    expect(isStoreOnboardingOwnerOfferPrepared(baseOffer)).toBe(true);
+    expect(isStoreOnboardingOwnerOfferPrepared({ ...baseOffer, offerStatus: "DRAFT" })).toBe(false);
+    expect(isStoreOnboardingOwnerOfferPrepared({ ...baseOffer, variantStatus: "DRAFT", offerStatus: "SUBMITTED" })).toBe(true);
   });
 });

@@ -24,9 +24,29 @@ export const TrustedPackageDraftSchema = z.object({ packages: TrustedPackageVers
   });
 export const TrustedPackageActionSchema = z.object({ version: z.number().int().positive(), expectedUpdatedAt: z.iso.datetime(), action: z.enum(["APPROVE", "ACTIVATE", "RETIRE"]), reason: z.string().trim().min(10).max(500) }).strict();
 
-export async function listTrustedPackageVersions() {
+export type TrustedPackageVersionRecord = TrustedPackageVersion & { updatedAt: string };
+
+export async function listTrustedPackageVersionsSafely(): Promise<{
+  versions: TrustedPackageVersionRecord[];
+  malformedKeys: string[];
+}> {
   const rows = await prisma.systemSetting.findMany({ where: { key: { startsWith: prefix } }, orderBy: { createdAt: "desc" } });
-  return rows.map((row) => ({ ...TrustedPackageVersionSchema.parse(row.value), updatedAt: row.updatedAt.toISOString() }));
+  const versions: TrustedPackageVersionRecord[] = [];
+  const malformedKeys: string[] = [];
+  for (const row of rows) {
+    const parsed = TrustedPackageVersionSchema.safeParse(row.value);
+    if (parsed.success) {
+      versions.push({ ...parsed.data, updatedAt: row.updatedAt.toISOString() });
+    } else {
+      malformedKeys.push(row.key);
+    }
+  }
+  return { versions, malformedKeys };
+}
+
+export async function listTrustedPackageVersions() {
+  const { versions } = await listTrustedPackageVersionsSafely();
+  return versions;
 }
 
 export async function saveTrustedPackageVersion(actorId: string, input: z.infer<typeof TrustedPackageDraftSchema>) {
@@ -34,13 +54,29 @@ export async function saveTrustedPackageVersion(actorId: string, input: z.infer<
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
     const rows = await tx.systemSetting.findMany({ where: { key: { startsWith: prefix } } });
-    const latest = Math.max(0, ...rows.map((row) => TrustedPackageVersionSchema.parse(row.value).version));
+    let latest = 0;
+    for (const row of rows) {
+      const parsedRow = TrustedPackageVersionSchema.safeParse(row.value);
+      if (parsedRow.success && parsedRow.data.version > latest) {
+        latest = parsedRow.data.version;
+      } else if (!parsedRow.success) {
+        const suffixMatch = /(\d+)$/.exec(row.key);
+        if (suffixMatch) latest = Math.max(latest, Number(suffixMatch[1]));
+      }
+    }
     if (latest !== data.expectedVersion) throw new PlatformError("VERSION_CONFLICT", "Trusted packaging changed. Refresh before saving.", 409);
-    for (const entry of [...data.packages, ...(data.bundles ?? []).flatMap(bundle => bundle.lines.map(line => ({...line, storeId: bundle.storeId})))]) {
-      const source = await tx.storeCatalogOffer.findUnique({ where: { publicReference: entry.offerReference }, include: { variant: true, publicationSnapshots: { where: { status: "PUBLISHED" }, orderBy: { versionNumber: "desc" }, take: 1 } } });
+    for (const entry of [...data.packages, ...(data.bundles ?? []).flatMap(bundle => bundle.lines.map(line => ({...line, storeId: bundle.storeId, qaScope: undefined})))]) {
+      const source = await tx.storeCatalogOffer.findUnique({ where: { publicReference: entry.offerReference }, include: { store: { select: { isQaAcceptance: true } }, variant: true, publicationSnapshots: { where: { status: "PUBLISHED" }, orderBy: { versionNumber: "desc" }, take: 1 } } });
       // Checkout records the offer revision as publicationVersion. Snapshot
       // publication IDs use a separate namespace and cannot be compared to it.
       if (!source || source.status !== "ACTIVE" || source.publicationStatus !== "PUBLISHED" || String(source.version) !== entry.publicationVersion || source.storeId !== entry.storeId || source.variant.publicReference !== entry.variantReference || source.publicationSnapshots.length !== 1) throw new PlatformError("PACKAGE_SOURCE_INVALID", "Packaging must identify the actual published store offer, variant and current revision.", 422);
+      const isQaEntry = Boolean(entry.qaScope?.qaAcceptanceOnly) || ("authorityReference" in entry && typeof entry.authorityReference === "string" && entry.authorityReference.startsWith("qa-synthetic-pkg:"));
+      if (isQaEntry && !source.store.isQaAcceptance) {
+        throw new PlatformError("QA_ISOLATION_VIOLATION", "QA synthetic packaging cannot be attached to a commercial store offer.", 409);
+      }
+      if (entry.qaScope && entry.qaScope.storeId !== source.storeId) {
+        throw new PlatformError("QA_ISOLATION_VIOLATION", "QA packaging scope storeId does not match the offer's store.", 409);
+      }
       if (new Set(entry.modifiers.map((modifier) => modifier.optionReference)).size !== entry.modifiers.length) throw new PlatformError("PACKAGE_SOURCE_INVALID", "Modifier selections must be unique.", 422);
     }
     const { expectedVersion, reason, ...draft } = data;
@@ -116,7 +152,10 @@ export async function actOnTrustedPackageVersion(actorId: string, input: z.infer
       // Only invalidate stores whose certified proof offer packaging actually changed or was removed;
       // activating a new version to add packaging for another product must not delist live stores.
       const now = new Date();
-      const beforeVersions = beforeRows.map((entry) => TrustedPackageVersionSchema.parse(entry.value));
+      const beforeVersions = beforeRows.flatMap((entry) => {
+        const parsedRow = TrustedPackageVersionSchema.safeParse(entry.value);
+        return parsedRow.success ? [parsedRow.data] : [];
+      });
       const afterVersions = beforeVersions.map((version) => (version.version === next.version ? next : version));
       const beforeActive = pickEffectiveActivePackageVersion(beforeVersions, now);
       const afterActive = pickEffectiveActivePackageVersion(afterVersions, now);
@@ -168,6 +207,7 @@ export async function classifyPersistedCheckoutParcel(checkoutReference: string 
       return { sizeClass: null, status: "UNKNOWN" as const, reason: "PACKAGE_SOURCE_REVISION_STALE", packageVersion: null, profileId: null, profileVersion: null };
     }
   }
+  const storeRow = await prisma.store.findUnique({ where: { id: storeId }, select: { isQaAcceptance: true } });
   const versions = await listTrustedPackageVersions();
   // Changed vendor evidence invalidates its old review; declarations never authorize a tariff.
   for (const version of versions) for (const entry of version.packages) {
@@ -177,5 +217,5 @@ export async function classifyPersistedCheckoutParcel(checkoutReference: string 
     if (!revision || entry.authorityReference !== `${PACKAGING_PREFIX}${entry.offerReference}:${revision}`) entry.authorityReference = "STALE_VENDOR_MEASUREMENTS";
   }
   const currentVersions = versions.map(version => ({ ...version, packages: version.packages.filter(entry => entry.authorityReference !== "STALE_VENDOR_MEASUREMENTS") }));
-  return classifyTrustedMarketplaceParcel({ storeId, lines, versions: currentVersions, profiles: await publicParcelProfiles() });
+  return classifyTrustedMarketplaceParcel({ storeId, storeIsQaAcceptance: Boolean(storeRow?.isQaAcceptance), lines, versions: currentVersions, profiles: await publicParcelProfiles() });
 }

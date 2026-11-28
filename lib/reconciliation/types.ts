@@ -25,6 +25,8 @@ export interface PermittedRecoveryAction {
   name: string;
   description: string;
   requiredPermission: PermissionKey;
+  authorized?: boolean;
+  availabilityStatus?: "EXECUTABLE" | "UNAVAILABLE_PERMISSION" | "BLOCKED";
   readinessState: "READY" | "BLOCKED";
   readinessBlocker?: string;
 }
@@ -88,6 +90,7 @@ export interface RecoveryExecutionResult {
   executedAt: string;
   safeOutcome: string;
   updatedStatus: NormalizedReconciliationStatus;
+  idempotentReplay?: boolean;
 }
 
 export interface ReconciliationSourceAdapter {

@@ -97,6 +97,111 @@ export interface QaAcceptanceDashboardView {
         creditTotal: string;
       }>;
     }>;
+    runBreakdowns?: Array<{
+      runId: string;
+      runReference: string;
+      title: string;
+      status: string;
+      courierOrdersCount: number;
+      courierOrdersTotalZar: string;
+      settledCourierCount: number;
+      blockedCourierCount: number;
+      marketplaceOrdersCount: number;
+      marketplaceOrdersTotalZar: string;
+    }>;
+    qaOrders?: Array<{
+      orderId: string;
+      orderNumber: string;
+      runReference: string | null;
+      status: string;
+      totalAmountZar: string;
+      paymentReference: string | null;
+      paymentAmountZar: string | null;
+      paymentStatus: string | null;
+      driverCode: string | null;
+      completedAt: string | null;
+      settled: boolean;
+      driverEarningReference: string | null;
+      driverNetZar: string | null;
+      commissionAmountZar: string | null;
+      settlementVersion: string | null;
+      blockerCode: string | null;
+      blockerMessage: string | null;
+      recovery: {
+        status: string;
+        version: number;
+        planPublicReference: string;
+        preparedByUserId: string;
+        approvedByUserId: string | null;
+      } | null;
+    }>;
+    sandboxProbes?: Array<{
+      reference: string;
+      amountZar: string;
+      status: string;
+      providerDomain: string | null;
+      releaseSha: string;
+      ledgerJournalId: string | null;
+      verifiedAt: string;
+    }>;
+    balanceBreakdown?: {
+      heldBalanceZar: string;
+      clearingBalanceZar: string;
+      unsettledPaidCourierHeldZar: string;
+      settledCourierGrossZar: string;
+      marketplaceReceiptsZar: string;
+      sandboxProbesTotalZar: string;
+      expectedActiveHeldFromOrdersAndProbesZar: string;
+    };
+    ledgerJournals?: Array<{
+      id: string;
+      reference: string;
+      type: string;
+      postedAt: string;
+      memo: string | null;
+      classification: string;
+      sourceRef: string | null;
+      runReference: string | null;
+      heldDeltaZar: string;
+      clearingDeltaZar: string;
+      commissionDeltaZar: string;
+      totalDebitsZar: string;
+    }>;
+    courierCommissionPlans?: Array<{
+      id: string;
+      publicReference: string;
+      scopeKey: string;
+      status: string;
+      versionNumber: number;
+      basisType: string;
+      effectiveFrom: string;
+      approvedAt: string | null;
+      createdByUserId: string;
+      approvedByUserId: string | null;
+      bpsRate: number | null;
+    }>;
+    qaOffers?: Array<{
+      storeId: string;
+      storeName: string;
+      offerReference: string;
+      offerVersion: number;
+      storeSku: string;
+      title: string;
+      variantReference: string;
+      variantTitle: string;
+      offerStatus: string;
+      publicationStatus: string;
+      sellableForCheckout: boolean;
+      failedReasonCodes: readonly string[];
+      trustedPackageMatched: boolean;
+      trustedPackageReason: string | null;
+      trustedPackageVersion: number | null;
+      isQaSyntheticAuthority: boolean;
+      latestVersionNumber: number | null;
+      latestVersionStatus: string | null;
+      latestVersionUpdatedAt: string | null;
+      latestVersionCreatedByUserId: string | null;
+    }>;
   };
 }
 
@@ -122,6 +227,32 @@ export function QaAcceptanceControlCenter({ initial }: { initial: QaAcceptanceDa
   const [runDriverId, setRunDriverId] = useState<string>(
     initial.principals.find((p) => p.active && p.driverProfile)?.driverProfile?.id ?? "",
   );
+  const [pkgDims, setPkgDims] = useState({ lengthCm: "15", widthCm: "10", heightCm: "5", weightKg: "0.25", reason: "Synthetic QA acceptance packaging dimensions isolated to active QA run." });
+  const [recoveryPlanRef, setRecoveryPlanRef] = useState<string>(
+    initial.reconciliation.courierCommissionPlans?.find((p) => p.status === "ACTIVE")?.publicReference ?? "",
+  );
+
+  async function callSubEndpoint(url: string, method: "POST" | "PATCH", body: Record<string, unknown>, successMsg: string) {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify(body),
+      });
+      const payload = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(payload.error ?? "Request failed.");
+      setNotice(successMsg);
+      await refreshDashboard();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Request failed.");
+      setBusy(false);
+    }
+  }
 
   async function refreshDashboard(query = search) {
     setBusy(true);
@@ -627,9 +758,251 @@ export function QaAcceptanceControlCenter({ initial }: { initial: QaAcceptanceDa
       </OperationalPanel>
 
       <OperationalPanel
-        title="5. Isolated Sandbox Ledger & Reconciliation Balances"
-        description="Zero-trust isolated balances inside platform-sandbox-acceptance and isQaIsolated wallets. Non-withdrawable; excluded from commercial finance reporting."
+        title="5. Isolated Sandbox Ledger & Per-Order Reconciliation"
+        description="Zero-trust isolated balances inside platform-sandbox-acceptance and isQaIsolated wallets, reconciled per run, per order, and per Paystack sandbox probe."
       >
+        {dashboard.reconciliation.balanceBreakdown ? (
+          <div className="mb-5 rounded-xl border bg-slate-50 p-4 text-xs space-y-2">
+            <h3 className="text-sm font-semibold">Platform Sandbox Account Attribution (Held vs Order &amp; Probe Sources)</h3>
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <div><span className="text-[var(--kt-text-muted)] block">Held balance</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.heldBalanceZar}</strong></div>
+              <div><span className="text-[var(--kt-text-muted)] block">Cash clearing</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.clearingBalanceZar}</strong></div>
+              <div><span className="text-[var(--kt-text-muted)] block">Unsettled QA courier orders</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.unsettledPaidCourierHeldZar}</strong></div>
+              <div><span className="text-[var(--kt-text-muted)] block">Settled QA courier orders</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.settledCourierGrossZar}</strong></div>
+              <div><span className="text-[var(--kt-text-muted)] block">Marketplace receipts</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.marketplaceReceiptsZar}</strong></div>
+              <div><span className="text-[var(--kt-text-muted)] block">Paystack sandbox probes</span><strong>ZAR {dashboard.reconciliation.balanceBreakdown.sandboxProbesTotalZar}</strong></div>
+            </div>
+          </div>
+        ) : null}
+
+        {dashboard.reconciliation.qaOrders && dashboard.reconciliation.qaOrders.length > 0 ? (
+          <div className="mb-5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">QA Courier Orders &amp; Driver Settlement Status</h3>
+              <select
+                aria-label="Courier plan for QA recovery"
+                value={recoveryPlanRef || dashboard.reconciliation.courierCommissionPlans?.find((p) => p.status === "ACTIVE")?.publicReference || ""}
+                onChange={(e) => setRecoveryPlanRef(e.target.value)}
+                className="rounded border bg-white px-2.5 py-1 text-xs"
+              >
+                {(dashboard.reconciliation.courierCommissionPlans ?? [])
+                  .filter((p) => p.status === "ACTIVE")
+                  .map((p) => (
+                    <option key={p.publicReference} value={p.publicReference}>
+                      {p.publicReference} ({p.scopeKey} v{p.versionNumber})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 uppercase text-[var(--kt-text-muted)]">
+                  <tr>
+                    <th className="p-2.5">Order</th>
+                    <th className="p-2.5">Run / Payment</th>
+                    <th className="p-2.5">Driver / Delivery</th>
+                    <th className="p-2.5">Settlement / Blocker</th>
+                    <th className="p-2.5">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {dashboard.reconciliation.qaOrders.map((ord) => (
+                    <tr key={ord.orderId} className="align-top">
+                      <td className="p-2.5 font-mono font-semibold">{ord.orderNumber}<span className="block font-sans font-normal text-[var(--kt-text-muted)]">ZAR {ord.totalAmountZar} · {ord.status}</span></td>
+                      <td className="p-2.5">{ord.runReference ?? "—"}<span className="block font-mono text-[var(--kt-text-muted)]">{ord.paymentReference ?? "Unpaid"} ({ord.paymentStatus ?? "N/A"})</span></td>
+                      <td className="p-2.5">{ord.driverCode ?? "—"}<span className="block text-[var(--kt-text-muted)]">{ord.completedAt ? new Date(ord.completedAt).toISOString() : "Not completed"}</span></td>
+                      <td className="p-2.5">
+                        {ord.settled ? (
+                          <span className="text-emerald-800 font-semibold">
+                            Settled {ord.driverEarningReference} · Net R {ord.driverNetZar} (Comm R {ord.commissionAmountZar}) · {ord.settlementVersion}
+                          </span>
+                        ) : (
+                          <div>
+                            <span className="font-mono font-semibold text-amber-800">{ord.blockerCode ?? "PENDING"}</span>
+                            {ord.blockerMessage ? <p className="mt-0.5 text-[var(--kt-text-soft)]">{ord.blockerMessage}</p> : null}
+                            {ord.recovery ? <p className="mt-0.5 font-mono text-[11px]">Recovery v{ord.recovery.version}: {ord.recovery.status}</p> : null}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-2.5 space-x-2">
+                        {!ord.settled && ord.completedAt && (!ord.recovery || ord.recovery.status === "REVOKED") ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              callSubEndpoint(
+                                "/api/admin/qa-acceptance/settlement-recovery",
+                                "POST",
+                                {
+                                  orderId: ord.orderId,
+                                  planPublicReference: recoveryPlanRef || dashboard.reconciliation.courierCommissionPlans?.find((p) => p.status === "ACTIVE")?.publicReference || "",
+                                  reason: "Dual-control QA historical settlement recovery preparation",
+                                },
+                                `Prepared QA settlement recovery for ${ord.orderNumber}`,
+                              )
+                            }
+                            className="rounded border px-2 py-1 font-semibold hover:bg-slate-100 disabled:opacity-50"
+                          >
+                            Prepare QA Recovery
+                          </button>
+                        ) : null}
+                        {!ord.settled && ord.recovery?.status === "PENDING_REVIEW" ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() =>
+                              callSubEndpoint(
+                                "/api/admin/qa-acceptance/settlement-recovery",
+                                "PATCH",
+                                {
+                                  action: "APPROVE",
+                                  orderId: ord.orderId,
+                                  expectedVersion: ord.recovery!.version,
+                                  reason: "Second admin approved QA settlement recovery and execution",
+                                  settleImmediately: true,
+                                },
+                                `Approved & settled QA earning for ${ord.orderNumber}`,
+                              )
+                            }
+                            className="rounded bg-emerald-700 px-2 py-1 font-semibold text-white disabled:opacity-50"
+                          >
+                            Approve &amp; Settle
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+        {dashboard.reconciliation.qaOffers && dashboard.reconciliation.qaOffers.length > 0 ? (
+          <div className="mb-5 rounded-xl border bg-slate-50 p-4 text-xs space-y-3">
+            <h3 className="text-sm font-semibold">5B. QA Store Offer &amp; Synthetic Packaging Authority (15×10×5 cm, 0.25 kg)</h3>
+            <p className="text-[var(--kt-text-soft)]">Explicitly labeled synthetic QA dimensions apply only to enrolled QA stores and active QA runs — never commercial stores.</p>
+            <div className="grid gap-2 sm:grid-cols-5">
+              <input value={pkgDims.lengthCm} onChange={(e) => setPkgDims((p) => ({ ...p, lengthCm: e.target.value }))} placeholder="Length cm" className="rounded border bg-white px-2 py-1.5" />
+              <input value={pkgDims.widthCm} onChange={(e) => setPkgDims((p) => ({ ...p, widthCm: e.target.value }))} placeholder="Width cm" className="rounded border bg-white px-2 py-1.5" />
+              <input value={pkgDims.heightCm} onChange={(e) => setPkgDims((p) => ({ ...p, heightCm: e.target.value }))} placeholder="Height cm" className="rounded border bg-white px-2 py-1.5" />
+              <input value={pkgDims.weightKg} onChange={(e) => setPkgDims((p) => ({ ...p, weightKg: e.target.value }))} placeholder="Weight kg" className="rounded border bg-white px-2 py-1.5" />
+              <input value={pkgDims.reason} onChange={(e) => setPkgDims((p) => ({ ...p, reason: e.target.value }))} placeholder="Audit reason" className="rounded border bg-white px-2 py-1.5" />
+            </div>
+            <ul className="space-y-2">
+              {dashboard.reconciliation.qaOffers.map((offer) => {
+                const activeRunId = dashboard.runs.find((r) => r.status === "ACTIVE" && (!r.store || r.store.id === offer.storeId))?.id ?? dashboard.runs.find((r) => r.status === "ACTIVE")?.id ?? "";
+                return (
+                  <li key={offer.offerReference} className="flex flex-wrap items-center justify-between gap-2 rounded border bg-white p-2.5">
+                    <div>
+                      <span className="font-semibold">{offer.storeName} · {offer.title} ({offer.variantTitle})</span>
+                      <span className="block font-mono text-[var(--kt-text-muted)]">
+                        {offer.offerReference} v{offer.offerVersion} · {offer.offerStatus}/{offer.publicationStatus} · Pkg: {offer.trustedPackageMatched ? `MATCHED v${offer.trustedPackageVersion}` : offer.trustedPackageReason ?? "UNMATCHED"}
+                        {offer.latestVersionNumber ? ` · Latest pkg v${offer.latestVersionNumber} (${offer.latestVersionStatus})` : ""}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={busy || !activeRunId || offer.offerStatus !== "ACTIVE" || offer.publicationStatus !== "PUBLISHED"}
+                        onClick={() =>
+                          callSubEndpoint(
+                            "/api/admin/qa-acceptance/synthetic-packaging",
+                            "POST",
+                            {
+                              runId: activeRunId,
+                              storeId: offer.storeId,
+                              offerReference: offer.offerReference,
+                              lengthCm: Number(pkgDims.lengthCm),
+                              widthCm: Number(pkgDims.widthCm),
+                              heightCm: Number(pkgDims.heightCm),
+                              weightKg: Number(pkgDims.weightKg),
+                              reason: pkgDims.reason,
+                            },
+                            `Recorded synthetic QA package draft for ${offer.offerReference}`,
+                          )
+                        }
+                        className="rounded border px-2.5 py-1 font-semibold hover:bg-slate-100 disabled:opacity-50"
+                      >
+                        Record QA Synthetic Pkg
+                      </button>
+                      {offer.latestVersionStatus === "DRAFT" && offer.latestVersionNumber && offer.latestVersionUpdatedAt ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            callSubEndpoint(
+                              "/api/admin/qa-acceptance/synthetic-packaging",
+                              "PATCH",
+                              {
+                                version: offer.latestVersionNumber!,
+                                expectedUpdatedAt: offer.latestVersionUpdatedAt!,
+                                action: "APPROVE",
+                                reason: "Independent reviewer approved synthetic QA packaging",
+                              },
+                              `Approved QA synthetic package v${offer.latestVersionNumber}`,
+                            )
+                          }
+                          className="rounded bg-blue-700 px-2.5 py-1 font-semibold text-white disabled:opacity-50"
+                        >
+                          Approve v{offer.latestVersionNumber}
+                        </button>
+                      ) : null}
+                      {offer.latestVersionStatus === "APPROVED" && offer.latestVersionNumber && offer.latestVersionUpdatedAt ? (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            callSubEndpoint(
+                              "/api/admin/qa-acceptance/synthetic-packaging",
+                              "PATCH",
+                              {
+                                version: offer.latestVersionNumber!,
+                                expectedUpdatedAt: offer.latestVersionUpdatedAt!,
+                                action: "ACTIVATE",
+                                reason: "Activated approved synthetic QA packaging",
+                              },
+                              `Activated QA synthetic package v${offer.latestVersionNumber}`,
+                            )
+                          }
+                          className="rounded bg-emerald-700 px-2.5 py-1 font-semibold text-white disabled:opacity-50"
+                        >
+                          Activate v{offer.latestVersionNumber}
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+
+        {dashboard.reconciliation.ledgerJournals && dashboard.reconciliation.ledgerJournals.length > 0 ? (
+          <details className="mb-5 rounded-xl border bg-white p-4 text-xs">
+            <summary className="cursor-pointer font-semibold">Itemized QA &amp; Sandbox Ledger Journals ({dashboard.reconciliation.ledgerJournals.length})</summary>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="border-b text-[var(--kt-text-muted)]">
+                  <tr><th className="py-1.5 pr-2">Journal</th><th className="py-1.5 pr-2">Classification</th><th className="py-1.5 pr-2">Source</th><th className="py-1.5 pr-2">Held Δ</th><th className="py-1.5 pr-2">Clearing Δ</th><th className="py-1.5">Commission Δ</th></tr>
+                </thead>
+                <tbody className="divide-y">
+                  {dashboard.reconciliation.ledgerJournals.map((j) => (
+                    <tr key={j.id}>
+                      <td className="py-1.5 pr-2 font-mono">{j.reference}</td>
+                      <td className="py-1.5 pr-2">{j.classification}</td>
+                      <td className="py-1.5 pr-2 font-mono">{j.sourceRef ?? "—"}{j.runReference ? ` (${j.runReference})` : ""}</td>
+                      <td className="py-1.5 pr-2 font-mono">{j.heldDeltaZar}</td>
+                      <td className="py-1.5 pr-2 font-mono">{j.clearingDeltaZar}</td>
+                      <td className="py-1.5 font-mono">{j.commissionDeltaZar}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        ) : null}
+
         <div className="grid gap-4 md:grid-cols-2">
           {dashboard.reconciliation.isolatedWallets.map((w) => (
             <div key={w.id} className="rounded-xl border p-4">

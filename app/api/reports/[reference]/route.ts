@@ -24,14 +24,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }
   if (!allowed) return forbidden("You do not have access to this report job.");
 
-  const artifact = await db.reportExportArtifact.findUnique({ where: { jobId: job.id }, select: { publicReference: true, format: true, byteSize: true, checksum: true, downloadCount: true, expiresAt: true } });
+  const artifact = await db.reportExportArtifact.findUnique({ where: { jobId: job.id }, select: { id: true, publicReference: true, format: true, byteSize: true, checksum: true, downloadCount: true, expiresAt: true } });
+  const artifactExpired = Boolean(artifact && (new Date() >= artifact.expiresAt || job.status === "EXPIRED"));
   return ok({
     data: {
       id: job.id, publicReference: job.publicReference, definitionKey: job.definitionKey,
       requesterRole: job.requesterRole, status: job.status, outputFormat: job.outputFormat,
       rowCount: job.rowCount, createdAt: job.createdAt,
       errorMessage: job.errorMessage ? "Report generation did not complete." : null,
-      artifact: artifact && new Date() < artifact.expiresAt ? artifact : null,
+      artifactExpired,
+      artifact: artifact && !artifactExpired ? artifact : null,
     },
   });
 }

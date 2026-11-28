@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { ProtectedPageFrame, ProtectedState } from "@/components/protected-v2";
 import { reportArtifactSummarySchema, type ReportArtifactSummary } from "@/lib/reporting/client-contracts";
 import { z } from "zod";
@@ -38,7 +39,20 @@ export default function AdminReportArtifactsPage() {
   return (
     <ProtectedPageFrame>
       <div className="space-y-6">
-        <h1 className="text-xl font-bold text-gray-900">Export Artifacts Audit</h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="text-xl font-bold text-gray-900">Export Artifacts Audit</h1>
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/admin/reports" className="rounded border border-gray-300 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50">
+              Control Centre
+            </Link>
+            <Link href="/admin/reports/jobs" className="rounded border border-gray-300 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50">
+              Report Jobs
+            </Link>
+            <Link href="/reports" className="rounded bg-blue-600 px-3 py-1.5 font-medium text-white hover:bg-blue-700">
+              Request &amp; Download (/reports)
+            </Link>
+          </div>
+        </div>
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b text-gray-700">

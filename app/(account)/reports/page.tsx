@@ -29,6 +29,19 @@ export default function ReportsPage() {
   const [format, setFormat] = useState("CSV");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const refreshJobs = async () => {
+    try {
+      const jobsRes = await fetch("/api/reports");
+      if (jobsRes.ok) {
+        const jobsData = await jobsRes.json();
+        setJobs(jobsData.data || []);
+      }
+    } catch {
+      // silent refresh error
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -40,8 +53,15 @@ export default function ReportsPage() {
 
         if (defRes.ok) {
           const defData = await defRes.json();
-          setDefinitions(defData.data || []);
-          if (defData.data?.[0]) setSelectedKey(defData.data[0].key);
+          const loadedDefs: ReportDefinition[] = defData.data || [];
+          setDefinitions(loadedDefs);
+          if (loadedDefs[0]) {
+            setSelectedKey(loadedDefs[0].key);
+            const firstAllowed = loadedDefs[0].allowedFormats.includes("CSV")
+              ? "CSV"
+              : (loadedDefs[0].allowedFormats[0] ?? "CSV");
+            setFormat(firstAllowed);
+          }
         }
 
         if (jobsRes.ok) {
@@ -58,12 +78,29 @@ export default function ReportsPage() {
     loadData();
   }, []);
 
+  const selectedDefinition = definitions.find((d) => d.key === selectedKey) ?? null;
+  const availableFormats = selectedDefinition?.allowedFormats?.length
+    ? selectedDefinition.allowedFormats.filter((fmt) => fmt !== "XLSX")
+    : ["CSV", "JSON"];
+  const isAdminViewer = definitions.some((d) => d.key.startsWith("admin-"));
+  const hasQueuedJobs = jobs.some((j) => j.status === "QUEUED" || j.status === "REQUESTED" || j.status === "RUNNING");
+
+  const handleDefinitionChange = (nextKey: string) => {
+    setSelectedKey(nextKey);
+    const nextDef = definitions.find((d) => d.key === nextKey);
+    const allowed = nextDef?.allowedFormats?.filter((fmt) => fmt !== "XLSX") ?? ["CSV", "JSON"];
+    if (!allowed.includes(format)) {
+      setFormat(allowed.includes("CSV") ? "CSV" : (allowed[0] ?? "CSV"));
+    }
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedKey) return;
 
     setSubmitting(true);
     setMessage("");
+    setErrorMessage("");
 
     try {
       const res = await fetch("/api/reports", {
@@ -79,18 +116,13 @@ export default function ReportsPage() {
       if (res.ok) {
         const result = await res.json();
         setMessage(`Report job requested successfully: ${result.data.publicReference}`);
-        // refresh jobs
-        const jobsRes = await fetch("/api/reports");
-        if (jobsRes.ok) {
-          const jobsData = await jobsRes.json();
-          setJobs(jobsData.data || []);
-        }
+        await refreshJobs();
       } else {
-        const err = await res.json();
-        setMessage(`Error: ${err.message || "Failed to generate report"}`);
+        const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        setErrorMessage(err.error || err.message || "Failed to generate report");
       }
     } catch {
-      setMessage("Failed to request report generation.");
+      setErrorMessage("Failed to request report generation.");
     } finally {
       setSubmitting(false);
     }
@@ -103,65 +135,114 @@ export default function ReportsPage() {
   return (
     <ProtectedPageFrame>
       <div className="max-w-6xl mx-auto p-6 space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Secure Reports & Data Exports</h1>
-          <p className="text-gray-600">
-            Request, generate, and download privacy-safe self-service reports and data exports.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Secure Reports & Data Exports</h1>
+            <p className="text-gray-600">
+              Request, generate, and download privacy-safe self-service reports and data exports.
+            </p>
+          </div>
+          {isAdminViewer ? (
+            <div className="flex items-center gap-3 text-sm">
+              <Link href="/admin/reports" className="rounded border border-gray-300 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50">
+                Admin Control Centre
+              </Link>
+              <Link href="/admin/reports/jobs" className="rounded border border-gray-300 px-3 py-1.5 font-medium text-gray-700 hover:bg-gray-50">
+                All System Jobs
+              </Link>
+            </div>
+          ) : null}
         </div>
 
         {message && (
-          <div className="p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md font-medium">
+          <div role="status" className="p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md font-medium">
             {message}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div role="alert" className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-md font-medium">
+            {errorMessage}
           </div>
         )}
 
         {/* Generate Form */}
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Request New Export</h2>
-          <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Report Definition</label>
-              <select
-                value={selectedKey}
-                onChange={(e) => setSelectedKey(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                {definitions.map((def) => (
-                  <option key={def.key} value={def.key}>
-                    {def.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {definitions.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              No report definitions are currently enabled for your account role or permissions.
+            </p>
+          ) : (
+            <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label htmlFor="report-definition-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  Report Definition
+                </label>
+                <select
+                  id="report-definition-select"
+                  value={selectedKey}
+                  onChange={(e) => handleDefinitionChange(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  {definitions.map((def) => (
+                    <option key={def.key} value={def.key}>
+                      {def.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Export Format</label>
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="CSV">CSV Spreadsheet</option>
-                <option value="JSON">JSON Data</option>
-              </select>
-            </div>
+              <div>
+                <label htmlFor="report-format-select" className="block text-sm font-medium text-gray-700 mb-1">
+                  Export Format
+                </label>
+                <select
+                  id="report-format-select"
+                  value={format}
+                  onChange={(e) => setFormat(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                >
+                  {availableFormats.map((fmt) => (
+                    <option key={fmt} value={fmt}>
+                      {fmt === "CSV" ? "CSV Spreadsheet" : "JSON Data"}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-blue-600  text-white font-medium py-2 px-4 rounded-md disabled:opacity-50 transition"
-              >
-                {submitting ? "Requesting..." : "Generate Export"}
-              </button>
-            </div>
-          </form>
+              <div>
+                <button
+                  type="submit"
+                  disabled={submitting || !selectedKey}
+                  className="w-full bg-blue-600  text-white font-medium py-2 px-4 rounded-md disabled:opacity-50 transition"
+                >
+                  {submitting ? "Requesting..." : "Generate Export"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Recent Jobs Table */}
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Report Job History</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Your Report Job History</h2>
+              {hasQueuedJobs ? (
+                <p className="text-xs text-gray-500 mt-1">
+                  Queued jobs are processed by background operations workers; refresh to check artifact readiness.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => void refreshJobs()}
+              className="rounded border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Refresh Jobs
+            </button>
+          </div>
           {jobs.length === 0 ? (
             <p className="text-gray-500 text-sm">No report jobs requested yet.</p>
           ) : (

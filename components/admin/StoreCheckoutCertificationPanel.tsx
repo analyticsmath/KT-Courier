@@ -50,8 +50,8 @@ function normalizeStages(value: unknown): StageResult[] {
 }
 
 export function StoreCheckoutCertificationPanel({
-  storeId, initial, initialNeedsRenewal = false,
-}: { storeId: string; initial: Certification; initialNeedsRenewal?: boolean }) {
+  storeId, initial, initialNeedsRenewal = false, currentAdminUserId,
+}: { storeId: string; initial: Certification; initialNeedsRenewal?: boolean; currentAdminUserId?: string }) {
   const router = useRouter();
   const [status, setStatus] = useState(initialNeedsRenewal ? "RENEWAL_REQUIRED" : initial?.status ?? "NOT_SUBMITTED");
   const [revision, setRevision] = useState(initial?.revision ?? 0);
@@ -213,9 +213,22 @@ export function StoreCheckoutCertificationPanel({
         <p role="status" className="text-sm">This evidence cannot be approved for a live storefront. Run the real-source checkout capability proof and submit it for review.</p>
       ) : null}
       {status === "PENDING_REVIEW" && evidenceType === "REAL_STORE_CATALOG_CHECKOUT_CAPABILITY_PROOF" ? (
-        <Button type="button" variant="secondary" disabled={busy} loading={busy} onClick={() => void submit("approve")}>
-          Approve independently reviewed staging evidence
-        </Button>
+        <div className="space-y-2">
+          {currentAdminUserId && initial?.preparedByUserId === currentAdminUserId ? (
+            <p role="status" className="text-sm font-medium text-amber-800">
+              You prepared this capability proof. Dual-control requires a different administrator (holding <code className="font-mono">stores.approve</code> and <code className="font-mono">orders.read</code>) to independently approve it.
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy || Boolean(currentAdminUserId && initial?.preparedByUserId === currentAdminUserId)}
+            loading={busy}
+            onClick={() => void submit("approve")}
+          >
+            Approve independently reviewed staging evidence
+          </Button>
+        </div>
       ) : null}
       {error && <p role="alert" className="text-sm font-semibold text-[var(--kt-red)]">{error}</p>}
       {notice && <p role="status" className="text-sm">{notice}</p>}

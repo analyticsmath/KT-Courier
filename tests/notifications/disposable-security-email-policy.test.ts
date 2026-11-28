@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isDisposableSecurityEmailRuntime,
+  isQaOperationalE2eSecurityEmailRuntime,
   sendDisposableSecurityEmail,
 } from "@/lib/testing/disposable-security-email-policy";
 
@@ -61,5 +62,42 @@ describe("disposable offline security mail without production bypass", () => {
     expect(sendDisposableSecurityEmail(message, safe)).toEqual(sendDisposableSecurityEmail(message, safe));
     expect(sendDisposableSecurityEmail({ ...message, idempotencyKey: "another-operation" }, safe).providerMessageReference)
       .not.toBe(sendDisposableSecurityEmail(message, safe).providerMessageReference);
+  });
+
+  it("permits isolated QA operational E2E loopback runtime only with strict guards", () => {
+    const qaSafe = {
+      NODE_ENV: "production",
+      KT_RUNTIME_ENV: "e2e",
+      KT_DATABASE_CLASSIFICATION: "development",
+      KT_NETWORK_DISABLED: "true",
+      QA_ACCEPTANCE_LANE_ENABLED: "true",
+      PAYSTACK_ACCEPTANCE_SANDBOX_ENABLED: "true",
+      KT_E2E_PAYSTACK_BASE_URL: "http://127.0.0.1:4299",
+      PAYSTACK_MODE: "test",
+      EMAIL_PROVIDER: "console",
+      RESEND_API_KEY: "",
+      DATABASE_URL: "postgresql://kt_courier:change_me_local_only@127.0.0.1:5433/kt_phase75_e2e?schema=public",
+      PAYMENT_APP_ORIGIN: "http://localhost:3200",
+    };
+    expect(isQaOperationalE2eSecurityEmailRuntime(qaSafe)).toBe(true);
+    expect(
+      sendDisposableSecurityEmail(
+        { ...message, destination: "e2e-qaop-qacust@ktcouriers.local" },
+        qaSafe,
+      ),
+    ).toMatchObject({ accepted: true, providerMessageReference: expect.stringMatching(/^disposable-security-email:/) });
+
+    for (const bad of [
+      { KT_RUNTIME_ENV: "production" },
+      { KT_DATABASE_CLASSIFICATION: "production" },
+      { KT_NETWORK_DISABLED: "false" },
+      { KT_E2E_PAYSTACK_BASE_URL: "https://api.paystack.co" },
+      { PAYSTACK_SECRET_KEY: "sk_live_forbidden" },
+      { EMAIL_PROVIDER: "resend" },
+      { DATABASE_URL: "postgresql://user:pass@127.0.0.1:5433/kt_courier" },
+      { PAYMENT_APP_ORIGIN: "https://www.ktcouriers.com" },
+    ]) {
+      expect(isQaOperationalE2eSecurityEmailRuntime({ ...qaSafe, ...bad })).toBe(false);
+    }
   });
 });

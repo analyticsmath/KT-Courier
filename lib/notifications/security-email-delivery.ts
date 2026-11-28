@@ -6,7 +6,7 @@ import {
   NotificationPolicyError,
 } from "./contracts";
 import { assertNotificationProductionReady } from "./production-readiness";
-import { isDisposableSecurityEmailRuntime, sendDisposableSecurityEmail } from "@/lib/testing/disposable-security-email-policy";
+import { isOfflineE2eSecurityEmailRuntime, sendDisposableSecurityEmail } from "@/lib/testing/disposable-security-email-policy";
 import { ResendEmailProvider } from "./providers";
 import { openSecurityPayload } from "./security-payload-vault";
 import { claimEmailAttempt, finishEmailAttempt } from "./email-delivery-recovery";
@@ -53,7 +53,7 @@ export async function deliverSecurityEmail(deliveryId: string) {
   // The production release lock always applies outside the isolated, named
   // offline browser fixture. No live provider secrets or mailboxes are accepted
   // by that fixture, and real deliveries remain fail-closed.
-  const disposable = isDisposableSecurityEmailRuntime();
+  const disposable = isOfflineE2eSecurityEmailRuntime();
   if (!disposable) assertNotificationProductionReady();
 
   let delivery = await prisma.notificationDelivery.findUnique({

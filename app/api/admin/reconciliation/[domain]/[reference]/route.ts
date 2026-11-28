@@ -2,8 +2,8 @@ import { type NextRequest } from "next/server";
 import { requireAdminApiPermission } from "@/lib/auth/admin-api";
 import { PERMISSIONS } from "@/lib/auth/permission-keys";
 import { getEffectivePermissionKeysForUser } from "@/lib/auth/permissions";
-import { notFound, ok } from "@/lib/api/response";
-import { getUnifiedReconciliationCase } from "@/lib/reconciliation/service";
+import { forbidden, notFound, ok } from "@/lib/api/response";
+import { getUnifiedReconciliationCase, ReconciliationAuthorizationError } from "@/lib/reconciliation/service";
 import type { ReconciliationDomain } from "@/lib/reconciliation/types";
 
 export async function GET(
@@ -40,6 +40,9 @@ export async function GET(
     if (!detail) return notFound("Reconciliation case not found.");
     return ok({ data: detail });
   } catch (err) {
+    if (err instanceof ReconciliationAuthorizationError) {
+      return forbidden(err.message);
+    }
     return notFound(err instanceof Error ? err.message : "Reconciliation case not found.");
   }
 }

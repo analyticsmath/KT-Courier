@@ -100,5 +100,14 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL ?? "chrome" },
       testMatch: [/keyboard-navigation\.spec\.ts/],
     },
+    {
+      name: "qa-operational",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...(process.env.PLAYWRIGHT_BROWSER_CHANNEL ? { channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL } : {}),
+      },
+      testMatch: [/qa-acceptance-operational-browser\.spec\.ts/],
+    },
   ],
 });

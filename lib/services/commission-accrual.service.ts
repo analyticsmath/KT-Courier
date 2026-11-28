@@ -32,12 +32,21 @@ export type CommissionAccrualCommand = Readonly<{
 export type AuthoritativeCommissionSnapshot = Readonly<Omit<CommissionAccrualCommand, "operationId" | "actorUserId">>;
 export type CommissionOperationEvidence = Readonly<{ operationId: string; actorUserId?: string }>;
 
+export type QaHistoricalRecoveryPlanOverride = Readonly<{
+  orderId: string;
+  planPublicReference: string;
+  preparedByUserId: string;
+  approvedByUserId: string;
+}>;
+
 function safeAccrualDto(row: Readonly<{ id: string; publicReference: string; status: string; totalAmount: Prisma.Decimal; basisAmount: Prisma.Decimal; ledgerJournal: { reference: string } | null; reversalLedgerJournal: { reference: string } | null }>) {
   return Object.freeze({ id: row.id, publicReference: row.publicReference, status: row.status, totalAmount: row.totalAmount.toFixed(2), basisAmount: row.basisAmount.toFixed(2), currency: "ZAR" as const, ledgerJournalReference: row.ledgerJournal?.reference ?? null, reversalLedgerJournalReference: row.reversalLedgerJournal?.reference ?? null });
 }
 
 function assertCommand(command: CommissionAccrualCommand): Date {
-  const allowedScope = command.subjectType === "COURIER_ORDER" ? command.scopeKey === "GLOBAL:COURIER_ORDER" : command.scopeKey.startsWith("STORE:");
+  const allowedScope = command.subjectType === "COURIER_ORDER"
+    ? (command.scopeKey === "GLOBAL:COURIER_ORDER" || command.scopeKey === "QA:COURIER_ORDER")
+    : command.scopeKey.startsWith("STORE:");
   if (!operationId.test(command.operationId) || !command.subjectId || !command.subjectPublicReference || !command.settlementVersion.trim() || command.settlementVersion.length > 120 || !allowedScope) {
     throw new CommissionError("COMMISSION_INVALID_COMMAND", "The internal commission command is incomplete or has an invalid operation identity.");
   }
@@ -55,10 +64,49 @@ export async function resolveCommissionBasisForOrder(input: Readonly<{ orderId: 
   return commissionBasisFromOrder({ order, quote: order.pricingQuote, authoritativeAt: input.authoritativeAt });
 }
 
-async function selectPlanWithinTransaction(tx: Prisma.TransactionClient, command: CommissionAccrualCommand, authoritativeAt: Date) {
-  if (!command.planPublicReference && command.subjectType === "COURIER_ORDER") return resolveActiveCommissionPlan({ subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", authoritativeAt });
+async function selectPlanWithinTransaction(
+  tx: Prisma.TransactionClient,
+  command: CommissionAccrualCommand,
+  authoritativeAt: Date,
+  qaRecoveryOverride?: QaHistoricalRecoveryPlanOverride,
+) {
+  if (!command.planPublicReference && command.subjectType === "COURIER_ORDER" && command.scopeKey === "GLOBAL:COURIER_ORDER") {
+    return resolveActiveCommissionPlan({ subjectType: "COURIER_ORDER", scopeKey: "GLOBAL:COURIER_ORDER", authoritativeAt });
+  }
   if (!command.planPublicReference) throw new CommissionError("COMMISSION_POLICY_NOT_FOUND", "Marketplace settlement evidence must identify its frozen commission plan.");
   const plan = await tx.commissionPlan.findUnique({ where: { publicReference: command.planPublicReference }, include: { rules: { orderBy: { priority: "asc" } } } });
+  const isQaRecoveryMatch = Boolean(
+    qaRecoveryOverride &&
+      command.subjectType === "COURIER_ORDER" &&
+      qaRecoveryOverride.orderId === command.subjectId &&
+      qaRecoveryOverride.planPublicReference === command.planPublicReference &&
+      qaRecoveryOverride.approvedByUserId &&
+      qaRecoveryOverride.approvedByUserId !== qaRecoveryOverride.preparedByUserId,
+  );
+  if (isQaRecoveryMatch && plan) {
+    const qaOrder = await tx.order.findUnique({ where: { id: command.subjectId }, select: { isQaAcceptance: true } });
+    if (
+      !qaOrder?.isQaAcceptance ||
+      plan.status !== "ACTIVE" ||
+      plan.subjectType !== "COURIER_ORDER" ||
+      (plan.scopeKey !== "GLOBAL:COURIER_ORDER" && plan.scopeKey !== "QA:COURIER_ORDER") ||
+      plan.currency !== "ZAR" ||
+      !plan.approvedAt ||
+      !plan.approvedByUserId ||
+      plan.approvedByUserId === plan.createdByUserId ||
+      (plan.effectiveUntil && plan.effectiveUntil <= new Date()) ||
+      (command.planVersionNumber !== undefined && plan.versionNumber !== command.planVersionNumber)
+    ) {
+      throw new CommissionError("COMMISSION_POLICY_NOT_FOUND", "The QA recovery commission policy is not eligible for this QA order.");
+    }
+    return plan;
+  }
+  if (command.scopeKey === "QA:COURIER_ORDER") {
+    const qaOrder = await tx.order.findUnique({ where: { id: command.subjectId }, select: { isQaAcceptance: true } });
+    if (!qaOrder?.isQaAcceptance) {
+      throw new CommissionError("COMMISSION_POLICY_NOT_FOUND", "QA-scoped courier commission plans cannot be applied to commercial orders.");
+    }
+  }
   if (!plan || plan.status !== "ACTIVE" || plan.subjectType !== command.subjectType || plan.scopeKey !== command.scopeKey || plan.currency !== "ZAR" || plan.effectiveFrom > authoritativeAt || (plan.effectiveUntil && plan.effectiveUntil <= authoritativeAt) || (command.planVersionNumber !== undefined && plan.versionNumber !== command.planVersionNumber)) {
     throw new CommissionError("COMMISSION_POLICY_NOT_FOUND", "The selected commission policy is not active at the authoritative event time.");
   }
@@ -95,10 +143,15 @@ async function resolveAccounts(tx: Prisma.TransactionClient, components: ReturnT
   return Object.freeze({ held, allocations: Object.freeze(allocations) });
 }
 
-export async function accrueCommissionInTransaction(tx: Prisma.TransactionClient, authoritativeCommissionSnapshot: AuthoritativeCommissionSnapshot, operationEvidence: CommissionOperationEvidence) {
+export async function accrueCommissionInTransaction(
+  tx: Prisma.TransactionClient,
+  authoritativeCommissionSnapshot: AuthoritativeCommissionSnapshot,
+  operationEvidence: CommissionOperationEvidence,
+  options?: Readonly<{ qaHistoricalRecoveryAuthorized?: QaHistoricalRecoveryPlanOverride }>,
+) {
   const command: CommissionAccrualCommand = { ...authoritativeCommissionSnapshot, operationId: operationEvidence.operationId, actorUserId: operationEvidence.actorUserId };
   const authoritativeAt = assertCommand(command);
-  const plan = await selectPlanWithinTransaction(tx, command, authoritativeAt);
+  const plan = await selectPlanWithinTransaction(tx, command, authoritativeAt, options?.qaHistoricalRecoveryAuthorized);
   const calculation = calculateCommission({ basis: command.basis, basisType: plan.basisType, calculationVersion: plan.calculationVersion, rules: plan.rules, beneficiaries: command.beneficiarySnapshots });
   const requestHash = hashCommissionCommand({ subjectType: command.subjectType, subjectPublicReference: command.subjectPublicReference, settlementVersion: command.settlementVersion, plan: { publicReference: plan.publicReference, versionNumber: plan.versionNumber }, basis: command.basis, authoritativeAt: command.authoritativeAt, beneficiaries: (command.beneficiarySnapshots ?? []).map(({ beneficiaryType, attributionReference, attributionVersion, ownerId, walletId, commissionPayableAccountId }) => ({ beneficiaryType, attributionReference, attributionVersion, ownerId, walletId, commissionPayableAccountId })), ruleReferences: plan.rules.map((rule) => rule.publicReference), calculationVersion: plan.calculationVersion });
   const existing = await tx.commissionAccrual.findUnique({ where: { creationIdempotencyKey: command.operationId }, include: { ledgerJournal: { select: { reference: true } }, reversalLedgerJournal: { select: { reference: true } }, allocations: { select: { id: true, publicReference: true, amount: true } } } });

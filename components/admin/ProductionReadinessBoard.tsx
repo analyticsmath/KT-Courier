@@ -8,6 +8,7 @@ import {
   type CapabilityStatus,
 } from "@/lib/production-readiness/contracts";
 import type { CapabilityMatrixEntry } from "@/lib/production-readiness/capability-matrix.service";
+import { EXCLUDED_CAPABILITY_MATRIX_KEYS } from "@/lib/production-readiness/reconciliation";
 import type { MatrixReconciliationSummary } from "@/lib/production-readiness/reconciliation";
 import type { EnvSchemaVerificationReport } from "@/lib/runtime/env-schema-verifier";
 import type { CommerceActivation } from "@/lib/runtime/commerce-activation";
@@ -218,7 +219,12 @@ export function ProductionReadinessBoard({
       <section aria-labelledby="capability-matrix-heading" className="space-y-3">
         <div>
           <h3 id="capability-matrix-heading" className="font-semibold text-[var(--kt-brand-navy)]">Read-only capability &amp; live activation matrix</h3>
-          <p className="mt-1 text-sm text-[var(--kt-text-soft)]">Source implementation, runtime credentials, external entitlements, admin policy, and worker health are measured independently so no software deployment can claim live activation prematurely.</p>
+          <p className="mt-1 text-sm text-[var(--kt-text-soft)]">Source implementation, runtime credentials, external entitlements, admin policy, and worker health are measured independently so no software deployment can claim live activation prematurely. Capabilities excluded from initial v1 launch policy remain activation-locked without counting as in-scope launch blockers.</p>
+          <p className="mt-1 text-xs font-mono text-[var(--kt-text-soft)]">
+            In-scope eligible: {capabilityMatrix.filter((r) => !EXCLUDED_CAPABILITY_MATRIX_KEYS.has(r.key) && r.eligibleForLiveUse).length} / {capabilityMatrix.filter((r) => !EXCLUDED_CAPABILITY_MATRIX_KEYS.has(r.key)).length}
+            {" · "}In-scope blockers: {capabilityMatrix.filter((r) => !EXCLUDED_CAPABILITY_MATRIX_KEYS.has(r.key) && !r.eligibleForLiveUse).length}
+            {" · "}Excluded by policy (locked): {capabilityMatrix.filter((r) => EXCLUDED_CAPABILITY_MATRIX_KEYS.has(r.key)).length}
+          </p>
         </div>
         <div className="overflow-x-auto rounded-xl border border-[var(--kt-border)] bg-white">
           <table className="w-full text-left text-xs">
@@ -231,28 +237,40 @@ export function ProductionReadinessBoard({
                 <th className="p-3">External Auth</th>
                 <th className="p-3">Admin Policy</th>
                 <th className="p-3">Worker</th>
-                <th className="p-3">Live Eligible</th>
+                <th className="p-3">Policy / Live Status</th>
                 <th className="p-3">Blocker</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--kt-border)]">
-              {capabilityMatrix.map((row) => (
-                <tr key={row.key}>
-                  <td className="p-3 font-medium text-[var(--kt-brand-navy)]">{row.label}</td>
-                  <td className="p-3">{row.sourceImplemented ? "Yes" : "No"}</td>
-                  <td className="p-3 font-mono">{row.isolatedTestPassSha ? row.isolatedTestPassSha.slice(0, 8) : "Unrecorded"}</td>
-                  <td className="p-3">{row.runtimeConfigured ? "Configured" : "Pending"}</td>
-                  <td className="p-3">{row.externalEntitlementApproved ? "Approved" : "Locked"}</td>
-                  <td className="p-3">{row.adminPolicyEffective ? "Effective" : "Pending"}</td>
-                  <td className="p-3">{row.schedulerRegisteredAndHealthy === null ? "N/A" : row.schedulerRegisteredAndHealthy ? "Healthy" : "Blocked"}</td>
-                  <td className="p-3">
-                    <span className={`inline-block rounded px-2 py-0.5 font-semibold ${row.eligibleForLiveUse ? "bg-[#edf7f0] text-[#236547]" : "bg-[#fff2e7] text-[#875224]"}`}>
-                      {row.eligibleForLiveUse ? "ELIGIBLE" : "BLOCKED"}
-                    </span>
-                  </td>
-                  <td className="p-3 font-mono text-[11px] text-[var(--kt-text-soft)]">{row.lastBlockerCode ?? "NONE"}</td>
-                </tr>
-              ))}
+              {capabilityMatrix.map((row) => {
+                const excludedByPolicy = EXCLUDED_CAPABILITY_MATRIX_KEYS.has(row.key);
+                return (
+                  <tr key={row.key}>
+                    <td className="p-3 font-medium text-[var(--kt-brand-navy)]">{row.label}</td>
+                    <td className="p-3">{row.sourceImplemented ? "Yes" : "No"}</td>
+                    <td className="p-3 font-mono">{row.isolatedTestPassSha ? row.isolatedTestPassSha.slice(0, 8) : "Unrecorded"}</td>
+                    <td className="p-3">{row.runtimeConfigured ? "Configured" : "Pending"}</td>
+                    <td className="p-3">{row.externalEntitlementApproved ? "Approved" : "Locked"}</td>
+                    <td className="p-3">{row.adminPolicyEffective ? "Effective" : "Pending"}</td>
+                    <td className="p-3">{row.schedulerRegisteredAndHealthy === null ? "N/A" : row.schedulerRegisteredAndHealthy ? "Healthy" : "Blocked"}</td>
+                    <td className="p-3">
+                      {excludedByPolicy ? (
+                        <span className="inline-block rounded bg-[var(--kt-surface-muted)] px-2 py-0.5 font-semibold text-[var(--kt-text-soft)]">
+                          EXCLUDED_BY_POLICY
+                        </span>
+                      ) : (
+                        <span className={`inline-block rounded px-2 py-0.5 font-semibold ${row.eligibleForLiveUse ? "bg-[#edf7f0] text-[#236547]" : "bg-[#fff2e7] text-[#875224]"}`}>
+                          {row.eligibleForLiveUse ? "ELIGIBLE" : "BLOCKED"}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 font-mono text-[11px] text-[var(--kt-text-soft)]">
+                      {row.lastBlockerCode ?? "NONE"}
+                      {excludedByPolicy ? " (excluded from v1 scope; locked)" : ""}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

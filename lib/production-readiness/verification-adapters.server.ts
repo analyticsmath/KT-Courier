@@ -2,7 +2,13 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { PlatformError } from "@/lib/client-platform/contracts";
 import { verifyAuditReceipt } from "@/services/release-authority/src/audit-receipt.mjs";
-import type { AcceptanceVerificationOptions, VerifiedParityInfo } from "./evidence";
+import {
+  fetchGithubCiRun,
+  type AcceptanceVerificationOptions,
+  type VerifiedCiRunInfo,
+  type VerifiedParityInfo,
+} from "./evidence";
+import { resolveGithubReadAuthorization } from "./github-auth";
 
 const ALLOWED_PARITY_VERIFIER_HOSTS = new Set<string>(
   (process.env.KT_PARITY_VERIFIER_ALLOWED_HOSTS ?? "")
@@ -461,6 +467,120 @@ export async function verifyProductionParityRemote(
   };
 }
 
+function deriveCiVerifierUrl(parityUrl: string): string {
+  const parsed = new URL(parityUrl);
+  if (/\/parity\/verify\/?$/.test(parsed.pathname)) {
+    parsed.pathname = parsed.pathname.replace(/\/parity\/verify\/?$/, "/ci/verify");
+  } else {
+    parsed.pathname = "/v1/release-authority/ci/verify";
+  }
+  parsed.search = "";
+  return parsed.toString();
+}
+
+export async function verifyCiCertificationRemote(
+  input: Readonly<{ runId: string; releaseSha: string }>,
+  options: Readonly<{
+    env?: Record<string, string | undefined>;
+    fetchImpl?: typeof fetch;
+    allowLoopbackForTest?: boolean;
+  }> = {},
+): Promise<VerifiedCiRunInfo> {
+  const env = options.env ?? process.env;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const externalUrl = env.KT_PARITY_VERIFIER_URL?.trim();
+
+  if (externalUrl) {
+    const allowedHosts = new Set<string>([
+      ...ALLOWED_PARITY_VERIFIER_HOSTS,
+      ...(env.KT_PARITY_VERIFIER_ALLOWED_HOSTS ?? "")
+        .split(",")
+        .map((h) => h.trim().toLowerCase())
+        .filter(Boolean),
+    ]);
+    const url = await assertSafeRemoteUrl(deriveCiVerifierUrl(externalUrl), {
+      allowedHosts: allowedHosts.size > 0 ? allowedHosts : undefined,
+      allowLoopbackForTest: options.allowLoopbackForTest,
+    });
+    const verifierToken = env.KT_PARITY_VERIFIER_TOKEN?.trim();
+    let res: Response | null = null;
+    try {
+      res = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          ...(verifierToken ? { authorization: `Bearer ${verifierToken}` } : {}),
+        },
+        body: JSON.stringify(input),
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      res = null;
+    }
+
+    if (res) {
+      if (res.ok) {
+        const data = (await res.json()) as Partial<VerifiedCiRunInfo>;
+        if (
+          !data ||
+          typeof data.headSha !== "string" ||
+          typeof data.status !== "string" ||
+          typeof data.conclusion !== "string" ||
+          typeof data.completedAt !== "string" ||
+          typeof data.jobsPassed !== "number" ||
+          typeof data.skippedJobs !== "number"
+        ) {
+          throw new PlatformError("CI_VERIFICATION_MISMATCH", "Release authority CI verification payload is incomplete.", 409);
+        }
+        return {
+          ...(typeof (data as { repository?: unknown }).repository === "string"
+            ? { repository: (data as { repository: string }).repository }
+            : {}),
+          headSha: data.headSha,
+          headBranch: data.headBranch,
+          workflowPath: data.workflowPath,
+          status: data.status,
+          conclusion: data.conclusion,
+          completedAt: data.completedAt,
+          jobsPassed: data.jobsPassed,
+          skippedJobs: data.skippedJobs,
+          missingJobs: data.missingJobs,
+          primaryCiVerified: data.primaryCiVerified,
+          verifiedTestsPassed: data.verifiedTestsPassed ?? null,
+          artifactsVerified: data.artifactsVerified,
+          missingArtifacts: data.missingArtifacts,
+          artifactDownloadVerified: data.artifactDownloadVerified,
+          artifactDownloadStatus: data.artifactDownloadStatus,
+          authMode: data.authMode,
+        };
+      }
+
+      const errBody = (await res.json().catch(() => null)) as { code?: string; error?: string } | null;
+      if (res.status === 409 || errBody?.code === "CI_VERIFICATION_MISMATCH" || errBody?.code === "SOURCE_CONTEXT_MISMATCH") {
+        throw new PlatformError(
+          "CI_VERIFICATION_MISMATCH",
+          String(errBody?.error ?? "CI certification does not match release authority verification."),
+          409,
+        );
+      }
+      if (res.status !== 404 && res.status !== 501 && res.status !== 503) {
+        throw new PlatformError(
+          "CI_VERIFICATION_UNAVAILABLE",
+          String(errBody?.error ?? "Release authority CI verification endpoint returned an error."),
+          409,
+        );
+      }
+      // If release-authority does not yet expose /ci/verify (404/501) or returns 503,
+      // fall through cleanly to public/GitHub-App verified read below without relaxing any CI invariant.
+    }
+  }
+
+  const githubAuth = await resolveGithubReadAuthorization(env, fetchImpl);
+  return fetchGithubCiRun(input.runId, githubAuth.token, input.releaseSha, fetchImpl);
+}
+
 export function buildProductionVerificationOptions(
   env: Record<string, string | undefined> = process.env,
   fetchImpl: typeof fetch = fetch,
@@ -468,6 +588,7 @@ export function buildProductionVerificationOptions(
   return {
     env,
     adapters: {
+      verifyCiRun: (input) => verifyCiCertificationRemote(input, { env, fetchImpl }),
       verifyParity: (input) => verifyProductionParityRemote(input, { env, fetchImpl }),
     },
   };

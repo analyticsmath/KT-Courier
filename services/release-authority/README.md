@@ -21,6 +21,7 @@ Standalone deployable HTTP release authority service and offline 4-role Ed25519 
    - `GET /v1/release-authority/revocations`
    - `POST /v1/release-authority/issuances/claim`
    - `POST /v1/release-authority/parity/verify`
+   - `POST /v1/release-authority/ci/verify`
    - Admin ingestion/collector routes (`/v1/release-authority/admin/trust`, `/admin/audits`, `/admin/collect`, `/admin/envelopes`, `/admin/revocations`, guarded by separate `RELEASE_AUTHORITY_ADMIN_TOKEN`)
 
 5. **Verified Protected-Row Database Audit Flow**:
@@ -40,7 +41,8 @@ Standalone deployable HTTP release authority service and offline 4-role Ed25519 
 | `RELEASE_AUTHORITY_ADMIN_TOKEN` | Yes (>= 16 chars) | Separate operator admin token for publishing trust/audits/contexts/envelopes/revocations |
 | `RELEASE_AUTHORITY_DATABASE_URL` | Recommended for HA | Separate dedicated PostgreSQL connection string initialized from `schema.sql` |
 | `RELEASE_AUTHORITY_DATA_DIR` | Fallback if no DB URL | Persistent volume path for atomic file lock/claim store |
-| `GITHUB_RELEASE_READ_TOKEN` | Collector/Parity | Read-only GitHub token to query Actions workflows & commit tree SHAs |
+| `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` / `GITHUB_APP_INSTALLATION_ID` | Recommended read-only App | Short-lived RS256 GitHub App installation tokens (`actions:read`, `contents:read`, `metadata:read`) for CI & artifact ZIP verification without a fine-grained PAT (public `analyticsmath/KT-Courier` workflow runs also verify without tokens) |
+| `GITHUB_RELEASE_READ_TOKEN` | Optional fallback | Legacy/CI test token if configured; never required for public workflow verification |
 | `VERCEL_TOKEN` (+ optional `VERCEL_TEAM_ID`) | Collector/Parity | Read-only Vercel token to verify production deployment SHA parity |
 | `RAILWAY_API_TOKEN` | Collector/Parity | Read-only Railway API token to verify `web`, `operations`, `query-storefront-categories` |
 | `KT_PRODUCTION_ORIGIN` | Collector/Parity | Public HTTPS origin of KT Couriers app for `/api/infrastructure/ready` health verification |

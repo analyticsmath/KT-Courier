@@ -21,10 +21,14 @@ import {
 import { marketplaceCourierTariffPolicy } from "@/lib/marketplace-checkout/courier-tariff-policy";
 import { listDeliveryMatrices } from "@/lib/marketplace-checkout/delivery-policy-configuration";
 import { acceptanceKeys, listAcceptanceEvidence, evidenceIsCurrent } from "./evidence";
+import { listQaFunctionalAcceptanceEvidence } from "./qa-functional-evidence";
 import { requiredDomainNotificationDefinitions } from "@/lib/notifications/required-domain-definitions";
 import { evaluateProcessorEvidence } from "./processor-evidence";
 import { buildCapabilityMatrix } from "./capability-matrix.service";
-import { evaluateCommissionPlanCoverage } from "./commission-plan-coverage";
+import {
+  evaluateCommissionPlanCoverage,
+  loadCommerciallyEligibleMarketplaceStoreIds,
+} from "./commission-plan-coverage";
 import { evaluateRequiredNotificationGovernance } from "./notification-governance";
 import { verifyEnvironmentSchema } from "@/lib/runtime/env-schema-verifier";
 import { evaluateCommerceActivation } from "@/lib/runtime/commerce-activation";
@@ -81,8 +85,8 @@ export async function getProductionReadiness() {
     return capability("parcel_profiles", missing.length ? "BLOCKED_HUMAN_APPROVAL" : "READY", missing.length ? "PARCEL_OPERATIONAL_APPROVAL_REQUIRED" : "ACTIVE_PARCEL_PROFILES", "Draft examples are not production acceptance limits.", "OPERATIONS", { missingSizes: missing });
   });
   await probe("approved_commission_plan", async () => {
-    const activeStores = await prisma.store.findMany({ where: { status: "ACTIVE", isQaAcceptance: false }, select: { id: true } });
-    const activeStoreIds = activeStores.map((store) => store.id);
+    const { commerciallyEligibleStoreIds: activeStoreIds, activeBusinessAccountCount } =
+      await loadCommerciallyEligibleMarketplaceStoreIds(prisma);
     const plans = await prisma.commissionPlan.findMany({
       where: {
         currency: "ZAR",
@@ -130,7 +134,10 @@ export async function getProductionReadiness() {
       coverage.reasonCode,
       coverage.summary,
       "FINANCE",
-      coverage.evidence,
+      {
+        ...coverage.evidence,
+        ...(activeBusinessAccountCount !== null ? { activeBusinessAccountCount } : {}),
+      },
     );
   });
 
@@ -407,6 +414,7 @@ export async function getProductionReadiness() {
   const safePrisma = prisma as unknown as {
     store?: { count?: (args?: unknown) => Promise<number> };
     driverProfile?: { count?: (args?: unknown) => Promise<number> };
+    systemSetting?: { findMany?: (args?: unknown) => Promise<unknown[]> };
   };
   const [totalStoresCount, activeStoresCount, approvedDriversCount] = await Promise.all([
     safePrisma.store?.count?.({ where: { isQaAcceptance: false } }).catch(() => null) ?? null,
@@ -436,6 +444,10 @@ export async function getProductionReadiness() {
   };
 
   const matrixReconciliation = reconcileBoardWithCapabilityMatrix(guardedEntries, capabilityMatrix);
+  const qaFunctionalAcceptance =
+    typeof safePrisma.systemSetting?.findMany === "function"
+      ? await listQaFunctionalAcceptanceEvidence().catch(() => [])
+      : [];
   return {
     generatedAt: now.toISOString(),
     status: matrixReconciliation.overallStatus,
@@ -450,5 +462,6 @@ export async function getProductionReadiness() {
     commerceActivation,
     codeCapabilities,
     entityConfigurationStatus,
+    qaFunctionalAcceptance,
   };
 }

@@ -4,11 +4,15 @@ import {
   isProductionRuntimeEnv,
   resolveCurrentServerReleaseSha,
 } from "@/lib/payments/sandbox-acceptance.service";
-import { evaluateCommissionPlanCoverage } from "@/lib/production-readiness/commission-plan-coverage";
+import {
+  evaluateCommissionPlanCoverage,
+  loadCommerciallyEligibleMarketplaceStoreIds,
+} from "@/lib/production-readiness/commission-plan-coverage";
 import type { Capability } from "@/lib/production-readiness/contracts";
 import {
   acceptanceStorageKey,
   parseAcceptanceRecord,
+  requiresFinancialAuthorizationReference,
 } from "@/lib/production-readiness/evidence";
 
 export async function applyReleaseAndParityGuardsToEntries(
@@ -115,7 +119,10 @@ export async function applyReleaseAndParityGuardsToEntries(
                 "ACCEPTANCE_SERVER_VERIFICATION_REQUIRED",
                 "Production requires recorded human attestation provenance for live acceptance.",
               );
-            } else if (!parsed.evidence.financialAuthorizationReference) {
+            } else if (
+              requiresFinancialAuthorizationReference(key) &&
+              !parsed.evidence.financialAuthorizationReference
+            ) {
               replaceStatus(
                 key,
                 "BLOCKED_LIVE_ACCEPTANCE",
@@ -146,7 +153,7 @@ export async function applyReleaseAndParityGuardsToEntries(
     typeof prisma.commissionPlan?.findMany === "function" &&
     typeof prisma.store?.findMany === "function"
   ) {
-    const [activePlans, activeStores] = await Promise.all([
+    const [activePlans, storeCoverageScope] = await Promise.all([
       prisma.commissionPlan.findMany({
         where: {
           status: "ACTIVE",
@@ -171,14 +178,11 @@ export async function applyReleaseAndParityGuardsToEntries(
           },
         },
       }),
-      prisma.store.findMany({
-        where: { status: "ACTIVE", isQaAcceptance: false },
-        select: { id: true },
-      }),
+      loadCommerciallyEligibleMarketplaceStoreIds(prisma),
     ]);
     const cov = evaluateCommissionPlanCoverage({
       now: options.now,
-      activeStoreIds: activeStores.map((s) => s.id),
+      activeStoreIds: storeCoverageScope.commerciallyEligibleStoreIds,
       plans: activePlans,
     });
     if (!cov.ready) {

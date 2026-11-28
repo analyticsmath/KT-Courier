@@ -11,23 +11,24 @@ import {
   resolveSandboxAcceptanceConfiguration,
 } from "@/lib/payments/sandbox-acceptance.service";
 import { classifyRuntimeEnvironment } from "@/lib/runtime/deployment-classification";
+import { buildGithubApiHeaders } from "@/lib/production-readiness/github-auth";
 
-export { computeSandboxProvenanceDigest as computePaymentProvenanceDigest };
+import {
+  FINANCIAL_LIVE_ACCEPTANCE_KEYS,
+  NON_FINANCIAL_LIVE_ACCEPTANCE_KEYS,
+  acceptanceKeys,
+  requiresFinancialAuthorizationReference,
+  type AcceptanceKey,
+} from "./acceptance-keys";
 
-export const acceptanceKeys = [
-  "vendor_onboarding_acceptance",
-  "driver_onboarding_acceptance",
-  "driver_gps_acceptance",
-  "pod_otp_acceptance",
-  "payment_integration_acceptance",
-  "settlement_acceptance",
-  "refund_acceptance",
-  "payout_acceptance",
-  "current_ci_certification",
-  "production_deployment_sha_parity",
-] as const;
-
-export type AcceptanceKey = (typeof acceptanceKeys)[number];
+export {
+  computeSandboxProvenanceDigest as computePaymentProvenanceDigest,
+  FINANCIAL_LIVE_ACCEPTANCE_KEYS,
+  NON_FINANCIAL_LIVE_ACCEPTANCE_KEYS,
+  acceptanceKeys,
+  requiresFinancialAuthorizationReference,
+  type AcceptanceKey,
+};
 const sha = z.string().regex(/^[a-f0-9]{40}$/);
 const ALLOWED_SANDBOX_SUBJECTS = new Set(["COURIER_ORDER", "MARKETPLACE_CHECKOUT", "SANDBOX_ACCEPTANCE"]);
 
@@ -56,7 +57,12 @@ export const AcceptanceEvidenceSchema = z
           "payout_acceptance",
         ]),
         genuineOperatorAcceptance: z.literal(true),
-        financialAuthorizationReference: z.string().regex(/^[A-Za-z0-9:/._-]{8,150}$/).nullable(),
+        financialAuthorizationReference: z
+          .string()
+          .regex(/^[A-Za-z0-9:/._-]{8,150}$/)
+          .nullable()
+          .optional()
+          .transform((value) => value ?? null),
       })
       .strict(),
     z
@@ -107,7 +113,11 @@ export const AcceptanceEvidenceSchema = z
     if (new Date(v.observedAt) > new Date() || new Date(v.expiresAt) <= new Date(v.observedAt)) {
       context.addIssue({ code: "custom", message: "Evidence requires an observed time and a later expiry." });
     }
-    if (v.kind === "LIVE" && v.financialAuthorizationReference === null) {
+    if (
+      v.kind === "LIVE" &&
+      requiresFinancialAuthorizationReference(v.key) &&
+      v.financialAuthorizationReference === null
+    ) {
       context.addIssue({ code: "custom", message: "Financial authorization reference is required for real-money acceptance." });
     }
     if (
@@ -217,7 +227,10 @@ export function evidenceIsCurrent(
       if (record.verificationMode !== "HUMAN_ATTESTED" && record.verificationMode !== "SERVER_VERIFIED") {
         return false;
       }
-      if (!record.evidence.financialAuthorizationReference) {
+      if (
+        requiresFinancialAuthorizationReference(record.evidence.key) &&
+        !record.evidence.financialAuthorizationReference
+      ) {
         return false;
       }
     } else if (record.verificationMode !== "SERVER_VERIFIED") {
@@ -444,7 +457,27 @@ export const REQUIRED_PRIMARY_CI_JOBS = Object.freeze([
   "docker-runtime",
 ] as const);
 
+export const REQUIRED_CERTIFICATION_ARTIFACTS = Object.freeze([
+  "certification-quality",
+  ...Array.from({ length: 20 }, (_, i) => `postgres-${i}`),
+  "certification-redis-and-recovery",
+  "certification-recovery",
+  "browser-evidence",
+  "certification-browser-reports",
+  "phase2-automated-engineering",
+] as const);
+
+export type ArtifactDownloadStatus =
+  | "VERIFIED"
+  | "REQUIRES_AUTH"
+  | "UNAUTHORIZED"
+  | "RATE_LIMITED"
+  | "UNAVAILABLE"
+  | "MISSING_REQUIRED_ARTIFACT"
+  | "INVALID_PAYLOAD";
+
 export type VerifiedCiRunInfo = Readonly<{
+  repository?: string;
   headSha: string;
   headBranch?: string;
   workflowPath?: string;
@@ -456,6 +489,11 @@ export type VerifiedCiRunInfo = Readonly<{
   missingJobs?: readonly string[];
   primaryCiVerified?: boolean;
   verifiedTestsPassed?: number | null;
+  artifactsVerified?: boolean;
+  missingArtifacts?: readonly string[];
+  artifactDownloadVerified?: boolean;
+  artifactDownloadStatus?: ArtifactDownloadStatus;
+  authMode?: "TOKEN" | "PUBLIC_ANONYMOUS";
 }>;
 
 export type VerifiedParityInfo = Readonly<{
@@ -510,6 +548,32 @@ export type AcceptanceVerificationOptions = Readonly<{
 
 type GithubJobRow = { name?: string; status?: string; conclusion?: string | null };
 
+function buildGithubRateLimitOrUnavailableError(res: Response, context: string): PlatformError {
+  const remaining = res.headers?.get?.("x-ratelimit-remaining");
+  const reset = res.headers?.get?.("x-ratelimit-reset");
+  const resetIso =
+    reset && /^\d+$/.test(reset) ? new Date(Number(reset) * 1000).toISOString() : null;
+  if (res.status === 429 || (res.status === 403 && remaining === "0")) {
+    return new PlatformError(
+      "CI_VERIFICATION_UNAVAILABLE",
+      `GitHub API rate limit exceeded while querying ${context}${resetIso ? ` (resets at ${resetIso})` : ""}; configure a read-only GitHub App installation or retry later.`,
+      502,
+    );
+  }
+  if (res.status === 401 || res.status === 403) {
+    return new PlatformError(
+      "CI_VERIFICATION_UNAVAILABLE",
+      `GitHub API denied access while querying ${context} (HTTP ${res.status}); configure release-authority or a read-only GitHub App installation.`,
+      502,
+    );
+  }
+  return new PlatformError(
+    "CI_VERIFICATION_UNAVAILABLE",
+    `Unable to query GitHub ${context} (HTTP ${res.status}).`,
+    502,
+  );
+}
+
 async function fetchPaginatedGithubJobs(
   baseUrl: string,
   headers: Record<string, string>,
@@ -523,7 +587,7 @@ async function fetchPaginatedGithubJobs(
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) {
-      throw new PlatformError("CI_VERIFICATION_UNAVAILABLE", "Unable to query GitHub Actions jobs.", 502);
+      throw buildGithubRateLimitOrUnavailableError(res, "GitHub Actions jobs");
     }
     const payload = (await res.json()) as { total_count?: number; jobs?: GithubJobRow[] };
     const pageJobs = payload.jobs ?? [];
@@ -594,23 +658,24 @@ function extractPrimaryTestCountFromZip(zipBuffer: Buffer): number | null {
 
 export async function fetchGithubCiRun(
   runId: string,
-  token: string,
+  token: string | null | undefined,
   releaseSha?: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<VerifiedCiRunInfo> {
-  const headers = {
-    accept: "application/vnd.github+json",
-    authorization: `Bearer ${token}`,
-    "user-agent": "KT-Courier-Acceptance-Verifier",
-  };
+  const headers = buildGithubApiHeaders(token);
+  const authMode: "TOKEN" | "PUBLIC_ANONYMOUS" = token?.trim() ? "TOKEN" : "PUBLIC_ANONYMOUS";
   const runRes = await fetchImpl(
     `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}`,
     { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
   );
   if (!runRes.ok) {
-    throw new PlatformError("CI_VERIFICATION_UNAVAILABLE", "Unable to query GitHub Actions run status.", 502);
+    if (runRes.status === 404) {
+      throw new PlatformError("CI_VERIFICATION_MISMATCH", "GitHub certification workflow run was not found.", 409);
+    }
+    throw buildGithubRateLimitOrUnavailableError(runRes, "certification workflow run");
   }
   const runJson = (await runRes.json()) as {
+    repository?: { full_name?: string };
     head_sha?: string;
     head_branch?: string;
     path?: string;
@@ -619,6 +684,10 @@ export async function fetchGithubCiRun(
     updated_at?: string;
     run_attempt?: number;
   };
+  const repository = runJson.repository?.full_name ? String(runJson.repository.full_name) : undefined;
+  if (repository && repository !== "analyticsmath/KT-Courier") {
+    throw new PlatformError("CI_VERIFICATION_MISMATCH", "GitHub workflow run belongs to an unexpected repository.", 409);
+  }
   const attempt = typeof runJson.run_attempt === "number" && runJson.run_attempt > 0 ? runJson.run_attempt : 1;
   const targetSha = releaseSha ?? String(runJson.head_sha ?? "");
 
@@ -633,7 +702,7 @@ export async function fetchGithubCiRun(
       { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
     ),
     fetchImpl(
-      `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}/artifacts?per_page=50`,
+      `https://api.github.com/repos/analyticsmath/KT-Courier/actions/runs/${encodeURIComponent(runId)}/artifacts?per_page=100`,
       { headers, redirect: "error", signal: AbortSignal.timeout(10_000) },
     ),
   ]);
@@ -644,12 +713,27 @@ export async function fetchGithubCiRun(
   const missingJobs = REQUIRED_CERTIFICATION_JOBS.filter((name) => !succeededCertJobNames.has(name));
 
   let primaryCiVerified = false;
-  if (ciRunsRes.ok) {
+  if (!ciRunsRes.ok) {
+    if (ciRunsRes.status === 403 || ciRunsRes.status === 429 || ciRunsRes.status === 401) {
+      throw buildGithubRateLimitOrUnavailableError(ciRunsRes, "primary CI workflow runs");
+    }
+  } else {
     const ciRunsJson = (await ciRunsRes.json()) as {
-      workflow_runs?: Array<{ id?: number; head_sha?: string; head_branch?: string; status?: string; conclusion?: string; run_attempt?: number }>;
+      workflow_runs?: Array<{
+        id?: number;
+        repository?: { full_name?: string };
+        head_sha?: string;
+        head_branch?: string;
+        path?: string;
+        status?: string;
+        conclusion?: string;
+        run_attempt?: number;
+      }>;
     };
     const matchingCi = (ciRunsJson.workflow_runs ?? []).find(
       (r) =>
+        (!r.repository?.full_name || r.repository.full_name === "analyticsmath/KT-Courier") &&
+        (!r.path || r.path === ".github/workflows/ci.yml") &&
         r.head_sha === targetSha &&
         r.head_branch === "main" &&
         r.status === "completed" &&
@@ -666,32 +750,77 @@ export async function fetchGithubCiRun(
       const ciSucceeded = new Set(
         ciJobs.filter((j) => j.conclusion === "success" && typeof j.name === "string").map((j) => j.name!),
       );
-      primaryCiVerified = REQUIRED_PRIMARY_CI_JOBS.every((jobName) => ciSucceeded.has(jobName));
+      const ciSkipped = ciJobs.filter(
+        (j) =>
+          typeof j.name === "string" &&
+          (REQUIRED_PRIMARY_CI_JOBS as readonly string[]).includes(j.name) &&
+          j.conclusion === "skipped",
+      ).length;
+      primaryCiVerified = REQUIRED_PRIMARY_CI_JOBS.every((jobName) => ciSucceeded.has(jobName)) && ciSkipped === 0;
     }
   }
 
+  if (!artifactsRes.ok) {
+    throw buildGithubRateLimitOrUnavailableError(artifactsRes, "certification artifacts");
+  }
+
+  const artifactsPayload = (await artifactsRes.json()) as {
+    artifacts?: Array<{ name?: string; expired?: boolean; archive_download_url?: string }>;
+  };
+  const activeArtifacts = (artifactsPayload.artifacts ?? []).filter(
+    (a) => a.expired !== true && typeof a.name === "string",
+  );
+  const presentArtifactNames = new Set(activeArtifacts.map((a) => a.name!));
+  const missingArtifacts = REQUIRED_CERTIFICATION_ARTIFACTS.filter((name) => !presentArtifactNames.has(name));
+  const artifactsVerified = missingArtifacts.length === 0;
+
   let verifiedTestsPassed: number | null = null;
-  if (artifactsRes.ok) {
-    const artifactsPayload = (await artifactsRes.json()) as {
-      artifacts?: Array<{ name?: string; expired?: boolean; archive_download_url?: string }>;
-    };
-    const qualityArtifact = (artifactsPayload.artifacts ?? []).find(
-      (a) => a.name === "certification-quality" && a.expired !== true && typeof a.archive_download_url === "string",
-    );
-    if (qualityArtifact?.archive_download_url) {
+  let artifactDownloadVerified = false;
+  let artifactDownloadStatus: ArtifactDownloadStatus = artifactsVerified
+    ? authMode === "PUBLIC_ANONYMOUS"
+      ? "REQUIRES_AUTH"
+      : "UNAVAILABLE"
+    : "MISSING_REQUIRED_ARTIFACT";
+
+  const qualityArtifact = activeArtifacts.find(
+    (a) => a.name === "certification-quality" && typeof a.archive_download_url === "string",
+  );
+  if (qualityArtifact?.archive_download_url) {
+    if (authMode === "PUBLIC_ANONYMOUS") {
+      // GitHub Actions REST metadata is public on public repos, but artifact ZIP downloads require authorization (HTTP 401).
+      // Never assume public metadata access grants artifact archive retrieval.
+      artifactDownloadStatus = artifactsVerified ? "REQUIRES_AUTH" : "MISSING_REQUIRED_ARTIFACT";
+    } else {
       const zipRes = await fetchImpl(qualityArtifact.archive_download_url, {
         headers,
         redirect: "follow",
         signal: AbortSignal.timeout(15_000),
       }).catch(() => null);
-      if (zipRes?.ok) {
+      if (!zipRes) {
+        artifactDownloadStatus = "UNAVAILABLE";
+      } else if (zipRes.status === 401 || zipRes.status === 403) {
+        const rateLimited =
+          zipRes.status === 403 && zipRes.headers?.get?.("x-ratelimit-remaining") === "0";
+        artifactDownloadStatus = rateLimited ? "RATE_LIMITED" : "UNAUTHORIZED";
+      } else if (zipRes.status === 429) {
+        artifactDownloadStatus = "RATE_LIMITED";
+      } else if (zipRes.ok) {
         const buf = Buffer.from(await zipRes.arrayBuffer());
         verifiedTestsPassed = extractPrimaryTestCountFromZip(buf);
+        if (verifiedTestsPassed !== null) {
+          artifactDownloadVerified = true;
+          artifactDownloadStatus = "VERIFIED";
+        } else {
+          artifactDownloadStatus = "INVALID_PAYLOAD";
+        }
+      } else {
+        artifactDownloadStatus = "UNAVAILABLE";
       }
     }
   }
 
   return {
+    ...(repository ? { repository } : {}),
     headSha: String(runJson.head_sha ?? ""),
     headBranch: String(runJson.head_branch ?? ""),
     workflowPath: String(runJson.path ?? ""),
@@ -703,6 +832,11 @@ export async function fetchGithubCiRun(
     missingJobs,
     primaryCiVerified,
     verifiedTestsPassed,
+    artifactsVerified,
+    missingArtifacts,
+    artifactDownloadVerified,
+    artifactDownloadStatus,
+    authMode,
   };
 }
 
@@ -752,16 +886,21 @@ export async function verifyAcceptanceProvenanceWithAdapters(
 
     const verified = await verifier({ runId, releaseSha: evidence.releaseSha });
     if (
+      (verified.repository && verified.repository !== "analyticsmath/KT-Courier") ||
       verified.headSha !== evidence.releaseSha ||
       (verified.headBranch !== undefined && verified.headBranch !== "main") ||
       (verified.workflowPath !== undefined && verified.workflowPath !== ".github/workflows/production-certification.yml") ||
       verified.status !== "completed" ||
       verified.conclusion !== "success" ||
       verified.skippedJobs !== 0 ||
-      verified.jobsPassed < 26 && verified.missingJobs !== undefined ||
+      (verified.jobsPassed < 26 && verified.missingJobs !== undefined) ||
       verified.jobsPassed <= 0 ||
       Boolean(verified.missingJobs?.length) ||
       verified.primaryCiVerified === false ||
+      verified.artifactsVerified === false ||
+      Boolean(verified.missingArtifacts?.length) ||
+      verified.artifactDownloadStatus === "MISSING_REQUIRED_ARTIFACT" ||
+      verified.artifactDownloadStatus === "INVALID_PAYLOAD" ||
       (verified.verifiedTestsPassed != null && verified.verifiedTestsPassed !== evidence.testsPassed) ||
       new Date(evidence.observedAt).getTime() < new Date(verified.completedAt).getTime()
     ) {

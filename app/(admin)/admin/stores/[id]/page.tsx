@@ -22,6 +22,8 @@ import { describeStoreCheckoutBlockers } from "@/lib/admin/store-checkout-blocke
 import { REAL_CHECKOUT_PROOF_EVIDENCE_TYPE } from "@/lib/admin/store-checkout-engine-proof.service";
 import { classifySellerRegistration } from "@/lib/admin/seller-identity-display";
 import { QaSandboxBanner } from "@/components/qa-acceptance/QaSandboxBanner";
+import { diagnoseStoreOffersSellability } from "@/lib/admin/store-offer-diagnostics.service";
+import { StoreOfferDiagnosticsPanel } from "@/components/admin/StoreOfferDiagnosticsPanel";
 
 export const metadata: Metadata = { title: "Vendor account dossier" };
 
@@ -35,24 +37,27 @@ function date(value: Date | null | undefined) {
 export default async function AdminStoreDossier({ params }: { params: Promise<{ id: string }> }) {
   const admin = await requireAdminPagePermission(PERMISSIONS.STORES_READ);
   const { id } = await params;
-  const [store, canApprove, canUpdate, canReviewSeller, canManagePricing, canReadCommission] = await Promise.all([
+  const [store, canApprove, canReadOrders, canUpdate, canReviewSeller, canManagePricing, canReadCommission] = await Promise.all([
     getStoreDetail(id),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.STORES_APPROVE }),
+    hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.ORDERS_READ }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.STORES_UPDATE }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.LEGAL_DOCUMENTS_READ }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.PRICING_MANAGE }),
     hasPermission({ userId: admin.id, role: admin.role, permissionKey: PERMISSIONS.COMMISSION_PLANS_READ }),
   ]);
   if (!store) notFound();
+  const canOperateCertification = canApprove && canReadOrders;
+  const isCertifiableStatus = store.status === "PENDING" || store.status === "ACTIVE";
   const now = new Date();
-  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision, activeOperationalPolicy, qaStoreFlag] = await Promise.all([
+  const [storefront, publishedOfferCount, catalogOfferCount, legalSeller, negotiatedRateCount, commissionReadiness, certification, pickupState, globalPolicyRevision, activeOperationalPolicy, qaStoreFlag, offerDiagnostics] = await Promise.all([
     prisma.storefrontStoreDocument.findUnique({ where: { storeId: id }, select: { publicStatus: true, publishedOfferCount: true, indexedAt: true } }),
     prisma.storefrontProductDocument.count({ where: { storeId: id, status: "ACTIVE", searchable: true } }),
     prisma.storeCatalogOffer.count({ where: { storeId: id } }),
     canReviewSeller ? prisma.storeSellerLegalIdentity.findFirst({ where: { storeId: id, status: "APPROVED", effectiveFrom: { lte: now }, OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }] }, orderBy: { effectiveFrom: "desc" }, select: { legalName: true, tradingName: true, registrationReference: true, vatRegistrationStatus: true, identityVersion: true } }) : Promise.resolve(null),
     canManagePricing ? prisma.personalizedDeliveryRate.count({ where: { ownerType: "STORE", ownerId: id, status: "ACTIVE" } }) : Promise.resolve(0),
     canReadCommission ? getStoreCommissionReadiness(id, prisma, now) : Promise.resolve(null),
-    canApprove ? prisma.storeCheckoutCertification.findUnique({
+    prisma.storeCheckoutCertification.findUnique({
       where: { storeId: id }, select: {
         status: true, revision: true, preparedAt: true, approvedAt: true, expiresAt: true,
         preparedByUserId: true, approvedByUserId: true,
@@ -64,9 +69,9 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         sourceCommerceReadinessRevision: true, globalPolicyRevision: true,
         proofOfferReference: true, proofPriceVersionReference: true, proofMetadata: true,
       },
-    }) : Promise.resolve(null),
+    }),
     getStorePickupAddressForStore(id),
-    canApprove ? getGlobalCommercePolicyRevision() : Promise.resolve(1),
+    getGlobalCommercePolicyRevision(),
     prisma.storeOrderOperationalPolicy.findFirst({
       where: {
         status: "ACTIVE",
@@ -76,6 +81,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       select: { id: true },
     }),
     prisma.store.findUnique({ where: { id }, select: { isQaAcceptance: true } }),
+    diagnoseStoreOffersSellability(id),
   ]);
   const owner = store.ownerUser;
   const pickupCandidate = pickupState?.pickupAddress ?? null;
@@ -143,7 +149,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       explanation: publishedOfferCount > 0
         ? `${publishedOfferCount} active, searchable product offer(s) with valid pricing and inventory.`
         : "Zero published offers. A store must have at least one sellable offer to appear in storefront.",
-      actionHref: `/admin/stores/${encodeURIComponent(id)}`,
+      actionHref: `/admin/stores/${encodeURIComponent(id)}#offer-diagnostics`,
       actionLabel: "Inspect Catalog",
     },
     {
@@ -170,11 +176,15 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         certification.sourceCommerceReadinessRevision === (store.commerceReadinessRevision ?? 1) &&
         certification.globalPolicyRevision === globalPolicyRevision
       ),
-      explanation: certification?.status === "APPROVED" && certification.expiresAt > now
-        ? "Two-reviewer certification approved matching pickup fingerprint and policy revision."
-        : "Pending dual-control review or expired certification.",
+      explanation: !isCertifiableStatus
+        ? `Unavailable while store status is ${store.status}.`
+        : !canOperateCertification
+          ? "View current certification evidence; mutating requires stores.approve and orders.read."
+          : certification?.status === "APPROVED" && certification.expiresAt > now
+            ? "Two-reviewer certification approved matching pickup fingerprint and policy revision."
+            : "Pending dual-control review or expired certification.",
       actionHref: "#checkout-certification",
-      actionLabel: "Certify Checkout",
+      actionLabel: !canOperateCertification || !isCertifiableStatus ? "Inspect Certification" : "Certify Checkout",
     },
   ];
 
@@ -250,14 +260,49 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         </OperationalPanel>
       </div>
     ) : null}
-    {canApprove && (store.status === "PENDING" || store.status === "ACTIVE") ? (
-      <div id="checkout-certification">
-        <OperationalPanel title="Independent checkout and route certification"
-          description="Store certification requires two authorized reviewers and evidence matching the mapped collection address, coverage region and active service versions.">
-          <StoreCheckoutCertificationPanel storeId={store.id} initial={certification} initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE || certification.sourceCommerceReadinessRevision !== store.commerceReadinessRevision || certification.globalPolicyRevision !== globalPolicyRevision || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") || !certification.proofOfferReference || !certification.proofPriceVersionReference))} />
-        </OperationalPanel>
-      </div>
-    ) : null}
+    <div id="checkout-certification">
+      <OperationalPanel title="Independent checkout and route certification"
+        description="Store certification requires two authorized reviewers (both holding stores.approve and orders.read) and evidence matching the mapped collection address, coverage region and active service versions.">
+        {!isCertifiableStatus ? (
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold text-amber-800">
+              Checkout certification is unavailable while the store account status is {store.status}.
+            </p>
+            <p className="text-[var(--kt-text-soft)]">
+              Current certification record: {certification?.status ?? "NOT_SUBMITTED"}
+              {certification?.revision != null ? ` · revision ${certification.revision}` : ""}.
+            </p>
+          </div>
+        ) : !canOperateCertification ? (
+          <div className="space-y-2 text-sm">
+            <p className="font-semibold text-amber-800">
+              Read-only view: preparing or approving checkout certification requires both{" "}
+              <code className="font-mono">stores.approve</code> and{" "}
+              <code className="font-mono">orders.read</code> permissions (missing:{" "}
+              {[
+                !canApprove ? "stores.approve" : null,
+                !canReadOrders ? "orders.read" : null,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              ).
+            </p>
+            <p className="text-[var(--kt-text-soft)]">
+              Current certification status: <span className="font-semibold">{certification?.status ?? "NOT_SUBMITTED"}</span>
+              {certification?.evidenceType ? ` · ${certification.evidenceType}` : ""}
+              {certification?.proofOfferReference ? ` · Proof offer: ${certification.proofOfferReference}` : ""}
+            </p>
+          </div>
+        ) : (
+          <StoreCheckoutCertificationPanel
+            storeId={store.id}
+            initial={certification}
+            currentAdminUserId={admin.id}
+            initialNeedsRenewal={Boolean(certification?.status === "APPROVED" && (certification.expiresAt <= now || certification.evidenceType !== REAL_CHECKOUT_PROOF_EVIDENCE_TYPE || certification.sourceCommerceReadinessRevision !== store.commerceReadinessRevision || certification.globalPolicyRevision !== globalPolicyRevision || !/^[a-f0-9]{64}$/.test(certification.routeEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.checkoutEvidenceDigest ?? "") || !/^[a-f0-9]{64}$/.test(certification.engineProofDigest ?? "") || !certification.proofOfferReference || !certification.proofPriceVersionReference))}
+          />
+        )}
+      </OperationalPanel>
+    </div>
     <OperationalPanel title="Business registration" description="Business, contact and collection details as currently recorded in the store account.">
       <dl className="grid gap-4 sm:grid-cols-2">
         {fact("Registered store name", store.name)}
@@ -272,6 +317,11 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
         {fact("Store slug", store.slug)}
       </dl>
     </OperationalPanel>
+    {offerDiagnostics ? (
+      <div id="offer-diagnostics">
+        <StoreOfferDiagnosticsPanel report={offerDiagnostics} />
+      </div>
+    ) : null}
     <OperationalPanel title="Account owner" description="Account identity and access facts. A seller's legal approval remains separately governed.">
       <dl className="grid gap-4 sm:grid-cols-2">
         {fact("Account owner", owner?.name)}
@@ -295,6 +345,7 @@ export default async function AdminStoreDossier({ params }: { params: Promise<{ 
       </dl>
       <div className="mt-4 flex flex-wrap gap-5 text-sm font-semibold">
         {canReviewSeller ? <Link href={`/admin/stores/${encodeURIComponent(id)}/seller-identity`} className="underline underline-offset-4">Review seller evidence</Link> : null}
+        <Link href={`/admin/stores/${encodeURIComponent(id)}/readiness`} className="underline underline-offset-4">Operational readiness &amp; preflight</Link>
         {canManagePricing ? <Link href={`/admin/pricing?storeId=${encodeURIComponent(id)}`} className="underline underline-offset-4">Store-specific delivery pricing ({negotiatedRateCount} active)</Link> : null}
         {admin.role === "SUPER_ADMIN" ? <Link href={`/admin/business-support/${encodeURIComponent(id)}`} className="underline underline-offset-4">Business support</Link> : null}
       </div>

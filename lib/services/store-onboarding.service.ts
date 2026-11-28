@@ -151,12 +151,16 @@ export function isStoreOnboardingOwnerOfferPrepared(
     offer.isStoreOwnedProduct &&
     offer.productTypeActive &&
     offer.categoryActive &&
-    offer.variantStatus === "DRAFT" &&
+    (offer.variantStatus === "DRAFT" ||
+      (offer.variantStatus === "ACTIVE" &&
+        ["APPROVED", "ACTIVE"].includes(offer.offerStatus))) &&
     ((offer.productStatus === "SUBMITTED" &&
       ["PENDING", "UNDER_REVIEW"].includes(offer.productModerationStatus)) ||
       (["APPROVED", "ACTIVE"].includes(offer.productStatus) &&
         offer.productModerationStatus === "APPROVED"));
-  const offerSubmitted = offer.offerStatus === "SUBMITTED";
+  const offerSubmittedOrActive = ["SUBMITTED", "APPROVED", "ACTIVE"].includes(
+    offer.offerStatus,
+  );
   const requiredQuantity = Math.max(1, Math.ceil(offer.minimumQuantity));
   const stockCanFulfil =
     offer.hasInventoryItem &&
@@ -182,7 +186,7 @@ export function isStoreOnboardingOwnerOfferPrepared(
 
   return (
     productSubmittedOrApproved &&
-    offerSubmitted &&
+    offerSubmittedOrActive &&
     offer.hasCurrentZarPrice &&
     stockCanFulfil &&
     deliveryPackageProvided &&
@@ -827,13 +831,13 @@ export async function getStoreOnboardingByStoreId(
         variant: { select: { status: true } },
         priceVersions: {
           where: {
-            status: "DRAFT",
+            status: { in: ["DRAFT", "ACTIVE"] },
             currency: "ZAR",
             amount: { gt: 0 },
             effectiveFrom: { lte: now },
             OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: now } }],
           },
-          select: { id: true },
+          select: { id: true, status: true },
           orderBy: [{ versionNumber: "desc" }, { id: "desc" }],
         },
         inventoryItem: {
@@ -959,7 +963,10 @@ export async function getStoreOnboardingByStoreId(
         offerStatus: offer.status,
         fulfilmentMode: offer.fulfilmentMode,
         minimumQuantity: Number(offer.minimumQuantity),
-        hasCurrentZarPrice: offer.priceVersions.length > 0,
+        hasCurrentZarPrice:
+          offer.status === "ACTIVE"
+            ? offer.priceVersions.some((pv) => pv.status === "ACTIVE")
+            : offer.priceVersions.length > 0,
         hasInventoryItem: Boolean(inventory),
         inventoryTrackingMode: inventory?.trackingMode ?? null,
         allowBackorder: inventory?.allowBackorder ?? false,
